@@ -1,22 +1,114 @@
 {% extends 'master.html' %}
 
 {% block content %}
-<h3>{% if user %}Edit{% else %}Add{% endif %} Employee</h3>
+    <h3>{% if employee %}Edit{% else %}Add{% endif %} Employee</h3>
 
-<form method="post">
-    {% csrf_token %}
-    <div class="mb-3">
-        <label>Name</label>
-        <input type="text" name="name" class="form-control"
-               value="{{ user.name|default:'' }}" required>
-    </div>
+    <form method="POST">
+        {% csrf_token %}
+        
+        <!-- Employee Code -->
+        <div class="mb-3">
+            <label>Employee Code</label>
+            <input type="number" name="empcode" class="form-control"
+                value="{{ employee.empcode|default:'' }}" required>
+        </div>
 
-    <div class="mb-3">
-        <label>Age</label>
-        <input type="number" name="age" class="form-control"
-               value="{{ user.age|default:'' }}" required>
-    </div>
+        <!-- Employee Name in English -->
+        <div class="mb-3">
+            <label>Name in English</label>
+            <input type="text" name="ename" class="form-control"
+                value="{{ employee.ename|default:'' }}" required>
+        </div>
 
-    <button class="btn btn-success">Save</button>
-</form>
+        <!-- Employee Name in Hindi -->
+        <div class="mb-3">
+            <label>Name in Hindi</label>
+            <input type="text" name="hname" class="form-control"
+                value="{{ employee.hname|default:'' }}" required>
+        </div>
+
+        <!-- Designation in English -->
+        <div class="mb-3">
+            <label>Designation in English</label>
+            <input type="text" name="desig" class="form-control"
+                value="{{ employee.desig|default:'' }}" required>
+        </div>
+
+        <!-- Additional Fields -->
+        <div class="mb-3">
+            <label>Gazet</label>
+            <textarea name="gazet" class="form-control" required>{{ employee.gazet|default:'' }}</textarea>
+        </div>
+
+        <div class="mb-3">
+            <label>Prabodh</label>
+            <textarea name="prabodh" class="form-control" required>{{ employee.prabodh|default:'' }}</textarea>
+        </div>
+
+        <div class="mb-3">
+            <label>Praveen</label>
+            <textarea name="praveen" class="form-control" required>{{ employee.praveen|default:'' }}</textarea>
+        </div>
+
+        <div class="mb-3">
+            <label>Pragya</label>
+            <textarea name="pragya" class="form-control" required>{{ employee.pragya|default:'' }}</textarea>
+        </div>
+
+        <div class="mb-3">
+            <label>Parangat</label>
+            <textarea name="parangat" class="form-control" required>{{ employee.parangat|default:'' }}</textarea>
+        </div>
+
+        <div class="mb-3">
+            <label>Typing</label>
+            <textarea name="typing" class="form-control" required>{{ employee.typing|default:'' }}</textarea>
+        </div>
+
+        <div class="mb-3">
+            <label>Hindi Proficiency</label>
+            <textarea name="hindiproficiency" class="form-control" required>{{ employee.hindiproficiency|default:'' }}</textarea>
+        </div>
+
+        <!-- Last Updated -->
+        <div class="mb-3">
+            <label for="lastupdate">Last Updated</label>
+            <input type="date" id="lastupdate" name="lastupdate" class="form-control" value="{{ employee.lastupdate|default:'' }}" required>
+        </div>
+
+        <!-- Superannuation Date -->
+        <div class="mb-3">
+            <label for="superannuationDate">Superannuation Date</label>
+            <input type="date" id="superannuationDate" name="superannuationDate" class="form-control" value="{{ employee.superannuationDate|default:'' }}" required>
+        </div>
+
+        <button type="submit" class="btn btn-success">Save as Draft</button>
+    </form>
+
+    <h3>Employee Draft List</h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Employee Code</th>
+                <th>Name in English</th>
+                <th>Name in Hindi</th>
+                <th>Designation</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for employee in employees %}
+                <tr>
+                    <td>{{ employee.empcode }}</td>
+                    <td>{{ employee.ename }}</td>
+                    <td>{{ employee.hname }}</td>
+                    <td>{{ employee.desig }}</td>
+                    <td>
+                        <a href="{% url 'edit_user_ui' employee.id %}">Edit</a> |
+                        <a href="{% url 'delete_user_ui' employee.id %}">Delete</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 {% endblock %}

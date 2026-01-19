@@ -1,0 +1,45 @@
+{% extends 'master.html' %}
+
+{% block content %}
+<h3>Employee Draft List</h3>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Employee Code</th>
+            <th>Name in English</th>
+            <th>Name in Hindi</th>
+            <th>Designation in English</th>
+            <th>Gazet</th>
+            <th>Prabodh</th>
+            <th>Praveen</th>
+            <th>Pragya</th>
+            <th>Parangat</th>
+            <th>Typing</th>
+            <th>Hindi Proficiency</th>
+            <th>Last Updated</th>
+            <th>Superannuation Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for employee in employees %}
+        <tr>
+            <td>{{ employee.empcode }}</td>
+            <td>{{ employee.ename }}</td>
+            <td>{{ employee.hname }}</td>
+            <td>{{ employee.desig }}</td>
+            <td>{{ employee.gazet }}</td>
+            <td>{{ employee.prabodh }}</td>
+            <td>{{ employee.praveen }}</td>
+            <td>{{ employee.pragya }}</td>
+            <td>{{ employee.parangat }}</td>
+            <td>{{ employee.typing }}</td>
+            <td>{{ employee.hindiproficiency }}</td>
+            <td>{{ employee.lastupdate }}</td>
+            <td>{{ employee.superannuationDate }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}
