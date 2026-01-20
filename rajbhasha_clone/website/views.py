@@ -1,3 +1,4 @@
+from urllib import request
 from django.shortcuts import render
 from .employeeform import EmployeeForm
 
@@ -39,6 +40,16 @@ class EmployeeListCreateAPI(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def get(self, request):
+        status_filter = request.GET.get("status")
+        qs = Employee.objects.all()
+
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        serializer = EmployeeSerializer(qs, many=True)
+        return Response(serializer.data)
+
 
 
 class EmployeeDetailAPI(APIView):
@@ -76,3 +87,18 @@ class EmployeeDetailAPI(APIView):
 
         employee.delete()
         return Response({"message": "Employee deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+
+class SubmitDraftAPI(APIView):
+
+    def post(self, request):
+        ids = request.data.get("ids", [])
+        if not ids:
+            return Response(
+                {"error": "No drafts selected"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        Employee.objects.filter(id__in=ids, status="draft")\
+            .update(status="submitted")
+
+        return Response({"message": "Drafts submitted successfully"})

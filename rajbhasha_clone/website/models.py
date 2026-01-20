@@ -19,6 +19,15 @@ class Employee(models.Model):
     typing = models.TextField()
     hindiproficiency = models.TextField()
 
+    status = models.CharField(max_length=10,
+    choices=[
+        ("draft", "Draft"),
+        ("submitted", "Submitted"),
+    ],
+    default="draft"
+)
+
+
     lastupdate = models.DateTimeField(auto_now=True)
 
     def __str__(self):
