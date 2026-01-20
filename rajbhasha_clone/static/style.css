@@ -1,7 +1,16 @@
+/* ================= EXISTING STYLES (UNCHANGED) ================= */
+
 .carousel-img{
-  height: 380px;      /* you can change to 400/450 */
-  object-fit: cover;  /* crops nicely */
+  height: 380px;
+  object-fit: cover;
 }
+
+.banner-img{
+  height: 420px;
+  object-fit: cover;
+}
+
+/* Google Translate hide */
 .goog-te-banner-frame.skiptranslate,
 .goog-te-gadget-icon,
 .goog-logo-link,
@@ -11,4 +20,120 @@
 
 body {
   top: 0 !important;
+}
+
+#goog-gt-tt,
+.goog-te-balloon-frame {
+  display: none !important;
+}
+
+.skiptranslate {
+  display: none !important;
+}
+
+
+/* ================================================================= */
+/* ================= NEW DRAFT UI (RECTANGULAR BOX) ================= */
+/* ================================================================= */
+
+/* Override old flat draft bar */
+.draft-box {
+  position: fixed;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 96%;
+  max-width: 1300px;
+  background: #ffffff;
+  border: 2px solid #0b4f7a;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  z-index: 1100;
+  padding: 10px 14px;
+}
+
+/* Header */
+.draft-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  color: #0b4f7a;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #d0d0d0;
+}
+
+/* Full screen button */
+.draft-expand-btn {
+  background: #0b4f7a;
+  color: #fff;
+  border: none;
+  padding: 5px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.draft-expand-btn:hover {
+  background: #083a59;
+}
+
+/* Horizontal container */
+.draft-box-content {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-top: 10px;
+  padding-bottom: 4px;
+}
+
+/* Draft card (single-line full details) */
+.draft-card {
+  min-width: 1100px;
+  background: #f8f9fa;
+  border: 1px solid #cfcfcf;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+  color: #000;
+}
+
+/* Scrollbar styling */
+.draft-box-content::-webkit-scrollbar {
+  height: 8px;
+}
+
+.draft-box-content::-webkit-scrollbar-thumb {
+  background: #0b4f7a;
+  border-radius: 4px;
+}
+
+/* ================================================================= */
+/* ================= FULL SCREEN DRAFT MODAL ENHANCE ================= */
+/* ================================================================= */
+
+.draft-modal-content h4 {
+  color: #0b4f7a;
+  font-weight: 600;
+}
+
+.draft-modal-content table th {
+  background: #0b4f7a;
+  color: white;
+  text-align: center;
+}
+
+.draft-modal-content table td {
+  vertical-align: middle;
+}
+
+.draft-modal-content input[type="checkbox"] {
+  transform: scale(1.1);
+}
+
+/* Submit button spacing */
+.draft-modal-content .btn-success {
+  float: right;
+  margin-top: 10px;
 }

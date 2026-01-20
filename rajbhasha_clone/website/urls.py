@@ -1,5 +1,6 @@
 from django.urls import path
 from .views import (
+    SubmitDraftAPI,
     home,
     employee_form,
     EmployeeListCreateAPI,
@@ -14,4 +15,6 @@ urlpatterns = [
     # API
     path('api/employees/', EmployeeListCreateAPI.as_view(), name='employee_list_create'),
     path('api/employees/<int:pk>/', EmployeeDetailAPI.as_view(), name='employee_detail'),
+    path("api/employees/submit/", SubmitDraftAPI.as_view()),
+
 ]
