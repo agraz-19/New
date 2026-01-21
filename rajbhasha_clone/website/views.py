@@ -1,6 +1,10 @@
 from urllib import request
 from django.shortcuts import render
 from .employeeform import EmployeeForm
+from django.shortcuts import render
+from django.http import JsonResponse
+from deep_translator import GoogleTranslator
+
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -102,3 +106,12 @@ class SubmitDraftAPI(APIView):
             .update(status="submitted")
 
         return Response({"message": "Drafts submitted successfully"})
+def translation_form(request):
+    return render(request, 'translation/translate_form.html')
+def translate_text(request):
+    if request.method == "POST":
+        text_to_translate = request.POST.get('text', '')
+        target_lang = request.POST.get('lang', 'en')  # Default target language is English
+        translated = GoogleTranslator(source='auto', target=target_lang).translate(text_to_translate)
+        return JsonResponse({'translated_text': translated})
+    return JsonResponse({'error': 'Invalid request'})
