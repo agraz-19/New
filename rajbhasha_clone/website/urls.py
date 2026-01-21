@@ -1,18 +1,20 @@
 from django.urls import path
-from . import views   # ✅ import YOUR views.py
+from .views import (
+    SubmitDraftAPI,
+    home,
+    employee_form,
+    EmployeeListCreateAPI,
+    EmployeeDetailAPI
+)
 
 urlpatterns = [
-    # API URLs
-    path('users/', views.get_users, name='get_users'),
-    path('users/create/', views.create_user, name='create_user'),
-    path('users/<int:pk>/', views.user_detail, name='user_detail'),
+    # Frontend
+    path('', home, name='home'),
+    path('employee-form/', employee_form, name='employee_form'),
 
-    # UI URLs
-    path('', views.home, name='home'),
-    path('ui/users/', views.user_list_ui, name='user_list_ui'),
-    path('ui/users/add/', views.add_user_ui, name='add_user_ui'),
-    path('ui/users/edit/<int:pk>/', views.edit_user_ui, name='edit_user_ui'),
-    path('ui/users/delete/<int:pk>/', views.delete_user_ui, name='delete_user_ui'),
+    # API
+    path('api/employees/', EmployeeListCreateAPI.as_view(), name='employee_list_create'),
+    path('api/employees/<int:pk>/', EmployeeDetailAPI.as_view(), name='employee_detail'),
+    path("api/employees/submit/", SubmitDraftAPI.as_view()),
 
-    
 ]
