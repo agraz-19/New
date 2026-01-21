@@ -1,0 +1,45 @@
+{% extends "master.html" %}
+{% block content %}
+
+<div class="container my-4">
+  <h3 class="mb-3">Employee Form</h3>
+
+  <form method="POST" class="card p-4 shadow-sm">
+    {% csrf_token %}
+
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label">Empcode</label>
+        {{ form.empcode }}
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">Name in English</label>
+        {{ form.ename }}
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">Name in Hindi</label>
+        {{ form.hname }}
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">Designation</label>
+        {{ form.designation }}
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">Gazet</label>
+        {{ form.gazet }}
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <button class="btn btn-primary">Submit</button>
+    </div>
+
+  </form>
+</div>
+
+
+{% endblock %}

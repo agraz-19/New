@@ -1,10 +1,34 @@
+
 from django.db import models
 
-# Create your models here.
-class User(models.Model):
-    age=models.IntegerField()
-    name=models.CharField(max_length=100)
+class Employee(models.Model):
+    empcode = models.IntegerField(unique=True)
+    ename = models.CharField(max_length=255)
+    hname = models.CharField(max_length=255)
+    designation = models.CharField(max_length=100)
+    GAZET_CHOICES = [
+        ("Gazetted", "Gazetted"),
+        ("Non-Gazetted", "Non-Gazetted"),
+    ]
+
+    gazet = models.CharField(max_length=50, choices=GAZET_CHOICES)
+    prabodh = models.TextField()
+    praveen = models.TextField()
+    pragya = models.TextField()
+    parangat = models.TextField()
+    typing = models.TextField()
+    hindiproficiency = models.TextField()
+
+    status = models.CharField(max_length=10,
+    choices=[
+        ("draft", "Draft"),
+        ("submitted", "Submitted"),
+    ],
+    default="draft"
+)
+
+
+    lastupdate = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.name
-
+        return self.ename

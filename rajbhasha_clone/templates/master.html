@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}">
   <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
 
-  <style>
+  <!-- <style>
     .banner-img{
       height: 420px;
       object-fit: cover;
@@ -20,7 +20,7 @@
     #goog-gt-tt, .goog-te-balloon-frame { display: none !important; }
     .goog-te-gadget { display: none !important; }
     .skiptranslate { display: none !important; }
-  </style>
+  </style> -->
 
   <link rel="stylesheet" href="{% static 'style.css' %}">
 </head>
@@ -42,7 +42,7 @@
     </div>
 
     <div class="col-2 text-end">
-      <img src="{% static 'images/RightLogo.jpg' %}" alt="Logo" style="max-height:80px;">
+      <img src="{% static 'images/rightLogo.jpg' %}" alt="Logo" style="max-height:80px;">
     </div>
   </div>
 </div>
@@ -63,8 +63,7 @@
         <li class="nav-item"><a class="nav-link" href="/products/">Our IT Products</a></li>
         <li class="nav-item"><a class="nav-link" href="/schemes/">Incentive Schemes</a></li>
         <li class="nav-item"><a class="nav-link" href="/programme/">Annual Programme</a></li>
-        <li class="nav-item"><a class="nav-link" href="{% url 'user_list_ui' %}">Employee Form</a></li>
-
+        <li class="nav-item"><a class="nav-link" href="/employee-form/">Employee Form</a></li>
       </ul>
 
       <!-- ✅ Google-like translation dropdown (ONLY here) -->
