@@ -24,11 +24,9 @@ class Employee(models.Model):
         ("draft", "Draft"),
         ("submitted", "Submitted"),
     ],
-    default="draft"
-)
-
-
-    lastupdate = models.DateTimeField(auto_now=True)
+    default="draft")
+    lastupdate = models.DateTimeField('Last Updated On',auto_now=True)
+    super_annuation_date = models.DateField('Superannuation Date',null=True,blank=True)
 
     def __str__(self):
         return self.ename
