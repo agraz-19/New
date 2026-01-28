@@ -1,45 +1,108 @@
 {% extends "master.html" %}
+{% block title %}NIC TG - Employees Form{% endblock %}
+
 {% block content %}
 
-<div class="container my-4">
-  <h3 class="mb-3">Employee Form</h3>
+<div class="container mt-4 mb-5">
 
-  <form method="POST" class="card p-4 shadow-sm">
-    {% csrf_token %}
+  <div id="formPage">
+    <h3 class="mb-3">Employee Form</h3>
 
-    <div class="row g-3">
-      <div class="col-md-3">
-        <label class="form-label">Empcode</label>
-        {{ form.empcode }}
+    <form id="employeeForm" class="card p-4 shadow-sm">
+      {% csrf_token %}
+
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Empcode</label>
+          {{ form.empcode }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Name</label>
+          {{ form.ename }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Hindi Name</label>
+          {{ form.hname }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Designation</label>
+          {{ form.designation }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Gazet</label>
+          {{ form.gazet }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Prabodh</label>
+          {{ form.prabodh }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Praveen</label>
+          {{ form.praveen }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Pragya</label>
+          {{ form.pragya }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Parangat</label>
+          {{ form.parangat }}
+        </div>
       </div>
 
-      <div class="col-md-3">
-        <label class="form-label">Name in English</label>
-        {{ form.ename }}
+      <div class="mt-4">
+        <button type="submit" class="btn btn-warning">Save as Draft</button>
+        <button type="button" class="btn btn-outline-primary ms-2" onclick="showDraftsPage()">Show Drafts</button>
       </div>
+    </form>
+  </div>
 
-      <div class="col-md-3">
-        <label class="form-label">Name in Hindi</label>
-        {{ form.hname }}
-      </div>
-
-      <div class="col-md-3">
-        <label class="form-label">Designation</label>
-        {{ form.designation }}
-      </div>
-
-      <div class="col-md-3">
-        <label class="form-label">Gazet</label>
-        {{ form.gazet }}
-      </div>
+  <div id="draftsPage" style="display:none;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3>Drafts</h3>
+      <button class="btn btn-secondary" onclick="showFormPage()">← Back to Form</button>
     </div>
 
-    <div class="mt-4">
-      <button class="btn btn-primary">Submit</button>
-    </div>
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>Select</th>
+          <th>Empcode</th>
+          <th>Name</th>
+          <th>Designation</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="draftTableBody"></tbody>
+    </table>
+  </div>
 
-  </form>
 </div>
 
+<script>
+// Get current language for frontend helpers
+const currentLang = new URLSearchParams(window.location.search).get('lang') || 'en';
+
+function getTranslation(text) {
+    const translations = {
+        'hi': {
+            'Edit': 'संपादन करें',
+            'Delete': 'हटाएं',
+            '✅ Draft saved successfully': '✅ ड्राफ्ट सफलतापूर्वक सहेजा गया'
+        }
+    };
+    return (translations[currentLang] && translations[currentLang][text]) ? translations[currentLang][text] : text;
+}
+
+// ... rest of your AJAX and render logic from previous steps ...
+</script>
 
 {% endblock %}
