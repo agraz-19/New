@@ -17,7 +17,8 @@ class EmployeeForm(forms.ModelForm):
             "pragya": "Pragya",
             "parangat": "Parangat",
             "typing": "Typing",
-            "hindiproficiency": "Hindi Proficiency",  # ✅ FIX
+            "hindiproficiency": "Hindi Proficiency",  
+            "super_annuation_date":"Super Annunciation Date"
         }
 
         widgets = {
@@ -33,4 +34,6 @@ class EmployeeForm(forms.ModelForm):
             "parangat": forms.TextInput(attrs={"class": "form-control"}),
             "typing": forms.TextInput(attrs={"class": "form-control"}),
             "hindiproficiency": forms.TextInput(attrs={"class": "form-control"}),
+            "super_annuation_date": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+           
         }
