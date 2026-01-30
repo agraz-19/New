@@ -5,7 +5,8 @@ from .views import (
     home,
     employee_form,
     EmployeeListCreateAPI,
-    EmployeeDetailAPI
+    EmployeeDetailAPI,
+    translate_api  # ✅ This is the correct automated view
 )
 
 urlpatterns = [
@@ -13,10 +14,11 @@ urlpatterns = [
     path('', home, name='home'),
     path('employee-form/', employee_form, name='employee_form'),
 
-    # API
+    # API Routes
+    # ✅ This replaces the old 'translate/' and 'translate_text/' paths
+    path('api/translate/', translate_api, name='translate_api'), 
+    
     path('api/employees/', EmployeeListCreateAPI.as_view(), name='employee_list_create'),
     path('api/employees/<int:pk>/', EmployeeDetailAPI.as_view(), name='employee_detail'),
     path("api/employees/submit/", SubmitDraftAPI.as_view()),
-    path('translate/', views.translation_form, name='translation_form'),  # Translation form page
-    path('translate_text/', views.translate_text, name='translate_text'), 
 ]
