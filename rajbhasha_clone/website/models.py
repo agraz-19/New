@@ -12,10 +12,14 @@ class Employee(models.Model):
     ]
 
     gazet = models.CharField(max_length=50, choices=GAZET_CHOICES)
-    prabodh = models.TextField()
-    praveen = models.TextField()
-    pragya = models.TextField()
-    parangat = models.TextField()
+    PROFICIENCY_STATUS = [
+        ("Passed", "Passed"),
+        ("Did not Appear", "Did not Appear"),
+    ]
+    prabodh = models.CharField(max_length=20, default="", blank=True)
+    praveen = models.CharField(max_length=20, default="", blank=True)
+    pragya = models.CharField(max_length=20, default="", blank=True)
+    parangat = models.CharField(max_length=20, default="", blank=True)
     typing = models.TextField()
     hindiproficiency = models.TextField()
 

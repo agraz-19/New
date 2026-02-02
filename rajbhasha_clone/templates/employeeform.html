@@ -2,107 +2,251 @@
 {% block title %}NIC TG - Employees Form{% endblock %}
 
 {% block content %}
+<div class="container-fluid mt-4 mb-5 px-4">
 
-<div class="container mt-4 mb-5">
+    <div id="formPage" class="mb-5">
+        <h4 class="mb-3 text-primary border-bottom pb-2">Employee Entry Form</h4>
+        <form id="employeeForm" class="p-3 bg-light border rounded shadow-sm">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6 pe-md-4 border-end">
+                    <div class="row mb-2 align-items-center">
+                        <label class="col-sm-4 col-form-label fw-bold text-end">Empcode</label>
+                        <div class="col-sm-8">{{ form.empcode }}</div>
+                    </div>
+                    <div class="row mb-2 align-items-center">
+                        <label class="col-sm-4 col-form-label fw-bold text-end">Name in English</label>
+                        <div class="col-sm-8">{{ form.ename }}</div>
+                    </div>
+                    <div class="row mb-2 align-items-center">
+                        <label class="col-sm-4 col-form-label fw-bold text-end">Name in Hindi</label>
+                        <div class="col-sm-8">{{ form.hname }}</div>
+                    </div>
+                    <div class="row mb-2 align-items-center">
+                        <label class="col-sm-4 col-form-label fw-bold text-end">Designation</label>
+                        <div class="col-sm-8">{{ form.designation }}</div>
+                    </div>
+                    <div class="row mb-2 align-items-center">
+                        <label class="col-sm-4 col-form-label fw-bold text-end">Gazet</label>
+                        <div class="col-sm-8">{{ form.gazet }}</div>
+                    </div>
+                    <div class="row mb-2 align-items-center">
+                        <label class="col-sm-4 col-form-label fw-bold text-end">Prabodh</label>
+                        <div class="col-sm-8">{{ form.prabodh }}</div>
+                    </div>
+                </div>
 
-  <div id="formPage">
-    <h3 class="mb-3">Employee Form</h3>
+                <div class="col-md-6 ps-md-4">
+                    <div class="row mb-2 align-items-center">
+                        <label class="col-sm-4 col-form-label fw-bold text-end">Praveen</label>
+                        <div class="col-sm-8">{{ form.praveen }}</div>
+                    </div>
+                    <div class="row mb-2 align-items-center">
+                        <label class="col-sm-4 col-form-label fw-bold text-end">Pragya</label>
+                        <div class="col-sm-8">{{ form.pragya }}</div>
+                    </div>
+                    <div class="row mb-2 align-items-center">
+                        <label class="col-sm-4 col-form-label fw-bold text-end">Parangat</label>
+                        <div class="col-sm-8">{{ form.parangat }}</div>
+                    </div>
+                    <div class="row mb-2 align-items-center">
+                        <label class="col-sm-4 col-form-label fw-bold text-end">Typing</label>
+                        <div class="col-sm-8">{{ form.typing }}</div>
+                    </div>
+                    <div class="row mb-2 align-items-center">
+                        <label class="col-sm-4 col-form-label fw-bold text-end">Hindi Proficiency</label>
+                        <div class="col-sm-8">{{ form.hindiproficiency }}</div>
+                    </div>
+                    <div class="row mb-2 align-items-center">
+                        <label class="col-sm-4 col-form-label fw-bold text-end">Superannuation Date</label>
+                        <div class="col-sm-8">{{ form.super_annuation_date }}</div>
+                    </div>
+                </div>
+            </div>
 
-    <form id="employeeForm" class="card p-4 shadow-sm">
-      {% csrf_token %}
-
-      <div class="row g-3">
-        <div class="col-md-4">
-          <label class="form-label">Empcode</label>
-          {{ form.empcode }}
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label">Name</label>
-          {{ form.ename }}
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label">Hindi Name</label>
-          {{ form.hname }}
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label">Designation</label>
-          {{ form.designation }}
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label">Gazet</label>
-          {{ form.gazet }}
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label">Prabodh</label>
-          {{ form.prabodh }}
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label">Praveen</label>
-          {{ form.praveen }}
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label">Pragya</label>
-          {{ form.pragya }}
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label">Parangat</label>
-          {{ form.parangat }}
-        </div>
-      </div>
-
-      <div class="mt-4">
-        <button type="submit" class="btn btn-warning">Save as Draft</button>
-        <button type="button" class="btn btn-outline-primary ms-2" onclick="showDraftsPage()">Show Drafts</button>
-      </div>
-    </form>
-  </div>
-
-  <div id="draftsPage" style="display:none;">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h3>Drafts</h3>
-      <button class="btn btn-secondary" onclick="showFormPage()">← Back to Form</button>
+            <div class="mt-4 text-center border-top pt-3">
+                <button type="submit" class="btn btn-warning px-5 fw-bold shadow-sm">Save as Draft</button>
+            </div>
+        </form>
     </div>
 
-    <table class="table table-bordered">
-      <thead>
-        <tr>
-          <th>Select</th>
-          <th>Empcode</th>
-          <th>Name</th>
-          <th>Designation</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="draftTableBody"></tbody>
-    </table>
-  </div>
-
+    <div id="draftsSection">
+        <h4 class="mb-3 text-secondary border-bottom pb-2">Saved Drafts</h4>
+        <div class="table-responsive shadow-sm rounded">
+            <table class="table table-bordered table-hover table-sm align-middle mb-0">
+                <thead class="table-primary text-center">
+                    <tr style="font-size: 0.85rem;">
+                        <th>Select</th>
+                        <th>Empcode</th>
+                        <th>Name in English</th>
+                        <th>Name in Hindi</th>
+                        <th>Designation</th>
+                        <th>Gazet</th>
+                        <th>Prabodh</th>
+                        <th>Praveen</th>
+                        <th>Pragya</th>
+                        <th>Parangat</th>
+                        <th>Typing</th>
+                        <th>Hindi Proficiency</th>
+                        <th>Superannuation Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="draftTableBody" style="font-size: 0.8rem;">
+                    <tr><td colspan="14" class="text-center">Loading drafts...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-3">
+             <button class="btn btn-success fw-bold" onclick="submitSelectedDrafts()">Submit Selected Records</button>
+        </div>
+    </div>
 </div>
 
-<script>
-// Get current language for frontend helpers
-const currentLang = new URLSearchParams(window.location.search).get('lang') || 'en';
+<style>
+    .col-form-label { font-size: 0.9rem; color: #495057; }
+    .form-control, .form-select { font-size: 0.9rem; padding: 0.3rem 0.6rem; }
+    .table-primary { background-color: #e3f2fd !important; }
+    .table-responsive { max-height: 500px; overflow-y: auto; }
+</style>
 
-function getTranslation(text) {
-    const translations = {
-        'hi': {
-            'Edit': 'संपादन करें',
-            'Delete': 'हटाएं',
-            '✅ Draft saved successfully': '✅ ड्राफ्ट सफलतापूर्वक सहेजा गया'
-        }
-    };
-    return (translations[currentLang] && translations[currentLang][text]) ? translations[currentLang][text] : text;
+<script>
+let editingDraftId = null;
+
+// Manual Map for Static Translations
+const manualMap = {
+    'hi': {
+        'Edit': 'संपादन',
+        'Delete': 'हटाएं',
+        'Draft saved successfully': 'ड्राफ्ट सफलतापूर्वक सहेजा गया',
+        'Are you sure?': 'क्या आप सुनिश्चित हैं?',
+        'Gazetted': 'राजपत्रित',
+        'Non-Gazetted': 'अराजपत्रित',
+        'Passed': 'उत्तीर्ण',
+        'Failed': 'अनुत्तीर्ण',
+        'Exempted': 'छूट प्राप्त'
+    }
+};
+
+document.addEventListener('DOMContentLoaded', loadDrafts);
+
+// --- 1. TRANSLATION HELPER ---
+async function translateData(text) {
+    if (!text || text === '-' || text === 'None') return '-';
+    const lang = new URLSearchParams(window.location.search).get('lang') || 'en';
+    if (lang !== 'hi') return text;
+
+    // Check manual map
+    if (manualMap['hi'][text]) return manualMap['hi'][text];
+
+    // Check cache
+    const cacheKey = `trans_${text}`;
+    if (sessionStorage.getItem(cacheKey)) return sessionStorage.getItem(cacheKey);
+
+    try {
+        const response = await fetch("/api/translate/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+            body: JSON.stringify({ text: text, target: "hi" })
+        });
+        const data = await response.json();
+        sessionStorage.setItem(cacheKey, data.translated);
+        return data.translated;
+    } catch (e) { return text; }
 }
 
-// ... rest of your AJAX and render logic from previous steps ...
-</script>
+// --- 2. SAVE DRAFT ---
+document.getElementById("employeeForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    let jsonData = Object.fromEntries(formData.entries());
+    jsonData["status"] = "draft";
 
+    const url = editingDraftId ? `/api/employees/${editingDraftId}/` : "/api/employees/";
+    const method = editingDraftId ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+        method: method,
+        headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+        body: JSON.stringify(jsonData)
+    });
+
+    if (res.ok) {
+        const msg = await translateData("Draft saved successfully");
+        alert("✅ " + msg);
+        this.reset();
+        editingDraftId = null;
+        loadDrafts();
+    }
+});
+
+// --- 3. LOAD & RENDER DRAFTS (ASYNCHRONOUS) ---
+async function loadDrafts() {
+    try {
+        const res = await fetch("/api/employees/?status=draft");
+        const data = await res.json();
+        await renderDraftTable(data);
+    } catch (err) { console.error("Load Error:", err); }
+}
+
+async function renderDraftTable(data) {
+    const tbody = document.getElementById("draftTableBody");
+    if (data.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='14' class='text-center'>No drafts found.</td></tr>";
+        return;
+    }
+
+    let rowsHtml = "";
+    // Using for...of loop to handle 'await' correctly during table construction
+    for (const d of data) {
+        rowsHtml += `
+            <tr>
+                <td class="text-center"><input type="checkbox" class="draft-check" value="${d.id}"></td>
+                <td>${d.empcode || '-'}</td>
+                <td>${d.ename || '-'}</td>
+                <td>${d.hname || '-'}</td>
+                <td>${await translateData(d.designation)}</td>
+                <td class="text-center">${await translateData(d.gazet)}</td>
+                <td class="text-center">${await translateData(d.prabodh)}</td>
+                <td class="text-center">${await translateData(d.praveen)}</td>
+                <td class="text-center">${await translateData(d.pragya)}</td>
+                <td class="text-center">${await translateData(d.parangat)}</td>
+                <td>${await translateData(d.typing)}</td>
+                <td>${await translateData(d.hindiproficiency)}</td>
+                <td>${d.super_annuation_date || '-'}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-primary py-0" onclick="editDraft(${d.id})">${await translateData('Edit')}</button>
+                </td>
+            </tr>`;
+    }
+    tbody.innerHTML = rowsHtml;
+}
+
+// --- 4. EDIT & UTILS ---
+async function editDraft(id) {
+    const res = await fetch(`/api/employees/${id}/`);
+    const data = await res.json();
+    editingDraftId = id;
+    for (let key in data) {
+        const field = document.querySelector(`[name="${key}"]`);
+        if (field) field.value = data[key];
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
 {% endblock %}

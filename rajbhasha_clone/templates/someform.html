@@ -30,10 +30,21 @@
     <table class="table table-bordered">
       <thead>
         <tr>
-          <th>Select</th><th>Empcode</th><th>Name</th><th>Hindi Name</th>
-          <th>Designation</th><th>Gazet</th><th>Prabodh</th><th>Praveen</th>
-          <th>Pragya</th><th>Parangat</th><th>Typing</th><th>Hindi Proficiency</th>
-          <th>Superannuation Date</th><th>Last Updated</th><th>Actions</th>
+          <th>Select</th>
+          <th>Empcode</th>
+          <th>Name in English</th>
+          <th>Name in Hindi</th>
+          <th>Designation</th>
+          <th>Gazet</th>
+          <th>Prabodh</th>
+          <th>Praveen</th>
+          <th>Pragya</th>
+          <th>Parangat</th>
+          <th>Typing</th>
+          <th>Hindi Proficiency</th>
+          <th>Superannuation Date</th>
+          <th>Last Updated</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody id="draftTableBody"></tbody>
@@ -50,10 +61,19 @@
     <table class="table table-bordered">
       <thead>
         <tr>
-          <th>Empcode</th><th>Name</th><th>Hindi Name</th><th>Designation</th>
-          <th>Gazet</th><th>Prabodh</th><th>Praveen</th><th>Pragya</th>
-          <th>Parangat</th><th>Typing</th><th>Hindi Proficiency</th>
-          <th>Superannuation Date</th><th>Last Updated</th>
+          <th>Empcode</th>
+          <th>Name in English</th>
+          <th>Name in Hindi</th>
+          <th>Designation</th>
+          <th>Gazet</th>
+          <th>Prabodh</th>
+          <th>Praveen</th>
+          <th>Pragya</th>
+          <th>Parangat</th>
+          <th>Typing</th>
+          <th>Hindi Proficiency</th>
+          <th>Superannuation Date</th>
+          <th>Last Updated</th>
         </tr>
       </thead>
       <tbody id="submittedTableBody"></tbody>
@@ -65,27 +85,22 @@
 let editingDraftId = null;
 let allDrafts = [];
 
-// ✅ MANUAL OVERRIDES FOR DEPARTMENTAL TERMS
 const manualMap = {
     'hi': {
-        'Prabodh Kumar': 'प्रबोध कुमार',
-        'Ravi Teja': 'रवि तेजा',
-        'senior Assistant': 'वरिष्ठ सहायक',
-        'senior officer': 'वरिष्ठ अधिकारी',
-        'passed': 'उत्तीर्ण',
+        'Name in English': 'Name in English', 
+        'Name in Hindi': 'Name in Hindi',
         'Edit': 'संपादन करना',
-        'Delete': 'मिटाना'
+        'Delete': 'मिटाना',
+        'Draft saved successfully': 'ड्राफ्ट सफलतापूर्वक सहेजा गया',
+        'Are you sure?': 'क्या आप सुनिश्चित हैं?',
+        'Deleted': 'हटा दिया गया'
     }
 };
 
-/**
- * 100% Automated Translation Logic
- */
 async function translateData(text) {
     if (!text || text === '-') return '-';
     const lang = new URLSearchParams(window.location.search).get('lang') || 'en';
     if (lang !== 'hi') return text;
-
     if (manualMap['hi'][text]) return manualMap['hi'][text];
 
     const cacheKey = `trans_${text}`;
@@ -124,7 +139,6 @@ document.getElementById("employeeForm").addEventListener("submit", async functio
         alert(await translateData("Draft saved successfully"));
         editingDraftId = null;
         e.target.reset();
-        document.getElementById("lastUpdatedInfo").style.display = "none";
         showDraftsPage();
     }
 });
@@ -139,9 +153,6 @@ async function editDraft(id) {
         const field = document.querySelector(`[name="${key}"]`);
         if (field) field.value = data[key];
     }
-
-    document.getElementById("lastUpdatedText").innerText = formatDate(data.lastupdate);
-    document.getElementById("lastUpdatedInfo").style.display = "block";
     showFormPage();
 }
 
@@ -161,15 +172,15 @@ async function deleteDraft(id) {
 /* ================= RENDER DRAFT TABLE ================= */
 async function renderDraftTable(data) {
   const tbody = document.getElementById("draftTableBody");
-  tbody.innerHTML = "<tr><td colspan='15' class='text-center'>Translating...</td></tr>";
+  tbody.innerHTML = "<tr><td colspan='15' class='text-center'>Loading...</td></tr>";
   let rowsHtml = "";
   for (const d of data) {
     rowsHtml += `
       <tr>
         <td class="text-center"><input type="checkbox" value="${d.id}"></td>
         <td>${d.empcode || '-'}</td>
-        <td>${await translateData(d.ename)}</td>
-        <td>${d.hname || '-'}</td>
+        <td>${d.ename || '-'}</td> 
+        <td>${d.hname || '-'}</td> 
         <td>${await translateData(d.designation)}</td>
         <td>${await translateData(d.gazet)}</td>
         <td>${await translateData(d.prabodh)}</td>
@@ -178,8 +189,8 @@ async function renderDraftTable(data) {
         <td>${await translateData(d.parangat)}</td>
         <td>${await translateData(d.typing)}</td>
         <td>${await translateData(d.hindiproficiency)}</td>
-        <td>${await translateData(formatDateOnly(d.super_annuation_date))}</td>
-        <td>${await translateData(formatDate(d.lastupdate))}</td>
+        <td>${formatDateOnly(d.super_annuation_date)}</td>
+        <td>${formatDate(d.lastupdate)}</td>
         <td>
           <button class="btn btn-sm btn-primary" onclick="editDraft(${d.id})">${await translateData('Edit')}</button>
           <button class="btn btn-sm btn-danger" onclick="deleteDraft(${d.id})">${await translateData('Delete')}</button>
@@ -189,118 +200,66 @@ async function renderDraftTable(data) {
   tbody.innerHTML = rowsHtml;
 }
 
-/* ================= HELPERS & NAVIGATION ================= */
-function showFormPage() { hideAllPages(); document.getElementById("formPage").style.display = "block"; }
-
-function showDraftsPage() { 
-  hideAllPages(); 
-  document.getElementById("draftsPage").style.display = "block"; 
-  loadDrafts(); 
-}
-
-// ✅ NAVIGATION FIX: Trigger data load when showing submitted page
-function showSubmittedPage() { 
-  hideAllPages(); 
-  document.getElementById("submittedPage").style.display = "block"; 
-  loadSubmittedRecords(); 
-}
-
-function hideAllPages() { 
-  ["formPage","draftsPage","submittedPage"].forEach(id => document.getElementById(id).style.display = "none"); 
-}
-
-async function loadDrafts() {
-  const res = await fetch("/api/employees/?status=draft");
-  const data = await res.json();
-  await renderDraftTable(data);
-}
-
-function formatDate(dt) {
-  if (!dt) return "-";
-  return new Date(dt).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-function formatDateOnly(dt) {
-  if (!dt) return "-";
-  return new Date(dt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
-function getCookie(name) {
-  let cookieValue = null;
-  if (document.cookie) {
-    document.cookie.split(';').forEach(c => {
-      c = c.trim();
-      if (c.startsWith(name + '=')) cookieValue = decodeURIComponent(c.substring(name.length+1));
-    });
-  }
-  return cookieValue;
-}
-
 /* ================= SUBMITTED RECORDS PAGE ================= */
 async function loadSubmittedRecords() {
-  try {
-    const res = await fetch("/api/employees/?status=submitted");
-    const data = await res.json();
-    
-    const tbody = document.getElementById("submittedTableBody");
-    tbody.innerHTML = "<tr><td colspan='13' class='text-center'>Loading records...</td></tr>";
-    
-    let rowsHtml = "";
-    for (const d of data) {
-      rowsHtml += `
-        <tr>
-          <td>${d.empcode || '-'}</td>
-          <td>${await translateData(d.ename)}</td>
-          <td>${d.hname || '-'}</td>
-          <td>${await translateData(d.designation)}</td>
-          <td>${await translateData(d.gazet)}</td>
-          <td>${await translateData(d.prabodh)}</td>
-          <td>${await translateData(d.praveen)}</td>
-          <td>${await translateData(d.pragya)}</td>
-          <td>${await translateData(d.parangat)}</td>
-          <td>${await translateData(d.typing)}</td>
-          <td>${await translateData(d.hindiproficiency)}</td>
-          <td>${await translateData(formatDateOnly(d.super_annuation_date))}</td>
-          <td>${await translateData(formatDate(d.lastupdate))}</td>
-        </tr>`;
-    }
-    tbody.innerHTML = rowsHtml;
-  } catch (error) {
-    console.error("Failed to load submitted records:", error);
+  const res = await fetch("/api/employees/?status=submitted");
+  const data = await res.json();
+  const tbody = document.getElementById("submittedTableBody");
+  let rowsHtml = "";
+  for (const d of data) {
+    rowsHtml += `
+      <tr>
+        <td>${d.empcode || '-'}</td>
+        <td>${d.ename || '-'}</td> 
+        <td>${d.hname || '-'}</td> 
+        <td>${await translateData(d.designation)}</td>
+        <td>${await translateData(d.gazet)}</td>
+        <td>${await translateData(d.prabodh)}</td>
+        <td>${await translateData(d.praveen)}</td>
+        <td>${await translateData(d.pragya)}</td>
+        <td>${await translateData(d.parangat)}</td>
+        <td>${await translateData(d.typing)}</td>
+        <td>${await translateData(d.hindiproficiency)}</td>
+        <td>${formatDateOnly(d.super_annuation_date)}</td>
+        <td>${formatDate(d.lastupdate)}</td>
+      </tr>`;
   }
+  tbody.innerHTML = rowsHtml;
 }
 
 /* ================= BULK SUBMIT DRAFTS ================= */
 async function submitSelectedDrafts() {
     const selectedCheckboxes = document.querySelectorAll('#draftTableBody input[type="checkbox"]:checked');
     if (selectedCheckboxes.length === 0) {
-        alert(await translateData("Please select at least one record to submit."));
+        alert("Please select at least one record to submit.");
         return;
     }
 
     const idsToSubmit = Array.from(selectedCheckboxes).map(cb => cb.value);
-    const confirmMsg = await translateData(`Are you sure you want to submit ${idsToSubmit.length} record(s)?`);
-    if (!confirm(confirmMsg)) return;
+    if (!confirm(`Submit ${idsToSubmit.length} record(s)?`)) return;
 
     try {
         const response = await fetch("/api/employees/submit/", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRFToken": getCookie("csrftoken")
-            },
+            headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
             body: JSON.stringify({ ids: idsToSubmit })
         });
 
         if (response.ok) {
-            alert(await translateData("✅ Records submitted successfully!"));
-            // ✅ AUTO-REDIRECT: Transition directly to the submitted view
+            alert("Records submitted successfully!");
             showSubmittedPage();
-        } else {
-            alert(await translateData("❌ Error during submission."));
         }
-    } catch (error) {
-        console.error("Submission failed:", error);
-    }
+    } catch (error) { console.error("Submission failed:", error); }
 }
-</script>
 
+/* ================= HELPERS & NAVIGATION ================= */
+function showFormPage() { hideAllPages(); document.getElementById("formPage").style.display = "block"; }
+function showDraftsPage() { hideAllPages(); document.getElementById("draftsPage").style.display = "block"; loadDrafts(); }
+function showSubmittedPage() { hideAllPages(); document.getElementById("submittedPage").style.display = "block"; loadSubmittedRecords(); }
+function hideAllPages() { ["formPage","draftsPage","submittedPage"].forEach(id => document.getElementById(id).style.display = "none"); }
+async function loadDrafts() { const res = await fetch("/api/employees/?status=draft"); const data = await res.json(); await renderDraftTable(data); }
+function formatDate(dt) { if (!dt) return "-"; return new Date(dt).toLocaleString("en-IN"); }
+function formatDateOnly(dt) { if (!dt) return "-"; return new Date(dt).toLocaleDateString("en-IN"); }
+function getCookie(name) { let cookieValue = null; if (document.cookie) { document.cookie.split(';').forEach(c => { c = c.trim(); if (c.startsWith(name + '=')) cookieValue = decodeURIComponent(c.substring(name.length+1)); }); } return cookieValue; }
+</script>
 {% endblock %}

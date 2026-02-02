@@ -30,6 +30,8 @@ class DynamicTranslationMiddleware(MiddlewareMixin):
             # Database Results & User-entered data
             'Gazetted': 'राजपत्रित',
             'Non-Gazetted': 'अराजपत्रित',
+            'Passed': 'उत्तीर्ण',
+            'Did not Appear': 'उपस्थित नहीं हुए',
             'passed': 'उत्तीर्ण',
             'fluent': 'धाराप्रवाह',
             'good': 'अच्छा',
