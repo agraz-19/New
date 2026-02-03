@@ -2,6 +2,8 @@ import json
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.utils.timezone import now
+
 from deep_translator import GoogleTranslator
 
 from rest_framework.views import APIView
@@ -12,55 +14,49 @@ from .employeeform import EmployeeForm
 from .models import Employee
 from .serializers import EmployeeSerializer
 
+
 # ================= FRONTEND VIEWS =================
 
 def home(request):
     return render(request, "home.html")
 
+
 def employee_form(request):
-    """
-    Renders the employee HTML form.
-    Form submission is handled via JS + DRF API.
-    """
     form = EmployeeForm()
     return render(request, "employeeform.html", {"form": form})
 
-# ================= AUTOMATED TRANSLATION API =================
+
+# ================= TRANSLATION API =================
 
 @csrf_exempt
 def translate_api(request):
-    """
-    Mimics Google Translate behavior using deep-translator.
-    Processes dynamic table data for 100% automated localization.
-    """
     if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-            text = data.get("text", "")
-            target = data.get("target", "hi")
-            
-            # Return immediately for empty fields or placeholders
-            if not text or text == "-":
-                return JsonResponse({"translated": text})
-            
-            # Automated translation for any new user-entered data
-            translated = GoogleTranslator(source='auto', target=target).translate(text)
-            return JsonResponse({"translated": translated})
-            
-        except Exception as e:
-            return JsonResponse({"translated": text, "error": str(e)})
-    
-    return JsonResponse({"error": "Invalid request method"}, status=405)
+        data = json.loads(request.body)
+        text = data.get("text", "")
+        target = data.get("target", "hi")
 
-# ================= REST API VIEWS =================
+        if not text or text == "-":
+            return JsonResponse({"translated": text})
+
+        translated = GoogleTranslator(source="auto", target=target).translate(text)
+        return JsonResponse({"translated": translated})
+
+    return JsonResponse({"error": "Invalid request"}, status=400)
+
+
+# ================= REST APIs =================
 
 class EmployeeListCreateAPI(APIView):
     def get(self, request):
         status_filter = request.GET.get("status")
+
         qs = Employee.objects.all()
 
         if status_filter:
             qs = qs.filter(status=status_filter)
+
+        # 🔥 MOST RECENT FIRST
+        qs = qs.order_by("-lastupdate")
 
         serializer = EmployeeSerializer(qs, many=True)
         return Response(serializer.data)
@@ -68,9 +64,10 @@ class EmployeeListCreateAPI(APIView):
     def post(self, request):
         serializer = EmployeeSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(lastupdate=now())
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class EmployeeDetailAPI(APIView):
     def get_object(self, pk):
@@ -80,36 +77,50 @@ class EmployeeDetailAPI(APIView):
             return None
 
     def get(self, request, pk):
-        employee = self.get_object(pk)
-        if not employee:
-            return Response({"error": "Employee not found"}, status=status.HTTP_404_NOT_FOUND)
-        serializer = EmployeeSerializer(employee)
-        return Response(serializer.data)
+        emp = self.get_object(pk)
+        if not emp:
+            return Response({"error": "Not found"}, status=404)
+        return Response(EmployeeSerializer(emp).data)
 
     def put(self, request, pk):
-        employee = self.get_object(pk)
-        if not employee:
-            return Response({"error": "Employee not found"}, status=status.HTTP_404_NOT_FOUND)
-        serializer = EmployeeSerializer(employee, data=request.data)
+        emp = self.get_object(pk)
+        if not emp:
+            return Response({"error": "Not found"}, status=404)
+
+        serializer = EmployeeSerializer(emp, data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(lastupdate=now())
             return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(serializer.errors, status=400)
 
     def delete(self, request, pk):
-        employee = self.get_object(pk)
-        if not employee:
-            return Response({"error": "Employee not found"}, status=status.HTTP_404_NOT_FOUND)
-        employee.delete()
-        return Response({"message": "Employee deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+        emp = self.get_object(pk)
+        if not emp:
+            return Response({"error": "Not found"}, status=404)
+        emp.delete()
+        return Response({"message": "Deleted"})
+
 
 class SubmitDraftAPI(APIView):
     def post(self, request):
         ids = request.data.get("ids", [])
+
         if not ids:
             return Response(
-                {"error": "No drafts selected"},
+                {"error": "No records selected"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        Employee.objects.filter(id__in=ids, status="draft").update(status="submitted")
-        return Response({"message": "Drafts submitted successfully"})
+
+        count = Employee.objects.filter(
+            id__in=ids,
+            status="draft"
+        ).update(
+            status="submitted",
+            lastupdate=now()
+        )
+
+        return Response(
+            {"message": f"{count} record(s) submitted successfully"},
+            status=status.HTTP_200_OK
+        )
