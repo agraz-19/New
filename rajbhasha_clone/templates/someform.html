@@ -195,9 +195,89 @@ async function renderDraftTable(data) {
           <button class="btn btn-sm btn-primary" onclick="editDraft(${d.id})">${await translateData('Edit')}</button>
           <button class="btn btn-sm btn-danger" onclick="deleteDraft(${d.id})">${await translateData('Delete')}</button>
         </td>
-      </tr>`;
+      </tr>
+    `;
+  });
+}
+
+/* ================= EDIT DRAFT ================= */
+function editDraft(id) {
+  fetch(`/api/employees/${id}/`)
+    .then(res => res.json())
+    .then(data => {
+      editingDraftId = id;
+
+      for (let key in data) {
+        const field = document.querySelector(`[name="${key}"]`);
+        if (field) field.value = data[key];
+      }
+
+      document.getElementById("lastUpdatedText").innerText =
+        formatDate(data.lastupdate);
+      document.getElementById("lastUpdatedInfo").style.display = "block";
+
+      showFormPage();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+}
+
+/* ================= SUBMIT SELECTED (FIXED) ================= */
+function submitSelectedDrafts() {
+  const checked = document.querySelectorAll(
+    "#draftTableBody input[type='checkbox']:checked"
+  );
+
+  if (checked.length === 0) {
+    alert("Please select at least one draft");
+    return;
   }
-  tbody.innerHTML = rowsHtml;
+
+  const ids = Array.from(checked).map(cb => cb.value);
+
+  fetch("/api/employees/submit/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCookie("csrftoken")
+    },
+    body: JSON.stringify({ ids: ids })
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert(data.message);
+    loadDrafts();
+  })
+  .catch(() => alert("Error submitting drafts"));
+}
+
+/* ================= SUBMITTED RECORDS ================= */
+function loadSubmittedRecords() {
+  fetch("/api/employees/?status=submitted")
+    .then(res => res.json())
+    .then(data => {
+      const tbody = document.getElementById("submittedTableBody");
+      tbody.innerHTML = "";
+
+      data.forEach(d => {
+        tbody.innerHTML += `
+          <tr>
+            <td>${d.empcode}</td>
+            <td>${d.ename}</td>
+            <td>${d.hname}</td>
+            <td>${d.designation}</td>
+            <td>${d.gazet}</td>
+            <td>${d.prabodh}</td>
+            <td>${d.praveen}</td>
+            <td>${d.pragya}</td>
+            <td>${d.parangat}</td>
+            <td>${d.typing}</td>
+            <td>${d.hindiproficiency}</td>
+            <td>${formatDateOnly(d.super_annuation_date)}</td>
+            <td>${formatDate(d.lastupdate)}</td>
+          </tr>
+        `;
+      });
+    });
 }
 
 /* ================= SUBMITTED RECORDS PAGE ================= */
