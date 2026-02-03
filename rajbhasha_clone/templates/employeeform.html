@@ -1,45 +1,349 @@
 {% extends "master.html" %}
+{% block title %}NIC TG - Employees Form{% endblock %}
+
 {% block content %}
+<style>
+  label { font-weight: 600; }
+</style>
 
-<div class="container my-4">
-  <h3 class="mb-3">Employee Form</h3>
+<div class="container-fluid mt-4 mb-5 px-4">
 
-  <form method="POST" class="card p-4 shadow-sm">
-    {% csrf_token %}
+<h4 class="text-primary border-bottom pb-2">Employee Entry Form</h4>
 
-    <div class="row g-3">
-      <div class="col-md-3">
-        <label class="form-label">Empcode</label>
-        {{ form.empcode }}
-      </div>
-
-      <div class="col-md-3">
-        <label class="form-label">Name in English</label>
-        {{ form.ename }}
-      </div>
-
-      <div class="col-md-3">
-        <label class="form-label">Name in Hindi</label>
-        {{ form.hname }}
-      </div>
-
-      <div class="col-md-3">
-        <label class="form-label">Designation</label>
-        {{ form.designation }}
-      </div>
-
-      <div class="col-md-3">
-        <label class="form-label">Gazet</label>
-        {{ form.gazet }}
-      </div>
-    </div>
-
-    <div class="mt-4">
-      <button class="btn btn-primary">Submit</button>
-    </div>
-
-  </form>
+<div id="lastUpdatedBox" class="text-muted small mb-2" style="display:none;">
+  <strong>Last Updated On:</strong>
+  <span id="lastUpdatedText"></span>
 </div>
 
+<form id="employeeForm" class="p-3 bg-light border rounded shadow-sm">
+{% csrf_token %}
 
+<div class="row g-3">
+
+  <!-- LEFT COLUMN -->
+  <div class="col-md-6">
+    <label>Empcode</label>
+    {{ form.empcode }}
+
+    <label class="mt-2">Name in English</label>
+    {{ form.ename }}
+
+    <label class="mt-2">Name in Hindi</label>
+    {{ form.hname }}
+
+    <label class="mt-2">Designation</label>
+    <select id="designationSelect" class="form-select">
+      <option value="">-- Select --</option>
+      <option>Scientist-F</option>
+      <option>Scientist-G</option>
+      <option>Scientist-E</option>
+      <option>Scientist-D</option>
+      <option>Scientist-C</option>
+      <option>Scientist-B</option>
+      <option>Section Officer</option>
+      <option>Senior Secretariate Assistant</option>
+      <option>Scientific/Technical Assistant-A</option>
+      <option>Scientific/Technical Assistant-B</option>
+      <option>Scientific Officer/Engineer-SB</option>
+      <option value="OTHER">Other</option>
+    </select>
+
+    <input id="otherDesignation"
+           class="form-control mt-2"
+           placeholder="Enter other designation"
+           style="display:none;">
+
+    <label class="mt-2">Typing</label>
+    <select name="typing" class="form-select">
+      <option value="">-- Select --</option>
+      <option>Hindi</option>
+      <option>English</option>
+      <option>Both</option>
+    </select>
+
+    <label class="mt-2">Hindi Proficiency</label>
+    <select name="hindiproficiency" class="form-select">
+      <option value="">-- Select --</option>
+      <option>Excellent</option>
+      <option>Good</option>
+      <option>Average</option>
+    </select>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div class="col-md-6">
+    <label>Gazet</label>
+    {{ form.gazet }}
+
+    <label class="mt-2">Prabodh</label>
+    {{ form.prabodh }}
+
+    <label class="mt-2">Praveen</label>
+    {{ form.praveen }}
+
+    <label class="mt-2">Pragya</label>
+    {{ form.pragya }}
+
+    <label class="mt-2">Parangat</label>
+    {{ form.parangat }}
+
+    <label class="mt-2">Superannuation Date</label>
+    {{ form.super_annuation_date }}
+  </div>
+</div>
+
+<div class="text-center mt-4">
+  <button class="btn btn-warning px-5 fw-bold">Save as Draft</button>
+</div>
+</form>
+
+<!-- NAV -->
+<div class="mt-4">
+  <button class="btn btn-outline-primary me-2" onclick="showDrafts()">Show Drafts</button>
+  <button class="btn btn-outline-secondary" onclick="showSubmitted()">Show Submitted Records</button>
+</div>
+
+<!-- TABLE AREA -->
+<div class="mt-3">
+
+<!-- DRAFTS -->
+<div id="draftSection" style="display:none;">
+<h5>Saved Drafts</h5>
+
+<table class="table table-bordered table-sm align-middle">
+<thead class="table-primary text-center">
+<tr>
+<th>Select</th><th>Empcode</th><th>Name in English</th><th>Name in Hindi</th>
+<th>Designation</th><th>Gazet</th><th>Prabodh</th><th>Praveen</th>
+<th>Pragya</th><th>Parangat</th><th>Typing</th>
+<th>Hindi Proficiency</th><th>Superannuation Date</th><th>Actions</th>
+</tr>
+</thead>
+<tbody id="draftTableBody"></tbody>
+</table>
+
+<button class="btn btn-success" onclick="submitSelectedDrafts()">
+Submit Selected Records
+</button>
+</div>
+
+<!-- SUBMITTED -->
+<div id="submittedSection" style="display:none;">
+
+<!-- RIGHT-ALIGNED DOWNLOAD BUTTONS -->
+<div class="d-flex justify-content-end mb-2">
+  <button class="btn btn-success me-2" onclick="downloadExcel()">Download Excel</button>
+  <button class="btn btn-danger" onclick="downloadPDF()">Download PDF</button>
+</div>
+
+<table class="table table-bordered table-sm align-middle" id="submittedTable">
+<thead class="table-success text-center">
+<tr>
+<th>Empcode</th><th>Name in English</th><th>Name in Hindi</th>
+<th>Designation</th><th>Gazet</th><th>Prabodh</th><th>Praveen</th>
+<th>Pragya</th><th>Parangat</th><th>Typing</th>
+<th>Hindi Proficiency</th><th>Superannuation Date</th>
+</tr>
+</thead>
+<tbody id="submittedTableBody"></tbody>
+</table>
+</div>
+
+</div>
+</div>
+
+<script>
+let editingId = null;
+
+/* ================= TRANSLATION (UNCHANGED) ================= */
+async function translateData(text) {
+  if (!text || text === "-" || text === "None") return "-";
+  const lang = new URLSearchParams(window.location.search).get("lang") || "en";
+  if (lang !== "hi") return text;
+
+  const cacheKey = "tr_" + text;
+  if (sessionStorage.getItem(cacheKey)) return sessionStorage.getItem(cacheKey);
+
+  const res = await fetch("/api/translate/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCookie("csrftoken")
+    },
+    body: JSON.stringify({ text, target: "hi" })
+  });
+  const data = await res.json();
+  sessionStorage.setItem(cacheKey, data.translated);
+  return data.translated;
+}
+
+/* DESIGNATION */
+document.getElementById("designationSelect").addEventListener("change", e => {
+  document.getElementById("otherDesignation").style.display =
+    e.target.value === "OTHER" ? "block" : "none";
+});
+
+/* SAVE */
+document.getElementById("employeeForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target).entries());
+
+  data.designation =
+    document.getElementById("designationSelect").value === "OTHER"
+      ? document.getElementById("otherDesignation").value
+      : document.getElementById("designationSelect").value;
+
+  data.status = "draft";
+
+  const url = editingId ? `/api/employees/${editingId}/` : "/api/employees/";
+  const method = editingId ? "PUT" : "POST";
+
+  await fetch(url, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCookie("csrftoken")
+    },
+    body: JSON.stringify(data)
+  });
+
+  e.target.reset();
+  editingId = null;
+  document.getElementById("designationSelect").value = "";
+  document.getElementById("otherDesignation").style.display = "none";
+  document.getElementById("lastUpdatedBox").style.display = "none";
+  showDrafts();
+});
+
+/* DRAFTS */
+async function showDrafts() {
+  toggle("draftSection");
+  const data = (await (await fetch("/api/employees/?status=draft")).json()).reverse();
+  const tbody = document.getElementById("draftTableBody");
+  tbody.innerHTML = "";
+
+  for (const d of data) {
+    const row = `
+      <tr>
+        <td><input type="checkbox" value="${d.id}"></td>
+        <td>${d.empcode}</td>
+        <td>${d.ename}</td>
+        <td>${d.hname}</td>
+        <td>${await translateData(d.designation)}</td>
+        <td>${await translateData(d.gazet)}</td>
+        <td>${await translateData(d.prabodh)}</td>
+        <td>${await translateData(d.praveen)}</td>
+        <td>${await translateData(d.pragya)}</td>
+        <td>${await translateData(d.parangat)}</td>
+        <td>${await translateData(d.typing)}</td>
+        <td>${await translateData(d.hindiproficiency)}</td>
+        <td>${d.super_annuation_date || "-"}</td>
+        <td>
+          <button class="btn btn-sm btn-primary" onclick="editDraft(${d.id})">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteDraft(${d.id})">Delete</button>
+        </td>
+      </tr>`;
+    tbody.insertAdjacentHTML("afterbegin", row);
+  }
+}
+
+/* SUBMITTED */
+async function showSubmitted() {
+  toggle("submittedSection");
+  const data = (await (await fetch("/api/employees/?status=submitted")).json()).reverse();
+  const tbody = document.getElementById("submittedTableBody");
+  tbody.innerHTML = "";
+
+  for (const d of data) {
+    const row = `
+      <tr>
+        <td>${d.empcode}</td>
+        <td>${d.ename}</td>
+        <td>${d.hname}</td>
+        <td>${await translateData(d.designation)}</td>
+        <td>${await translateData(d.gazet)}</td>
+        <td>${await translateData(d.prabodh)}</td>
+        <td>${await translateData(d.praveen)}</td>
+        <td>${await translateData(d.pragya)}</td>
+        <td>${await translateData(d.parangat)}</td>
+        <td>${await translateData(d.typing)}</td>
+        <td>${await translateData(d.hindiproficiency)}</td>
+        <td>${d.super_annuation_date || "-"}</td>
+      </tr>`;
+    tbody.insertAdjacentHTML("afterbegin", row);
+  }
+}
+
+/* EXPORTS */
+function downloadExcel() {
+  const table = document.getElementById("submittedTable");
+  const wb = XLSX.utils.table_to_book(table, { sheet: "Submitted Records" });
+  XLSX.writeFile(wb, "submitted_employees.xlsx");
+}
+
+function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF("l", "pt", "a4");
+  doc.text("Submitted Employee Records", 40, 40);
+  doc.autoTable({ html: "#submittedTable", startY: 60 });
+  doc.save("submitted_employees.pdf");
+}
+
+/* EDIT / DELETE / SUBMIT */
+async function editDraft(id) {
+  const d = await (await fetch(`/api/employees/${id}/`)).json();
+  editingId = id;
+
+  for (let k in d) {
+    const f = document.querySelector(`[name="${k}"]`);
+    if (f) f.value = d[k];
+  }
+
+  document.getElementById("designationSelect").value = d.designation;
+  document.getElementById("lastUpdatedBox").style.display = "block";
+  document.getElementById("lastUpdatedText").innerText =
+    new Date(d.lastupdate).toLocaleString();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function deleteDraft(id) {
+  if (!confirm("Delete this draft?")) return;
+  await fetch(`/api/employees/${id}/`, {
+    method: "DELETE",
+    headers: { "X-CSRFToken": getCookie("csrftoken") }
+  });
+  showDrafts();
+}
+
+async function submitSelectedDrafts() {
+  const ids = [...document.querySelectorAll("#draftTableBody input:checked")].map(i => i.value);
+  if (!ids.length) return alert("Select at least one record");
+
+  await fetch("/api/employees/submit/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCookie("csrftoken")
+    },
+    body: JSON.stringify({ ids })
+  });
+  showSubmitted();
+}
+
+function toggle(id) {
+  ["draftSection", "submittedSection"].forEach(x =>
+    document.getElementById(x).style.display = "none"
+  );
+  document.getElementById(id).style.display = "block";
+}
+
+function getCookie(name) {
+  let v = null;
+  document.cookie.split(";").forEach(c => {
+    c = c.trim();
+    if (c.startsWith(name + "=")) v = decodeURIComponent(c.slice(name.length + 1));
+  });
+  return v;
+}
+</script>
 {% endblock %}

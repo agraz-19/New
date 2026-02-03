@@ -1,125 +1,89 @@
 {% load static %}
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>{% block title %}{% endblock %}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}">
+    <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
 
-  <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}">
-  <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
-
-
-  <link rel="stylesheet" href="{% static 'style.css' %}">
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script> -->
+    <link rel="stylesheet" href="{% static 'style.css' %}">
 </head>
-
 <body>
 
-<!-- ✅ HEADER ONLY -->
-<div class="container py-3">
-  <div class="row align-items-center">
-    <div class="col-2">
-      <img src="{% static 'images/leftLogo.png' %}" alt="Logo" style="max-height:80px;">
+<header class="container py-3">
+    <div class="row align-items-center">
+        <div class="col-2">
+            <img src="{% static 'images/leftLogo.png' %}" alt="Logo" style="max-height:80px;">
+        </div>
+        <div class="col-8 text-center">
+            <div class="d-inline-flex align-items-center gap-3">
+                <h3 class="m-0 fw-bold">राजभाषा विभाग</h3>
+                <span class="text-muted border-start ps-3">DEPARTMENT OF OFFICIAL LANGUAGE</span>
+            </div>
+        </div>
+        <div class="col-2 text-end">
+            <img src="{% static 'images/rightLogo.jpg' %}" alt="Logo" style="max-height:80px;">
+        </div>
     </div>
+</header>
 
-    <div class="col-8">
-      <div class="d-flex align-items-center gap-5">
-        <h3 class="m-0 fw-bold">राजभाषा विभाग</h3>
-        <span class="text-muted">DEPARTMENT OF OFFICIAL LANGUAGE</span>
-      </div>
-    </div>
-
-    <div class="col-2 text-end">
-      <img src="{% static 'images/rightLogo.jpg' %}" alt="Logo" style="max-height:80px;">
-    </div>
-  </div>
-</div>
-
-<!-- ✅ NAVBAR -->
 <nav class="navbar navbar-expand-lg navbar-dark" style="background:#0b4f7a;">
-  <div class="container">
-
-    <a class="navbar-brand fw-bold" href="/">Home</a>
-
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-
-    <div class="collapse navbar-collapse" id="mainNav">
-      <ul class="navbar-nav me-auto">
-        <li class="nav-item"><a class="nav-link" href="/about/">About Us</a></li>
-        <li class="nav-item"><a class="nav-link" href="/products/">Our IT Products</a></li>
-        <li class="nav-item"><a class="nav-link" href="/schemes/">Incentive Schemes</a></li>
-        <li class="nav-item"><a class="nav-link" href="/programme/">Annual Programme</a></li>
-        <li class="nav-item"><a class="nav-link" href="/employee-form/">Employee Form</a></li>
-      </ul>
-
-      <!-- ✅ Google-like translation dropdown (ONLY here) -->
-      <form class="d-flex gap-2" onsubmit="return false;">
-        <select class="form-select form-select-sm" style="width:120px;" id="langSelect">
-          <option value="en">English</option>
-          <option value="hi">हिन्दी</option>
-        </select>
-        <button class="btn btn-light btn-sm" type="button"
-                onclick="setGoogleLang(document.getElementById('langSelect').value)">
-          Go
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="/">Home</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+            <span class="navbar-toggler-icon"></span>
         </button>
-      </form>
+        <div class="collapse navbar-collapse" id="mainNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item"><a class="nav-link" href="/about/">About us</a></li>
+                <li class="nav-item"><a class="nav-link" href="/products/">Our IT products</a></li>
+                <li class="nav-item"><a class="nav-link" href="/schemes/">Incentive Schemes</a></li>
+                <li class="nav-item"><a class="nav-link" href="/programme/">Annual programme</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'employee_form' %}">Employee form</a></li>
+            </ul>
+            <form class="d-flex gap-2" method="GET" action="">
+                <select name="lang" class="form-select form-select-sm" style="width:120px;" id="langSelect">
+                    <option value="en" {% if request.GET.lang == 'en' %}selected{% endif %}>English</option>
+                    <option value="hi" {% if request.GET.lang == 'hi' %}selected{% endif %}>हिन्दी</option>
+                </select>
+                <button class="btn btn-light btn-sm" type="submit">Go</button>
+            </form>
+        </div>
     </div>
-
-  </div>
 </nav>
 
-<!-- Page Content -->
-{% block content %}{% endblock %}
+<main>
+    {% block content %}{% endblock %}
+</main>
 
-<!-- Footer -->
 <footer class="bg-light border-top mt-5">
-  <div class="container py-3 text-center small text-muted">
-    © Department of Official Language (Demo)
-  </div>
+    <div class="container py-3 text-center small text-muted">
+        <p class="m-0">© Department of Official Language (Demo)</p>
+    </div>
 </footer>
 
-<!-- ✅ Hidden Google Translate Widget -->
-<div id="google_translate_element" style="display:none;"></div>
-
 <script>
-  function googleTranslateElementInit() {
-    new google.translate.TranslateElement(
-      {
-        pageLanguage: 'en',
-        includedLanguages: 'en,hi',
-        autoDisplay: false
-      },
-      'google_translate_element'
-    );
-  }
-
-  // ✅ Reliable method: set cookie + reload (works better than trying to click goog-te-combo)
-  function setGoogleLang(lang) {
-    // If your base page is English
-    var from = 'en';
-    var to = lang;
-
-    // googtrans cookie format: /from/to
-    document.cookie = "googtrans=/" + from + "/" + to + ";path=/";
-    document.cookie = "googtrans=/" + from + "/" + to + ";path=/;domain=" + window.location.hostname;
-
-    location.reload();
-  }
-
-  // ✅ On load, keep dropdown in sync with cookie
-  window.addEventListener("load", function(){
-    var match = document.cookie.match(/googtrans=\/en\/(\w+)/);
-    if(match && match[1]){
-      var current = match[1];
-      var ddl = document.getElementById("langSelect");
-      if(ddl) ddl.value = current;
-    }
-  });
+    document.addEventListener("DOMContentLoaded", function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentLang = urlParams.get('lang');
+        if (currentLang && currentLang !== 'en') {
+            document.querySelectorAll('a').forEach(link => {
+                let href = link.getAttribute('href');
+                if (href && (href.startsWith('/') || href.startsWith(window.location.origin))) {
+                    if (!href.includes('lang=')) {
+                        const separator = href.includes('?') ? '&' : '?';
+                        link.setAttribute('href', href + separator + 'lang=' + currentLang);
+                    }
+                }
+            });
+        }
+    });
 </script>
-
-<script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
-
 </body>
 </html>
-
