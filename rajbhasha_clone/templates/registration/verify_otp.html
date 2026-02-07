@@ -1,0 +1,52 @@
+{% extends 'auth_base.html' %}
+{% load translate_tags %}
+{% block title %}{{ "Verify OTP"|t:current_lang }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="col-md-5 col-lg-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4 text-center">
+                <h3 class="fw-bold mb-3">{{ "Verify OTP"|t:current_lang }}</h3>
+                <p class="text-muted small">{{ "We've sent a 6-digit code to your email. It expires in 5 minutes."|t:current_lang }}</p>
+                
+                {% if is_blocked %}
+                    <div class="alert alert-danger py-2 small">{{ "Too many attempts. Please try again in 10 minutes."|t:current_lang }}</div>
+                {% else %}
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-4">
+                            <input type="text" name="otp" class="form-control form-control-lg text-center fw-bold" placeholder="000000" maxlength="6" pattern="\d{6}" required>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100 mb-3">{{ "Verify Code"|t:current_lang }}</button>
+                    </form>
+                {% endif %}
+
+                <div class="mt-3">
+                    <p class="text-muted small mb-1">{{ "Didn't receive the code?"|t:current_lang }}</p>
+                    <a href="{% url 'resend_otp' %}" id="resend-link" class="text-decoration-none small fw-bold">{{ "Resend OTP"|t:current_lang }}</a>
+                    <p id="timer-text" class="text-muted mt-2 small" style="min-height: 1.5em;"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const resendLink = document.getElementById('resend-link');
+    const timerText = document.getElementById('timer-text');
+    let timeLeft = 30;
+    resendLink.style.pointerEvents = 'none';
+    resendLink.style.opacity = '0.5';
+    const countdown = setInterval(() => {
+        timeLeft--;
+        timerText.innerText = `{{ "Wait"|t:current_lang }} ${timeLeft}s {{ "to resend"|t:current_lang }}`;
+        if (timeLeft <= 0) {
+            clearInterval(countdown);
+            resendLink.style.pointerEvents = 'auto';
+            resendLink.style.opacity = '1';
+            timerText.innerText = '';
+        }
+    }, 1000);
+});
+</script>
+{% endblock %}

@@ -137,3 +137,60 @@ body {
   float: right;
   margin-top: 10px;
 }
+/* GOV LOGOS */
+.gov-logo {
+    max-height: 80px;
+}
+
+/* MAIN NAVBAR */
+.main-navbar {
+    background: #0b4f7a;
+}
+
+/* DARK MODE FIXES */
+[data-bs-theme="dark"] body {
+    background-color: #121212;
+    color: #e0e0e0;
+}
+
+[data-bs-theme="dark"] .card,
+[data-bs-theme="dark"] .navbar {
+    background-color: #1e1e1e !important;
+    border-color: #333 !important;
+}
+
+/* FONT SIZE CONTROL */
+:root { --main-font-size: 16px; }
+
+html, body, body * {
+    font-size: var(--main-font-size) !important;
+}
+
+.font-medium { --main-font-size: 20px; }
+.font-large  { --main-font-size: 24px; }
+
+/* BETTER MULTI-LANGUAGE LINE HEIGHT */
+body, h1, h2, h3, h4, h5, h6 {
+    line-height: 1.6;
+}
+
+/* BUTTON FIX */
+.btn {
+    white-space: normal;
+    height: auto;
+    min-height: 38px;
+}
+
+/* ALERT Z-INDEX */
+.alert-dismissible {
+    z-index: 9999;
+    position: relative;
+}
+
+/* DARK INPUT FIX */
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select {
+    background-color: #1e293b;
+    color: #f8fafc;
+    border-color: #475569;
+}
