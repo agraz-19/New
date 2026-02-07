@@ -141,6 +141,13 @@ def delete_account(request):
         return redirect('login')
     return render(request, 'registration/confirm_erasure.html')
 
+@login_required
+def custom_logout(request):
+    """Custom logout view that properly logs out user and redirects to home"""
+    logout(request)
+    messages.success(request, "You have been logged out successfully.")
+    return redirect('home')
+
 class CustomLoginView(LoginView):
     authentication_form = CustomLoginForm
     template_name = 'registration/login.html'

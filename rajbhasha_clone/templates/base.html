@@ -85,11 +85,11 @@
                 </button>
 
                 {% if user.is_authenticated %}
-                    <div class="border-start ps-3 ms-2 d-flex align-items-center">
-                        <span class="text-white small fw-bold me-2">Hi, {{ user.username }}</span>
-                        <form method="post" action="{% url 'logout' %}" class="m-0">
+                    <div class="border-start ps-3 ms-2 d-flex align-items-center gap-2">
+                        <span class="text-white small fw-bold">Hi, {{ user.username }}</span>
+                        <form method="post" action="{% url 'logout' %}" style="margin: 0;">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-danger btn-sm">Logout</button>
+                            <button type="submit" class="btn btn-danger btn-sm" style="padding: 0.25rem 0.75rem;">Logout</button>
                         </form>
                     </div>
                 {% endif %}
