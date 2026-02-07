@@ -9,169 +9,123 @@
     <title>{% block title %}{{ "Rajya Bhaasha"|t:current_lang }}{% endblock %}</title>
     {% bootstrap_css %}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
     <style>
-        body { transition: background-color 0.3s ease, color 0.3s ease; }
-        [data-bs-theme="dark"] body { background-color: #121212 !important; color: #e0e0e0; }
-        [data-bs-theme="dark"] .card, [data-bs-theme="dark"] .navbar { background-color: #1e1e1e !important; border-color: #333 !important; }
+        /* Branding Header Styles */
+        .branding-header { background-color: white; padding: 15px 0; }
+        .logo-img { max-height: 80px; }
+        
+        /* Navbar Customization */
+        .custom-nav { background-color: #0b4f7a !important; }
+        .nav-link { 
+            color: rgba(255,255,255,0.85) !important; 
+            font-weight: 500; 
+            white-space: nowrap; /* Forces text to stay in one line */
+        }
+        .nav-link:hover { color: #fff !important; }
+        .nav-link.active { color: #fff !important; border-bottom: 2px solid #fff; }
+
+        /* Font Size Utilities */
+        :root { --main-font-size: 16px; }
+        body { font-size: var(--main-font-size) !important; transition: 0.3s; }
+        .font-medium { --main-font-size: 20px !important; }
+        .font-large { --main-font-size: 24px !important; }
     </style>
-    <style>
-    :root { --main-font-size: 16px; }
-    /* The * selector ensures Bootstrap doesn't override these specific sizes */
-    html, body, body * { font-size: var(--main-font-size) !important; transition: font-size 0.2s; }
-    .font-medium { --main-font-size: 20px !important; }
-    .font-large { --main-font-size: 24px !important; }
-        .card-body {
-    padding-bottom: 2rem !important; 
-}
-.card-body .d-grid {
-    gap: 1.5rem !important;
-}
-.card-body .border-top {
-    margin-top: 2rem !important;
-    padding-top: 1.5rem !important;
-}
-    .d-flex {
-        flex-wrap: wrap !important;
-    }
-    
-    /* But keep Navbar and specific small controls in one line if needed */
-    .navbar .d-flex, .input-group {
-        flex-wrap: nowrap !important;
-    }
-
-    /* 2. Fix Taller Fonts (Telugu/Hindi/Kannada) */
-    body, h1, h2, h3, h4, h5, h6, p, span, div {
-        line-height: 1.6 !important; /* Increases breathing room between lines */
-        overflow-wrap: break-word;   /* Prevents long words from spilling out */
-    }
-
-    /* 3. Fix Buttons (Allow them to grow tall) */
-    .btn {
-        white-space: normal !important; /* Allows text inside buttons to wrap */
-        height: auto !important;        /* Auto height to fit 2 lines if needed */
-        min-height: 38px;               /* Standard clickable size */
-        padding-top: 8px;
-        padding-bottom: 8px;
-    }
-
-    /* 4. Fix Cards & Boxes */
-    .card-body, .alert {
-        height: auto !important;
-        overflow: visible !important; /* Let text expand naturally */
-    }
-
-    /* 5. Specific Fix for Dashboard Header Area */
-    .justify-content-between {
-        gap: 15px; /* Adds safety space between left and right items */
-    }
-    /* 1. Fix Dark Mode Inputs (Make them visible) */
-    [data-bs-theme="dark"] .form-control, 
-    [data-bs-theme="dark"] .form-select {
-        background-color: #1e293b !important; /* Lighter Slate, not Navy */
-        border-color: #475569 !important;
-        color: #f8fafc !important;
-    }
-    [data-bs-theme="dark"] .form-control:focus {
-        background-color: #334155 !important; /* Even lighter on focus */
-        border-color: #6366f1 !important;
-        box-shadow: 0 0 0 0.25rem rgba(99, 102, 241, 0.25);
-    }
-
-    .modal-body {
-        padding-bottom: 2rem !important; 
-    }
-    .modal-body .d-grid {
-        gap: 1.5rem !important;
-    }
-    .modal-body .border-top {
-        margin-top: 2rem !important; /* Push "Delete Account" link down */
-        padding-top: 1.5rem !important;
-    }
-
-    /* 3. Fix Missing Notifications (Z-Index Issue) */
-    .alert-dismissible {
-        position: relative;
-        z-index: 9999 !important; /* Force it on top of Navbar */
-        margin-top: 10px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-    }
-</style>
     {% block extra_css %}{% endblock %}
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-expand-lg border-bottom sticky-top mb-4 shadow-sm bg-white">
-        <div class="container">
-            <a class="navbar-brand fw-bold text-primary" href="{% url 'home' %}">
-                <i class="bi bi-card-checklist me-2"></i>{{ "Rajya Bhaasha"|t:current_lang }}
-            </a>
-            <div class="d-flex align-items-center">
-                <a href="{% url 'toggle_language' %}" class="btn btn-sm btn-outline-primary me-2 fw-bold">
+<body>
+
+<header class="branding-header border-bottom">
+    <div class="container">
+        <div class="row align-items-center text-center text-md-start">
+            <div class="col-md-3">
+                <img src="{% static 'images/leftLogo.png' %}" alt="Left Logo" class="logo-img">
+            </div>
+            <div class="col-md-6 text-center">
+                <div class="d-inline-flex align-items-center gap-3">
+                    <h2 class="m-0 fw-bold">राजभाषा विभाग</h2>
+                    <span class="text-muted border-start ps-3 d-none d-md-block">DEPARTMENT OF OFFICIAL LANGUAGE</span>
+                </div>
+            </div>
+            <div class="col-md-3 text-md-end">
+                <img src="{% static 'images/rightLogo.jpg' %}" alt="Right Logo" class="logo-img">
+            </div>
+        </div>
+    </div>
+</header>
+
+<nav class="navbar navbar-expand-xl navbar-dark custom-nav sticky-top shadow-sm">
+    <div class="container-fluid px-lg-5">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <div class="collapse navbar-collapse" id="mainNav">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item"><a class="nav-link px-2 active" href="/">Home</a></li>
+                <li class="nav-item"><a class="nav-link px-2" href="/about/">About us</a></li>
+                <li class="nav-item"><a class="nav-link px-2" href="/products/">Our IT products</a></li>
+                <li class="nav-item"><a class="nav-link px-2" href="/schemes/">Incentive Schemes</a></li>
+                <li class="nav-item"><a class="nav-link px-2" href="/programme/">Annual programme</a></li>
+                <li class="nav-item"><a class="nav-link px-2" href="{% url 'employee_form' %}">Employee form</a></li>
+            </ul>
+
+            <div class="d-flex align-items-center gap-3 ms-auto">
+                <a href="{% url 'toggle_language' %}" class="btn btn-sm btn-outline-light fw-bold">
                     {% if current_lang == 'hi' %}English{% else %}हिंदी{% endif %}
                 </a>
-                <select id="fontSelector" class="form-select form-select-sm d-inline-block w-auto ms-2">
-    <option value="normal">{{ "Normal"|t:current_lang }}</option>
-    <option value="medium">{{ "Medium"|t:current_lang }}</option>
-    <option value="large">{{ "large"|t:current_lang }}</option>
-</select>
-                <button id="themeToggle" class="btn btn-outline-secondary btn-sm me-3">
+
+                <select id="fontSelector" class="form-select form-select-sm w-auto">
+                    <option value="normal">Normal</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                </select>
+
+                <button id="themeToggle" class="btn btn-outline-light btn-sm">
                     <span id="themeIcon">🌑</span>
                 </button>
+
                 {% if user.is_authenticated %}
-                    <form method="post" action="{% url 'logout' %}" class="d-inline">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-outline-danger btn-sm">{{ "Log out"|t:current_lang }}</button>
-                    </form>
+                    <div class="border-start ps-3 ms-2 d-flex align-items-center">
+                        <span class="text-white small fw-bold me-2">Hi, {{ user.username }}</span>
+                        <form method="post" action="{% url 'logout' %}" class="m-0">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm">Logout</button>
+                        </form>
+                    </div>
                 {% endif %}
             </div>
         </div>
-    </nav>
-    <main class="container">
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
-                    {{ message|t:current_lang }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
-        {% block content %}{% endblock %}
-    </main>
-    {% bootstrap_javascript %}
-    <script>
-        const themeToggle = document.getElementById('themeToggle');
-        const htmlElement = document.documentElement;
-        const themeIcon = document.getElementById('themeIcon');
-        const updateIcon = (theme) => { if(themeIcon) themeIcon.innerText = theme === 'light' ? '🌑' : '☀️'; };
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        htmlElement.setAttribute('data-bs-theme', savedTheme);
-        updateIcon(savedTheme);
-        themeToggle?.addEventListener('click', () => {
-            const newTheme = htmlElement.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
-            htmlElement.setAttribute('data-bs-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            updateIcon(newTheme);
-        })
-    </script>
-    <script>
-    function applyFont() {
-        const size = localStorage.getItem('user-font-size') || 'normal';
+    </div>
+</nav>
+
+<main class="container py-4">
+    {% block content %}{% endblock %}
+</main>
+
+{% bootstrap_javascript %}
+<script>
+    const themeToggle = document.getElementById('themeToggle');
+    const htmlElement = document.documentElement;
+    const themeIcon = document.getElementById('themeIcon');
+    const updateIcon = (theme) => { if(themeIcon) themeIcon.innerText = theme === 'light' ? '🌑' : '☀️'; };
+    
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    htmlElement.setAttribute('data-bs-theme', savedTheme);
+    updateIcon(savedTheme);
+
+    themeToggle?.addEventListener('click', () => {
+        const newTheme = htmlElement.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
+        htmlElement.setAttribute('data-bs-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        updateIcon(newTheme);
+    });
+
+    const fontSelector = document.getElementById('fontSelector');
+    fontSelector?.addEventListener('change', (e) => {
         document.body.classList.remove('font-medium', 'font-large');
-        if (size !== 'normal') document.body.classList.add('font-' + size);
-        const selector = document.getElementById('fontSelector');
-        if (selector) selector.value = size;
-    }
-    // Apply immediately to prevent flicker
-    applyFont();
-    document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('fontSelector')?.addEventListener('change', (e) => {
-            localStorage.setItem('user-font-size', e.target.value);
-            applyFont();
-        });
+        if(e.target.value !== 'normal') document.body.classList.add('font-' + e.target.value);
+        localStorage.setItem('user-font-size', e.target.value);
     });
 </script>
-
 </body>
 </html>
