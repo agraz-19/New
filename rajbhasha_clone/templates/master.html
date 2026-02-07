@@ -46,14 +46,24 @@
                 <li class="nav-item"><a class="nav-link" href="/schemes/">Incentive Schemes</a></li>
                 <li class="nav-item"><a class="nav-link" href="/programme/">Annual programme</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'employee_form' %}">Employee form</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'qpr_form' %}">QPR Form</a></li>
             </ul>
-            <form class="d-flex gap-2" method="GET" action="">
-                <select name="lang" class="form-select form-select-sm" style="width:120px;" id="langSelect">
-                    <option value="en" {% if request.GET.lang == 'en' %}selected{% endif %}>English</option>
-                    <option value="hi" {% if request.GET.lang == 'hi' %}selected{% endif %}>हिन्दी</option>
-                </select>
-                <button class="btn btn-light btn-sm" type="submit">Go</button>
-            </form>
+            <form class="d-flex align-items-center" method="GET" action="">
+    <div class="d-flex gap-2">
+        <select name="lang" class="form-select form-select-sm" style="width:120px;" id="langSelect">
+            <option value="en" {% if request.GET.lang == 'en' %}selected{% endif %}>English</option>
+            <option value="hi" {% if request.GET.lang == 'hi' %}selected{% endif %}>हिन्दी</option>
+        </select>
+        <button class="btn btn-light btn-sm" type="submit">Go</button>
+    </div>
+    
+    <a href="/login/" class="text-white ms-5" title="User Login" style="line-height: 0;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-person-circle" viewBox="0 0 16 16">
+            <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+            <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+        </svg>
+    </a>
+</form>
         </div>
     </div>
 </nav>
