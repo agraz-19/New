@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     home,
     employee_form,
+    qpr_form_view,
     translate_api,
     EmployeeListCreateAPI,
     EmployeeDetailAPI,
@@ -12,6 +13,7 @@ urlpatterns = [
     # Frontend
     path("", home, name="home"),
     path("employee-form/", employee_form, name="employee_form"),
+    path("qpr-form/", qpr_form_view, name="qpr_form"),
 
     # APIs
     path("api/translate/", translate_api, name="translate_api"),
