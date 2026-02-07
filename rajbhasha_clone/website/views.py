@@ -25,6 +25,9 @@ def employee_form(request):
     form = EmployeeForm()
     return render(request, "employeeform.html", {"form": form})
 
+def qpr_form_view(request):
+    return render(request, "qpr_form.html")
+
 
 # ================= TRANSLATION API =================
 
