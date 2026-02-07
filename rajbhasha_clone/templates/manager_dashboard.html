@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load translate_tags %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>{{"Manager Dashboard"|t:current_lang }}</h2>
+
+  <table class="table table-bordered table-hover mt-3">
+    <thead class="table-dark">
+      <tr>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Status</th> <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+      <tr class="{% if user.is_archived %}table-secondary text-muted{% endif %}">
+        <td>{{ user.username }}</td>
+        <td>{{ user.get_email }}</td>
+        <td>{{ user.role|title }}</td>
+        
+        <td>
+            {% if user.is_archived %}
+                <span class="badge bg-danger">{{"Archived"|t:current_lang }}</span>
+            {% elif user.is_active %}
+                <span class="badge bg-success">{{"Active"|t:current_lang }}</span>
+            {% else %}
+                <span class="badge bg-warning text-dark">{{"Inactive"|t:current_lang }}</span>
+            {% endif %}
+        </td>
+
+        <td>
+          {% if user.is_archived %}
+             <a href="{% url 'manage_user_action' user.id 'unarchive' %}" 
+                class="btn btn-sm btn-success">
+                <i class="bi bi-arrow-counterclockwise"></i> {{"Restore"|t:current_lang }}
+             </a>
+          {% else %}
+             <a href="{% url 'manage_user_action' user.id 'archive' %}" 
+                class="btn btn-sm btn-danger"
+                onclick="return confirm('Are you sure you want to archive this user?');">
+                <i class="bi bi-archive"></i> {{"Archive"|t:current_lang }}
+             </a>
+             
+             {% if not user.is_edit_allowed and user.is_frozen %}
+                 <a href="{% url 'manage_user_action' user.id 'approve' %}" 
+                    class="btn btn-sm btn-primary">
+                    {{"Approve Edit"|t:current_lang }}
+                 </a>
+             {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
