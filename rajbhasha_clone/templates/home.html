@@ -1,39 +1,108 @@
 {% extends "master.html" %}
 {% load static %}
+{% load translate_tags %}
 
-{% block title %}Home{% endblock %}
+{% block title %}{{ "Home"|t:current_lang }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 1. This prevents the horizontal scrollbar on the whole page */
+    body {
+        overflow-x: hidden;
+    }
+
+    /* 2. Break out of the container to hit the screen edges exactly */
+    .full-screen-banner {
+        width: 100vw;
+        position: relative;
+        left: 50%;
+        right: 50%;
+        margin-left: -50vw;
+        margin-right: -50vw;
+        
+        /* Removes gap between navbar and banner */
+        margin-top: -1.5rem; 
+        margin-bottom: 2rem;
+    }
+
+    .carousel-item img {
+        width: 100%;
+        height: 450px; /* Adjust height as needed */
+        object-fit: cover;
+        display: block;
+    }
+
+    /* 3. Ensure the main container doesn't conflict */
+    main.container {
+        max-width: 100% !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    /* 4. Re-align the lower content to standard width */
+    .content-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div id="mainCarousel" class="carousel slide" data-bs-ride="carousel">
-  <div class="carousel-inner">
-    <div class="carousel-item active">
-      <img src="{% static 'images/slide1.jpg' %}" class="d-block w-100" style="height:420px; object-fit:cover;" alt="Banner">
+<div class="full-screen-banner">
+    <div id="mainCarousel" class="carousel slide" data-bs-ride="carousel">
+        <div class="carousel-indicators">
+            <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="0" class="active"></button>
+            <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="1"></button>
+            <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="2"></button>
+        </div>
+
+        <div class="carousel-inner">
+            <div class="carousel-item active" data-bs-interval="3000">
+                <img src="{% static 'images/slide1.jpg' %}" alt="Slide 1">
+            </div>
+            <div class="carousel-item" data-bs-interval="3000">
+                <img src="{% static 'images/slide2.jpg' %}" alt="Slide 2">
+            </div>
+            <div class="carousel-item" data-bs-interval="3000">
+                <img src="{% static 'images/slide3.jpg' %}" alt="Slide 3">
+            </div>
+        </div>
+
+        <button class="carousel-control-prev" type="button" data-bs-target="#mainCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon"></span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#mainCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon"></span>
+        </button>
     </div>
-  </div>
 </div>
 
 <div class="container my-4">
-  <h4 class="fw-bold">WHAT'S NEW</h4> <div class="row g-4 mt-1">
-    <div class="col-lg-8">
-      <div class="card shadow-sm border-0">
-        <div class="card-body">
-          <ul class="mb-0">
-            <li><span>Notice 1 / Circular 1</span></li>
-            <li><span>Notice 2 / Circular 2</span></li>
-            <li><span>Notice 3 / Circular 3</span></li> </ul>
+    <h4 class="fw-bold">{{ "WHAT'S NEW"|t:current_lang }}</h4> 
+    <div class="row g-4 mt-1">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li><span>{{ "Notice 1 / Circular 1"|t:current_lang }}</span></li>
+                        <li><span>{{ "Notice 2 / Circular 2"|t:current_lang }}</span></li>
+                        <li><span>{{ "Notice 3 / Circular 3"|t:current_lang }}</span></li> 
+                    </ul>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
 
-    <div class="col-lg-4">
-      <div class="card shadow-sm">
-        <div class="card-header bg-white fw-bold"><span>Quick Links</span></div>
-        <div class="card-body d-grid gap-2">
-          <a class="btn btn-outline-primary btn-sm text-start" href="/about/">About Us</a>
-          <a class="btn btn-outline-primary btn-sm text-start" href="/downloads/">Downloads</a> <a class="btn btn-outline-primary btn-sm text-start" href="{% url 'employee_form' %}">Employee Form</a>
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-primary text-white fw-bold">{{ "Quick Links"|t:current_lang }}</div>
+                <div class="card-body d-grid gap-2">
+                    <a class="btn btn-outline-primary btn-sm text-start" href="/about/">{{ "About Us"|t:current_lang }}</a>
+                    <a class="btn btn-outline-primary btn-sm text-start" href="/downloads/">{{ "Downloads"|t:current_lang }}</a> 
+                    <a class="btn btn-outline-primary btn-sm text-start" href="{% url 'employee_form' %}">{{ "Employee Form"|t:current_lang }}</a>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  </div>
+    </div>               
 </div>
 {% endblock %}
