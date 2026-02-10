@@ -6,9 +6,13 @@
 
 {% block extra_css %}
 <style>
+    /* 1. This prevents the horizontal scrollbar on the whole page */
+    body {
+        overflow-x: hidden;
+    }
 
-    .carousel-container {
-        /* 1. Breaking out of the container */
+    /* 2. Break out of the container to hit the screen edges exactly */
+    .full-screen-banner {
         width: 100vw;
         position: relative;
         left: 50%;
@@ -16,39 +20,36 @@
         margin-left: -50vw;
         margin-right: -50vw;
         
-        /* 2. Removing the top gap to touch the navbar */
+        /* Removes gap between navbar and banner */
         margin-top: -1.5rem; 
         margin-bottom: 2rem;
-        
-        /* 3. Preventing horizontal scrollbars */
-        overflow: hidden;
     }
 
     .carousel-item img {
-        width: 100vw;
-        height: 450px;
+        width: 100%;
+        height: 450px; /* Adjust height as needed */
         object-fit: cover;
         display: block;
     }
 
-    /* Important: Remove any default padding from the main container for this page only */
+    /* 3. Ensure the main container doesn't conflict */
     main.container {
         max-width: 100% !important;
         padding-left: 0 !important;
         padding-right: 0 !important;
     }
 
-    /* Re-apply the container width to the bottom content so text doesn't hit the edges */
-    .lower-content {
-        max-width: 1320px; /* Standard Bootstrap Container width */
+    /* 4. Re-align the lower content to standard width */
+    .content-container {
+        max-width: 1200px;
         margin: 0 auto;
-        padding: 0 15px;
+        padding: 0 20px;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="carousel-container">
+<div class="full-screen-banner">
     <div id="mainCarousel" class="carousel slide" data-bs-ride="carousel">
         <div class="carousel-indicators">
             <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="0" class="active"></button>
@@ -56,15 +57,15 @@
             <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="2"></button>
         </div>
 
-        <div class="carousel-inner shadow-sm">
+        <div class="carousel-inner">
             <div class="carousel-item active" data-bs-interval="3000">
-                <img src="{% static 'images/slide1.jpg' %}" class="d-block w-100" alt="Slide 1">
+                <img src="{% static 'images/slide1.jpg' %}" alt="Slide 1">
             </div>
             <div class="carousel-item" data-bs-interval="3000">
-                <img src="{% static 'images/slide2.jpg' %}" class="d-block w-100" alt="Slide 2">
+                <img src="{% static 'images/slide2.jpg' %}" alt="Slide 2">
             </div>
             <div class="carousel-item" data-bs-interval="3000">
-                <img src="{% static 'images/slide3.jpg' %}" class="d-block w-100" alt="Slide 3">
+                <img src="{% static 'images/slide3.jpg' %}" alt="Slide 3">
             </div>
         </div>
 
