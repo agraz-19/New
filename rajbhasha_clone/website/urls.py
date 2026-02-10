@@ -1,9 +1,8 @@
 from django.urls import path, include
-from django.contrib.auth.views import LogoutView
 from website import views
 from website.views import (
     CustomLoginView, signup, ForgotPasswordView, VerifyOTPView, ResetPasswordView,
-    EmployeeListCreateAPI, EmployeeDetailAPI, SubmitDraftAPI
+    EmployeeListCreateAPI, EmployeeDetailAPI, SubmitDraftAPI, custom_logout
 )
 
 urlpatterns = [
@@ -13,7 +12,7 @@ urlpatterns = [
     # Authentication
     path('login/', CustomLoginView.as_view(), name='login'),
     path('signup/', signup, name='signup'),
-    path('logout/', LogoutView.as_view(next_page='home'), name='logout'),
+    path('logout/', custom_logout, name='logout'),
 
     path('forgot-password/', ForgotPasswordView.as_view(), name='forgot_password'),
     path('resend-otp/', views.ResendOTPView.as_view(), name='resend_otp'),
