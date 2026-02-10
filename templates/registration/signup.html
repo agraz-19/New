@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% load django_bootstrap5 %}
+{% load translate_tags %}
+
+{% block title %}{{ "Create Account"|t:current_lang }}{% endblock %}
+
+{% block content %}
+<style>
+    /* Update your CSS to target the Card Body used in signup/login */
+.card-body {
+    padding-bottom: 2rem !important; 
+}
+.card-body .d-grid {
+    gap: 1.5rem !important;
+}
+.card-body .border-top {
+    margin-top: 2rem !important;
+    padding-top: 1.5rem !important;
+}
+</style>
+<div class="row justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h2 class="text-center fw-bold mb-4">{{ "Create Account"|t:current_lang }}</h2>
+                
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    {# Use bootstrap_field to ensure proper styling and visibility #}
+                    {% bootstrap_field form.username %}
+                    {% bootstrap_field form.email %}
+                    {% bootstrap_field form.password1 %}
+                    {% bootstrap_field form.password2 %}
+                    
+                    <div class="form-check mb-3">
+    {{ form.consent }}
+    <label class="form-check-label ms-2">
+        {{ form.consent.label|safe }}
+    </label>
+</div>
+        
+        {# Show validation error if not checked #}
+        {% if form.consent.errors %}
+            <div class="text-danger small">{{ form.consent.errors.0 }}</div>
+        {% endif %}
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100">{{ "Sign Up"|t:current_lang }}</button>
+</form>
+                <div class="text-center mt-3">
+                    <p class="mb-0 small">
+                        {{ "Already have an account?"|t:current_lang }} 
+                        <a href="{% url 'login' %}" class="fw-bold text-decoration-none">{{ "Login here"|t:current_lang }}</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

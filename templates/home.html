@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load translate_tags %}
+
+{% block title %}{{ "Home"|t:current_lang }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 75vh;">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow-lg border-0 text-center">
+            <div class="card-body p-5">
+                <h1 class="display-4 fw-bold mb-4 text-primary">{{ "User Registration"|t:current_lang }}</h1>
+                
+                {% if user.is_authenticated %}
+                    <div class="alert alert-info border-0 shadow-sm mb-4">
+                        {{ "You are logged in as"|t:current_lang }} <strong>{{ user.username }}</strong>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'dashboard' %}" class="btn btn-primary btn-lg shadow-sm">{{ "Go to Dashboard"|t:current_lang }}</a>
+                    </div>
+                {% else %}
+                    <div class="d-grid gap-3">
+                        <a href="{% url 'login' %}" class="btn btn-primary btn-lg shadow-sm">{{ "Sign In"|t:current_lang }}</a>
+                        <a href="{% url 'signup' %}" class="btn btn-outline-primary btn-lg">{{ "Create Account"|t:current_lang }}</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
