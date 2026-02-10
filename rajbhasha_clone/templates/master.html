@@ -137,15 +137,10 @@
             
                 <div class="d-flex align-items-center gap-3 mt-3 mt-lg-0 ms-auto">
                     
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-outline-light fw-bold dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown">
-                            {% if current_lang == 'hi' %}हिंदी{% else %}English{% endif %}
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow">
-                            <li><a class="dropdown-item {% if current_lang != 'hi' %}active{% endif %}" href="{% if current_lang == 'hi' %}{% url 'toggle_language' %}{% else %}#{% endif %}">English</a></li>
-                            <li><a class="dropdown-item {% if current_lang == 'hi' %}active{% endif %}" href="{% if current_lang != 'hi' %}{% url 'toggle_language' %}{% else %}#{% endif %}">हिंदी</a></li>
-                        </ul>
-                    </div>
+                    <div class="d-flex align-items-center gap-3 ms-auto">
+                <a href="{% url 'toggle_language' %}" class="btn btn-sm btn-outline-light fw-bold">
+                    {% if current_lang == 'hi' %}English{% else %}हिंदी{% endif %}
+                </a>
 
                     <select id="fontSelector" class="form-select form-select-sm w-auto cursor-pointer" title="{{ 'Font Size'|t:current_lang }}">
                         <option value="normal">{{ "Normal"|t:current_lang }}</option>
