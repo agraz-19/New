@@ -98,19 +98,18 @@
 
     <header class="container-fluid py-3 bg-white border-bottom d-none d-md-block shadow-sm" id="topHeader">
         <div class="row align-items-center px-4">
-            <div class="col-md-2 text-start">
+            <div class="col-md-3 text-start">
                 <img src="{% static 'images/leftLogo.png' %}" alt="Logo" class="logo-img" style="max-height: 80px; width: auto;">
             </div>
             
-            <div class="col-md-8 text-center">
-                <div class="d-flex align-items-center justify-content-center flex-wrap gap-2">
-                    <h3 class="m-0 fw-bold text-dark display-6">राजभाषा विभाग</h3>
-                    <span class="fs-3 text-secondary mx-2 d-none d-lg-inline">|</span>
-                    <h3 class="m-0 fw-bold text-secondary text-uppercase"> Department of Official Language</h3>
+            <div class="col-md-6 text-center">
+                <div class="d-inline-flex align-items-center gap-3">
+                    <h2 class="m-0 fw-bold">{{ "राजभाषा विभाग"|t:current_lang }}</h2>
+                    <span class="text-muted border-start ps-3 d-none d-md-block">{{ "DEPARTMENT OF OFFICIAL LANGUAGE"|t:current_lang }}</span>
                 </div>
             </div>
 
-            <div class="col-md-2 text-end">
+            <div class="col-md-3 text-end">
                 <img src="{% static 'images/rightLogo.jpg' %}" alt="Logo" class="logo-img" style="max-height: 80px; width: auto;">
             </div>
         </div>
@@ -274,3 +273,7 @@
     </script>
 </body>
 </html>
+
+
+
+
