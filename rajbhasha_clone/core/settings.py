@@ -1,11 +1,13 @@
 from pathlib import Path
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY
 SECRET_KEY = 'django-insecure-ymob%9c8jb8=ld@^f(*(sc-)m7i=zgvcn6c+k85l7s5m@&hce('
-DEBUG = True
+DEBUG = False
 
+# 2. Allow local host (Required when DEBUG is False)
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
 
@@ -123,8 +125,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'petertriffle@gmail.com'
-EMAIL_HOST_PASSWORD = 'eetekzvolwnphbqf'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 
 
 # CSRF / SECURITY
@@ -166,3 +168,4 @@ CAPTCHA_OUTPUT_FORMAT = (
 
 # ENCRYPTION
 ENCRYPTION_KEY = 'EOxZWt1RC6O9GKhF8d30FUxyCyjGAz29smC5i8tWA0I='
+CSRF_FAILURE_VIEW = 'website.views.csrf_failure'

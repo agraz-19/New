@@ -16,6 +16,12 @@ ALLOWED_DESIGNATIONS = {
 }
 
 class EmployeeSerializer(serializers.ModelSerializer):
+    super_annuation_date = serializers.DateField(
+        format="%Y-%m-%d",  # Output format (for frontend)
+        input_formats=["%Y-%m-%d"], # Input format (from frontend)
+        required=False, 
+        allow_null=True
+    )
 
     def validate_designation(self, value):
         value = value.strip()
@@ -42,4 +48,10 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Employee
-        fields = "__all__"
+        # List all fields explicitly to avoid including the encrypted binary field
+        fields = [
+            'id', 'empcode', 'ename', 'hname', 'designation', 
+            'gazet', 'prabodh', 'praveen', 'pragya', 'parangat',
+            'typing', 'hindiproficiency', 'status', 'lastupdate',
+            'super_annuation_date' # This maps to your model property
+        ]

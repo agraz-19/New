@@ -1,15 +1,26 @@
-<div style="font-family: Arial, sans-serif; line-height: 1.6;">
+<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
     <div style="border-bottom: 2px solid #007bff; padding-bottom: 10px;">
-        <h2>Security Alert / सुरक्षा चेतावनी</h2>
+        <h2 style="color: #0056b3;">Security Alert / सुरक्षा चेतावनी</h2>
     </div>
     
     <div style="margin-top: 20px;">
         <p><strong>English:</strong> {{ body_en }}</p>
-        <hr>
-        <p><strong>हिंदी:</strong> {{ body_hi }}</p>
-    </div>
+        <hr style="border: 0; border-top: 1px solid #eee;">
+        <p><strong>हिंदी:</strong> {{ body_hi|default:body_en }}</p> 
+        </div>
 
-    <div style="background: #f8f9fa; padding: 15px; margin-top: 20px;">
-        <p>Login Time / लॉगिन का समय: {{ timezone_now }}</p>
+    <div style="background: #f8f9fa; padding: 15px; margin-top: 20px; border-radius: 5px;">
+        <table style="width: 100%;">
+            <tr>
+                <td style="padding: 5px 0;"><strong>Time / समय:</strong></td>
+                <td>{{ details.Time }}</td> </tr>
+            <tr>
+                <td style="padding: 5px 0;"><strong>Role / भूमिका:</strong></td>
+                <td>{{ details.Role }}</td> </tr>
+        </table>
+    </div>
+    
+    <div style="margin-top: 20px; font-size: 12px; color: #777;">
+        <p>This is an automated system email. Please do not reply.</p>
     </div>
 </div>

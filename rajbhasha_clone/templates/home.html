@@ -1,7 +1,9 @@
 {% extends "master.html" %}
+{% load translate_tags %}
+
 {% load static %}
 
-{% block title %}Home{% endblock %}
+{% block title %}{{ "Home"|t:current_lang }}{% endblock %}
 
 {% block content %}
 <div id="mainCarousel" class="carousel slide" data-bs-ride="carousel">
@@ -13,24 +15,24 @@
 </div>
 
 <div class="container my-4">
-  <h4 class="fw-bold">WHAT'S NEW</h4> <div class="row g-4 mt-1">
+  <h4 class="fw-bold">{{ "WHAT'S NEW"|t:current_lang }}</h4> <div class="row g-4 mt-1">
     <div class="col-lg-8">
       <div class="card shadow-sm border-0">
         <div class="card-body">
           <ul class="mb-0">
-            <li><span>Notice 1 / Circular 1</span></li>
-            <li><span>Notice 2 / Circular 2</span></li>
-            <li><span>Notice 3 / Circular 3</span></li> </ul>
+            <li><span>{{ "Notice 1 / Circular 1"|t:current_lang }}</span></li>
+            <li><span>{{ "Notice 2 / Circular 2"|t:current_lang }}</span></li>
+            <li><span>{{ "Notice 3 / Circular 3"|t:current_lang }}</span></li> </ul>
         </div>
       </div>
     </div>
 
     <div class="col-lg-4">
       <div class="card shadow-sm">
-        <div class="card-header bg-white fw-bold"><span>Quick Links</span></div>
+        <div class="card-header bg-white fw-bold"><span>{{ "Quick Links"|t:current_lang }}</span></div>
         <div class="card-body d-grid gap-2">
-          <a class="btn btn-outline-primary btn-sm text-start" href="/about/">About Us</a>
-          <a class="btn btn-outline-primary btn-sm text-start" href="/downloads/">Downloads</a> <a class="btn btn-outline-primary btn-sm text-start" href="{% url 'employee_form' %}">Employee Form</a>
+          <a class="btn btn-outline-primary btn-sm text-start" href="/about/">{{ "About Us"|t:current_lang }}</a>
+          <a class="btn btn-outline-primary btn-sm text-start" href="/downloads/">{{ "Downloads"|t:current_lang }}</a> <a class="btn btn-outline-primary btn-sm text-start" href="{% url 'employee_form' %}">{{ "Employee Form"|t:current_lang }}</a>
         </div>
       </div>
     </div>

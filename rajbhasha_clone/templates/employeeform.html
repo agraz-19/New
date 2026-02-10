@@ -1,17 +1,30 @@
 {% extends "master.html" %}
-{% block title %}NIC TG - Employees Form{% endblock %}
+{% load translate_tags %}
+
+{% block title %}{{"NIC TG - Employees Form"|t:current_lang }}{% endblock %}
 
 {% block content %}
 <style>
   label { font-weight: 600; }
+  
+  /* DARK MODE FIXES */
+  [data-bs-theme="dark"] #employeeForm {
+      background-color: #212529 !important;
+      border-color: #373b3e !important;
+      color: #e0e0e0;
+  }
+  [data-bs-theme="dark"] .table { color: #e0e0e0 !important; }
+  [data-bs-theme="dark"] .table-primary { --bs-table-bg: #084298; --bs-table-color: #fff; }
+  [data-bs-theme="dark"] .table-success { --bs-table-bg: #0f5132; --bs-table-color: #fff; }
+  [data-bs-theme="dark"] h4, [data-bs-theme="dark"] h5 { color: #6ea8fe !important; border-bottom-color: #495057 !important; }
 </style>
 
 <div class="container-fluid mt-4 mb-5 px-4">
 
-<h4 class="text-primary border-bottom pb-2">Employee Entry Form</h4>
+<h4 class="text-primary border-bottom pb-2">{{"Employee Entry Form"|t:current_lang }}</h4>
 
 <div id="lastUpdatedBox" class="text-muted small mb-2" style="display:none;">
-  <strong>Last Updated On:</strong>
+  <strong>{{"Last Updated On:"|t:current_lang }}</strong>
   <span id="lastUpdatedText"></span>
 </div>
 
@@ -19,134 +32,160 @@
 {% csrf_token %}
 
 <div class="row g-3">
-
-  <!-- LEFT COLUMN -->
   <div class="col-md-6">
-    <label>Empcode</label>
-    {{ form.empcode }}
+    <label>{{"Empcode"|t:current_lang }}</label>
+    {{ form.empcode}}
 
-    <label class="mt-2">Name in English</label>
-    {{ form.ename }}
+    <label class="mt-2">{{"Name in English"|t:current_lang }}</label>
+    {{ form.ename}}
 
-    <label class="mt-2">Name in Hindi</label>
+    <label class="mt-2">{{"Name in Hindi"|t:current_lang }}</label>
     {{ form.hname }}
 
-    <label class="mt-2">Designation</label>
-    <select id="designationSelect" class="form-select">
-      <option value="">-- Select --</option>
-      <option>Scientist-F</option>
-      <option>Scientist-G</option>
-      <option>Scientist-E</option>
-      <option>Scientist-D</option>
-      <option>Scientist-C</option>
-      <option>Scientist-B</option>
-      <option>Section Officer</option>
-      <option>Senior Secretariate Assistant</option>
-      <option>Scientific/Technical Assistant-A</option>
-      <option>Scientific/Technical Assistant-B</option>
-      <option>Scientific Officer/Engineer-SB</option>
-      <option value="OTHER">Other</option>
+    <label class="mt-2">{{"Designation"|t:current_lang }} {% if role == 'manager' %}<span class="badge bg-info text-dark">Manager Only</span>{% endif %}</label>
+    <select id="designationSelect" class="form-select" {% if role != 'manager' %}disabled style="background-color: #e9ecef;"{% endif %}>
+      <option value="">-- {{"Select"|t:current_lang }} --</option>
+      <option value="Scientist-F">{{"Scientist-F"|t:current_lang }}</option>
+      <option value="Scientist-G">{{"Scientist-G"|t:current_lang }}</option>
+      <option value="Scientist-E">{{"Scientist-E"|t:current_lang }}</option>
+      <option value="Scientist-D">{{"Scientist-D"|t:current_lang }}</option>
+      <option value="Scientist-C">{{"Scientist-C"|t:current_lang }}</option>
+      <option value="Scientist-B">{{"Scientist-B"|t:current_lang }}</option>
+      <option value="Section Officer">{{"Section Officer"|t:current_lang }}</option>
+      <option value="Senior Secretariate Assistant">{{"Senior Secretariate Assistant"|t:current_lang }}</option>
+      <option value="Scientific/Technical Assistant-A">{{"Scientific/Technical Assistant-A"|t:current_lang }}</option>
+      <option value="Scientific/Technical Assistant-B">{{"Scientific/Technical Assistant-B"|t:current_lang }}</option>
+      <option value="Scientific Officer/Engineer-SB">{{"Scientific Officer/Engineer-SB"|t:current_lang }}</option>
+      <option value="OTHER">{{"Other"|t:current_lang }}</option>
     </select>
+    {% if role != 'manager' %}<div class="form-text text-muted small">{{"Only a Manager can assign the Designation."|t:current_lang }}</div>{% endif %}
 
-    <input id="otherDesignation"
-           class="form-control mt-2"
-           placeholder="Enter other designation"
-           style="display:none;">
+    <input id="otherDesignation" class="form-control mt-2" placeholder="Enter other designation" style="display:none;">
 
-    <label class="mt-2">Typing</label>
+    <label class="mt-2">{{"Typing"|t:current_lang }}</label>
     <select name="typing" class="form-select">
-      <option value="">-- Select --</option>
-      <option>Hindi</option>
-      <option>English</option>
-      <option>Both</option>
+      {% for value, label in form.fields.typing.choices %}
+        <option value="{{ value }}" {% if form.typing.value == value %}selected{% endif %}>
+             {% if not value %}-- {{"Select"|t:current_lang }} --{% else %}{{ label|t:current_lang }}{% endif %}
+        </option>
+      {% endfor %}
     </select>
 
-    <label class="mt-2">Hindi Proficiency</label>
+    <label class="mt-2">{{"Hindi Proficiency"|t:current_lang }}</label>
     <select name="hindiproficiency" class="form-select">
-      <option value="">-- Select --</option>
-      <option>Excellent</option>
-      <option>Good</option>
-      <option>Average</option>
+      {% for value, label in form.fields.hindiproficiency.choices %}
+        <option value="{{ value }}" {% if form.hindiproficiency.value == value %}selected{% endif %}>
+             {% if not value %}-- {{"Select"|t:current_lang }} --{% else %}{{ label|t:current_lang }}{% endif %}
+        </option>
+      {% endfor %}
     </select>
   </div>
 
-  <!-- RIGHT COLUMN -->
   <div class="col-md-6">
-    <label>Gazet</label>
-    {{ form.gazet }}
+    <label>{{"Gazet"|t:current_lang }}</label>
+    <select name="gazet" class="form-select">
+        {% for value, label in form.fields.gazet.choices %}
+            <option value="{{ value }}" {% if form.gazet.value == value %}selected{% endif %}>{% if not value %}----{% else %}{{ label|t:current_lang }}{% endif %}</option>
+        {% endfor %}
+    </select>
 
-    <label class="mt-2">Prabodh</label>
-    {{ form.prabodh }}
+    <label class="mt-2">{{"Prabodh"|t:current_lang }}</label>
+    <select name="prabodh" class="form-select">
+        {% for value, label in form.fields.prabodh.choices %}
+            <option value="{{ value }}" {% if form.prabodh.value == value %}selected{% endif %}>{% if not value %}----{% else %}{{ label|t:current_lang }}{% endif %}</option>
+        {% endfor %}
+    </select>
 
-    <label class="mt-2">Praveen</label>
-    {{ form.praveen }}
+    <label class="mt-2">{{"Praveen"|t:current_lang }}</label>
+    <select name="praveen" class="form-select">
+        {% for value, label in form.fields.praveen.choices %}
+            <option value="{{ value }}" {% if form.praveen.value == value %}selected{% endif %}>{% if not value %}----{% else %}{{ label|t:current_lang }}{% endif %}</option>
+        {% endfor %}
+    </select>
 
-    <label class="mt-2">Pragya</label>
-    {{ form.pragya }}
+    <label class="mt-2">{{"Pragya"|t:current_lang }}</label>
+    <select name="pragya" class="form-select">
+        {% for value, label in form.fields.pragya.choices %}
+            <option value="{{ value }}" {% if form.pragya.value == value %}selected{% endif %}>{% if not value %}----{% else %}{{ label|t:current_lang }}{% endif %}</option>
+        {% endfor %}
+    </select>
 
-    <label class="mt-2">Parangat</label>
-    {{ form.parangat }}
+    <label class="mt-2">{{"Parangat"|t:current_lang }}</label>
+    <select name="parangat" class="form-select">
+        {% for value, label in form.fields.parangat.choices %}
+            <option value="{{ value }}" {% if form.parangat.value == value %}selected{% endif %}>{% if not value %}----{% else %}{{ label|t:current_lang }}{% endif %}</option>
+        {% endfor %}
+    </select>
 
-    <label class="mt-2">Superannuation Date</label>
+    <label class="mt-2">{{"Superannuation Date"|t:current_lang }}</label>
     {{ form.super_annuation_date }}
   </div>
-</div>
 
 <div class="text-center mt-4">
-  <button class="btn btn-warning px-5 fw-bold">Save as Draft</button>
+  <button class="btn btn-warning px-5 fw-bold">{{"Save as Draft"|t:current_lang }}</button>
 </div>
 </form>
 
-<!-- NAV -->
 <div class="mt-4">
-  <button class="btn btn-outline-primary me-2" onclick="showDrafts()">Show Drafts</button>
-  <button class="btn btn-outline-secondary" onclick="showSubmitted()">Show Submitted Records</button>
+  <button class="btn btn-outline-primary me-2" onclick="showDrafts()">{{"Show Drafts"|t:current_lang }}</button>
+  <button class="btn btn-outline-secondary" onclick="showSubmitted()">{{"Show Submitted Records"|t:current_lang }}</button>
 </div>
 
-<!-- TABLE AREA -->
 <div class="mt-3">
 
-<!-- DRAFTS -->
 <div id="draftSection" style="display:none;">
-<h5>Saved Drafts</h5>
-
-<table class="table table-bordered table-sm align-middle">
-<thead class="table-primary text-center">
-<tr>
-<th>Select</th><th>Empcode</th><th>Name in English</th><th>Name in Hindi</th>
-<th>Designation</th><th>Gazet</th><th>Prabodh</th><th>Praveen</th>
-<th>Pragya</th><th>Parangat</th><th>Typing</th>
-<th>Hindi Proficiency</th><th>Superannuation Date</th><th>Actions</th>
-</tr>
-</thead>
-<tbody id="draftTableBody"></tbody>
-</table>
-
-<button class="btn btn-success" onclick="submitSelectedDrafts()">
-Submit Selected Records
-</button>
+<h5>{{"Saved Drafts"|t:current_lang }}</h5>
+<div class="table-responsive">
+  <table class="table table-bordered table-sm align-middle">
+    <thead class="table-primary text-center">
+    <tr>
+      <th>{{"Select"|t:current_lang }}</th>
+      <th>{{"Empcode"|t:current_lang }}</th>
+      <th>{{"Name"|t:current_lang }}</th>
+      <th>{{"Name (Hin)"|t:current_lang }}</th>
+      <th>{{"Designation"|t:current_lang }}</th>
+      <th>{{"Typing"|t:current_lang }}</th>
+      <th>{{"Proficiency"|t:current_lang }}</th>
+      <th>{{"Gazet"|t:current_lang }}</th>
+      <th>{{"Prabodh"|t:current_lang }}</th>
+      <th>{{"Praveen"|t:current_lang }}</th>
+      <th>{{"Pragya"|t:current_lang }}</th>
+      <th>{{"Parangat"|t:current_lang }}</th>
+      <th>{{"Date"|t:current_lang }}</th> <th>{{"Actions"|t:current_lang }}</th>
+    </tr>
+    </thead>
+    <tbody id="draftTableBody"></tbody>
+  </table>
+</div>
+<button class="btn btn-success" onclick="submitSelectedDrafts()">{{"Submit Selected Records"|t:current_lang }}</button>
 </div>
 
-<!-- SUBMITTED -->
 <div id="submittedSection" style="display:none;">
-
-<!-- RIGHT-ALIGNED DOWNLOAD BUTTONS -->
 <div class="d-flex justify-content-end mb-2">
-  <button class="btn btn-success me-2" onclick="downloadExcel()">Download Excel</button>
-  <button class="btn btn-danger" onclick="downloadPDF()">Download PDF</button>
+  <button class="btn btn-success me-2" onclick="downloadExcel()">{{"Download Excel"|t:current_lang }}</button>
+  <button class="btn btn-danger" onclick="downloadPDF()">{{"Download PDF"|t:current_lang }}</button>
 </div>
-
-<table class="table table-bordered table-sm align-middle" id="submittedTable">
-<thead class="table-success text-center">
-<tr>
-<th>Empcode</th><th>Name in English</th><th>Name in Hindi</th>
-<th>Designation</th><th>Gazet</th><th>Prabodh</th><th>Praveen</th>
-<th>Pragya</th><th>Parangat</th><th>Typing</th>
-<th>Hindi Proficiency</th><th>Superannuation Date</th>
-</tr>
-</thead>
-<tbody id="submittedTableBody"></tbody>
-</table>
+<div class="table-responsive">
+  <table class="table table-bordered table-sm align-middle" id="submittedTable">
+    <thead class="table-success text-center">
+    <tr>
+      <th>{{"Empcode"|t:current_lang }}</th>
+      <th>{{"Name"|t:current_lang }}</th>
+      <th>{{"Name (Hin)"|t:current_lang }}</th>
+      <th>{{"Designation"|t:current_lang }}</th>
+      <th>{{"Typing"|t:current_lang }}</th>
+      <th>{{"Proficiency"|t:current_lang }}</th>
+      <th>{{"Gazet"|t:current_lang }}</th>
+      <th>{{"Prabodh"|t:current_lang }}</th>
+      <th>{{"Praveen"|t:current_lang }}</th>
+      <th>{{"Pragya"|t:current_lang }}</th>
+      <th>{{"Parangat"|t:current_lang }}</th>
+      <th>{{"Date"|t:current_lang }}</th> {% if role == 'manager' %}<th>{{"Actions"|t:current_lang }}</th>{% endif %}
+    </tr>
+    </thead>
+    <tbody id="submittedTableBody"></tbody>
+  </table>
+</div>
 </div>
 
 </div>
@@ -154,127 +193,237 @@ Submit Selected Records
 
 <script>
 let editingId = null;
+const userRole = "{{ role }}"; 
+const currentLang = "{{ current_lang }}"; 
 
-/* ================= TRANSLATION (UNCHANGED) ================= */
+// 1. DICTIONARY
+const dictionary = {
+    "Passed": "उत्तीर्ण", "Did not Appear": "उपस्थित नहीं हुए", "Failed": "अनुत्तीर्ण",
+    "Excellent": "उत्कृष्ट", "Good": "अच्छा", "Average": "औसत",
+    "Hindi": "हिंदी", "English": "अंग्रेजी", "Both": "दोनों",
+    "Gazetted": "राजपत्रित", "Non-Gazetted": "अराजपत्रित",
+    "Scientist-F": "वैज्ञानिक-एफ", "Scientist-G": "वैज्ञानिक-जी", "Scientist-E": "वैज्ञानिक-ई",
+    "Scientist-D": "वैज्ञानिक-डी", "Scientist-C": "वैज्ञानिक-सी", "Scientist-B": "वैज्ञानिक-बी",
+    "Section Officer": "अनुभाग अधिकारी", "Senior Secretariate Assistant": "वरिष्ठ सचिवालय सहायक",
+    "Scientific/Technical Assistant-A": "वैज्ञानिक/तकनीकी सहायक-ए",
+    "Scientific/Technical Assistant-B": "वैज्ञानिक/तकनीकी सहायक-बी",
+    "Scientific Officer/Engineer-SB": "वैज्ञानिक अधिकारी/इंजीनियर-एसबी",
+    "Other": "अन्य", "Pending": "लंबित" // Added Pending translation
+};
+
 async function translateData(text) {
-  if (!text || text === "-" || text === "None") return "-";
-  const lang = new URLSearchParams(window.location.search).get("lang") || "en";
-  if (lang !== "hi") return text;
-
-  const cacheKey = "tr_" + text;
-  if (sessionStorage.getItem(cacheKey)) return sessionStorage.getItem(cacheKey);
-
-  const res = await fetch("/api/translate/", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRFToken": getCookie("csrftoken")
-    },
-    body: JSON.stringify({ text, target: "hi" })
-  });
-  const data = await res.json();
-  sessionStorage.setItem(cacheKey, data.translated);
-  return data.translated;
+  if (!text || text === "-" || text === "None" || text === null) return "-";
+  text = text.trim();
+  if (currentLang === 'hi') return dictionary[text] || text;
+  return text;
 }
 
-/* DESIGNATION */
+// 2. MASKING FUNCTION
+function maskDate(dateStr) {
+    if (!dateStr || dateStr === "-" || dateStr === "None") return "-";
+    const parts = dateStr.split("-");
+    if (parts.length === 3) {
+        return `**-**-${parts[0]}`; 
+    }
+    return "****";
+}
+
 document.getElementById("designationSelect").addEventListener("change", e => {
-  document.getElementById("otherDesignation").style.display =
-    e.target.value === "OTHER" ? "block" : "none";
+  document.getElementById("otherDesignation").style.display = e.target.value === "OTHER" ? "block" : "none";
 });
 
-/* SAVE */
+/* ================= SAVE LOGIC (FIXED) ================= */
 document.getElementById("employeeForm").addEventListener("submit", async e => {
   e.preventDefault();
-  const data = Object.fromEntries(new FormData(e.target).entries());
+  const formData = new FormData(e.target);
+  const data = Object.fromEntries(formData.entries());
 
-  data.designation =
-    document.getElementById("designationSelect").value === "OTHER"
-      ? document.getElementById("otherDesignation").value
-      : document.getElementById("designationSelect").value;
+  // 1. Handle Designation
+  const desigSelect = document.getElementById("designationSelect");
+  let finalDesignation = desigSelect.value === "OTHER" ? document.getElementById("otherDesignation").value : desigSelect.value;
+  
+  // FIX: If empty, send "Pending" instead of null. 
+  // This tricks the database into accepting the record even if the field is required.
+  if (!finalDesignation || finalDesignation === "") {
+      data.designation = "Pending"; 
+  } else {
+      data.designation = finalDesignation;
+  }
 
+  // 2. Handle Date
+  // Note: If Superannuation Date is required in DB, this might also fail if sent as null.
+  // Ideally, ensure your model allows null=True for dates.
+  if (!data.super_annuation_date) {
+      data.super_annuation_date = null;
+  }
+  
   data.status = "draft";
 
   const url = editingId ? `/api/employees/${editingId}/` : "/api/employees/";
   const method = editingId ? "PUT" : "POST";
 
-  await fetch(url, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRFToken": getCookie("csrftoken")
-    },
-    body: JSON.stringify(data)
-  });
+  try {
+      const response = await fetch(url, {
+        method: method,
+        headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+        body: JSON.stringify(data)
+      });
 
-  e.target.reset();
-  editingId = null;
-  document.getElementById("designationSelect").value = "";
-  document.getElementById("otherDesignation").style.display = "none";
-  document.getElementById("lastUpdatedBox").style.display = "none";
-  showDrafts();
+      if (!response.ok) {
+          const errorData = await response.json();
+          let msg = "Error saving record:\n";
+          // Log error to console for debugging
+          console.error("Server Error Details:", errorData);
+          
+          for (const [field, errors] of Object.entries(errorData)) {
+              msg += `• ${field}: ${errors.join(", ")}\n`;
+          }
+          alert(msg);
+          return; 
+      }
+
+      e.target.reset();
+      editingId = null;
+      document.getElementById("designationSelect").value = "";
+      document.getElementById("otherDesignation").style.display = "none";
+      document.getElementById("lastUpdatedBox").style.display = "none";
+      showDrafts();
+      alert("Record saved successfully!");
+
+  } catch (err) { 
+      console.error(err);
+      alert("Network Error: Please check console for details."); 
+  }
 });
 
-/* DRAFTS */
+/* SHOW DRAFTS */
 async function showDrafts() {
   toggle("draftSection");
-  const data = (await (await fetch("/api/employees/?status=draft")).json()).reverse();
-  const tbody = document.getElementById("draftTableBody");
-  tbody.innerHTML = "";
+  try {
+      const res = await fetch("/api/employees/?status=draft");
+      const data = (await res.json()).reverse();
+      const tbody = document.getElementById("draftTableBody");
+      tbody.innerHTML = "";
+      
+      for (const d of data) {
+        const rawDate = d.super_annuation_date || d.superannuation_date || "-";
+        const maskedDate = maskDate(rawDate);
 
-  for (const d of data) {
-    const row = `
-      <tr>
-        <td><input type="checkbox" value="${d.id}"></td>
-        <td>${d.empcode}</td>
-        <td>${d.ename}</td>
-        <td>${d.hname}</td>
-        <td>${await translateData(d.designation)}</td>
-        <td>${await translateData(d.gazet)}</td>
-        <td>${await translateData(d.prabodh)}</td>
-        <td>${await translateData(d.praveen)}</td>
-        <td>${await translateData(d.pragya)}</td>
-        <td>${await translateData(d.parangat)}</td>
-        <td>${await translateData(d.typing)}</td>
-        <td>${await translateData(d.hindiproficiency)}</td>
-        <td>${d.super_annuation_date || "-"}</td>
-        <td>
-          <button class="btn btn-sm btn-primary" onclick="editDraft(${d.id})">Edit</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteDraft(${d.id})">Delete</button>
-        </td>
-      </tr>`;
-    tbody.insertAdjacentHTML("afterbegin", row);
-  }
+        tbody.insertAdjacentHTML("afterbegin", `
+          <tr>
+            <td><input type="checkbox" value="${d.id}"></td>
+            <td>${d.empcode}</td>
+            <td>${d.ename}</td>
+            <td>${d.hname}</td>
+            <td>${await translateData(d.designation)}</td>
+            <td>${await translateData(d.typing)}</td>
+            <td>${await translateData(d.hindiproficiency)}</td>
+            <td>${await translateData(d.gazet)}</td>
+            <td>${await translateData(d.prabodh)}</td>
+            <td>${await translateData(d.praveen)}</td>
+            <td>${await translateData(d.pragya)}</td>
+            <td>${await translateData(d.parangat)}</td>
+            <td>${maskedDate}</td>
+            <td>
+              <button class="btn btn-sm btn-primary" onclick="editDraft(${d.id})">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteDraft(${d.id})">Delete</button>
+            </td>
+          </tr>`);
+      }
+  } catch(e) { console.error("Error loading drafts:", e); }
 }
 
-/* SUBMITTED */
+/* SHOW SUBMITTED */
 async function showSubmitted() {
   toggle("submittedSection");
-  const data = (await (await fetch("/api/employees/?status=submitted")).json()).reverse();
-  const tbody = document.getElementById("submittedTableBody");
-  tbody.innerHTML = "";
+  try {
+      const res = await fetch("/api/employees/?status=submitted");
+      const data = (await res.json()).reverse();
+      const tbody = document.getElementById("submittedTableBody");
+      tbody.innerHTML = "";
+      for (const d of data) {
+        let actionBtn = userRole === 'manager' ? `<td><button class="btn btn-sm btn-warning" onclick="unlockRecord(${d.id})">Unlock</button></td>` : "";
+        
+        const rawDate = d.super_annuation_date || d.superannuation_date || "-";
+        const maskedDate = maskDate(rawDate);
 
-  for (const d of data) {
-    const row = `
-      <tr>
-        <td>${d.empcode}</td>
-        <td>${d.ename}</td>
-        <td>${d.hname}</td>
-        <td>${await translateData(d.designation)}</td>
-        <td>${await translateData(d.gazet)}</td>
-        <td>${await translateData(d.prabodh)}</td>
-        <td>${await translateData(d.praveen)}</td>
-        <td>${await translateData(d.pragya)}</td>
-        <td>${await translateData(d.parangat)}</td>
-        <td>${await translateData(d.typing)}</td>
-        <td>${await translateData(d.hindiproficiency)}</td>
-        <td>${d.super_annuation_date || "-"}</td>
-      </tr>`;
-    tbody.insertAdjacentHTML("afterbegin", row);
-  }
+        tbody.insertAdjacentHTML("afterbegin", `
+          <tr>
+            <td>${d.empcode}</td>
+            <td>${d.ename}</td>
+            <td>${d.hname}</td>
+            <td>${await translateData(d.designation)}</td>
+            <td>${await translateData(d.typing)}</td>
+            <td>${await translateData(d.hindiproficiency)}</td>
+            <td>${await translateData(d.gazet)}</td>
+            <td>${await translateData(d.prabodh)}</td>
+            <td>${await translateData(d.praveen)}</td>
+            <td>${await translateData(d.pragya)}</td>
+            <td>${await translateData(d.parangat)}</td>
+            <td>${maskedDate}</td>
+            ${actionBtn}
+          </tr>`);
+      }
+  } catch(e) {}
 }
 
-/* EXPORTS */
+async function unlockRecord(id) {
+    if(!confirm("Unlock record?")) return;
+    await fetch(`/api/employees/${id}/`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+        body: JSON.stringify({ status: "draft" })
+    });
+    showSubmitted();
+}
+
+async function editDraft(id) {
+  const d = await (await fetch(`/api/employees/${id}/`)).json();
+  editingId = id;
+  for (let k in d) { const f = document.querySelector(`[name="${k}"]`); if (f) f.value = d[k]; }
+  
+  const desigSelect = document.getElementById("designationSelect");
+  if (Array.from(desigSelect.options).map(o=>o.value).includes(d.designation)) {
+      desigSelect.value = d.designation;
+      document.getElementById("otherDesignation").style.display = "none";
+  } else if (d.designation) {
+      desigSelect.value = "OTHER";
+      document.getElementById("otherDesignation").style.display = "block";
+      document.getElementById("otherDesignation").value = d.designation;
+  }
+  document.getElementById("lastUpdatedBox").style.display = "block";
+  document.getElementById("lastUpdatedText").innerText = new Date(d.lastupdate).toLocaleString();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function deleteDraft(id) {
+  if (!confirm("Delete draft?")) return;
+  await fetch(`/api/employees/${id}/`, { method: "DELETE", headers: { "X-CSRFToken": getCookie("csrftoken") } });
+  showDrafts();
+}
+
+async function submitSelectedDrafts() {
+  const ids = [...document.querySelectorAll("#draftTableBody input:checked")].map(i => i.value);
+  if (!ids.length) return alert("Select records first");
+  const res = await fetch("/api/employees/submit/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+    body: JSON.stringify({ ids })
+  });
+  if(res.ok) { showSubmitted(); showDrafts(); alert("Submitted!"); }
+}
+
+function toggle(id) {
+  ["draftSection", "submittedSection"].forEach(x => document.getElementById(x).style.display = "none");
+  document.getElementById(id).style.display = "block";
+}
+
+function getCookie(name) {
+  let v = null;
+  document.cookie.split(";").forEach(c => { c = c.trim(); if (c.startsWith(name + "=")) v = decodeURIComponent(c.slice(name.length + 1)); });
+  return v;
+}
+
 function downloadExcel() {
   const table = document.getElementById("submittedTable");
   const wb = XLSX.utils.table_to_book(table, { sheet: "Submitted Records" });
@@ -287,63 +436,6 @@ function downloadPDF() {
   doc.text("Submitted Employee Records", 40, 40);
   doc.autoTable({ html: "#submittedTable", startY: 60 });
   doc.save("submitted_employees.pdf");
-}
-
-/* EDIT / DELETE / SUBMIT */
-async function editDraft(id) {
-  const d = await (await fetch(`/api/employees/${id}/`)).json();
-  editingId = id;
-
-  for (let k in d) {
-    const f = document.querySelector(`[name="${k}"]`);
-    if (f) f.value = d[k];
-  }
-
-  document.getElementById("designationSelect").value = d.designation;
-  document.getElementById("lastUpdatedBox").style.display = "block";
-  document.getElementById("lastUpdatedText").innerText =
-    new Date(d.lastupdate).toLocaleString();
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-async function deleteDraft(id) {
-  if (!confirm("Delete this draft?")) return;
-  await fetch(`/api/employees/${id}/`, {
-    method: "DELETE",
-    headers: { "X-CSRFToken": getCookie("csrftoken") }
-  });
-  showDrafts();
-}
-
-async function submitSelectedDrafts() {
-  const ids = [...document.querySelectorAll("#draftTableBody input:checked")].map(i => i.value);
-  if (!ids.length) return alert("Select at least one record");
-
-  await fetch("/api/employees/submit/", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRFToken": getCookie("csrftoken")
-    },
-    body: JSON.stringify({ ids })
-  });
-  showSubmitted();
-}
-
-function toggle(id) {
-  ["draftSection", "submittedSection"].forEach(x =>
-    document.getElementById(x).style.display = "none"
-  );
-  document.getElementById(id).style.display = "block";
-}
-
-function getCookie(name) {
-  let v = null;
-  document.cookie.split(";").forEach(c => {
-    c = c.trim();
-    if (c.startsWith(name + "=")) v = decodeURIComponent(c.slice(name.length + 1));
-  });
-  return v;
 }
 </script>
 {% endblock %}

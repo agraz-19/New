@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'master.html' %}
 {% load translate_tags %}
 
 {% block title %}{{ "Dashboard"|t:current_lang }}{% endblock %}
@@ -80,7 +80,7 @@
                         {{ "Manage your personal information"|t:current_lang }}
                     </p>
                     <div class="mt-4">
-                        <h3>{{"Welcome to your Dashboard"|t:current_lang }}</h3>
+                        <h5 class="fw-bold">{{"Welcome to your Dashboard"|t:current_lang }}</h5>
                         
                     </div>
                     <div class="d-flex gap-2">
@@ -91,7 +91,7 @@
                         <a href="{% url 'delete_account' %}" class="btn btn-outline-danger btn-sm">
                             <i class="bi bi-trash"></i> {{ "Request Erasure"|t:current_lang }}
                         </a>
-<a href="{% url 'employee_form' %}" class="btn btn-lg btn-success">
+<a href="{% url 'employee_form' %}" class="btn btn-sm btn-success">
                             {{"Manage Employee Records"|t:current_lang }}
                         </a>
                         <button type="button" class="btn btn-primary btn-sm ms-auto" data-bs-toggle="modal"
