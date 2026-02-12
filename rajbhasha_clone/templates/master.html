@@ -79,6 +79,12 @@
                     {% if current_lang == 'hi' %}English{% else %}हिंदी{% endif %}
                 </a>
 
+                <select id="fontSelector" class="form-select form-select-sm w-auto cursor-pointer" title="{{ 'Font Size'|t:current_lang }}">
+                        <option value="normal">{{ "Normal"|t:current_lang }}</option>
+                        <option value="medium">{{ "Medium"|t:current_lang }}</option>
+                        <option value="large">{{ "Large"|t:current_lang }}</option>
+                    </select>
+             
                 <button id="themeToggle" class="btn btn-outline-light btn-sm">
                     <span id="themeIcon">🌑</span>
                 </button>
