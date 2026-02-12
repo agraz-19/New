@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+{% load translate_tags %}
+
+{% block title %}{{"NIC TG - Employees Form"|t:current_lang }}{% endblock %}
+
+{% block content %}
+<style>
+  label { font-weight: 600; }
+  
+  /* ================= DARK MODE FIXES FOR THIS PAGE ================= */
+  
+  /* 1. Fix the Form Container Background */
+  [data-bs-theme="dark"] #employeeForm {
+      background-color: #212529 !important; /* Dark Grey */
+      border-color: #373b3e !important;
+      color: #e0e0e0;
+  }
+
+  /* 2. Fix Table Colors in Dark Mode */
+  [data-bs-theme="dark"] .table-primary {
+      --bs-table-bg: #084298;
+      --bs-table-color: #fff;
+      --bs-table-border-color: #052c65;
+  }
+  [data-bs-theme="dark"] .table-success {
+      --bs-table-bg: #0f5132;
+      --bs-table-color: #fff;
+      --bs-table-border-color: #0a3622;
+  }
+
+  /* 3. Ensure Table Text is White */
+  [data-bs-theme="dark"] .table {
+      color: #e0e0e0 !important;
+  }
+
+  /* 4. Fix Section Headings */
+  [data-bs-theme="dark"] h4, 
+  [data-bs-theme="dark"] h5 {
+      color: #6ea8fe !important; /* Light Blue for Dark Mode */
+      border-bottom-color: #495057 !important;
+  }
+</style>
+
+<div class="container-fluid mt-4 mb-5 px-4">
+
+<h4 class="text-primary border-bottom pb-2">{{"Employee Entry Form"|t:current_lang }}</h4>
+
+<div id="lastUpdatedBox" class="text-muted small mb-2" style="display:none;">
+  <strong>{{"Last Updated On:"|t:current_lang }}</strong>
+  <span id="lastUpdatedText"></span>
+</div>
+
+<form id="employeeForm" class="p-3 bg-light border rounded shadow-sm">
+{% csrf_token %}
+
+<div class="row g-3">
+
+  <div class="col-md-6">
+    <label>{{"Empcode"|t:current_lang }}</label>
+    {{ form.empcode}}
+
+    <label class="mt-2">{{"Name in English"|t:current_lang }}</label>
+    {{ form.ename}}
+
+    <label class="mt-2">{{"Name in Hindi"|t:current_lang }}</label>
+    {{ form.hname }}
+
+    <label class="mt-2">{{"Designation"|t:current_lang }} {% if role == 'manager' %}<span class="badge bg-info text-dark">Manager Only</span>{% endif %}</label>
+    <select id="designationSelect" class="form-select" {% if role != 'manager' %}disabled style="background-color: #e9ecef;"{% endif %}>
+      <option value="">-- {{"Select"|t:current_lang }} --</option>
+      <option>{{"Scientist-F"|t:current_lang }}</option>
+      <option>{{"Scientist-G"|t:current_lang }}</option>
+      <option>{{"Scientist-E"|t:current_lang }}</option>
+      <option>{{"Scientist-D"|t:current_lang }}</option>
+      <option>{{"Scientist-C"|t:current_lang }}</option>
+      <option>{{"Scientist-B"|t:current_lang }}</option>
+      <option>{{"Section Officer"|t:current_lang }}</option>
+      <option>{{"Senior Secretariate Assistant"|t:current_lang }}</option>
+      <option>{{"Scientific/Technical Assistant-A"|t:current_lang }}</option>
+      <option>{{"Scientific/Technical Assistant-B"|t:current_lang }}</option>
+      <option>{{"Scientific Officer/Engineer-SB"|t:current_lang }}</option>
+      <option value="OTHER">{{"Other"|t:current_lang }}</option>
+    </select>
+    
+    {% if role != 'manager' %}
+      <div class="form-text text-muted small">{{"Only a Manager can assign the Designation."|t:current_lang }}</div>
+    {% endif %}
+
+    <input id="otherDesignation"
+           class="form-control mt-2"
+           placeholder="Enter other designation"
+           style="display:none;">
+
+    <label class="mt-2">{{"Typing"|t:current_lang }}</label>
+    <select name="typing" class="form-select">
+      <option value="">-- {{"Select"|t:current_lang }} --</option>
+      <option>{{"Hindi"|t:current_lang }}</option>
+      <option>{{"English"|t:current_lang }}</option>
+      <option>{{"Both"|t:current_lang }}</option>
+    </select>
+
+    <label class="mt-2">{{"Hindi Proficiency"|t:current_lang }}</label>
+    <select name="hindiproficiency" class="form-select">
+      <option value="">-- {{"Select"|t:current_lang }} --</option>
+      <option>{{"Excellent"|t:current_lang }}</option>
+      <option>{{"Good"|t:current_lang }}</option>
+      <option>{{"Average"|t:current_lang }}</option>
+    </select>
+  </div>
+
+  <div class="col-md-6">
+    <label>{{"Gazet"|t:current_lang }}</label>
+    <select name="gazet" class="form-select">
+        {% for value, label in form.fields.gazet.choices %}
+            <option value="{{ value }}" {% if form.gazet.value == value %}selected{% endif %}>
+                {% if not value %}----{% else %}{{ label|t:current_lang }}{% endif %}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label class="mt-2">{{"Prabodh"|t:current_lang }}</label>
+    <select name="prabodh" class="form-select">
+        {% for value, label in form.fields.prabodh.choices %}
+            <option value="{{ value }}" {% if form.prabodh.value == value %}selected{% endif %}>
+                {% if not value %}----{% else %}{{ label|t:current_lang }}{% endif %}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label class="mt-2">{{"Praveen"|t:current_lang }}</label>
+    <select name="praveen" class="form-select">
+        {% for value, label in form.fields.praveen.choices %}
+            <option value="{{ value }}" {% if form.praveen.value == value %}selected{% endif %}>
+                {% if not value %}----{% else %}{{ label|t:current_lang }}{% endif %}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label class="mt-2">{{"Pragya"|t:current_lang }}</label>
+    <select name="pragya" class="form-select">
+        {% for value, label in form.fields.pragya.choices %}
+            <option value="{{ value }}" {% if form.pragya.value == value %}selected{% endif %}>
+                {% if not value %}----{% else %}{{ label|t:current_lang }}{% endif %}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label class="mt-2">{{"Parangat"|t:current_lang }}</label>
+    <select name="parangat" class="form-select">
+        {% for value, label in form.fields.parangat.choices %}
+            <option value="{{ value }}" {% if form.parangat.value == value %}selected{% endif %}>
+                {% if not value %}----{% else %}{{ label|t:current_lang }}{% endif %}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label class="mt-2">{{"Superannuation Date"|t:current_lang }}</label>
+    {{ form.super_annuation_date }}
+  </div>
+
+<div class="text-center mt-4">
+  <button class="btn btn-warning px-5 fw-bold">{{"Save as Draft"|t:current_lang }}</button>
+</div>
+</form>
+
+<div class="mt-4">
+  <button class="btn btn-outline-primary me-2" onclick="showDrafts()">{{"Show Drafts"|t:current_lang }}</button>
+  <button class="btn btn-outline-secondary" onclick="showSubmitted()">{{"Show Submitted Records"|t:current_lang }}</button>
+</div>
+
+<div class="mt-3">
+
+<div id="draftSection" style="display:none;">
+<h5>{{"Saved Drafts"|t:current_lang }}</h5>
+
+<table class="table table-bordered table-sm align-middle">
+<thead class="table-primary text-center">
+<tr>
+<th>{{"Select"|t:current_lang }}</th><th>{{"Empcode"|t:current_lang }}</th><th>{{"Name in English"|t:current_lang }}</th><th>{{"Name in Hindi"|t:current_lang }}</th>
+<th>{{"Designation"|t:current_lang }}</th><th>{{"Gazet"|t:current_lang }}</th><th>{{"Prabodh"|t:current_lang }}</th><th>{{"Praveen"|t:current_lang }}</th>
+<th>{{"Pragya"|t:current_lang }}</th><th>{{"Parangat"|t:current_lang }}</th><th>{{"Typing"|t:current_lang }}</th>
+<th>{{"Hindi Proficiency"|t:current_lang }}</th><th>{{"Superannuation Date"|t:current_lang }}</th><th>{{"Actions"|t:current_lang }}</th>
+</tr>
+</thead>
+<tbody id="draftTableBody"></tbody>
+</table>
+
+<button class="btn btn-success" onclick="submitSelectedDrafts()">
+{{"Submit Selected Records"|t:current_lang }}
+</button>
+</div>
+
+<div id="submittedSection" style="display:none;">
+
+<div class="d-flex justify-content-end mb-2">
+  <button class="btn btn-success me-2" onclick="downloadExcel()">{{"Download Excel"|t:current_lang }}</button>
+  <button class="btn btn-danger" onclick="downloadPDF()">{{"Download PDF"|t:current_lang }}</button>
+</div>
+
+<table class="table table-bordered table-sm align-middle" id="submittedTable">
+<thead class="table-success text-center">
+<tr>
+<th>{{"Empcode"|t:current_lang }}</th><th>{{"Name in English"|t:current_lang }}</th><th>{{"Name in Hindi"|t:current_lang }}</th>
+<th>{{"Designation"|t:current_lang }}</th><th>{{"Gazet"|t:current_lang }}</th><th>{{"Prabodh"|t:current_lang }}</th><th>{{"Praveen"|t:current_lang }}</th>
+<th>{{"Pragya"|t:current_lang }}</th><th>{{"Parangat"|t:current_lang }}</th><th>{{"Typing"|t:current_lang }}</th>
+<th>{{"Hindi Proficiency"|t:current_lang }}</th><th>{{"Superannuation Date"|t:current_lang }}</th>
+{% if role == 'manager' %}<th>{{"Actions"|t:current_lang }}</th>{% endif %}
+</tr>
+</thead>
+<tbody id="submittedTableBody"></tbody>
+</table>
+</div>
+
+</div>
+</div>
+
+<script>
+let editingId = null;
+const userRole = "{{ role }}"; 
+const currentLang = "{{ current_lang }}"; // Get active language from Django
+
+// 1. DEFINE THE TRANSLATION DICTIONARY
+const dictionary = {
+    // Proficiency & Exam Status
+    "Passed": "उत्तीर्ण",
+    "Did not Appear": "उपस्थित नहीं हुए",
+    "Failed": "अनुत्तीर्ण",
+    "Excellent": "उत्कृष्ट",
+    "Good": "अच्छा",
+    "Average": "औसत",
+    
+    // Typing
+    "Hindi": "हिंदी",
+    "English": "अंग्रेजी",
+    "Both": "दोनों",
+    
+    // Gazetted Status
+    "Gazetted": "राजपत्रित",
+    "Non-Gazetted": "अराजपत्रित",
+
+    // Designations (Add more as needed)
+    "Scientist-B": "वैज्ञानिक-बी",
+    "Scientist-C": "वैज्ञानिक-सी",
+    "Scientist-D": "वैज्ञानिक-डी",
+    "Scientist-E": "वैज्ञानिक-ई",
+    "Scientist-F": "वैज्ञानिक-एफ",
+    "Scientist-G": "वैज्ञानिक-जी",
+    "Section Officer": "अनुभाग अधिकारी",
+    "Senior Secretariate Assistant": "वरिष्ठ सचिवालय सहायक",
+    "Scientific/Technical Assistant-A": "वैज्ञानिक/तकनीकी सहायक-ए",
+    "Scientific/Technical Assistant-B": "वैज्ञानिक/तकनीकी सहायक-बी",
+    "Scientific Officer/Engineer-SB": "वैज्ञानिक अधिकारी/इंजीनियर-एसबी"
+};
+
+/* ================= TRANSLATION ================= */
+async function translateData(text) {
+  if (!text || text === "-" || text === "None") return "-";
+
+  // Only translate if mode is Hindi
+  if (currentLang === 'hi') {
+      // Return the dictionary value, or the original text if not found
+      return dictionary[text] || text;
+  }
+  
+  return text;
+}
+
+/* DESIGNATION */
+document.getElementById("designationSelect").addEventListener("change", e => {
+  document.getElementById("otherDesignation").style.display =
+    e.target.value === "OTHER" ? "block" : "none";
+});
+
+/* SAVE */
+document.getElementById("employeeForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target).entries());
+
+  // Designation logic: If manager, use select; if user, ignore/preserve existing
+  if (userRole === 'manager') {
+      data.designation = document.getElementById("designationSelect").value === "OTHER"
+        ? document.getElementById("otherDesignation").value
+        : document.getElementById("designationSelect").value;
+  } else {
+      // If user, we don't send designation to let backend keep existing or ignore
+      // But for NEW draft, it will be empty.
+      // We send it only if it has a value (to avoid overwriting with blank)
+  }
+  
+  // Always set status to draft on save
+  data.status = "draft";
+
+  const url = editingId ? `/api/employees/${editingId}/` : "/api/employees/";
+  const method = editingId ? "PUT" : "POST";
+
+  await fetch(url, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCookie("csrftoken")
+    },
+    body: JSON.stringify(data)
+  });
+
+  e.target.reset();
+  editingId = null;
+  document.getElementById("designationSelect").value = "";
+  document.getElementById("otherDesignation").style.display = "none";
+  document.getElementById("lastUpdatedBox").style.display = "none";
+  showDrafts();
+});
+
+/* DRAFTS */
+async function showDrafts() {
+  toggle("draftSection");
+  const data = (await (await fetch("/api/employees/?status=draft")).json()).reverse();
+  const tbody = document.getElementById("draftTableBody");
+  tbody.innerHTML = "";
+
+  for (const d of data) {
+    const row = `
+      <tr>
+        <td><input type="checkbox" value="${d.id}"></td>
+        <td>${d.empcode}</td>
+        <td>${d.ename}</td>
+        <td>${d.hname}</td>
+        <td>${await translateData(d.designation)}</td>
+        <td>${await translateData(d.gazet)}</td>
+        <td>${await translateData(d.prabodh)}</td>
+        <td>${await translateData(d.praveen)}</td>
+        <td>${await translateData(d.pragya)}</td>
+        <td>${await translateData(d.parangat)}</td>
+        <td>${await translateData(d.typing)}</td>
+        <td>${await translateData(d.hindiproficiency)}</td>
+        <td>${d.super_annuation_date || "-"}</td>
+        <td>
+          <button class="btn btn-sm btn-primary" onclick="editDraft(${d.id})">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteDraft(${d.id})">Delete</button>
+        </td>
+      </tr>`;
+    tbody.insertAdjacentHTML("afterbegin", row);
+  }
+}
+
+/* SUBMITTED */
+async function showSubmitted() {
+  toggle("submittedSection");
+  const data = (await (await fetch("/api/employees/?status=submitted")).json()).reverse();
+  const tbody = document.getElementById("submittedTableBody");
+  tbody.innerHTML = "";
+
+  for (const d of data) {
+    let actionBtn = "";
+    // MANAGER UNLOCK BUTTON
+    if (userRole === 'manager') {
+        actionBtn = `<td><button class="btn btn-sm btn-warning" onclick="unlockRecord(${d.id})"><i class="bi bi-unlock"></i> Unlock</button></td>`;
+    }
+
+    const row = `
+      <tr>
+        <td>${d.empcode}</td>
+        <td>${d.ename}</td>
+        <td>${d.hname}</td>
+        <td>${await translateData(d.designation)}</td>
+        <td>${await translateData(d.gazet)}</td>
+        <td>${await translateData(d.prabodh)}</td>
+        <td>${await translateData(d.praveen)}</td>
+        <td>${await translateData(d.pragya)}</td>
+        <td>${await translateData(d.parangat)}</td>
+        <td>${await translateData(d.typing)}</td>
+        <td>${await translateData(d.hindiproficiency)}</td>
+        <td>${d.super_annuation_date || "-"}</td>
+        ${actionBtn}
+      </tr>`;
+    tbody.insertAdjacentHTML("afterbegin", row);
+  }
+}
+
+/* MANAGER UNLOCK FUNCTION */
+async function unlockRecord(id) {
+    if(!confirm("Unlock this record? It will move back to Drafts for editing.")) return;
+    
+    // We reuse the existing update API to simply change status back to draft
+    await fetch(`/api/employees/${id}/`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken")
+        },
+        body: JSON.stringify({ status: "draft" }) // This moves it back to drafts
+    });
+    showSubmitted(); // Refresh list
+}
+
+/* EXPORTS (UNCHANGED) */
+function downloadExcel() {
+  const table = document.getElementById("submittedTable");
+  const wb = XLSX.utils.table_to_book(table, { sheet: "Submitted Records" });
+  XLSX.writeFile(wb, "submitted_employees.xlsx");
+}
+
+function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF("l", "pt", "a4");
+  doc.text("Submitted Employee Records", 40, 40);
+  doc.autoTable({ html: "#submittedTable", startY: 60 });
+  doc.save("submitted_employees.pdf");
+}
+
+/* EDIT / DELETE / SUBMIT */
+async function editDraft(id) {
+  const d = await (await fetch(`/api/employees/${id}/`)).json();
+  editingId = id;
+
+  for (let k in d) {
+    const f = document.querySelector(`[name="${k}"]`);
+    if (f) f.value = d[k];
+  }
+
+  document.getElementById("designationSelect").value = d.designation;
+  document.getElementById("lastUpdatedBox").style.display = "block";
+  document.getElementById("lastUpdatedText").innerText = new Date(d.lastupdate).toLocaleString();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function deleteDraft(id) {
+  if (!confirm("Delete this draft?")) return;
+  await fetch(`/api/employees/${id}/`, {
+    method: "DELETE",
+    headers: { "X-CSRFToken": getCookie("csrftoken") }
+  });
+  showDrafts();
+}
+
+async function submitSelectedDrafts() {
+  const ids = [...document.querySelectorAll("#draftTableBody input:checked")].map(i => i.value);
+  if (!ids.length) return alert("Select at least one record");
+
+  await fetch("/api/employees/submit/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCookie("csrftoken")
+    },
+    body: JSON.stringify({ ids })
+  });
+  showSubmitted();
+}
+
+function toggle(id) {
+  ["draftSection", "submittedSection"].forEach(x =>
+    document.getElementById(x).style.display = "none"
+  );
+  document.getElementById(id).style.display = "block";
+}
+
+function getCookie(name) {
+  let v = null;
+  document.cookie.split(";").forEach(c => {
+    c = c.trim();
+    if (c.startsWith(name + "=")) v = decodeURIComponent(c.slice(name.length + 1));
+  });
+  return v;
+}
+</script>
+{% endblock %}

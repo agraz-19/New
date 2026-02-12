@@ -50,6 +50,14 @@ from .models import Employee, CustomUser, ArchivedUser
 from .forms import CustomUserCreationForm
 from .serializers import EmployeeSerializer
 from .utils import send_system_email
+from django.contrib.auth import logout
+from django.shortcuts import redirect
+from django.contrib import messages
+
+def custom_logout(request):
+    logout(request)
+    messages.success(request, "You have been logged out successfully.")
+    return redirect('home')
 
 
 
@@ -141,13 +149,6 @@ def delete_account(request):
         return redirect('login')
     return render(request, 'registration/confirm_erasure.html')
 
-@login_required
-def custom_logout(request):
-    """Custom logout view that properly logs out user and redirects to home"""
-    logout(request)
-    messages.success(request, "You have been logged out successfully.")
-    return redirect('home')
-
 class CustomLoginView(LoginView):
     authentication_form = CustomLoginForm
     template_name = 'registration/login.html'
@@ -172,6 +173,7 @@ class CustomLoginView(LoginView):
         self.request.session['lang'] = current_lang
         self.request.session['active_role'] = selected_role
         self.request.session.save()  
+        send_system_email(user, self.request, 'login')
         
         return redirect(self.get_success_url())
     
@@ -422,40 +424,77 @@ def request_edit(request):
 
 @user_passes_test(lambda u: u.is_authenticated and (u.role in ['manager', 'admin'] or u.is_superuser))
 def manager_dashboard(request):
-    # This includes archived users because they are still in the table
-    users = CustomUser.objects.all().exclude(pk=request.user.pk).order_by('-date_joined')
-    return render(request, 'manager_dashboard.html', {'users': users})
+    # 1. USERS TAB DATA: All registered accounts
+    # We fetch all users to manage their login access (Archive/Restore)
+    users = CustomUser.objects.all().order_by('-date_joined')
+    
+    # 2. RECORDS TAB DATA: All employee forms submitted
+    # We fetch actual data records to manage Designations and Edit Permissions
+    employees = Employee.objects.all().order_by('-lastupdate')
+
+    return render(request, 'manager_dashboard.html', {
+        'users': users, 
+        'employees': employees
+    })
+
+@user_passes_test(lambda u: u.role in ['manager', 'admin'])
+def update_designation(request, user_id):
+    if request.method == "POST":
+        target_user = get_object_or_404(CustomUser, id=user_id)
+        new_designation = request.POST.get('designation')
+        
+        # Find the employee record
+        employee = Employee.objects.filter(empcode=target_user.username).first()
+        
+        if employee:
+            employee.designation = new_designation
+            employee.save()
+            messages.success(request, f"Designation for {target_user.username} updated to {new_designation}.")
+        else:
+            messages.error(request, "Employee record not found for this user.")
+            
+    return redirect('manager_dashboard')
 
 @user_passes_test(lambda u: u.is_authenticated and (u.role in ['manager', 'admin'] or u.is_superuser))
 def manage_user_action(request, user_id, action):
     target_user = get_object_or_404(CustomUser, id=user_id)
     lang = request.session.get('lang', 'en')
     
-    if request.user.role == 'manager' and target_user.role == 'admin':
-        messages.error(request, translate_text("Managers cannot edit Admins.", lang))
-        return redirect('manager_dashboard')
+    # --- ADMIN ONLY ACTIONS ---
+    if action in ['archive', 'unarchive']:
+        if request.user.role != 'admin' and not request.user.is_superuser:
+            messages.error(request, translate_text("Only Admins can perform this action.", lang))
+            return redirect('manager_dashboard')
+            
+        if action == 'archive':
+            # Your existing archive logic
+            target_user.is_active = False
+            target_user.is_archived = True
+            target_user.save()
+            messages.success(request, translate_text("User archived successfully.", lang))
+            
+        elif action == 'unarchive':
+            target_user.is_active = True
+            target_user.is_archived = False
+            target_user.save()
+            messages.success(request, translate_text("User restored successfully.", lang))
 
-    # ARCHIVE
-    if action == 'archive':
-        archive_user_action(target_user.id)
-        messages.success(request, translate_text("User archived (Access Disabled).", lang))
-        return redirect('manager_dashboard')
-    
-    # RESTORE (Unarchive)
-    elif action == 'unarchive':
-        target_user.is_active = True      # Allow login again
-        target_user.is_archived = False   # Remove archive flag
-        target_user.save()
-        messages.success(request, translate_text("User restored successfully.", lang))
-        return redirect('manager_dashboard')
+    # --- MANAGER & ADMIN ACTIONS (RECORDS) ---
+    elif action == 'unlock_record':
+        # This unlocks the Employee Form so the user can edit it again
+        employee = Employee.objects.filter(empcode=target_user.username).first()
+        if employee:
+            employee.status = 'draft' # Revert to draft
+            employee.save()
+            
+            target_user.is_edit_allowed = True # Unlock profile if frozen
+            target_user.save()
+            
+            messages.success(request, translate_text("Record unlocked. User can now edit their data.", lang))
+        else:
+            messages.error(request, translate_text("No employee record found for this user.", lang))
 
-    # APPROVE EDIT
-    elif action == 'approve':
-        target_user.is_edit_allowed = True
-        target_user.save()
-        messages.success(request, translate_text("Edit permission granted.", lang))
-        return redirect('manager_dashboard')
-
+    return redirect('manager_dashboard')
 
 def archive_user_action(user_id):
     user = get_object_or_404(CustomUser, id=user_id)

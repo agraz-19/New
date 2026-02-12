@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% load django_bootstrap5 %}
+{% load translate_tags %}
+
+{% block title %}{{ "Login - User Registration"|t:current_lang }}{% endblock %}
+
+{% block content %}
+<style>
+    /* Update your CSS to target the Card Body used in signup/login */
+.card-body {
+    padding-bottom: 2rem !important; 
+}
+.card-body .d-grid {
+    gap: 1.5rem !important;
+}
+.card-body .border-top {
+    margin-top: 2rem !important;
+    padding-top: 1.5rem !important;
+}
+</style>
+<div class="row justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="col-md-5 col-lg-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h2 class="text-center fw-bold mb-4">{{ "Login"|t:current_lang }}</h2>
+                <form method="post" novalidate>
+    {% csrf_token %}
+    
+    {# Render each field individually to ensure session-based translations apply correctly #}
+    {% bootstrap_field form.username %}
+    
+    {# The eye icon script targets this specific password input #}
+    {% bootstrap_field form.password %}
+    
+    {% bootstrap_field form.role %}
+    <div class="mb-3">
+    {% bootstrap_field form.captcha %}
+</div>
+
+    <button type="submit" class="btn btn-primary w-100 mb-3 shadow-sm">
+        {{ "Sign In"|t:current_lang }}
+    </button>
+</form>
+                <div class="text-center mt-2">
+                    <p class="mb-1"><a href="{% url 'forgot_password' %}" class="text-secondary small">{{ "Forgot Password?"|t:current_lang }}</a></p>
+                    <p class="mb-0 small">{{ "Don't have an account?"|t:current_lang }} <a href="{% url 'signup' %}" class="fw-bold text-decoration-none">{{ "Create account"|t:current_lang }}</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const passwordInput = document.querySelector('input[type="password"]');
+    if (passwordInput) {
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'btn btn-outline-secondary';
+        toggleBtn.type = 'button';
+        toggleBtn.innerHTML = '<i class="bi bi-eye"></i>';
+        
+        const group = document.createElement('div');
+        group.className = 'input-group mb-3';
+        
+        passwordInput.parentNode.insertBefore(group, passwordInput);
+        group.appendChild(passwordInput);
+        group.appendChild(toggleBtn);
+        
+        toggleBtn.addEventListener('click', function() {
+            const isPassword = passwordInput.type === 'password';
+            passwordInput.type = isPassword ? 'text' : 'password';
+            this.innerHTML = isPassword ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+        });
+    }
+});
+</script>
+
+<script>
+    let idleTime = 0;
+    const maxIdleTime = 15;
+
+    const idleInterval = setInterval(timerIncrement, 60000); 
+
+    document.addEventListener('mousemove', resetTimer);
+    document.addEventListener('keypress', resetTimer);
+
+    function resetTimer() {
+        idleTime = 0;
+    }
+
+    function timerIncrement() {
+        idleTime = idleTime + 1;
+        if (idleTime > maxIdleTime) {
+            window.location.reload();
+        }
+    }
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const refreshBtn = document.querySelector('.js-captcha-refresh');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function(e) {
+            e.preventDefault(); 
+            
+            fetch('/captcha/refresh/', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                const img = document.querySelector('img.captcha');
+                if (img) img.src = data.image_url;
+
+                const hiddenField = document.querySelector('input[name$="_0"]');
+                if (hiddenField) hiddenField.value = data.key;
+
+                const audioBtn = document.querySelector('.captcha-audio-btn');
+                if (audioBtn) {
+                    audioBtn.href = `/captcha/audio/${data.key}.wav`;
+                }
+            })
+            .catch(error => console.error('Error refreshing captcha:', error));
+        });
+    }
+});
+</script>
+{% endblock %}
