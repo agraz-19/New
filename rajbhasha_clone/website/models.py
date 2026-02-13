@@ -4,6 +4,7 @@ from cryptography.fernet import Fernet
 from django.conf import settings
 import hashlib
 import json
+import datetime
 from django.contrib.auth.models import BaseUserManager
 
 cipher_suite = Fernet(settings.ENCRYPTION_KEY)
@@ -86,8 +87,7 @@ class Employee(models.Model):
     ename = models.CharField(null=True, blank=True) 
     hname = models.CharField(max_length=255)
 
-    designation = models.CharField(max_length=100)
-
+    designation = models.CharField(max_length=100, blank=True, null=True)
     GAZET_CHOICES = [
         ("Gazetted", "Gazetted"),
         ("Non-Gazetted", "Non-Gazetted"),
@@ -127,9 +127,40 @@ class Employee(models.Model):
     )
 
     lastupdate = models.DateTimeField("Last Updated On", auto_now=True)
-    super_annuation_date = models.DateField(
-        "Superannuation Date", null=True, blank=True
-    )
-
+    encrypted_super_annuation_date = models.BinaryField(null=True, blank=True)
     def __str__(self):
         return f"{self.empcode} - {self.ename}"
+
+    def set_super_annuation_date(self, date_obj):
+        """Encrypts a date object and stores it."""
+        if date_obj:
+            date_str = date_obj.strftime('%Y-%m-%d')
+            self.encrypted_super_annuation_date = cipher_suite.encrypt(date_str.encode())
+        else:
+            self.encrypted_super_annuation_date = None
+
+    def get_super_annuation_date(self):
+        if self.encrypted_super_annuation_date:
+            decrypted_str = cipher_suite.decrypt(self.encrypted_super_annuation_date).decode()
+            return datetime.datetime.strptime(decrypted_str, '%Y-%m-%d').date()
+        return None
+
+    @property
+    def super_annuation_date(self):
+        return self.get_super_annuation_date()
+
+    @super_annuation_date.setter
+    def super_annuation_date(self, value):
+        self.set_super_annuation_date(value)
+
+class TranslationCache(models.Model):
+    source_text = models.TextField()
+    target_lang = models.CharField(max_length=10)
+    translated_text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # This explicitly names the table to match your error
+        db_table = 'my_translation_cache'
+
+    

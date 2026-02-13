@@ -1,60 +1,236 @@
-{% extends "base.html" %}
+{% extends "master.html" %}
 {% load translate_tags %}
 
 {% block content %}
-<div class="container mt-4">
-  <h2>{{"Manager Dashboard"|t:current_lang }}</h2>
+<div class="container-fluid px-4 mt-4">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-primary">{{ "Manager Dashboard"|t:current_lang }}</h2>
+            <p class="text-muted">{{ "Manage system access and employee records."|t:current_lang }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <span class="badge bg-secondary p-3 rounded-pill shadow-sm">
+                <i class="bi bi-person-badge me-2"></i>{{ users|length }} {{ "Accounts"|t:current_lang }}
+            </span>
+            <span class="badge bg-primary p-3 rounded-pill shadow-sm">
+                <i class="bi bi-file-earmark-text me-2"></i>{{ employees|length }} {{ "Records"|t:current_lang }}
+            </span>
+        </div>
+    </div>
 
-  <table class="table table-bordered table-hover mt-3">
-    <thead class="table-dark">
-      <tr>
-        <th>Username</th>
-        <th>Email</th>
-        <th>Role</th>
-        <th>Status</th> <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for user in users %}
-      <tr class="{% if user.is_archived %}table-secondary text-muted{% endif %}">
-        <td>{{ user.username }}</td>
-        <td>{{ user.get_email }}</td>
-        <td>{{ user.role|title }}</td>
+    <ul class="nav nav-tabs mb-3" id="dashboardTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-bold" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button" role="tab">
+                <i class="bi bi-people-fill me-2"></i>{{ "Registered Users (Login Access)"|t:current_lang }}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold" id="records-tab" data-bs-toggle="tab" data-bs-target="#records-pane" type="button" role="tab">
+                <i class="bi bi-folder-fill me-2"></i>{{ "Employee Records (Data)"|t:current_lang }}
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="dashboardTabsContent">
         
-        <td>
-            {% if user.is_archived %}
-                <span class="badge bg-danger">{{"Archived"|t:current_lang }}</span>
-            {% elif user.is_active %}
-                <span class="badge bg-success">{{"Active"|t:current_lang }}</span>
-            {% else %}
-                <span class="badge bg-warning text-dark">{{"Inactive"|t:current_lang }}</span>
-            {% endif %}
-        </td>
+        <div class="tab-pane fade show active" id="users-pane" role="tabpanel">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light text-uppercase small">
+                                <tr>
+                                    <th class="px-4 py-3">{{ "User Identity"|t:current_lang }}</th>
+                                    <th>{{ "Role"|t:current_lang }}</th>
+                                    <th>{{ "Account Status"|t:current_lang }}</th>
+                                    <th class="text-end px-4">{{ "Admin Actions"|t:current_lang }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for u in users %}
+                                <tr class="{% if u.is_archived %}bg-light text-muted{% endif %}">
+                                    <td class="px-4">
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 35px; height: 35px;">
+                                                {{ u.username|first|upper }}
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold">{{ u.username }}</div>
+                                                <div class="small text-muted">{{ u.get_email }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><span class="badge bg-light text-dark border">{{ u.role|title }}</span></td>
+                                    <td>
+                                        {% if u.is_archived %}
+                                            <span class="badge bg-danger">{{ "Archived (No Login)"|t:current_lang }}</span>
+                                        {% else %}
+                                            <span class="badge bg-success">{{ "Active"|t:current_lang }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end px-4">
+                                        {% if request.user.role == 'admin' or request.user.is_superuser %}
+                                            {% if u.role != 'admin' %} {% if u.is_archived %}
+                                                    <a href="{% url 'manage_user_action' u.id 'unarchive' %}" class="btn btn-sm btn-success">
+                                                        <i class="bi bi-arrow-counterclockwise"></i> {{ "Restore"|t:current_lang }}
+                                                    </a>
+                                                {% else %}
+                                                    <a href="{% url 'manage_user_action' u.id 'archive' %}" class="btn btn-sm btn-outline-danger"
+                                                       onclick="return confirm('Archive user? They cannot login.');">
+                                                        <i class="bi bi-archive"></i> {{ "Archive"|t:current_lang }}
+                                                    </a>
+                                                {% endif %}
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted small">{{ "Admin Only"|t:current_lang }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-        <td>
-          {% if user.is_archived %}
-             <a href="{% url 'manage_user_action' user.id 'unarchive' %}" 
-                class="btn btn-sm btn-success">
-                <i class="bi bi-arrow-counterclockwise"></i> {{"Restore"|t:current_lang }}
-             </a>
-          {% else %}
-             <a href="{% url 'manage_user_action' user.id 'archive' %}" 
-                class="btn btn-sm btn-danger"
-                onclick="return confirm('Are you sure you want to archive this user?');">
-                <i class="bi bi-archive"></i> {{"Archive"|t:current_lang }}
-             </a>
-             
-             {% if not user.is_edit_allowed and user.is_frozen %}
-                 <a href="{% url 'manage_user_action' user.id 'approve' %}" 
-                    class="btn btn-sm btn-primary">
-                    {{"Approve Edit"|t:current_lang }}
-                 </a>
-             {% endif %}
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+        <div class="tab-pane fade" id="records-pane" role="tabpanel">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light text-uppercase small">
+                                <tr>
+                                    <th class="px-4 py-3">{{ "EmpCode"|t:current_lang }}</th>
+                                    <th>{{ "Employee Name"|t:current_lang }}</th>
+                                    <th>{{ "Designation"|t:current_lang }}</th>
+                                    <th>{{ "Form Status"|t:current_lang }}</th>
+                                    <th class="text-end px-4">{{ "Manager Actions"|t:current_lang }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for emp in employees %}
+                                <tr>
+                                    <td class="px-4 fw-bold font-monospace text-primary">{{ emp.empcode }}</td>
+                                    <td>
+                                        <div>{{ emp.ename }}</div>
+                                        <div class="small text-muted">{{ emp.hname }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="fw-bold">{{ emp.designation|default:"-" }}</span>
+                                            {% with u=users|first %} 
+                                            <button class="btn btn-sm btn-link text-secondary p-0" 
+                                                    onclick="openDesignationModalByUsername('{{ emp.empcode }}', '{{ emp.designation|default:'' }}')"
+                                                    title="Edit Designation">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                            {% endwith %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if emp.status == 'submitted' %}
+                                            <span class="badge bg-primary">{{ "Submitted"|t:current_lang }}</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">{{ "Draft / Editing"|t:current_lang }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end px-4">
+                                        {% if emp.status == 'submitted' %}
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    onclick="triggerUnlock('{{ emp.empcode }}')">
+                                                <i class="bi bi-unlock"></i> {{ "Allow Edit"|t:current_lang }}
+                                            </button>
+                                        {% else %}
+                                            <span class="text-muted small"><i class="bi bi-pencil"></i> {{ "User Editing..."|t:current_lang }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div> </div>
+
+<form id="actionForm" method="post" style="display:none;">
+    {% csrf_token %}
+</form>
+
+<div class="modal fade" id="designationModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ "Assign Designation"|t:current_lang }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="designationForm" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p class="text-muted">{{ "Assigning designation for:"|t:current_lang }} <strong id="modalUsername"></strong></p>
+                    
+                    <label class="form-label fw-bold">{{ "Designation"|t:current_lang }}</label>
+                    <select name="designation" class="form-select" id="modalDesignationSelect">
+                        <option value="">-- Select --</option>
+                        <option value="Scientist-F">Scientist-F</option>
+                        <option value="Scientist-G">Scientist-G</option>
+                        <option value="Scientist-E">Scientist-E</option>
+                        <option value="Scientist-D">Scientist-D</option>
+                        <option value="Scientist-C">Scientist-C</option>
+                        <option value="Scientist-B">Scientist-B</option>
+                        <option value="Section Officer">Section Officer</option>
+                        <option value="Senior Secretariate Assistant">Senior Secretariate Assistant</option>
+                        <option value="Scientific/Technical Assistant-A">Scientific/Technical Assistant-A</option>
+                        <option value="Scientific/Technical Assistant-B">Scientific/Technical Assistant-B</option>
+                        <option value="Scientific Officer/Engineer-SB">Scientific Officer/Engineer-SB</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ "Cancel"|t:current_lang }}</button>
+                    <button type="submit" class="btn btn-primary">{{ "Save Changes"|t:current_lang }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
+
+<script id="user-lookup" type="application/json">
+{
+    {% for u in users %}
+        "{{ u.username }}": "{{ u.id }}"{% if not forloop.last %},{% endif %}
+    {% endfor %}
+}
+</script>
+
+<script>
+    // Helper to find User ID from Username (EmpCode)
+    function getUserId(username) {
+        const lookup = JSON.parse(document.getElementById('user-lookup').textContent);
+        return lookup[username];
+    }
+
+    function openDesignationModalByUsername(username, currentDesignation) {
+        const userId = getUserId(username);
+        if (!userId) { alert("User account not found for this record."); return; }
+        
+        const form = document.getElementById('designationForm');
+        form.action = `/update-designation/${userId}/`;
+        document.getElementById('modalUsername').textContent = username;
+        document.getElementById('modalDesignationSelect').value = currentDesignation || "";
+        new bootstrap.Modal(document.getElementById('designationModal')).show();
+    }
+
+    function triggerUnlock(username) {
+        const userId = getUserId(username);
+        if (!userId) { alert("User account not found."); return; }
+        
+        if(confirm("Unlock this record? The user will be able to edit their data again.")) {
+            window.location.href = `/action/${userId}/unlock_record/`;
+        }
+    }
+</script>
 {% endblock %}
