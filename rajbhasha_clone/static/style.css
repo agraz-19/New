@@ -1,11 +1,11 @@
 /* ================= EXISTING STYLES (UNCHANGED) ================= */
 
-.carousel-img{
+.carousel-img {
   height: 380px;
   object-fit: cover;
 }
 
-.banner-img{
+.banner-img {
   height: 420px;
   object-fit: cover;
 }
@@ -18,6 +18,14 @@
   display: none !important;
 }
 
+body {
+  top: 0 !important;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
+
 #goog-gt-tt,
 .goog-te-balloon-frame {
   display: none !important;
@@ -25,14 +33,6 @@
 
 .skiptranslate {
   display: none !important;
-}
-
-body {
-  top: 0 !important;
-  transition: background-color 0.3s ease, color 0.3s ease;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  line-height: 1.6;
-  overflow-wrap: break-word;
 }
 
 /* ================================================================= */
@@ -135,170 +135,169 @@ body {
 }
 
 /* ==============================
-   GLOBAL
+    GLOBAL LAYOUT & LOGOS
 ============================== */
 
-.logo-img {
-  max-height: 80px;
-  width: auto;
+.gov-logo, .logo-img {
+    max-height: 80px;
+    width: auto;
+}
+
+.navbar-custom, .main-navbar {
+    background-color: #0b4f7a !important;
+}
+
+.navbar-dark .navbar-nav .nav-link {
+    color: rgba(255,255,255,0.9);
+}
+
+.navbar-dark .navbar-nav .nav-link:hover {
+    color: #fff;
 }
 
 /* ==============================
-   FONT SIZE CONTROL (WORKING)
+    FONT SIZE CONTROL
 ============================== */
 
 :root { --main-font-size: 16px; }
 
-html {
-  font-size: var(--main-font-size);
+html, body { 
+    font-size: var(--main-font-size) !important; 
 }
 
-/* Medium/Large values */
-.font-medium { --main-font-size: 18px; }
-.font-large  { --main-font-size: 20px; }
+/* Force sizing on all children when classes are present */
+.font-medium { --main-font-size: 18px !important; }
+.font-large  { --main-font-size: 20px !important; }
 
-
+.font-medium body *, .font-large body * {
+    font-size: var(--main-font-size) !important;
+}
 
 /* ==============================
-   HEADER TITLES
+    HEADER TITLES
 ============================== */
 
 .hindi-title {
-  font-size: 2rem !important;
-  font-weight: 800 !important;
-  letter-spacing: 0.5px !important;
+    font-size: 2rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.5px;
 }
 
 .english-title {
-  font-size: 1rem !important;
-  font-weight: 500 !important;
+    font-size: 1rem !important;
+    font-weight: 500;
 }
 
-/* Prevent header block from breaking weirdly */
 .header-title {
-  flex-wrap: nowrap;
+    flex-wrap: nowrap;
 }
 
 /* ==============================
-   MAIN NAVBAR (SINGLE LINE FIX)
+    NAVBAR SINGLE LINE LOGIC (NORMAL MODE)
 ============================== */
 
-.navbar-custom {
-  background-color: #0b4f7a;
-  padding-top: 6px;
-  padding-bottom: 6px;
+/* Only applies when NOT in medium or large font modes */
+body:not(.font-medium):not(.font-large) .navbar-custom .container-fluid,
+body:not(.font-medium):not(.font-large) .navbar-custom .container {
+    flex-wrap: nowrap !important;
+    overflow: hidden;
 }
 
-/* Bootstrap default link colors */
-.navbar-dark .navbar-nav .nav-link {
-  color: rgba(255,255,255,0.9);
+body:not(.font-medium):not(.font-large) .navbar-nav {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
 }
 
-.navbar-dark .navbar-nav .nav-link:hover {
-  color: #fff;
+body:not(.font-medium):not(.font-large) .navbar-nav .nav-item {
+    flex: 0 0 auto !important;
 }
 
-/* ✅ Keep everything single line */
-.navbar-nav {
-  flex-wrap: nowrap !important;
+body:not(.font-medium):not(.font-large) .navbar-nav .nav-link {
+    white-space: nowrap !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    font-size: 15px !important; 
+    font-weight: 500 !important;
+    line-height: 1.2 !important;
 }
 
-/* ✅ Reduce spacing so Logout doesn't go out */
-.navbar-nav .nav-link {
-  white-space: nowrap;
-  padding: 6px 10px;     /* reduced from 12px */
-  line-height: 1.2;
-  font-size: 14.5px; 
-  font-weight: 500;     
+/* Right side controls compact logic */
+body:not(.font-medium):not(.font-large) .navbar-right-controls {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
+    align-items: center !important;
+    margin-left: auto !important;
+    gap: 6px !important;
 }
 
-/* ✅ Right side controls compact */
-.navbar-right-controls {
-  gap: 6px !important;
-  flex-wrap: nowrap !important;
-  white-space: nowrap;
+body:not(.font-medium):not(.font-large) .navbar-right-controls .form-select,
+body:not(.font-medium):not(.font-large) #fontSelector {
+    width: 95px !important;
+    height: 32px !important;
+    font-size: 12.5px !important;
+    padding: 4px 6px !important;
 }
 
-/* Smaller dropdown */
-.navbar-right-controls .form-select,
-#fontSelector {
-  width: 105px !important;
-  padding: 4px 6px !important;
-  font-size: 13px !important;
-  height: 32px !important;
-}
-
-/* Smaller buttons */
-.navbar-right-controls .btn {
-  padding: 4px 8px !important;
-  font-size: 13px !important;
-  min-height: 32px !important;
-  white-space: nowrap;
-}
-
-/* Smaller "Hi, 2004" */
-.navbar-right-controls span {
-  font-size: 13px !important;
-  margin-left: 4px;
-  margin-right: 4px;
+body:not(.font-medium):not(.font-large) .navbar-right-controls .btn {
+    padding: 4px 8px !important;
+    font-size: 12.5px !important;
+    min-height: 32px !important;
+    white-space: nowrap !important;
 }
 
 /* ==============================
-   BUTTON FIX (GLOBAL)
+    UI ELEMENTS (ALERTS, BUTTONS, ICONS)
 ============================== */
 
 .btn {
-  white-space: normal;
-  height: auto;
-  min-height: 38px;
+    white-space: normal;
+    height: auto;
+    min-height: 38px;
 }
 
-/* ==============================
-   ALERT Z-INDEX
-============================== */
-
 .alert-dismissible {
-  z-index: 9999;
-  position: relative;
+    z-index: 9999;
+    position: relative;
 }
 
 .message-wrapper {
-  z-index: 1055;
-  width: 90%;
-  max-width: 800px;
+    z-index: 1055;
+    width: 90%;
+    max-width: 800px;
 }
 
 .auto-alert {
-  transition: opacity 0.5s ease;
+    transition: opacity 0.5s ease;
+}
+
+.bi-person-circle {
+    font-size: 30px !important;
+}
+
+.login-icon i {
+    font-size: 2rem !important;
 }
 
 /* ==============================
-   DARK MODE
+    DARK MODE
 ============================== */
 
 [data-bs-theme="dark"] body {
-  background-color: #121212 !important;
-  color: #e0e0e0 !important;
+    background-color: #121212 !important;
+    color: #e0e0e0;
 }
 
 [data-bs-theme="dark"] .card,
 [data-bs-theme="dark"] .navbar {
-  background-color: #1e1e1e !important;
-  border-color: #333 !important;
+    background-color: #1e1e1e !important;
+    border-color: #333 !important;
 }
 
 [data-bs-theme="dark"] .form-control,
 [data-bs-theme="dark"] .form-select {
-  background-color: #1e293b;
-  color: #f8fafc;
-  border-color: #475569;
+    background-color: #1e293b;
+    color: #f8fafc;
+    border-color: #475569;
 }
-
-/* ==============================
-   LOGIN ICON SIZE
-============================== */
-
-.login-icon i {
-  font-size: 2rem !important;
-}
-
