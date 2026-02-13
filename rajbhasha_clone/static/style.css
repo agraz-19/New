@@ -266,3 +266,77 @@ html, body { font-size: var(--main-font-size) !important; }
     font-size: 1rem !important;
     font-weight: 500;
 }
+
+/* =========================================================
+   NORMAL MODE NAVBAR: FORCE SINGLE LINE (NO WRAP)
+   (Keeps your medium/large code unchanged)
+   Add this at the END of style.css
+========================================================= */
+
+/* Normal = when body DOES NOT have font-medium or font-large */
+body:not(.font-medium):not(.font-large) .navbar-nav {
+  display: flex !important;
+  flex-wrap: nowrap !important;          /* never wrap */
+  align-items: center !important;
+  width: 100%;
+}
+
+/* Keep each link in one line */
+body:not(.font-medium):not(.font-large) .navbar-nav .nav-link {
+  white-space: nowrap !important;
+}
+
+/* Also prevent the <li> items from breaking */
+body:not(.font-medium):not(.font-large) .navbar-nav .nav-item {
+  flex: 0 0 auto !important;
+}
+
+/* Keep right side controls in one line */
+body:not(.font-medium):not(.font-large) .navbar-right-controls {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+  align-items: center !important;
+  margin-left: auto !important;
+}
+/* =========================================================
+   NORMAL MODE: KEEP NAVBAR IN ONE LINE WITHOUT PUSHING OUT
+   (Medium/Large unchanged)
+========================================================= */
+
+body:not(.font-medium):not(.font-large) .navbar-custom .container-fluid,
+body:not(.font-medium):not(.font-large) .navbar-custom .container {
+  flex-wrap: nowrap !important;
+  overflow: hidden;                 /* prevents outside spill */
+}
+
+/* Make links tighter in NORMAL so Logout fits */
+body:not(.font-medium):not(.font-large) .navbar-nav .nav-link {
+  white-space: nowrap !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+  font-size: 15px !important; 
+  font-weight: 500 !important    /* slightly smaller only in normal */
+  line-height: 1.2 !important;
+}
+
+/* Reduce gap in right controls so Logout fits */
+body:not(.font-medium):not(.font-large) .navbar-right-controls {
+  gap: 6px !important;
+}
+
+/* Make dropdown + buttons a bit smaller only in NORMAL */
+body:not(.font-medium):not(.font-large) .navbar-right-controls .form-select,
+body:not(.font-medium):not(.font-large) #fontSelector {
+  width: 95px !important;
+  height: 32px !important;
+  font-size: 12.5px !important;
+  padding: 4px 6px !important;
+}
+
+body:not(.font-medium):not(.font-large) .navbar-right-controls .btn {
+  padding: 4px 8px !important;
+  font-size: 12.5px !important;
+  min-height: 32px !important;
+  white-space: nowrap !important;
+}
