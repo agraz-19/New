@@ -194,3 +194,76 @@ body, h1, h2, h3, h4, h5, h6 {
     color: #f8fafc;
     border-color: #475569;
 }
+/* ==============================
+   GLOBAL LAYOUT
+============================== */
+body {
+    transition: background-color 0.3s ease, color 0.3s ease;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    overflow-wrap: break-word;
+}
+
+.logo-img {
+    max-height: 80px;
+    width: auto;
+}
+
+.navbar-custom {
+    background-color: #0b4f7a;
+}
+
+.navbar-dark .navbar-nav .nav-link {
+    color: rgba(255,255,255,0.9);
+}
+
+.navbar-dark .navbar-nav .nav-link:hover {
+    color: #fff;
+}
+
+/* ==============================
+   FONT RESIZING
+============================== */
+:root { --main-font-size: 16px; }
+html, body { font-size: var(--main-font-size) !important; }
+
+.font-medium { --main-font-size: 18px !important; }
+.font-large { --main-font-size: 20px !important; }
+
+/* ==============================
+   DARK MODE
+============================== */
+[data-bs-theme="dark"] body {
+    background-color: #121212 !important;
+    color: #e0e0e0;
+}
+
+[data-bs-theme="dark"] .card {
+    background-color: #1e1e1e !important;
+    border-color: #333 !important;
+}
+
+/* ==============================
+   MESSAGE WRAPPER
+============================== */
+.message-wrapper {
+    z-index: 1055;
+    width: 90%;
+    max-width: 800px;
+}
+
+/* Smooth fade */
+.auto-alert {
+    transition: opacity 0.5s ease;
+}
+.hindi-title {
+    font-size: 5.0rem;   /* Bigger */
+    font-weight: 1000;    /* Extra bold */
+    letter-spacing: 0.5px;
+}
+
+.english-title {
+    font-size: 1.2rem;
+    font-weight: 500;
+}
+
