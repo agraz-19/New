@@ -23,7 +23,19 @@
         <div class="card shadow-sm border-0">
             <div class="card-body p-4">
                 <h2 class="text-center fw-bold mb-4">{{ "Login"|t:current_lang }}</h2>
-                <form method="post" novalidate>
+                                {% if form.errors %}
+                                    <div class="alert alert-danger">
+                                        {% for field in form %}
+                                            {% for error in field.errors %}
+                                                <div>{{ error }}</div>
+                                            {% endfor %}
+                                        {% endfor %}
+                                        {% for error in form.non_field_errors %}
+                                            <div>{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                <form method="post" novalidate>
     {% csrf_token %}
     
     {# Render each field individually to ensure session-based translations apply correctly #}
