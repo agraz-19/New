@@ -267,6 +267,10 @@ html, body { font-size: var(--main-font-size) !important; }
     font-weight: 500;
 }
 
+
+.bi-person-circle {
+    font-size: 30px !important;
+}
 /* =========================================================
    NORMAL MODE NAVBAR: FORCE SINGLE LINE (NO WRAP)
    (Keeps your medium/large code unchanged)
