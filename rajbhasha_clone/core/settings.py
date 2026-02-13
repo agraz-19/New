@@ -5,7 +5,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY
 SECRET_KEY = 'django-insecure-ymob%9c8jb8=ld@^f(*(sc-)m7i=zgvcn6c+k85l7s5m@&hce('
-DEBUG = False
+DEBUG = True
 
 # 2. Allow local host (Required when DEBUG is False)
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
