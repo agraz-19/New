@@ -43,7 +43,7 @@
     {{ form.hname }}
 
     <label class="mt-2">{{"Designation"|t:current_lang }} {% if role == 'manager' %}<span class="badge bg-info text-dark">Manager Only</span>{% endif %}</label>
-    <select id="designationSelect" class="form-select" {% if role != 'manager' %}disabled style="background-color: #e9ecef;"{% endif %}>
+    <select id="designationSelect" class="form-select">
       <option value="">-- {{"Select"|t:current_lang }} --</option>
       <option value="Scientist-F">{{"Scientist-F"|t:current_lang }}</option>
       <option value="Scientist-G">{{"Scientist-G"|t:current_lang }}</option>
@@ -56,9 +56,9 @@
       <option value="Scientific/Technical Assistant-A">{{"Scientific/Technical Assistant-A"|t:current_lang }}</option>
       <option value="Scientific/Technical Assistant-B">{{"Scientific/Technical Assistant-B"|t:current_lang }}</option>
       <option value="Scientific Officer/Engineer-SB">{{"Scientific Officer/Engineer-SB"|t:current_lang }}</option>
-      <option value="OTHER">{{"Other"|t:current_lang }}</option>
+      <!-- <option value="OTHER">{{"Other"|t:current_lang }}</option> -->
     </select>
-    {% if role != 'manager' %}<div class="form-text text-muted small">{{"Only a Manager can assign the Designation."|t:current_lang }}</div>{% endif %}
+    <!-- {% if role != 'manager' %}<div class="form-text text-muted small">{{"Only a Manager can assign the Designation."|t:current_lang }}</div>{% endif %} -->
 
     <input id="otherDesignation" class="form-control mt-2" placeholder="Enter other designation" style="display:none;">
 
@@ -82,39 +82,48 @@
   </div>
 
   <div class="col-md-6">
-    <label>{{"Gazet"|t:current_lang }}</label>
+    <label class="fw-bold">{{ "Gazet"|t:current_lang }}</label>
     <select name="gazet" class="form-select">
-        {% for value, label in form.fields.gazet.choices %}
-            <option value="{{ value }}" {% if form.gazet.value == value %}selected{% endif %}>{% if not value %}----{% else %}{{ label|t:current_lang }}{% endif %}</option>
-        {% endfor %}
+      {% for value,label in form.fields.gazet.choices %}
+        <option value="{{ value }}" {% if form.gazet.value == value %}selected{% endif %}>{% if not value %}-- {{ "Select"|t:current_lang }} --{% else %}{{ label|t:current_lang }}{% endif %}</option>
+      {% endfor %}
     </select>
+
 
     <label class="mt-2">{{"Prabodh"|t:current_lang }}</label>
     <select name="prabodh" class="form-select">
-        {% for value, label in form.fields.prabodh.choices %}
-            <option value="{{ value }}" {% if form.prabodh.value == value %}selected{% endif %}>{% if not value %}----{% else %}{{ label|t:current_lang }}{% endif %}</option>
-        {% endfor %}
+      {% for value, label in form.fields.prabodh.choices %}
+        <option value="{{ value }}" {% if form.prabodh.value == value %}selected{% endif %}>
+          {% if not value %}-- {{"Select"|t:current_lang }} --{% else %}{{ label|t:current_lang }}{% endif %}
+        </option>
+      {% endfor %}
     </select>
 
     <label class="mt-2">{{"Praveen"|t:current_lang }}</label>
     <select name="praveen" class="form-select">
-        {% for value, label in form.fields.praveen.choices %}
-            <option value="{{ value }}" {% if form.praveen.value == value %}selected{% endif %}>{% if not value %}----{% else %}{{ label|t:current_lang }}{% endif %}</option>
-        {% endfor %}
+      {% for value, label in form.fields.praveen.choices %}
+        <option value="{{ value }}" {% if form.praveen.value == value %}selected{% endif %}>
+          {% if not value %}-- {{"Select"|t:current_lang }} --{% else %}{{ label|t:current_lang }}{% endif %}
+        </option>
+      {% endfor %}
     </select>
 
     <label class="mt-2">{{"Pragya"|t:current_lang }}</label>
     <select name="pragya" class="form-select">
-        {% for value, label in form.fields.pragya.choices %}
-            <option value="{{ value }}" {% if form.pragya.value == value %}selected{% endif %}>{% if not value %}----{% else %}{{ label|t:current_lang }}{% endif %}</option>
-        {% endfor %}
+      {% for value, label in form.fields.pragya.choices %}
+        <option value="{{ value }}" {% if form.pragya.value == value %}selected{% endif %}>
+          {% if not value %}-- {{"Select"|t:current_lang }} --{% else %}{{ label|t:current_lang }}{% endif %}
+        </option>
+      {% endfor %}
     </select>
 
     <label class="mt-2">{{"Parangat"|t:current_lang }}</label>
     <select name="parangat" class="form-select">
-        {% for value, label in form.fields.parangat.choices %}
-            <option value="{{ value }}" {% if form.parangat.value == value %}selected{% endif %}>{% if not value %}----{% else %}{{ label|t:current_lang }}{% endif %}</option>
-        {% endfor %}
+      {% for value, label in form.fields.parangat.choices %}
+        <option value="{{ value }}" {% if form.parangat.value == value %}selected{% endif %}>
+          {% if not value %}-- {{"Select"|t:current_lang }} --{% else %}{{ label|t:current_lang }}{% endif %}
+        </option>
+      {% endfor %}
     </select>
 
     <label class="mt-2">{{"Superannuation Date"|t:current_lang }}</label>
