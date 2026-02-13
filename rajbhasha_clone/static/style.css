@@ -257,13 +257,12 @@ html, body { font-size: var(--main-font-size) !important; }
     transition: opacity 0.5s ease;
 }
 .hindi-title {
-    font-size: 5.0rem;   /* Bigger */
-    font-weight: 1000;    /* Extra bold */
+    font-size: 2rem !important;   /* Bigger */
+    font-weight: 800 !important;    /* Extra bold */
     letter-spacing: 0.5px;
 }
 
 .english-title {
-    font-size: 1.2rem;
+    font-size: 1rem !important;
     font-weight: 500;
 }
-
