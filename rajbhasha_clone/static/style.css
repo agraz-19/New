@@ -18,10 +18,6 @@
   display: none !important;
 }
 
-body {
-  top: 0 !important;
-}
-
 #goog-gt-tt,
 .goog-te-balloon-frame {
   display: none !important;
@@ -31,12 +27,18 @@ body {
   display: none !important;
 }
 
+body {
+  top: 0 !important;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
 
 /* ================================================================= */
 /* ================= NEW DRAFT UI (RECTANGULAR BOX) ================= */
 /* ================================================================= */
 
-/* Override old flat draft bar */
 .draft-box {
   position: fixed;
   bottom: 15px;
@@ -52,7 +54,6 @@ body {
   padding: 10px 14px;
 }
 
-/* Header */
 .draft-box-header {
   display: flex;
   justify-content: space-between;
@@ -63,7 +64,6 @@ body {
   border-bottom: 1px solid #d0d0d0;
 }
 
-/* Full screen button */
 .draft-expand-btn {
   background: #0b4f7a;
   color: #fff;
@@ -78,7 +78,6 @@ body {
   background: #083a59;
 }
 
-/* Horizontal container */
 .draft-box-content {
   display: flex;
   gap: 14px;
@@ -87,7 +86,6 @@ body {
   padding-bottom: 4px;
 }
 
-/* Draft card (single-line full details) */
 .draft-card {
   min-width: 1100px;
   background: #f8f9fa;
@@ -99,7 +97,6 @@ body {
   color: #000;
 }
 
-/* Scrollbar styling */
 .draft-box-content::-webkit-scrollbar {
   height: 8px;
 }
@@ -132,137 +129,176 @@ body {
   transform: scale(1.1);
 }
 
-/* Submit button spacing */
 .draft-modal-content .btn-success {
   float: right;
   margin-top: 10px;
 }
-/* GOV LOGOS */
-.gov-logo {
-    max-height: 80px;
-}
 
-/* MAIN NAVBAR */
-.main-navbar {
-    background: #0b4f7a;
-}
-
-/* DARK MODE FIXES */
-[data-bs-theme="dark"] body {
-    background-color: #121212;
-    color: #e0e0e0;
-}
-
-[data-bs-theme="dark"] .card,
-[data-bs-theme="dark"] .navbar {
-    background-color: #1e1e1e !important;
-    border-color: #333 !important;
-}
-
-/* FONT SIZE CONTROL */
-:root { --main-font-size: 16px; }
-
-html, body, body * {
-    font-size: var(--main-font-size) !important;
-}
-
-.font-medium { --main-font-size: 20px; }
-.font-large  { --main-font-size: 24px; }
-
-/* BETTER MULTI-LANGUAGE LINE HEIGHT */
-body, h1, h2, h3, h4, h5, h6 {
-    line-height: 1.6;
-}
-
-/* BUTTON FIX */
-.btn {
-    white-space: normal;
-    height: auto;
-    min-height: 38px;
-}
-
-/* ALERT Z-INDEX */
-.alert-dismissible {
-    z-index: 9999;
-    position: relative;
-}
-
-/* DARK INPUT FIX */
-[data-bs-theme="dark"] .form-control,
-[data-bs-theme="dark"] .form-select {
-    background-color: #1e293b;
-    color: #f8fafc;
-    border-color: #475569;
-}
 /* ==============================
-   GLOBAL LAYOUT
+   GLOBAL
 ============================== */
-body {
-    transition: background-color 0.3s ease, color 0.3s ease;
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    line-height: 1.6;
-    overflow-wrap: break-word;
-}
 
 .logo-img {
-    max-height: 80px;
-    width: auto;
+  max-height: 80px;
+  width: auto;
 }
+
+/* ==============================
+   FONT SIZE CONTROL (WORKING)
+============================== */
+
+:root { --main-font-size: 16px; }
+
+html {
+  font-size: var(--main-font-size);
+}
+
+/* Medium/Large values */
+.font-medium { --main-font-size: 18px; }
+.font-large  { --main-font-size: 20px; }
+
+
+
+/* ==============================
+   HEADER TITLES
+============================== */
+
+.hindi-title {
+  font-size: 2rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.5px !important;
+}
+
+.english-title {
+  font-size: 1rem !important;
+  font-weight: 500 !important;
+}
+
+/* Prevent header block from breaking weirdly */
+.header-title {
+  flex-wrap: nowrap;
+}
+
+/* ==============================
+   MAIN NAVBAR (SINGLE LINE FIX)
+============================== */
 
 .navbar-custom {
-    background-color: #0b4f7a;
+  background-color: #0b4f7a;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 
+/* Bootstrap default link colors */
 .navbar-dark .navbar-nav .nav-link {
-    color: rgba(255,255,255,0.9);
+  color: rgba(255,255,255,0.9);
 }
 
 .navbar-dark .navbar-nav .nav-link:hover {
-    color: #fff;
+  color: #fff;
+}
+
+/* ✅ Keep everything single line */
+.navbar-nav {
+  flex-wrap: nowrap !important;
+}
+
+/* ✅ Reduce spacing so Logout doesn't go out */
+.navbar-nav .nav-link {
+  white-space: nowrap;
+  padding: 6px 10px;     /* reduced from 12px */
+  line-height: 1.2;
+  font-size: 14.5px; 
+  font-weight: 500;     
+}
+
+/* ✅ Right side controls compact */
+.navbar-right-controls {
+  gap: 6px !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap;
+}
+
+/* Smaller dropdown */
+.navbar-right-controls .form-select,
+#fontSelector {
+  width: 105px !important;
+  padding: 4px 6px !important;
+  font-size: 13px !important;
+  height: 32px !important;
+}
+
+/* Smaller buttons */
+.navbar-right-controls .btn {
+  padding: 4px 8px !important;
+  font-size: 13px !important;
+  min-height: 32px !important;
+  white-space: nowrap;
+}
+
+/* Smaller "Hi, 2004" */
+.navbar-right-controls span {
+  font-size: 13px !important;
+  margin-left: 4px;
+  margin-right: 4px;
 }
 
 /* ==============================
-   FONT RESIZING
+   BUTTON FIX (GLOBAL)
 ============================== */
-:root { --main-font-size: 16px; }
-html, body { font-size: var(--main-font-size) !important; }
 
-.font-medium { --main-font-size: 18px !important; }
-.font-large { --main-font-size: 20px !important; }
+.btn {
+  white-space: normal;
+  height: auto;
+  min-height: 38px;
+}
+
+/* ==============================
+   ALERT Z-INDEX
+============================== */
+
+.alert-dismissible {
+  z-index: 9999;
+  position: relative;
+}
+
+.message-wrapper {
+  z-index: 1055;
+  width: 90%;
+  max-width: 800px;
+}
+
+.auto-alert {
+  transition: opacity 0.5s ease;
+}
 
 /* ==============================
    DARK MODE
 ============================== */
+
 [data-bs-theme="dark"] body {
-    background-color: #121212 !important;
-    color: #e0e0e0;
+  background-color: #121212 !important;
+  color: #e0e0e0 !important;
 }
 
-[data-bs-theme="dark"] .card {
-    background-color: #1e1e1e !important;
-    border-color: #333 !important;
+[data-bs-theme="dark"] .card,
+[data-bs-theme="dark"] .navbar {
+  background-color: #1e1e1e !important;
+  border-color: #333 !important;
+}
+
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select {
+  background-color: #1e293b;
+  color: #f8fafc;
+  border-color: #475569;
 }
 
 /* ==============================
-   MESSAGE WRAPPER
+   LOGIN ICON SIZE
 ============================== */
-.message-wrapper {
-    z-index: 1055;
-    width: 90%;
-    max-width: 800px;
+
+.login-icon i {
+  font-size: 2rem !important;
 }
 
-/* Smooth fade */
-.auto-alert {
-    transition: opacity 0.5s ease;
-}
-.hindi-title {
-    font-size: 2rem !important;   /* Bigger */
-    font-weight: 800 !important;    /* Extra bold */
-    letter-spacing: 0.5px;
-}
-
-.english-title {
-    font-size: 1rem !important;
-    font-weight: 500;
-}
