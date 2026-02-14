@@ -44,7 +44,9 @@
 </div>
 
 <script>
-const API_URL = "/api/records";
+
+// ✅ Correct API base path
+const API_URL = "{% url 'qpr_api_records' %}";
 
 // Function to mask sensitive fields
 function maskSensitiveData(value) {
@@ -110,7 +112,7 @@ async function loadList() {
 }
 
 function view(id) {
-    fetch(`/api/records/${id}/`)
+    fetch(`/qpr/api/records/${id}/`)
         .then(res => res.json())
         .then(record => {
             if (record.can_edit) {
@@ -140,12 +142,13 @@ function requestEdit(id) {
         return;
     }
 
-    fetch(`/api/request-edit/`, {
+    fetch(`/qpr/api/request-edit/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+            request_type: 'qpr',   // ✅ IMPORTANT FIX
             record_id: id,
             reason: reason
         })
@@ -166,6 +169,7 @@ function requestEdit(id) {
 }
 
 window.addEventListener('DOMContentLoaded', loadList);
+
 </script>
 
 {% endblock %}

@@ -120,13 +120,13 @@
                                     <td>
                                         <div class="d-flex align-items-center gap-2">
                                             <span class="fw-bold">{{ emp.designation|default:"-" }}</span>
-                                            {% with u=users|first %} 
-                                            <button class="btn btn-sm btn-link text-secondary p-0" 
-                                                    onclick="openDesignationModalByUsername('{{ emp.empcode }}', '{{ emp.designation|default:'' }}')"
+                                            {% with designation_value=emp.designation|default:'' %}
+                                            <button class="btn btn-sm btn-link text-secondary p-0"
+                                                    onclick="openDesignationModalByUsername('{{ emp.empcode }}', '{{ designation_value|escapejs }}')"
                                                     title="Edit Designation">
                                                 <i class="bi bi-pencil-square"></i>
                                             </button>
-                                            {% endwith %}
+                                            {% endwith %}       
                                         </div>
                                     </td>
                                     <td>

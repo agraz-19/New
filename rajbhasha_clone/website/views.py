@@ -81,25 +81,30 @@ def error_403(request, exception=None): return universal_error_view(request, exc
 def csrf_failure(request, reason=""): return universal_error_view(request, exception=None, status_code=403)
 def error_404(request, exception=None): return universal_error_view(request, exception, 404)
 def error_500(request): return universal_error_view(request, None, 500)
-
 @login_required
 def dashboard(request):
-    # Try getting role from Session -> If missing, get from Database -> Default to 'user'
     role = request.session.get('active_role', request.user.role)
-    
-    # Refresh session if it was missing
+
     if 'active_role' not in request.session:
         request.session['active_role'] = role
 
-    # Routing Logic
-    if role == 'user':
-        return render(request, "dashboard.html")
-    elif role in ['manager', 'admin']:
+    # QPR Role Routing
+    if role == 'admin':
+        return redirect('/qpr/admin/dashboard/')
+    
+    elif role == 'hod':
+        return redirect('/qpr/hod/dashboard/')
+    
+    elif role == 'user':
+        return redirect('/qpr/dashboard/')
+
+    # Main Website Roles
+    elif role == 'manager':
         return redirect('manager_dashboard')
+
     elif role == 'backup_user':
-        # Backup users usually stay on the main dashboard to see the download link
         return render(request, "dashboard.html")
-        
+
     return redirect('home')
 
 def privacy_policy(request):
