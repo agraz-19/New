@@ -22,7 +22,7 @@ urlpatterns = [
     path('hod/requests/', views.hod_manager_requests, name='qpr_hod_requests'),
 
     # Reports UI
-    path('', views.user_dashboard, name='qpr_form'),
+    path('', views.qpr_form, name='qpr_form'),
     path('reports/', views.report_list, name='qpr_report_list'),
     path('reports/<int:record_id>/', views.report_detail, name='qpr_report_detail'),
 

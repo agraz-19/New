@@ -1,11 +1,12 @@
-# qpr_app/signals.py
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.conf import settings
-from .models import UserProfile
+from django.contrib.auth import get_user_model
 from .models import UserProfile
 
-@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+User = get_user_model()
+
+
+@receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
         UserProfile.objects.create(
@@ -15,3 +16,7 @@ def create_user_profile(sender, instance, created, **kwargs):
         )
 
 
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    if hasattr(instance, 'profile'):
+        instance.profile.save()

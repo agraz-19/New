@@ -13,10 +13,10 @@
             <h5 class="mb-0">तिमाही प्रगति रिपोर्ट/Quarterly Progress report</h5>
             <div class="d-flex align-items-center gap-3">
                 <div id="partBadge" class="part-badge">Part-1</div>
-                <div>
+                <!-- <div>
                     <span id="userDisplay" style="color: #666; font-size: 0.9rem;"></span>
                     <a href="{% url 'logout' %}" class="btn btn-sm btn-outline-danger ms-2">Logout</a>
-                </div>
+                </div> -->
             </div>
         </div>
         
@@ -318,7 +318,7 @@
 
     <div class="card shadow-sm mt-5">
         <div class="card-body text-center">
-            <a href="/reports/" class="btn btn-outline-primary">Report List</a>
+            <a href="{% url 'qpr_report_list' %}" class="btn btn-outline-primary">Report List</a>
         </div>
     </div>
 </div>

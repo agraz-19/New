@@ -497,81 +497,77 @@ def api_record_detail(request, record_id):
 
 # ==================== USER VIEWS ====================
 
-@login_required
+# @login_required
 def user_profile(request):
-    """Display and update user profile with approval workflow"""
     profile = request.user.profile
-    
-    # Check if profile has been submitted and needs approval for edit
+
     profile_submitted = profile.profile_updated
-    
-    # Check if user has an approved edit request for their profile
     profile_edit_approved = False
     profile_edit_pending = False
-    
+
     if profile_submitted:
-        # Look for approved profile edit requests for this user
         approved_request = ManagerRequest.objects.filter(
             hod=request.user,
             request_type='profile',
             status='approved'
         ).first()
-        
+
         profile_edit_approved = approved_request is not None
-        
-        # Check for pending requests
+
         pending_request = ManagerRequest.objects.filter(
             hod=request.user,
             request_type='profile',
             status='pending'
         ).first()
-        
+
         profile_edit_pending = pending_request is not None
-    
+
     if request.method == 'POST':
-        name = request.POST.get('name')
         email = request.POST.get('email')
-        hod_name = request.POST.get('hod_name')
-        
-        if not name or not email:
-            messages.error(request, 'Name and email are required')
-        elif not hod_name:
-            messages.error(request, 'HOD name is required')
-        # Check if profile is submitted and edit is not approved
+
+        if not email:
+            messages.error(request, 'Email is required')
         elif profile_submitted and not profile_edit_approved:
-            messages.error(request, 'You cannot edit a submitted profile. Please request approval from Admin first.')
+            messages.error(
+                request,
+                'You cannot edit a submitted profile. Please request approval from Admin first.'
+            )
         else:
-            profile.name = name
             profile.email = email
-            profile.hod_name = hod_name
             profile.profile_updated = True
             profile.save()
-            
+
             request.user.email = email
             request.user.save()
-            
-            # If user was editing with approval, delete the approved request
+
             if profile_edit_approved:
                 ManagerRequest.objects.filter(
                     hod=request.user,
                     request_type='profile',
                     status='approved'
                 ).delete()
-                messages.success(request, 'Profile updated successfully! Please request approval if you need to make further changes.')
+
+                messages.success(
+                    request,
+                    'Profile updated successfully! Please request approval if you need further changes.'
+                )
             else:
                 messages.success(request, 'Profile updated successfully!')
-            
-            return redirect('user_dashboard')
-    
+
+            return redirect('qpr_user_dashboard')
+
     context = {
         'profile': profile,
         'profile_updated': profile.profile_updated,
         'profile_edit_approved': profile_edit_approved,
         'profile_edit_pending': profile_edit_pending,
         'can_edit': not profile_submitted or profile_edit_approved,
-        'active_hods': get_active_hods()  # Pass dynamic HOD list
     }
-    return render(request, 'user_profile.html', context)
+
+    return render(request, 'profile.html', context)
+@login_required
+def qpr_form(request):
+    return render(request, 'qpr/qpr_form.html')
 
 
 @login_required
@@ -582,7 +578,7 @@ def user_dashboard(request):
     # If profile is not updated, redirect to profile update page
     if not profile.profile_updated:
         messages.warning(request, 'Please complete your profile first!')
-        return redirect('user_profile')
+        return redirect('qpr_user_profile')
     
     qpr_records = QPRRecord.objects.filter(user=request.user)
     
@@ -700,7 +696,7 @@ def hod_detail_list(request):
         'users_data': users_data,
         'hod_name': hod_name
     }
-    return render(request, 'hod_detail_list.html', context)
+    return render(request, 'qpr/hod_detail_list.html', context)
 
 
 @login_required
@@ -771,7 +767,7 @@ def hod_manager_requests(request):
         'users_data': users_data,
         'hod_name': hod_name
     }
-    return render(request, 'hod_manager_requests.html', context)
+    return render(request, 'qpr/hod_manager_requests.html', context)
 
 
 # ==================== ADMIN/MANAGER VIEWS ====================
@@ -923,7 +919,7 @@ def admin_approve_request(request, request_id):
         return redirect('admin_dashboard')
     except ManagerRequest.DoesNotExist:
         messages.error(request, 'Request not found')
-        return redirect('admin_dashboard')# New view functions to add to views.py
+        return redirect('qpr_admin_dashboard')# New view functions to add to views.py
 
 @login_required
 def admin_employee_list(request):
@@ -1108,7 +1104,8 @@ def admin_employee_list(request):
         'all_quarters': all_quarters,
         'all_years': all_years
     }
-    return render(request, 'admin_employee_list.html', context)
+    return render(request, 'qpr/admin_employee_list.html', context)
+
 
 
 @login_required
@@ -1127,12 +1124,13 @@ def user_office_form(request):
             profile.office_code = office_code
             profile.save()
             messages.success(request, 'Office details updated successfully!')
-            return redirect('user_dashboard')
+            return redirect('qpr_user_dashboard')
     
     context = {
         'profile': profile
     }
-    return render(request, 'user_office_form.html', context)
+    return render(request, 'qpr/user_office_form.html', context)
+
 
 
 @login_required
@@ -1195,11 +1193,11 @@ def admin_create_hod(request):
                 profile.save()
             
             messages.success(request, f'HOD {first_name} created successfully! Emp Code: {emp_code}, Default Password: 123456')
-            return redirect('admin_dashboard')
+            return redirect('qpr_admin_dashboard')
         except Exception as e:
             messages.error(request, f'Error creating HOD: {str(e)}')
     
-    return render(request, 'admin_create_hod.html')
+    return render(request, 'qpr/admin_create_hod.html')
 
 
 @login_required
@@ -1221,11 +1219,13 @@ def change_password(request):
             request.user.set_password(new_password1)
             request.user.save()
             messages.success(request, 'Password changed successfully!')
-            return redirect('user_dashboard' if request.user.profile.role == 'user' else 
-                          'hod_dashboard' if request.user.profile.role == 'hod' else 
-                          'admin_dashboard')
+            return redirect(
+                'qpr_user_dashboard' if request.user.profile.role == 'user'
+                else 'qpr_hod_dashboard' if request.user.profile.role == 'hod'
+                else 'qpr_admin_dashboard'
+            )
     
-    return render(request, 'change_password.html')
+    return render(request, 'qpr/change_password.html')
 
 
 # ==================== HOD MANAGEMENT (ADMIN ONLY) ====================
