@@ -1,11 +1,11 @@
 /* ================= EXISTING STYLES (UNCHANGED) ================= */
 
-.carousel-img{
+.carousel-img {
   height: 380px;
   object-fit: cover;
 }
 
-.banner-img{
+.banner-img {
   height: 420px;
   object-fit: cover;
 }
@@ -20,6 +20,10 @@
 
 body {
   top: 0 !important;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  overflow-wrap: break-word;
 }
 
 #goog-gt-tt,
@@ -31,12 +35,10 @@ body {
   display: none !important;
 }
 
-
 /* ================================================================= */
 /* ================= NEW DRAFT UI (RECTANGULAR BOX) ================= */
 /* ================================================================= */
 
-/* Override old flat draft bar */
 .draft-box {
   position: fixed;
   bottom: 15px;
@@ -52,7 +54,6 @@ body {
   padding: 10px 14px;
 }
 
-/* Header */
 .draft-box-header {
   display: flex;
   justify-content: space-between;
@@ -63,7 +64,6 @@ body {
   border-bottom: 1px solid #d0d0d0;
 }
 
-/* Full screen button */
 .draft-expand-btn {
   background: #0b4f7a;
   color: #fff;
@@ -78,7 +78,6 @@ body {
   background: #083a59;
 }
 
-/* Horizontal container */
 .draft-box-content {
   display: flex;
   gap: 14px;
@@ -87,7 +86,6 @@ body {
   padding-bottom: 4px;
 }
 
-/* Draft card (single-line full details) */
 .draft-card {
   min-width: 1100px;
   background: #f8f9fa;
@@ -99,7 +97,6 @@ body {
   color: #000;
 }
 
-/* Scrollbar styling */
 .draft-box-content::-webkit-scrollbar {
   height: 8px;
 }
@@ -132,85 +129,22 @@ body {
   transform: scale(1.1);
 }
 
-/* Submit button spacing */
 .draft-modal-content .btn-success {
   float: right;
   margin-top: 10px;
 }
-/* GOV LOGOS */
-.gov-logo {
-    max-height: 80px;
-}
 
-/* MAIN NAVBAR */
-.main-navbar {
-    background: #0b4f7a;
-}
-
-/* DARK MODE FIXES */
-[data-bs-theme="dark"] body {
-    background-color: #121212;
-    color: #e0e0e0;
-}
-
-[data-bs-theme="dark"] .card,
-[data-bs-theme="dark"] .navbar {
-    background-color: #1e1e1e !important;
-    border-color: #333 !important;
-}
-
-/* FONT SIZE CONTROL */
-:root { --main-font-size: 16px; }
-
-html, body, body * {
-    font-size: var(--main-font-size) !important;
-}
-
-.font-medium { --main-font-size: 20px; }
-.font-large  { --main-font-size: 24px; }
-
-/* BETTER MULTI-LANGUAGE LINE HEIGHT */
-body, h1, h2, h3, h4, h5, h6 {
-    line-height: 1.6;
-}
-
-/* BUTTON FIX */
-.btn {
-    white-space: normal;
-    height: auto;
-    min-height: 38px;
-}
-
-/* ALERT Z-INDEX */
-.alert-dismissible {
-    z-index: 9999;
-    position: relative;
-}
-
-/* DARK INPUT FIX */
-[data-bs-theme="dark"] .form-control,
-[data-bs-theme="dark"] .form-select {
-    background-color: #1e293b;
-    color: #f8fafc;
-    border-color: #475569;
-}
 /* ==============================
-   GLOBAL LAYOUT
+    GLOBAL LAYOUT & LOGOS
 ============================== */
-body {
-    transition: background-color 0.3s ease, color 0.3s ease;
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    line-height: 1.6;
-    overflow-wrap: break-word;
-}
 
-.logo-img {
+.gov-logo, .logo-img {
     max-height: 80px;
     width: auto;
 }
 
-.navbar-custom {
-    background-color: #0b4f7a;
+.navbar-custom, .main-navbar {
+    background-color: #0b4f7a !important;
 }
 
 .navbar-dark .navbar-nav .nav-link {
@@ -222,43 +156,30 @@ body {
 }
 
 /* ==============================
-   FONT RESIZING
+    FONT SIZE CONTROL
 ============================== */
+
 :root { --main-font-size: 16px; }
-html, body { font-size: var(--main-font-size) !important; }
 
+html, body { 
+    font-size: var(--main-font-size) !important; 
+}
+
+/* Force sizing on all children when classes are present */
 .font-medium { --main-font-size: 18px !important; }
-.font-large { --main-font-size: 20px !important; }
+.font-large  { --main-font-size: 20px !important; }
 
-/* ==============================
-   DARK MODE
-============================== */
-[data-bs-theme="dark"] body {
-    background-color: #121212 !important;
-    color: #e0e0e0;
-}
-
-[data-bs-theme="dark"] .card {
-    background-color: #1e1e1e !important;
-    border-color: #333 !important;
+.font-medium body *, .font-large body * {
+    font-size: var(--main-font-size) !important;
 }
 
 /* ==============================
-   MESSAGE WRAPPER
+    HEADER TITLES
 ============================== */
-.message-wrapper {
-    z-index: 1055;
-    width: 90%;
-    max-width: 800px;
-}
 
-/* Smooth fade */
-.auto-alert {
-    transition: opacity 0.5s ease;
-}
 .hindi-title {
-    font-size: 2rem !important;   /* Bigger */
-    font-weight: 800 !important;    /* Extra bold */
+    font-size: 2rem !important;
+    font-weight: 800 !important;
     letter-spacing: 0.5px;
 }
 
@@ -267,80 +188,116 @@ html, body { font-size: var(--main-font-size) !important; }
     font-weight: 500;
 }
 
+.header-title {
+    flex-wrap: nowrap;
+}
+
+/* ==============================
+    NAVBAR SINGLE LINE LOGIC (NORMAL MODE)
+============================== */
+
+/* Only applies when NOT in medium or large font modes */
+body:not(.font-medium):not(.font-large) .navbar-custom .container-fluid,
+body:not(.font-medium):not(.font-large) .navbar-custom .container {
+    flex-wrap: nowrap !important;
+    overflow: hidden;
+}
+
+body:not(.font-medium):not(.font-large) .navbar-nav {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+}
+
+body:not(.font-medium):not(.font-large) .navbar-nav .nav-item {
+    flex: 0 0 auto !important;
+}
+
+body:not(.font-medium):not(.font-large) .navbar-nav .nav-link {
+    white-space: nowrap !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    font-size: 15px !important; 
+    font-weight: 500 !important;
+    line-height: 1.2 !important;
+}
+
+/* Right side controls compact logic */
+body:not(.font-medium):not(.font-large) .navbar-right-controls {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
+    align-items: center !important;
+    margin-left: auto !important;
+    gap: 6px !important;
+}
+
+body:not(.font-medium):not(.font-large) .navbar-right-controls .form-select,
+body:not(.font-medium):not(.font-large) #fontSelector {
+    width: 95px !important;
+    height: 32px !important;
+    font-size: 12.5px !important;
+    padding: 4px 6px !important;
+}
+
+body:not(.font-medium):not(.font-large) .navbar-right-controls .btn {
+    padding: 4px 8px !important;
+    font-size: 12.5px !important;
+    min-height: 32px !important;
+    white-space: nowrap !important;
+}
+
+/* ==============================
+    UI ELEMENTS (ALERTS, BUTTONS, ICONS)
+============================== */
+
+.btn {
+    white-space: normal;
+    height: auto;
+    min-height: 38px;
+}
+
+.alert-dismissible {
+    z-index: 9999;
+    position: relative;
+}
+
+.message-wrapper {
+    z-index: 1055;
+    width: 90%;
+    max-width: 800px;
+}
+
+.auto-alert {
+    transition: opacity 0.5s ease;
+}
 
 .bi-person-circle {
     font-size: 30px !important;
 }
-/* =========================================================
-   NORMAL MODE NAVBAR: FORCE SINGLE LINE (NO WRAP)
-   (Keeps your medium/large code unchanged)
-   Add this at the END of style.css
-========================================================= */
 
-/* Normal = when body DOES NOT have font-medium or font-large */
-body:not(.font-medium):not(.font-large) .navbar-nav {
-  display: flex !important;
-  flex-wrap: nowrap !important;          /* never wrap */
-  align-items: center !important;
-  width: 100%;
+.login-icon i {
+    font-size: 2rem !important;
 }
 
-/* Keep each link in one line */
-body:not(.font-medium):not(.font-large) .navbar-nav .nav-link {
-  white-space: nowrap !important;
+/* ==============================
+    DARK MODE
+============================== */
+
+[data-bs-theme="dark"] body {
+    background-color: #121212 !important;
+    color: #e0e0e0;
 }
 
-/* Also prevent the <li> items from breaking */
-body:not(.font-medium):not(.font-large) .navbar-nav .nav-item {
-  flex: 0 0 auto !important;
+[data-bs-theme="dark"] .card,
+[data-bs-theme="dark"] .navbar {
+    background-color: #1e1e1e !important;
+    border-color: #333 !important;
 }
 
-/* Keep right side controls in one line */
-body:not(.font-medium):not(.font-large) .navbar-right-controls {
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  white-space: nowrap !important;
-  align-items: center !important;
-  margin-left: auto !important;
-}
-/* =========================================================
-   NORMAL MODE: KEEP NAVBAR IN ONE LINE WITHOUT PUSHING OUT
-   (Medium/Large unchanged)
-========================================================= */
-
-body:not(.font-medium):not(.font-large) .navbar-custom .container-fluid,
-body:not(.font-medium):not(.font-large) .navbar-custom .container {
-  flex-wrap: nowrap !important;
-  overflow: hidden;                 /* prevents outside spill */
-}
-
-/* Make links tighter in NORMAL so Logout fits */
-body:not(.font-medium):not(.font-large) .navbar-nav .nav-link {
-  white-space: nowrap !important;
-  padding-left: 10px !important;
-  padding-right: 10px !important;
-  font-size: 15px !important; 
-  font-weight: 500 !important;   /* slightly smaller only in normal */
-  line-height: 1.2 !important;
-}
-
-/* Reduce gap in right controls so Logout fits */
-body:not(.font-medium):not(.font-large) .navbar-right-controls {
-  gap: 6px !important;
-}
-
-/* Make dropdown + buttons a bit smaller only in NORMAL */
-body:not(.font-medium):not(.font-large) .navbar-right-controls .form-select,
-body:not(.font-medium):not(.font-large) #fontSelector {
-  width: 95px !important;
-  height: 32px !important;
-  font-size: 12.5px !important;
-  padding: 4px 6px !important;
-}
-
-body:not(.font-medium):not(.font-large) .navbar-right-controls .btn {
-  padding: 4px 8px !important;
-  font-size: 12.5px !important;
-  min-height: 32px !important;
-  white-space: nowrap !important;
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select {
+    background-color: #1e293b;
+    color: #f8fafc;
+    border-color: #475569;
 }

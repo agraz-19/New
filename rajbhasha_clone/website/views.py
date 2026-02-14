@@ -673,3 +673,83 @@ def download_db_backup(request):
     
     messages.error(request, "Database file not found.")
     return redirect('dashboard')
+
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def qpr_user_dashboard(request):
+
+    role = request.session.get('active_role')
+
+    if role != 'user':
+        return redirect('dashboard')
+
+    profile = request.user
+    context = {
+        "profile": profile,
+        "profile_status": "Updated",
+        "qpr_submitted": False,
+    }
+
+    return render(request, "qpr/user_dashboard.html", context)
+
+@login_required
+def qpr_admin_dashboard(request):
+
+    role = request.session.get('active_role')
+
+    if role != 'admin':
+        return redirect('dashboard')
+
+    context = {
+        "hod_stats": []
+    }
+
+    return render(request, "qpr/admin_dashboard.html", context)
+
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def qpr_manager_dashboard(request):
+
+    role = request.session.get('active_role')
+
+    if role != 'manager':
+        return redirect('dashboard')
+
+    context = {
+        "employees": []
+    }
+
+    return render(request, "qpr/manager_dashboard.html", context)
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def qpr_form(request):
+
+    role = request.session.get('active_role')
+
+    if role != 'user':
+        return redirect('dashboard')
+
+    return render(request, "qpr/qpr_form.html")
+
+@login_required
+def qpr_list(request):
+
+    role = request.session.get('active_role')
+
+    if role != 'user':
+        return redirect('dashboard')
+
+    return render(request, "qpr/report_list.html")
+
+@login_required
+def qpr_detail(request, record_id):
+
+    role = request.session.get('active_role')
+
+    if role not in ['user', 'manager', 'admin']:
+        return redirect('dashboard')
+
+    return render(request, "qpr/report_detail.html")

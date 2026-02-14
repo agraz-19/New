@@ -7,6 +7,8 @@ urlpatterns = [
 
     # frontend urls
     path('', include('website.urls')),
+    path('qpr/', include('qpr_app.urls')),
+
 
 ]
 handler400 = 'website.views.error_400'
