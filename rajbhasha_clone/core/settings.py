@@ -27,7 +27,8 @@ INSTALLED_APPS = [
 
     # Your Apps
     # 'user',
-    'website',   # ← teammate app added
+    'website',
+    'qpr_app'   # ← teammate app added
 ]
 
 
