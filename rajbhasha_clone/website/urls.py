@@ -48,13 +48,13 @@ urlpatterns = [
     # Captcha
     path('captcha/audio/<key>.wav', views.custom_captcha_audio, name='captcha-audio'),
     path('captcha/', include('captcha.urls')),
-    # qpr
-    path('qpr/dashboard/', views.qpr_user_dashboard, name='qpr_user_dashboard'),
-    path('qpr/admin-dashboard/', views.qpr_admin_dashboard, name='qpr_admin_dashboard'),
-    path('qpr/manager-dashboard/', views.qpr_manager_dashboard, name='qpr_manager_dashboard'),
-    path('qpr/form/', views.qpr_form, name='qpr_form'),
-    path('qpr/reports/', views.qpr_list, name='qpr_list'),
-    path('qpr/reports/<int:record_id>/', views.qpr_detail, name='qpr_detail'),
+    # # qpr
+    # path('qpr/dashboard/', views.qpr_user_dashboard, name='qpr_user_dashboard'),
+    # path('qpr/admin-dashboard/', views.qpr_admin_dashboard, name='qpr_admin_dashboard'),
+    # path('qpr/manager-dashboard/', views.qpr_manager_dashboard, name='qpr_manager_dashboard'),
+    # path('qpr/form/', views.qpr_form, name='qpr_form'),
+    # path('qpr/reports/', views.qpr_list, name='qpr_list'),
+    # path('qpr/reports/<int:record_id>/', views.qpr_detail, name='qpr_detail'),
 
 
 

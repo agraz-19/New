@@ -96,7 +96,8 @@ def dashboard(request):
         return redirect('/qpr/hod/dashboard/')
     
     elif role == 'user':
-        return redirect('/qpr/dashboard/')
+        return render(request, "dashboard.html")
+
 
     # Main Website Roles
     elif role == 'manager':
@@ -595,26 +596,6 @@ def employee_form(request):
     form = EmployeeForm()
     return render(request, "employeeform.html", {"form": form})
 
-'''@csrf_exempt
-def translate_api(request):
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-            text = data.get("text", "")
-            target = data.get("target", "hi")
-            
-            if not text or text == "-":
-                return JsonResponse({"translated": text})
-            
-            # Note: GoogleTranslator requires an active internet connection
-            translated = GoogleTranslator(source="auto", target=target).translate(text)
-            return JsonResponse({"translated": translated})
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON"}, status=400)
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
-            
-    return JsonResponse({"error": "Invalid request"}, status=400)'''
 class EmployeeListCreateAPI(APIView):
     def get(self, request):
         if request.session.get('active_role') != 'user':
@@ -679,82 +660,3 @@ def download_db_backup(request):
     messages.error(request, "Database file not found.")
     return redirect('dashboard')
 
-from django.contrib.auth.decorators import login_required
-
-@login_required
-def qpr_user_dashboard(request):
-
-    role = request.session.get('active_role')
-
-    if role != 'user':
-        return redirect('dashboard')
-
-    profile = request.user
-    context = {
-        "profile": profile,
-        "profile_status": "Updated",
-        "qpr_submitted": False,
-    }
-
-    return render(request, "qpr/user_dashboard.html", context)
-
-@login_required
-def qpr_admin_dashboard(request):
-
-    role = request.session.get('active_role')
-
-    if role != 'admin':
-        return redirect('dashboard')
-
-    context = {
-        "hod_stats": []
-    }
-
-    return render(request, "qpr/admin_dashboard.html", context)
-
-from django.contrib.auth.decorators import login_required
-
-@login_required
-def qpr_manager_dashboard(request):
-
-    role = request.session.get('active_role')
-
-    if role != 'manager':
-        return redirect('dashboard')
-
-    context = {
-        "employees": []
-    }
-
-    return render(request, "qpr/manager_dashboard.html", context)
-from django.contrib.auth.decorators import login_required
-
-@login_required
-def qpr_form(request):
-
-    role = request.session.get('active_role')
-
-    if role != 'user':
-        return redirect('dashboard')
-
-    return render(request, "qpr/qpr_form.html")
-
-@login_required
-def qpr_list(request):
-
-    role = request.session.get('active_role')
-
-    if role != 'user':
-        return redirect('dashboard')
-
-    return render(request, "qpr/report_list.html")
-
-@login_required
-def qpr_detail(request, record_id):
-
-    role = request.session.get('active_role')
-
-    if role not in ['user', 'manager', 'admin']:
-        return redirect('dashboard')
-
-    return render(request, "qpr/report_detail.html")
