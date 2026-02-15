@@ -57,7 +57,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
 });
-const API_URL = "/api/records";
+/*qpr-specific code*/
+const API_URL = "/qpr/api/records/";
 let records = []; // Store data globally
 
 // Function to mask sensitive fields
@@ -86,7 +87,7 @@ function checkAuthentication() {
     const userDisplay = document.getElementById('userDisplay');
     if (!userDisplay) return;
     
-    fetch('/api/records')
+    fetch('/qpr/api/records/')
         .then(res => {
             if (res.status === 401) {
                 // Not authenticated, redirect to login
