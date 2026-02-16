@@ -1,0 +1,96 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Office Details - Quarterly Progress Report</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style display="none">
+        body {
+            background-color: #f8f9fa;
+        }
+        .navbar-custom {
+            background: linear-gradient(135deg, #2c5a86 0%, #1f4788 100%);
+        }
+        .card-custom {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin-top: 30px;
+        }
+        .form-header {
+            color: #2c5a86;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #2c5a86;
+            padding-bottom: 10px;
+        }
+        .btn-custom {
+            background-color: #2c5a86;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        .btn-custom:hover {
+            background-color: #1f4788;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-dark navbar-custom">
+    <div class="container-fluid">
+        <span class="navbar-brand mb-0 h5">तिमाही प्रगति रिपोर्ट - Office Details</span>
+        <a href="{% url 'logout_view' %}" class="btn btn-light btn-sm">Logout</a>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="card-custom">
+        <div class="form-header">
+            <h3><i class="fas fa-building"></i> Office Details</h3>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="POST">
+            {% csrf_token %}
+
+            <div class="form-group mb-3">
+                <label for="office_name" class="form-label">Office Name <span style="color: red;">*</span></label>
+                <input type="text" class="form-control" id="office_name" name="office_name" 
+                       value="{{ profile.office_name|default:'' }}" required placeholder="Enter office name">
+            </div>
+
+            <div class="form-group mb-3">
+                <label for="office_code" class="form-label">Office Code <span style="color: red;">*</span></label>
+                <input type="text" class="form-control" id="office_code" name="office_code" 
+                       value="{{ profile.office_code|default:'' }}" required placeholder="Enter office code">
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn btn-custom">
+                    <i class="fas fa-save"></i> Save Office Details
+                </button>
+                <a href="{% url 'user_dashboard' %}" class="btn btn-secondary ms-2">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

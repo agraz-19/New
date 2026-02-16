@@ -1,0 +1,130 @@
+{% extends "master.html" %}
+{% load static %}
+
+{% block content %}
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+    .dashboard-container {
+        margin-top: 30px;
+    }
+    .header-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    .status-alert {
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+    }
+    .status-warning {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    .status-success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    .dashboard-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+    .card-title {
+        color: #2c5a86;
+        font-weight: bold;
+        margin-bottom: 15px;
+    }
+    .btn-custom {
+        background-color: #2c5a86;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        text-decoration: none;
+    }
+    .btn-custom:hover {
+        background-color: #1f4788;
+        color: white;
+    }
+</style>
+
+<div class="container dashboard-container">
+
+    <div class="header-section">
+        <div>
+            <h3>Welcome, {{ profile.name|default:"User" }}!</h3>
+            <p class="text-muted mb-0">Employee Code: {{ profile.employee_code }}</p>
+        </div>
+    </div>
+
+    {% if profile_status == 'Needs Update' %}
+        <div class="status-alert status-warning">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Profile Needs Update!</strong>
+        </div>
+    {% else %}
+        <div class="status-alert status-success">
+            <i class="fas fa-check-circle"></i>
+            <strong>Profile Complete!</strong>
+        </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="card-title">
+                    <i class="fas fa-file-alt"></i> Quarterly Progress Report
+                </div>
+
+                {% if qpr_submitted %}
+                    <span class="badge bg-success">Submitted</span>
+                {% else %}
+                    <span class="badge bg-warning text-dark">Not Submitted</span>
+                {% endif %}
+
+                <div class="mt-3">
+                    <a href="{% url 'qpr_form' %}" class="btn btn-custom me-2">
+                        <i class="fas fa-edit"></i> Fill Report
+                    </a>
+                    <a href="{% url 'qpr_report_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-eye"></i> View Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="card-title">
+                    <i class="fas fa-user"></i> Profile Management
+                </div>
+
+                <span class="badge bg-{% if profile_status == 'Updated' %}success{% else %}warning{% endif %}">
+                    {{ profile_status }}
+                </span>
+
+                <div class="mt-3">
+                    <a href="{% url 'qpr_user_profile' %}" class="btn btn-custom">
+                        <i class="fas fa-edit"></i> Update Profile
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
