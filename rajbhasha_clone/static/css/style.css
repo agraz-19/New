@@ -1,0 +1,991 @@
+/* ================= EXISTING STYLES (UNCHANGED) ================= */
+
+.carousel-img {
+  height: 380px;
+  object-fit: cover;
+}
+
+.banner-img {
+  height: 420px;
+  object-fit: cover;
+}
+
+/* Google Translate hide */
+.goog-te-banner-frame.skiptranslate,
+.goog-te-gadget-icon,
+.goog-logo-link,
+.goog-te-gadget {
+  display: none !important;
+}
+
+body {
+  top: 0 !important;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
+
+#goog-gt-tt,
+.goog-te-balloon-frame {
+  display: none !important;
+}
+
+.skiptranslate {
+  display: none !important;
+}
+
+/* ================================================================= */
+/* ================= NEW DRAFT UI (RECTANGULAR BOX) ================= */
+/* ================================================================= */
+
+.draft-box {
+  position: fixed;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 96%;
+  max-width: 1300px;
+  background: #ffffff;
+  border: 2px solid #0b4f7a;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  z-index: 1100;
+  padding: 10px 14px;
+}
+
+.draft-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  color: #0b4f7a;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #d0d0d0;
+}
+
+.draft-expand-btn {
+  background: #0b4f7a;
+  color: #fff;
+  border: none;
+  padding: 5px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.draft-expand-btn:hover {
+  background: #083a59;
+}
+
+.draft-box-content {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-top: 10px;
+  padding-bottom: 4px;
+}
+
+.draft-card {
+  min-width: 1100px;
+  background: #f8f9fa;
+  border: 1px solid #cfcfcf;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+  color: #000;
+}
+
+.draft-box-content::-webkit-scrollbar {
+  height: 8px;
+}
+
+.draft-box-content::-webkit-scrollbar-thumb {
+  background: #0b4f7a;
+  border-radius: 4px;
+}
+
+/* ================================================================= */
+/* ================= FULL SCREEN DRAFT MODAL ENHANCE ================= */
+/* ================================================================= */
+
+.draft-modal-content h4 {
+  color: #0b4f7a;
+  font-weight: 600;
+}
+
+.draft-modal-content table th {
+  background: #0b4f7a;
+  color: white;
+  text-align: center;
+}
+
+.draft-modal-content table td {
+  vertical-align: middle;
+}
+
+.draft-modal-content input[type="checkbox"] {
+  transform: scale(1.1);
+}
+
+.draft-modal-content .btn-success {
+  float: right;
+  margin-top: 10px;
+}
+
+/* ==============================
+    GLOBAL LAYOUT & LOGOS
+============================== */
+
+.gov-logo, .logo-img {
+    max-height: 80px;
+    width: auto;
+}
+
+.navbar-custom, .main-navbar {
+    background-color: #0b4f7a !important;
+}
+
+.navbar-dark .navbar-nav .nav-link {
+    color: rgba(255,255,255,0.9);
+}
+
+.navbar-dark .navbar-nav .nav-link:hover {
+    color: #fff;
+}
+
+/* ==============================
+    FONT SIZE CONTROL
+============================== */
+
+:root { --main-font-size: 16px; }
+
+html, body { 
+    font-size: var(--main-font-size) !important; 
+}
+
+/* Force sizing on all children when classes are present */
+.font-medium { --main-font-size: 18px !important; }
+.font-large  { --main-font-size: 20px !important; }
+
+.font-medium body *, .font-large body * {
+    font-size: var(--main-font-size) !important;
+}
+
+/* ==============================
+    HEADER TITLES
+============================== */
+
+.hindi-title {
+    font-size: 2rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.5px;
+}
+
+.english-title {
+    font-size: 1rem !important;
+    font-weight: 500;
+}
+
+.header-title {
+    flex-wrap: nowrap;
+}
+
+/* ==============================
+    NAVBAR SINGLE LINE LOGIC (NORMAL MODE)
+============================== */
+
+/* Only applies when NOT in medium or large font modes */
+body:not(.font-medium):not(.font-large) .navbar-custom .container-fluid,
+body:not(.font-medium):not(.font-large) .navbar-custom .container {
+    flex-wrap: nowrap !important;
+    overflow: hidden;
+}
+
+body:not(.font-medium):not(.font-large) .navbar-nav {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+}
+
+body:not(.font-medium):not(.font-large) .navbar-nav .nav-item {
+    flex: 0 0 auto !important;
+}
+
+body:not(.font-medium):not(.font-large) .navbar-nav .nav-link {
+    white-space: nowrap !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    font-size: 15px !important; 
+    font-weight: 500 !important;
+    line-height: 1.2 !important;
+}
+
+/* Right side controls compact logic */
+body:not(.font-medium):not(.font-large) .navbar-right-controls {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
+    align-items: center !important;
+    margin-left: auto !important;
+    gap: 6px !important;
+}
+
+body:not(.font-medium):not(.font-large) .navbar-right-controls .form-select,
+body:not(.font-medium):not(.font-large) #fontSelector {
+    width: 95px !important;
+    height: 32px !important;
+    font-size: 12.5px !important;
+    padding: 4px 6px !important;
+}
+
+body:not(.font-medium):not(.font-large) .navbar-right-controls .btn {
+    padding: 4px 8px !important;
+    font-size: 12.5px !important;
+    min-height: 32px !important;
+    white-space: nowrap !important;
+}
+
+/* ==============================
+    UI ELEMENTS (ALERTS, BUTTONS, ICONS)
+============================== */
+
+.btn {
+    white-space: normal;
+    height: auto;
+    min-height: 38px;
+}
+
+.alert-dismissible {
+    z-index: 9999;
+    position: relative;
+}
+
+.message-wrapper {
+    z-index: 1055;
+    width: 90%;
+    max-width: 800px;
+}
+
+.auto-alert {
+    transition: opacity 0.5s ease;
+}
+
+.bi-person-circle {
+    font-size: 30px !important;
+}
+
+.login-icon i {
+    font-size: 2rem !important;
+}
+
+/* ==============================
+    DARK MODE
+============================== */
+
+[data-bs-theme="dark"] body {
+    background-color: #121212 !important;
+    color: #e0e0e0;
+}
+
+[data-bs-theme="dark"] .card,
+[data-bs-theme="dark"] .navbar {
+    background-color: #1e1e1e !important;
+    border-color: #333 !important;
+}
+
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select {
+    background-color: #1e293b;
+    color: #f8fafc;
+    border-color: #475569;
+}
+:root {
+    --theme-color: #2c5a86;  /* NIC/Govt Blue */
+    --bg-gray: #f5f7fa;
+    --border-color: #dee2e6;
+}
+
+body {
+    background-color: var(--bg-gray) !important;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* --- 1. Header & General Info --- */
+.bg-header { 
+    background-color: var(--theme-color); 
+    color: white; 
+}
+
+.general-info {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    margin-bottom: 25px;
+}
+
+/* --- 2. Typography (Hindi/English Labels) --- */
+.lbl-hindi {
+    display: block;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #333;
+    line-height: 1.2;
+}
+
+.lbl-eng {
+    display: block;
+    font-size: 0.75rem; /* Smaller for English */
+    color: #6c757d;     /* Muted gray */
+}
+
+/* --- 3. Form Sections (Boxes) --- */
+.section-box {
+    background-color: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    height: 100%; /* Ensures equal height in grid */
+}
+
+.section-title {
+    color: var(--theme-color);
+    font-weight: 700;
+    font-size: 1rem;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+/* Row inside boxes: Label on left, Input on right */
+.lbl-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed #f0f0f0;
+}
+
+.lbl-text {
+    flex: 1; /* Takes available space */
+    padding-right: 10px;
+}
+
+.lbl-input {
+    width: 100px; /* Fixed width for number inputs */
+    flex-shrink: 0;
+}
+
+.lbl-input input, 
+.lbl-input select {
+    text-align: center;
+}
+
+/* Slightly darker borders for text and numeric inputs without changing layout */
+.form-control, .form-control-sm, textarea {
+    border: 1px solid #6e7b85; /* noticeably darker border */
+    box-shadow: none; /* remove default focus shadow */
+}
+
+.form-control:focus, .form-control-sm:focus, textarea:focus {
+    border: 1px solid #445a6a; /* darker on focus but still subtle */
+    box-shadow: 0 0 0 0.15rem rgba(44,90,134,0.10);
+}
+
+/* Make date inputs slightly wider */
+.lbl-input input[type="date"] {
+    min-width: 115px;
+}
+
+/* Utilities */
+.d-none { display: none !important; }
+
+/* --- 4. THE IMPRESSIVE TABLE STYLING --- */
+
+/* The Card Container */
+.table,
+.table {
+    color: #212529;
+}
+.custom-table-card {
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1); /* Soft Shadow */
+    border-radius: 12px;
+    background: white;
+    border: 1px solid #eee;
+    overflow: hidden; /* Keeps corners rounded */
+    margin-bottom: 50px;
+}
+
+/* The Wrapper (Scroll Logic) */
+.table-responsive {
+    overflow-x: auto;   /* Horizontal Scroll: YES */
+    overflow-y: visible; /* Vertical Scroll: NO (It grows infinitely) */
+    height: auto; 
+    max-height: none; 
+}
+
+/* Table Header */
+.table thead {
+    background: linear-gradient(135deg, #0d6efd, #0a58ca); /* Blue Gradient */
+}
+
+/* Header text ONLY */
+.table thead th {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    padding: 16px;
+    border: none;
+    white-space: nowrap; /* Header text won't wrap */
+    color: var(--bs-table-color, #212529) !important;
+}
+
+/*FORCE body text visibility */
+.table tbody td {
+    white-space: nowrap; /* Forces horizontal slide */
+    vertical-align: middle;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.95rem;
+    color: #212529 !important;
+}
+
+/* Table Row Hover Effect */
+.table tbody tr:hover {
+    background-color: #f8f9fa; 
+    transform: scale(1.005);
+    transition: transform 0.2s ease;
+    position: relative;
+    z-index: 5;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+
+/* Action Buttons Width */
+.btn-sm {
+    min-width: 80px;
+}
+
+/* Custom Scrollbar for the Table */
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #bbb;
+    border-radius: 4px;
+}
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #888;
+}
+
+/* Small badge used for showing part-1 / part-2 in header */
+.part-badge {
+    display: inline-block;
+    background-color: rgba(255,255,255,0.12);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 18px;
+    font-weight: 600;
+    margin-left: 12px;
+    font-size: 0.95rem;
+}
+
+/* --- Hindi Keyboard Styling --- */
+#hindiToggle {
+    position: fixed;
+    right: 18px;
+    bottom: 100px;
+    z-index: 9999;
+}
+
+#hindiKeyboard {
+    position: fixed;
+    right: 18px;
+    bottom: 150px;
+    z-index: 9999;
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    max-width: 380px;
+    display: none;
+}
+
+#hindiKeyboard .hk-row {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 5px;
+    flex-wrap: wrap;
+}
+
+#hindiKeyboard button {
+    padding: 8px 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    background: #f8f9fa;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+#hindiKeyboard button:hover {
+    background: #e9ecef;
+}
+
+/* User Display Inline Styling */
+#userDisplay {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* ========== LOGIN PAGE STYLING ========== */
+body.login-page {
+    background: linear-gradient(135deg, #2c5a86 0%, #1f4788 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-container {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 400px;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.login-header h2 {
+    color: #2c5a86;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.login-header p {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.btn-login {
+    background-color: #2c5a86;
+    border: none;
+    padding: 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.btn-login:hover {
+    background-color: #1f4788;
+    color: white;
+}
+
+.register-link {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.register-link a {
+    color: #2c5a86;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.register-link a:hover {
+    text-decoration: underline;
+}
+
+.error-message {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border: 1px solid #f5c6cb;
+}
+
+.success-message {
+    background-color: #d4edda;
+    color: #155724;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border: 1px solid #c3e6cb;
+}
+
+/* ========== REGISTER PAGE STYLING ========== */
+body.register-page {
+    background: linear-gradient(135deg, #2c5a86 0%, #1f4788 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.register-container {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 500px;
+}
+
+.register-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.register-header h2 {
+    color: #2c5a86;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.register-header p {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.btn-register {
+    background-color: #2c5a86;
+    border: none;
+    padding: 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.btn-register:hover {
+    background-color: #1f4788;
+    color: white;
+}
+
+.login-link {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.login-link a {
+    color: #2c5a86;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.login-link a:hover {
+    text-decoration: underline;
+}
+
+/* ========== DASHBOARD STYLING ========== */
+body.dashboard-body {
+    background-color: #f8f9fa;
+}
+
+.navbar-custom {
+    background: linear-gradient(135deg, #2c5a86 0%, #1f4788 100%);
+}
+
+.dashboard-container {
+    margin-top: 30px;
+}
+
+.header-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.status-alert {
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.status-warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.status-success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.menu-toggle {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    background-color: #2c5a86;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 999;
+    border: none;
+}
+
+.menu-toggle:hover {
+    background-color: #1f4788;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.quick-menu {
+    position: fixed;
+    bottom: 100px;
+    right: 30px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 998;
+    display: none;
+    overflow: hidden;
+}
+
+.quick-menu.active {
+    display: block;
+}
+
+.quick-menu-item {
+    padding: 12px 20px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    color: #333;
+    text-decoration: none;
+    display: block;
+}
+
+.quick-menu-item:last-child {
+    border-bottom: none;
+}
+
+.quick-menu-item:hover {
+    background-color: #f8f9fa;
+    color: #2c5a86;
+}
+
+.dashboard-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dashboard-card-title {
+    color: #2c5a86;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+/* ========== CHANGE PASSWORD STYLING ========== */
+.change-password-container {
+    max-width: 600px;
+    margin: 50px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.change-password-header {
+    text-align: center;
+    color: #2c5a86;
+    margin-bottom: 30px;
+}
+
+.change-password-header h2 {
+    font-weight: bold;
+}
+
+/* ========== USER PROFILE STYLING ========== */
+.profile-container {
+    max-width: 800px;
+    margin: 30px auto;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.profile-header {
+    background: linear-gradient(135deg, #2c5a86 0%, #1f4788 100%);
+    color: white;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.profile-header h2 {
+    margin: 0;
+    font-weight: bold;
+}
+
+.profile-content {
+    padding: 30px;
+}
+
+.profile-field {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.profile-field label {
+    font-weight: bold;
+    color: #2c5a86;
+}
+
+.profile-field-value {
+    color: #666;
+}
+
+/* ========== USER OFFICE FORM STYLING ========== */
+.office-form-container {
+    max-width: 600px;
+    margin: 30px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.office-form-header {
+    text-align: center;
+    color: #2c5a86;
+    margin-bottom: 30px;
+}
+
+.office-form-header h2 {
+    font-weight: bold;
+}
+
+.form-section {
+    margin-bottom: 25px;
+}
+
+.form-section-title {
+    font-weight: bold;
+    color: #2c5a86;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #2c5a86;
+}
+
+/* ========== HOD DASHBOARD STYLING ========== */
+.hod-dashboard-body {
+    background-color: #f8f9fa;
+}
+
+.hod-header-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ========== ADMIN DASHBOARD STYLING ========== */
+.admin-dashboard-body {
+    background-color: #f8f9fa;
+}
+
+.admin-header-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ========== REPORT DETAIL STYLING ========== */
+.report-detail-container {
+    max-width: 1000px;
+    margin: 30px auto;
+}
+
+.report-header {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.report-data {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+/* Normalize all QPR form fields */
+
+input[type="text"],
+input[type="email"],
+input[type="date"],
+input[type="number"],
+select,
+textarea {
+    border: 1.5px solid #ced4da !important;
+    border-radius: 6px !important;
+    padding: 8px 12px;
+    box-shadow: none !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: #0d6efd !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(13,110,253,0.15);
+}
