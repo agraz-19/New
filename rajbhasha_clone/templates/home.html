@@ -22,13 +22,13 @@
         margin-top: -1.5rem; 
         margin-bottom: 2rem;
     }
-
+     
     .carousel-item img {
-        width: 100%;
-        height: 450px; 
-        object-fit: cover;
-        display: block;
-    }
+    width: 100%;
+    height: 450px;          /* same as original */
+    object-fit: cover;      /* fills nicely */
+    object-position: center;
+}
 
     /* 3. News Slider Card Styling */
     .news-card {
@@ -40,6 +40,7 @@
         background: #fff;
         padding-bottom: 10px;
         transition: transform 0.3s ease;
+        cursor: pointer;
     }
 
     .news-card:hover {
@@ -118,13 +119,13 @@
 {% block content %}
 <div class="full-screen-banner">
     <div id="mainCarousel" class="carousel slide" data-bs-ride="carousel">
-        <div class="carousel-indicators">
+        <div class="carousel-indicators" id="mainCarouselIndicators">
             <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="0" class="active"></button>
             <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="1"></button>
             <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="2"></button>
         </div>
 
-        <div class="carousel-inner">
+        <div class="carousel-inner" id="mainCarouselInner">
             <div class="carousel-item active" data-bs-interval="3000">
                 <img src="{% static 'images/mainCarousel/slide1.jpg' %}" alt="Slide 1">
             </div>
@@ -152,7 +153,8 @@
             <div class="carousel-item active">
                 <div class="row g-4">
                     <div class="col-md-6">
-                        <div class="card news-card">
+                        <div class="card news-card event-trigger" 
+                             data-images="{% static 'images/Hindi Diwas/HD1.png' %},{% static 'images/Hindi Diwas/HD2.jpg' %},{% static 'images/Hindi Diwas/HD3.jpg' %},{% static 'images/Hindi Diwas/HD4.jpg' %}">
                             <div class="news-card-img-wrapper">
                                 <img src="{% static 'images/Hindi Diwas/HD1.png' %}" alt="Hindi Diwas">
                             </div>
@@ -161,7 +163,8 @@
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="card news-card">
+                        <div class="card news-card event-trigger"
+                             data-images="{% static 'images/Rajbhasha Kirti Awards/RKA1.jpg' %},{% static 'images/Rajbhasha Kirti Awards/RKA2.jpg' %},{% static 'images/Rajbhasha Kirti Awards/RKA3.jpg' %},{% static 'images/Rajbhasha Kirti Awards/RKA4.jpg' %}">
                             <div class="news-card-img-wrapper">
                                 <img src="{% static 'images/Rajbhasha Kirti Awards/RKA1.jpg' %}" alt="Kirti Awards">
                             </div>
@@ -175,7 +178,8 @@
             <div class="carousel-item">
                 <div class="row g-4">
                     <div class="col-md-6">
-                        <div class="card news-card">
+                        <div class="card news-card event-trigger"
+                             data-images="{% static 'images/Hindi Pakhwada/HP1.jpeg' %},{% static 'images/Hindi Pakhwada/HP2.jpg' %},{% static 'images/Hindi Pakhwada/HP3.jpg' %},{% static 'images/Hindi Pakhwada/HP4.jpg' %}">
                             <div class="news-card-img-wrapper">
                                 <img src="{% static 'images/Hindi Pakhwada/HP1.jpeg' %}" alt="Hindi Pakhwada">
                             </div>
@@ -184,7 +188,8 @@
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="card news-card">
+                        <div class="card news-card event-trigger"
+                             data-images="{% static 'images/Rajbhasha Advisory Committee Meeting/RACM1.jpg' %},{% static 'images/Rajbhasha Advisory Committee Meeting/RACM2.jpg' %},{% static 'images/Rajbhasha Advisory Committee Meeting/RACM3.jpg' %},{% static 'images/Rajbhasha Advisory Committee Meeting/RACM4.jpg' %}">
                             <div class="news-card-img-wrapper">
                                 <img src="{% static 'images/Rajbhasha Advisory Committee Meeting/RACM1.jpg' %}" alt="Workshop">
                             </div>
@@ -198,16 +203,18 @@
             <div class="carousel-item">
                 <div class="row g-4">
                     <div class="col-md-6">
-                        <div class="card news-card">
+                        <div class="card news-card event-trigger"
+                             data-images="{% static 'images/All India Official Language Conference/AIOLC1.jpeg' %},{% static 'images/All India Official Language Conference/AIOLC2.jpg' %},{% static 'images/All India Official Language Conference/AIOLC3.jpeg' %},{% static 'images/All India Official Language Conference/AIOLC4.avif' %}">
                             <div class="news-card-img-wrapper">
-                                <img src="{% static 'images/All India Official Language Conference – New Delhi/AIOLC1.jpeg' %}" alt="All India Conference">
+                                <img src="{% static 'images/All India Official Language Conference/AIOLC1.jpeg' %}" alt="All India Conference">
                             </div>
                             <div class="news-date">10–11 July 2025</div>
-                            <div class="news-title">{{ "All India Official Language Conference – New Delhi"|t:current_lang }}</div>
+                            <div class="news-title">{{ "All India Official Language Conference"|t:current_lang }}</div>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="card news-card">
+                        <div class="card news-card event-trigger"
+                             data-images="{% static 'images/Regional Official Language Conference – Hyderabad/ROLC1.jpg' %},{% static 'images/Regional Official Language Conference – Hyderabad/ROLC2.jpg' %},{% static 'images/Regional Official Language Conference – Hyderabad/ROLC3.jpg' %},{% static 'images/Regional Official Language Conference – Hyderabad/ROLC4.jpg' %}">
                             <div class="news-card-img-wrapper">
                                 <img src="{% static 'images/Regional Official Language Conference – Hyderabad/ROLC1.jpg' %}" alt="Regional Conference">
                             </div>
@@ -218,18 +225,13 @@
                 </div>
             </div>
 
-        </div>
-
-        <div class="news-controls-container">
-            <a class="news-control-btn" href="#newsSlider" data-bs-slide="prev">
-                &lsaquo;
-            </a>
-            <a class="news-control-btn" href="#newsSlider" data-bs-slide="next">
-                &rsaquo;
-            </a>
+        </div> <div class="news-controls-container">
+            <a class="news-control-btn" href="#newsSlider" data-bs-slide="prev">&lsaquo;</a>
+            <a class="news-control-btn" href="#newsSlider" data-bs-slide="next">&rsaquo;</a>
         </div>
     </div>
 </div>
+
 <div class="content-container mb-5">
     <h4 class="fw-bold">{{ "WHAT'S NEW"|t:current_lang }}</h4> 
     <div class="row g-4 mt-1">
@@ -255,6 +257,81 @@
                 </div>
             </div>
         </div>
-    </div>               
+    </div>                
 </div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const triggers = document.querySelectorAll(".event-trigger");
+    const carouselInner = document.getElementById("mainCarouselInner");
+    const carouselIndicators = document.getElementById("mainCarouselIndicators");
+    const mainCarouselElement = document.getElementById("mainCarousel");
+
+    let mainCarousel = bootstrap.Carousel.getInstance(mainCarouselElement) ||
+      new bootstrap.Carousel(mainCarouselElement, {
+        interval: 3000,
+        ride: "carousel",
+        pause: false,
+        touch: true,
+        wrap: true
+      });
+
+    triggers.forEach((trigger) => {
+      trigger.addEventListener("click", function () {
+        const imagesStr = this.getAttribute("data-images");
+        if (!imagesStr) return;
+
+        const images = imagesStr.split(",").map(s => s.trim()).filter(Boolean);
+
+        // Stop + destroy old instance (important)
+        const oldInstance = bootstrap.Carousel.getInstance(mainCarouselElement);
+        if (oldInstance) {
+          oldInstance.pause();
+          oldInstance.dispose();
+        }
+
+        // Clear current carousel content
+        carouselInner.innerHTML = "";
+        carouselIndicators.innerHTML = "";
+
+        // Generate new slides and indicators
+        images.forEach((imgSrc, index) => {
+          const activeClass = index === 0 ? "active" : "";
+
+          carouselInner.insertAdjacentHTML(
+            "beforeend",
+            `<div class="carousel-item ${activeClass}">
+               <img src="${imgSrc}" alt="Event Image ${index + 1}">
+             </div>`
+          );
+
+          carouselIndicators.insertAdjacentHTML(
+            "beforeend",
+            `<button type="button"
+                     data-bs-target="#mainCarousel"
+                     data-bs-slide-to="${index}"
+                     class="${activeClass}"
+                     ${index === 0 ? 'aria-current="true"' : ""}
+                     aria-label="Slide ${index + 1}">
+             </button>`
+          );
+        });
+
+        // Recreate carousel AFTER DOM update + start auto slide
+        mainCarousel = new bootstrap.Carousel(mainCarouselElement, {
+          interval: 3000,
+          ride: "carousel",
+          pause: false,
+          touch: true,
+          wrap: true
+        });
+
+        mainCarousel.cycle(); // force auto sliding
+
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
+  });
+</script>
+
 {% endblock %}
