@@ -1,0 +1,251 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee List</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style display="none">
+        body {
+            background-color: #f8f9fa;
+        }
+        .navbar-custom {
+            background: linear-gradient(135deg, #2c5a86 0%, #1f4788 100%);
+        }
+        .header-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .filter-section {
+            margin-bottom: 20px;
+        }
+        .hod-section {
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .hod-header {
+            background: linear-gradient(135deg, #2c5a86 0%, #1f4788 100%);
+            color: white;
+            padding: 15px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .hod-header i {
+            margin-right: 10px;
+        }
+        .user-table {
+            margin: 0;
+        }
+        .user-table thead th {
+            background-color: #e9ecef;
+            color: #2c5a86;
+            font-weight: 600;
+            border-top: none;
+            padding: 12px;
+        }
+        .user-table tbody td {
+            padding: 12px;
+            vertical-align: middle;
+        }
+        .user-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        .status-badge {
+            font-size: 12px;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        .status-draft {
+            background-color: #e7e6ff;
+            color: #3f37c9;
+        }
+        .status-submitted {
+            background-color: #e7f5ff;
+            color: #0066cc;
+        }
+        .status-pending-edit {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status-approved-edit {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .no-employees {
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+        }
+        .btn-custom {
+            background-color: #2c5a86;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .btn-custom:hover {
+            background-color: #1f4788;
+            color: white;
+        }
+        .employee-count {
+            background-color: #0066cc;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .hod-info {
+            font-size: 13px;
+            opacity: 0.9;
+            margin-top: 3px;
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-dark navbar-custom">
+    <div class="container-fluid">
+        <span class="navbar-brand mb-0 h5"><i class="fas fa-users"></i> Employee List</span>
+        <div>
+            <a href="{% url 'admin_dashboard' %}" class="btn btn-light btn-sm me-2">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+            <a href="{% url 'logout_view' %}" class="btn btn-light btn-sm">Logout</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid">
+    <div class="header-section">
+        <h3 class="mb-3"><i class="fas fa-sitemap"></i> Organization Structure</h3>
+        
+        <div class="filter-section mb-4">
+            <form method="GET" class="row g-3">
+                <div class="col-md-2">
+                    <label for="employee_code" class="form-label">Employee Code:</label>
+                    <input type="text" name="employee_code" id="employee_code" class="form-control" placeholder="Search by code" value="{{ employee_code_filter }}">
+                </div>
+                
+                <div class="col-md-2">
+                    <label for="name" class="form-label">Name:</label>
+                    <input type="text" name="name" id="name" class="form-control" placeholder="Search by name" value="{{ name_filter }}">
+                </div>
+                
+                <div class="col-md-2">
+                    <label for="quarter" class="form-label">Quarter Ending:</label>
+                    <select name="quarter" id="quarter" class="form-select">
+                        <option value="">All Quarters</option>
+                        {% for q in all_quarters %}
+                            <option value="{{ q }}" {% if quarter_filter == q %}selected{% endif %}>{{ q }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <label for="year" class="form-label">Year:</label>
+                    <select name="year" id="year" class="form-select">
+                        <option value="">All Years</option>
+                        {% for y in all_years %}
+                            <option value="{{ y }}" {% if year_filter == y %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-4 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-custom">
+                        <i class="fas fa-filter"></i> Filter
+                    </button>
+                    <a href="{% url 'admin_employee_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-redo"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+        
+    </div>
+
+    <!-- Display employees grouped by HOD -->
+    {% if hod_groups %}
+        {% for hod_group in hod_groups %}
+            <div class="hod-section">
+                <div class="hod-header">
+                    <div>
+                        <i class="fas fa-user-tie"></i>
+                        {{ hod_group.hod_name }}
+                        <span class="employee-count"><strong>{{ hod_group.user_count }}</strong> employees</span>
+                        <div class="hod-info">
+                            <i class="fas fa-envelope"></i> {{ hod_group.hod_email }}
+                        </div>
+                    </div>
+                    <div>
+                        <small>{{ hod_group.hod_emp_code }}</small>
+                    </div>
+                </div>
+
+                {% if hod_group.users %}
+                    <table class="table user-table">
+                        <thead>
+                            <tr>
+                                <th>Employee Code</th>
+                                <th>Name</th>
+                                <th>Office Name</th>
+                                <th>Office Code</th>
+                                <th>Quarter Ending</th>
+                                <th>Year</th>
+                                <th>QPR Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in hod_group.users %}
+                                <tr>
+                                    <td><strong>{{ user.emp_code }}</strong></td>
+                                    <td>{{ user.name }}</td>
+                                    <td>{{ user.office_name|default:"Not Set" }}</td>
+                                    <td>{{ user.office_code|default:"Not Set" }}</td>
+                                    <td>
+                                        {{ user.quarter|default:"N/A" }}
+                                    </td>
+                                    <td>
+                                        {{ user.year|default:"N/A" }}
+                                    </td>
+                                    <td>
+                                        {% if user.qpr_status == "Draft" %}
+                                            <span class="status-badge status-draft">Draft</span>
+                                        {% elif user.qpr_status == "Submitted" %}
+                                            <span class="status-badge status-submitted">Submitted</span>
+                                        {% else %}
+                                            <span class="status-badge status-draft">Not Submitted</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="no-employees">
+                        No employees under this HOD
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            <i class="fas fa-info-circle"></i> No HODs or employees found in the system.
+        </div>
+    {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

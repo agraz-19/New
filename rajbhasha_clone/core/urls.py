@@ -7,6 +7,8 @@ urlpatterns = [
 
     # frontend urls
     path('', include('website.urls')),
+    
+
 
 ]
 handler400 = 'website.views.error_400'

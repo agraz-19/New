@@ -27,7 +27,8 @@ INSTALLED_APPS = [
 
     # Your Apps
     # 'user',
-    'website',   # ← teammate app added
+    'website',
+    
 ]
 
 
@@ -116,7 +117,7 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 AUTH_USER_MODEL = 'website.CustomUser'
 
 LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/dashboard/'
+LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 
 
