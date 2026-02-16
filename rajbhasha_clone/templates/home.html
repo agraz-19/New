@@ -6,12 +6,12 @@
 
 {% block extra_css %}
 <style>
-    /* 1. This prevents the horizontal scrollbar on the whole page */
+    /* 1. Global Page Layout */
     body {
         overflow-x: hidden;
     }
 
-    /* 2. Break out of the container to hit the screen edges exactly */
+    /* 2. Main Carousel Styling */
     .full-screen-banner {
         width: 100vw;
         position: relative;
@@ -19,27 +19,94 @@
         right: 50%;
         margin-left: -50vw;
         margin-right: -50vw;
-        
-        /* Removes gap between navbar and banner */
         margin-top: -1.5rem; 
         margin-bottom: 2rem;
     }
 
     .carousel-item img {
         width: 100%;
-        height: 450px; /* Adjust height as needed */
+        height: 450px; 
         object-fit: cover;
         display: block;
     }
 
-    /* 3. Ensure the main container doesn't conflict */
+    /* 3. News Slider Card Styling */
+    .news-card {
+        border: none !important;
+        border-radius: 20px !important; 
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        height: 100%;
+        background: #fff;
+        padding-bottom: 10px;
+        transition: transform 0.3s ease;
+    }
+
+    .news-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .news-card-img-wrapper {
+        padding: 12px;
+    }
+
+    .news-card img {
+        width: 100%;
+        height: 220px;
+        object-fit: cover;
+        border-radius: 12px;
+    }
+
+    .news-date {
+        color: #888;
+        font-size: 0.95rem;
+        padding: 5px 20px;
+    }
+
+    .news-title {
+        font-size: 1.05rem;
+        font-weight: 500;
+        color: #333;
+        padding: 5px 20px 20px 20px;
+        line-height: 1.5;
+    }
+
+    /* 4. Custom Circular Controls */
+    .news-controls-container {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 30px;
+    }
+
+    .news-control-btn {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        border: 2px solid #8B5E3C; 
+        background: transparent;
+        color: #8B5E3C;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        font-size: 1.5rem;
+    }
+
+    .news-control-btn:hover {
+        background: #8B5E3C;
+        color: white;
+    }
+
+    /* Layout Constraints */
     main.container {
         max-width: 100% !important;
         padding-left: 0 !important;
         padding-right: 0 !important;
     }
 
-    /* 4. Re-align the lower content to standard width */
     .content-container {
         max-width: 1200px;
         margin: 0 auto;
@@ -59,13 +126,13 @@
 
         <div class="carousel-inner">
             <div class="carousel-item active" data-bs-interval="3000">
-                <img src="{% static 'images/slide1.jpg' %}" alt="Slide 1">
+                <img src="{% static 'images/mainCarousel/slide1.jpg' %}" alt="Slide 1">
             </div>
             <div class="carousel-item" data-bs-interval="3000">
-                <img src="{% static 'images/slide2.jpg' %}" alt="Slide 2">
+                <img src="{% static 'images/mainCarousel/slide2.jpg' %}" alt="Slide 2">
             </div>
             <div class="carousel-item" data-bs-interval="3000">
-                <img src="{% static 'images/slide3.jpg' %}" alt="Slide 3">
+                <img src="{% static 'images/mainCarousel/slide3.jpg' %}" alt="Slide 3">
             </div>
         </div>
 
@@ -78,7 +145,93 @@
     </div>
 </div>
 
-<div class="container my-4">
+<div class="content-container my-5">
+    <div id="newsSlider" class="carousel slide" data-bs-ride="false">
+        <div class="carousel-inner">
+            
+            <div class="carousel-item active">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card news-card">
+                            <div class="news-card-img-wrapper">
+                                <img src="{% static 'images/Hindi Diwas/HD1.png' %}" alt="Hindi Diwas">
+                            </div>
+                            <div class="news-date">14 September 2025</div>
+                            <div class="news-title">{{ "Hindi Diwas"|t:current_lang }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card news-card">
+                            <div class="news-card-img-wrapper">
+                                <img src="{% static 'images/Hindi Pakhwada/HP1.jpeg' %}" alt="Hindi Pakhwada">
+                            </div>
+                            <div class="news-date">1–14 September 2025</div>
+                            <div class="news-title">{{ "Hindi Pakhwada"|t:current_lang }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="carousel-item">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card news-card">
+                            <div class="news-card-img-wrapper">
+                                <img src="{% static 'images/All India Official Language Conference – New Delhi/AIOLC1.jpeg' %}" alt="All India Conference">
+                            </div>
+                            <div class="news-date">10–11 July 2025</div>
+                            <div class="news-title">{{ "All India Official Language Conference – New Delhi"|t:current_lang }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card news-card">
+                            <div class="news-card-img-wrapper">
+                                <img src="{% static 'images/Regional Official Language Conference – Hyderabad/ROLC1.jpg' %}" alt="Regional Conference">
+                            </div>
+                            <div class="news-date">21–22 February 2025</div>
+                            <div class="news-title">{{ "Regional Official Language Conference – Hyderabad"|t:current_lang }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="carousel-item">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card news-card">
+                            <div class="news-card-img-wrapper">
+                                <img src="{% static 'images/Rajbhasha Kirti Awards/RKA1.jpg' %}" alt="Kirti Awards">
+                            </div>
+                            <div class="news-date">14 September 2025</div>
+                            <div class="news-title">{{ "Rajbhasha Kirti Awards"|t:current_lang }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card news-card">
+                            <div class="news-card-img-wrapper">
+                                <img src="{% static 'images/Rajbhasha Advisory Committee Meeting/RACM1.jpg' %}" alt="Workshop">
+                            </div>
+                            <div class="news-date">12 August 2025</div>
+                            <div class="news-title">{{ "Rajbhasha Advisory Committee Meeting"|t:current_lang }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="news-controls-container">
+            <a class="news-control-btn" href="#newsSlider" data-bs-slide="prev">
+                &lsaquo;
+            </a>
+            <a class="news-control-btn" href="#newsSlider" data-bs-slide="next">
+                &rsaquo;
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="content-container mb-5">
     <h4 class="fw-bold">{{ "WHAT'S NEW"|t:current_lang }}</h4> 
     <div class="row g-4 mt-1">
         <div class="col-lg-8">
