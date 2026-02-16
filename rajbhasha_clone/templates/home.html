@@ -163,10 +163,33 @@
                     <div class="col-md-6">
                         <div class="card news-card">
                             <div class="news-card-img-wrapper">
+                                <img src="{% static 'images/Rajbhasha Kirti Awards/RKA1.jpg' %}" alt="Kirti Awards">
+                            </div>
+                            <div class="news-date">14 September 2025</div>
+                            <div class="news-title">{{ "Rajbhasha Kirti Awards"|t:current_lang }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="carousel-item">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card news-card">
+                            <div class="news-card-img-wrapper">
                                 <img src="{% static 'images/Hindi Pakhwada/HP1.jpeg' %}" alt="Hindi Pakhwada">
                             </div>
                             <div class="news-date">1–14 September 2025</div>
                             <div class="news-title">{{ "Hindi Pakhwada"|t:current_lang }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card news-card">
+                            <div class="news-card-img-wrapper">
+                                <img src="{% static 'images/Rajbhasha Advisory Committee Meeting/RACM1.jpg' %}" alt="Workshop">
+                            </div>
+                            <div class="news-date">12 August 2025</div>
+                            <div class="news-title">{{ "Rajbhasha Advisory Committee Meeting"|t:current_lang }}</div>
                         </div>
                     </div>
                 </div>
@@ -195,29 +218,6 @@
                 </div>
             </div>
 
-            <div class="carousel-item">
-                <div class="row g-4">
-                    <div class="col-md-6">
-                        <div class="card news-card">
-                            <div class="news-card-img-wrapper">
-                                <img src="{% static 'images/Rajbhasha Kirti Awards/RKA1.jpg' %}" alt="Kirti Awards">
-                            </div>
-                            <div class="news-date">14 September 2025</div>
-                            <div class="news-title">{{ "Rajbhasha Kirti Awards"|t:current_lang }}</div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="card news-card">
-                            <div class="news-card-img-wrapper">
-                                <img src="{% static 'images/Rajbhasha Advisory Committee Meeting/RACM1.jpg' %}" alt="Workshop">
-                            </div>
-                            <div class="news-date">12 August 2025</div>
-                            <div class="news-title">{{ "Rajbhasha Advisory Committee Meeting"|t:current_lang }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
         </div>
 
         <div class="news-controls-container">
@@ -230,7 +230,6 @@
         </div>
     </div>
 </div>
-
 <div class="content-container mb-5">
     <h4 class="fw-bold">{{ "WHAT'S NEW"|t:current_lang }}</h4> 
     <div class="row g-4 mt-1">
