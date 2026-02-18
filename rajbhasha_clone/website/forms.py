@@ -11,7 +11,6 @@ from captcha.fields import CaptchaField
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
 
-    #captcha = CaptchaField()
     consent = forms.BooleanField(
         required=True, 
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
@@ -101,7 +100,7 @@ class CustomUserCreationForm(UserCreationForm):
 
 class CustomLoginForm(AuthenticationForm):
     role = forms.ChoiceField(
-        choices=[('user', 'User'), ('manager', 'Manager'), ('admin', 'Admin'),('backup_user','Backup User')],
+        choices=[('user', 'User'), ('manager', 'Manager'), ('admin', 'Admin'),('backup_user','Backup User'),('hod','HOD')],
         widget=forms.Select(attrs={'class': 'form-select'})
     )
     captcha = CaptchaField()
@@ -134,6 +133,7 @@ class CustomLoginForm(AuthenticationForm):
             ('manager', translate_text("Manager", self.lang)),
             ('admin', translate_text("Admin", self.lang)),
             ('backup_user', translate_text("Backup User", self.lang)),
+            ('hod', translate_text("HOD", self.lang)),  
         ]
 
         for field_name, field in self.fields.items():

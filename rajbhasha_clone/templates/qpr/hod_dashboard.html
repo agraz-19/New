@@ -1,0 +1,255 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+{% load static %}
+
+{% block title %}{{ "HOD Dashboard - Quarterly Progress Report"|t:current_lang }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-container {
+        margin-top: 30px;
+        padding-bottom: 50px;
+    }
+
+    .header-section {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%;
+        margin-bottom: 20px;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .stat-icon {
+        font-size: 40px;
+        margin-bottom: 15px;
+        color: #6c757d;
+    }
+
+    .stat-number {
+        font-size: 32px;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 5px;
+    }
+
+    .stat-label {
+        color: #777;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .menu-toggle {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        background-color: #2c5a86;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+        transition: all 0.3s ease;
+    }
+
+    .menu-toggle:hover {
+        background-color: #1f4788;
+        transform: scale(1.1);
+    }
+
+    .quick-menu {
+        position: fixed;
+        bottom: 100px;
+        right: 30px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        overflow: hidden;
+        display: none;
+        z-index: 1000;
+        min-width: 200px;
+        animation: slideUp 0.3s ease;
+    }
+
+    .quick-menu.active {
+        display: block;
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .quick-menu-item {
+        padding: 15px 20px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        text-decoration: none;
+        color: #333;
+    }
+
+    .quick-menu-item:last-child {
+        border-bottom: none;
+    }
+
+    .quick-menu-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .quick-menu-item i {
+        width: 20px;
+        text-align: center;
+        color: #2c5a86;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container dashboard-container">
+    <div class="header-section">
+        <div>
+            <h3 class="mb-1">{{ "HOD Dashboard"|t:current_lang }}</h3>
+            <p class="text-muted mb-0">{{ "Management of employees and progress tracking"|t:current_lang }}</p>
+        </div>
+        <div class="text-end">
+            <span class="badge bg-primary fs-6">{{ "HOD"|t:current_lang }}: {{ hod_name|upper }}</span>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-number">{{ total_users }}</div>
+                <div class="stat-label">{{ "Total Employees"|t:current_lang }}</div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-check-circle" style="color: #28a745;"></i>
+                </div>
+                <div class="stat-number" style="color: #28a745;">{{ qpr_submitted }}</div>
+                <div class="stat-label">{{ "QPR Submitted"|t:current_lang }}</div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-clock" style="color: #ffc107;"></i>
+                </div>
+                <div class="stat-number" style="color: #ffc107;">{{ qpr_pending }}</div>
+                <div class="stat-label">{{ "QPR Pending"|t:current_lang }}</div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-user-check" style="color: #17a2b8;"></i>
+                </div>
+                <div class="stat-number" style="color: #17a2b8;">{{ profile_updated }}</div>
+                <div class="stat-label">{{ "Profile Updated"|t:current_lang }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="stat-card text-start" style="border-left: 5px solid #2c5a86;">
+                <h5 style="color: #2c5a86; margin-bottom: 15px;">{{ "Quick Actions"|t:current_lang }}</h5>
+
+                <a href="{% url 'qpr_hod_detail_list' %}" class="btn btn-primary me-2 mb-2">
+                    <i class="fas fa-table"></i> {{ "View Detail List"|t:current_lang }}
+                </a>
+
+                <a href="{% url 'qpr_hod_requests' %}" class="btn btn-info me-2 mb-2">
+                    <i class="fas fa-envelope"></i> {{ "Send Manager Request"|t:current_lang }}
+                </a>
+
+                <a href="{% url 'change_password' %}" class="btn btn-warning me-2 mb-2">
+                    <i class="fas fa-lock"></i> {{ "Change Password"|t:current_lang }}
+                </a>
+
+                <!-- Logout is available in top navbar and floating menu -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<button class="menu-toggle" id="menuToggle" title="Menu">
+    <i class="fas fa-bars"></i>
+</button>
+
+<div class="quick-menu" id="quickMenu">
+    <a href="{% url 'hod_dashboard' %}" class="quick-menu-item">
+        <i class="fas fa-chart-pie"></i> {{ "Dashboard"|t:current_lang }}
+    </a>
+
+    <a href="{% url 'hod_detail_list' %}" class="quick-menu-item">
+        <i class="fas fa-list"></i> {{ "Detail List"|t:current_lang }}
+    </a>
+
+    <a href="{% url 'hod_manager_requests' %}" class="quick-menu-item">
+        <i class="fas fa-envelope"></i> {{ "Manager Requests"|t:current_lang }}
+    </a>
+
+    <a href="{% url 'logout' %}" class="quick-menu-item" style="color: #dc3545;">
+        <i class="fas fa-sign-out-alt"></i> {{ "Logout"|t:current_lang }}
+    </a>
+</div>
+
+<script>
+    const menuToggle = document.getElementById('menuToggle');
+    const quickMenu = document.getElementById('quickMenu');
+
+    menuToggle.addEventListener('click', () => {
+        quickMenu.classList.toggle('active');
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.menu-toggle') && !e.target.closest('.quick-menu')) {
+            quickMenu.classList.remove('active');
+        }
+    });
+</script>
+{% endblock %}

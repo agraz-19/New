@@ -32,6 +32,7 @@ class CustomUser(AbstractUser):
         ('manager', 'Manager'),
         ('admin', 'Admin'),
         ('backup_user', 'Backup User'),
+        ('hod', 'HOD'),
     ]
     email_hash = models.CharField(max_length=64, unique=True, null=True, blank=True)
     encrypted_email_data = models.BinaryField(null=True, blank=True)
@@ -40,11 +41,10 @@ class CustomUser(AbstractUser):
     otp = models.CharField(max_length=6, blank=True, null=True)
     otp_created_at = models.DateTimeField(blank=True, null=True)
     consent_given_at = models.DateTimeField(null=True, blank=True)
-    
     is_frozen = models.BooleanField(default=False)
     is_edit_allowed = models.BooleanField(default=False)
     is_archived = models.BooleanField(default=False)
-    objects = CustomUserManager() # Attach the new manager
+    objects = CustomUserManager()
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['email']
     def __init__(self, *args, **kwargs):
