@@ -66,6 +66,13 @@ def send_system_email(user, request, email_type, extra_context=None):
             'action_text': "Check Profile",
             'action_url': f"{domain}{reverse('dashboard')}"
         },
+        'reminder': {
+            'subject': "Action Required: Complete Your Profile/QPR",
+            'headline': "Pending Task Reminder",
+            'body': "This is a reminder from your HOD. Please log in to complete your Profile and submit your Quarterly Progress Report (QPR) at the earliest.",
+            'action_text': "Login Now",
+            'action_url': f"{domain}{reverse('login')}"
+        },
         'manager_alert': {
             'subject': "Action Required: User Edit Request",
             'headline': "Edit Permission Requested",

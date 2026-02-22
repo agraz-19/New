@@ -1,0 +1,342 @@
+{% extends "master.html" %}
+{% load static %}
+{% load translate_tags %}
+
+{% block title %}{{ "Typing Usage Report"|t:current_lang }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-container {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+    
+    .report-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 8px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .report-title {
+        font-size: 28px;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    
+    .report-info {
+        font-size: 14px;
+        opacity: 0.9;
+    }
+    
+    .table-responsive {
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .table {
+        margin-bottom: 0;
+    }
+    
+    .table thead {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        color: #2c5a86;
+    }
+    
+    .table tbody tr:hover {
+        background-color: #f5f5f5;
+    }
+    
+    .table td {
+        padding: 15px;
+        vertical-align: middle;
+    }
+    
+    .label-col {
+        font-weight: 600;
+        color: #2c5a86;
+        background-color: #f8f9fa;
+        width: 50%;
+    }
+    
+    .value-col {
+        font-size: 16px;
+        color: #333;
+    }
+    
+    .percentage-cell {
+        font-weight: bold;
+        color: #667eea;
+    }
+    
+    .zero-value {
+        color: #999;
+        font-style: italic;
+    }
+    
+    .btn-group-actions {
+        margin-top: 30px;
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+    }
+    
+    .print-button {
+        background-color: #28a745;
+    }
+    
+    .print-button:hover {
+        background-color: #218838;
+    }
+    
+    .back-button {
+        background-color: #6c757d;
+    }
+    
+    .back-button:hover {
+        background-color: #5a6268;
+    }
+    
+    @media print {
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        .report-container {
+            max-width: 100%;
+            margin: 0;
+            padding: 10px;
+        }
+        
+        .btn-group-actions {
+            display: none !important;
+        }
+        
+        .report-header {
+            page-break-after: avoid;
+            background: white !important;
+            color: #2c5a86 !important;
+            border: 2px solid #2c5a86;
+        }
+
+        .report-title {
+            color: #2c5a86 !important;
+        }
+        
+        .table-responsive {
+            page-break-inside: auto;
+        }
+
+        .table {
+            page-break-inside: auto;
+            width: 100%;
+        }
+
+        .table thead {
+            background-color: #2c5a86 !important;
+            color: white !important;
+            display: table-header-group;
+            page-break-inside: avoid;
+            page-break-after: avoid;
+        }
+
+        .table thead th {
+            background-color: #2c5a86 !important;
+            color: white !important;
+            padding: 10px !important;
+            border: 1px solid #2c5a86 !important;
+            font-weight: bold !important;
+        }
+
+        .table tbody tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+        }
+
+        .table tbody td {
+            padding: 10px !important;
+            border: 1px solid #999 !important;
+        }
+
+        .label-col {
+            background-color: #f0f0f0 !important;
+            color: #2c5a86 !important;
+            font-weight: bold !important;
+        }
+
+        body {
+            padding: 0;
+            margin: 0;
+            font-size: 12px;
+        }
+    }
+    
+    .section-divider {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 2px solid #e9ecef;
+    }
+    
+    .summary-section {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="report-container">
+        <!-- Report Header -->
+        <div class="report-header">
+            <div class="report-title">{{ "Typing Usage Report"|t:current_lang }}</div>
+            <div class="report-info">
+                <p class="mb-2"><strong>{{ "Office: "|t:current_lang }}</strong>{{ office_name }}</p>
+                <p class="mb-0"><strong>{{ "Generated on: "|t:current_lang }}</strong>{{ "now"|date:"d-M-Y H:i" }}</p>
+            </div>
+        </div>
+        
+        <!-- Employee Information Section -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">{{ "Employee Information"|t:current_lang }}</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <td class="label-col">{{ "Employee Name"|t:current_lang }}</td>
+                            <td class="value-col">{{ employee_name }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label-col">{{ "Designation"|t:current_lang }}</td>
+                            <td class="value-col">{{ designation|default:"Not provided"|t:current_lang }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Notes Details Section -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">{{ "Notes Details (from Section 7)"|t:current_lang }}</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <td class="label-col">{{ "Total Number of Notes"|t:current_lang }}</td>
+                            <td class="value-col">
+                                {% if total_notes %}
+                                    {{ total_notes }}
+                                {% else %}
+                                    <span class="zero-value">{{ "Not filled"|t:current_lang }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="label-col">{{ "Notes in Hindi"|t:current_lang }}</td>
+                            <td class="value-col">
+                                {% if hindi_notes %}
+                                    {{ hindi_notes }}
+                                {% else %}
+                                    <span class="zero-value">{{ "Not filled"|t:current_lang }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="label-col">{{ "Percentage of Notes in Hindi"|t:current_lang }}</td>
+                            <td class="value-col percentage-cell">
+                                {% if total_notes > 0 %}
+                                    {{ notes_hindi_percentage }}%
+                                {% else %}
+                                    <span class="zero-value">{{ "0"|t:current_lang }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Typing Usage Details Section -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">{{ "Typing Usage Details"|t:current_lang }}</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <td class="label-col">{{ "Total Number of Words in All Notes"|t:current_lang }}</td>
+                            <td class="value-col">
+                                {% if total_words %}
+                                    {{ total_words }}
+                                {% else %}
+                                    <span class="zero-value">{{ "0"|t:current_lang }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="label-col">{{ "Total Number of Hindi Words in All Notes"|t:current_lang }}</td>
+                            <td class="value-col">
+                                {% if hindi_words %}
+                                    {{ hindi_words }}
+                                {% else %}
+                                    <span class="zero-value">{{ "0"|t:current_lang }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="label-col">{{ "Percentage of Hindi Words in All Notes"|t:current_lang }}</td>
+                            <td class="value-col percentage-cell">
+                                {% if total_words > 0 %}
+                                    {{ words_hindi_percentage }}%
+                                {% else %}
+                                    <span class="zero-value">{{ "0"|t:current_lang }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="btn-group-actions">
+            <button class="btn btn-lg print-button" onclick="window.print()">
+                <i class="fas fa-print"></i> {{ "Print Report"|t:current_lang }}
+            </button>
+            <a href="{% url 'qpr_report_list' %}" class="btn btn-lg back-button">
+                <i class="fas fa-arrow-left"></i> {{ "Back to Reports"|t:current_lang }}
+            </a>
+            <a href="{% url 'typing_usage_report_form' record_id %}" class="btn btn-lg btn-info">
+                <i class="fas fa-edit"></i> {{ "Edit Report"|t:current_lang }}
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Scroll to top on page load
+    window.addEventListener('load', () => {
+        window.scrollTo(0, 0);
+    });
+</script>
+{% endblock %}

@@ -30,6 +30,7 @@ class CustomUser(AbstractUser):
     ROLE_CHOICES = [
         ('user', 'User'),
         ('manager', 'Manager'),
+        ('hod', 'HOD'),
         ('admin', 'Admin'),
         ('backup_user', 'Backup User'),
     ]
@@ -40,11 +41,10 @@ class CustomUser(AbstractUser):
     otp = models.CharField(max_length=6, blank=True, null=True)
     otp_created_at = models.DateTimeField(blank=True, null=True)
     consent_given_at = models.DateTimeField(null=True, blank=True)
-    
     is_frozen = models.BooleanField(default=False)
     is_edit_allowed = models.BooleanField(default=False)
     is_archived = models.BooleanField(default=False)
-    objects = CustomUserManager() # Attach the new manager
+    objects = CustomUserManager()
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['email']
     def __init__(self, *args, **kwargs):
@@ -167,13 +167,15 @@ class UserProfile(models.Model):
     """Extended user profile for storing additional information"""
     ROLE_CHOICES = [
         ('user', 'User'),
+        ('manager', 'Manager'),
         ('hod', 'HOD'),
-        ('admin', 'Admin/Manager'),
+        ('admin', 'Admin'),
+        ('backup_user', 'Backup User'),
     ]
     
     user = models.OneToOneField(settings.AUTH_USER_MODEL,on_delete=models.CASCADE,related_name='profile')
     employee_code = models.CharField(max_length=50, unique=True)
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
     hod_name = models.CharField(max_length=50, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
@@ -214,6 +216,55 @@ class ManagerRequest(models.Model):
     
     def __str__(self):
         return f"{self.hod.profile.employee_code} -> {self.user.profile.employee_code}"
+    
+    class Meta:
+        ordering = ['-created_at']
+
+
+class EditRequest(models.Model):
+    """Track edit requests for QPR and Profile data that require admin approval"""
+    REQUEST_TYPE_CHOICES = [
+        ('profile', 'Profile Update'),
+        ('qpr', 'QPR Update'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('used', 'Used'),
+    ]
+    
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='edit_requests')
+    request_type = models.CharField(max_length=20, choices=REQUEST_TYPE_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+    # Store the requested changes as JSON
+    requested_data = models.JSONField(default=dict)
+    
+    # Related record IDs
+    qpr_record_id = models.IntegerField(null=True, blank=True)  # For QPR edit requests
+    
+    # Reason/Comments
+    reason = models.TextField(blank=True, null=True)
+    admin_notes = models.TextField(blank=True, null=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    
+    # Approved by admin
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_edit_requests'
+    )
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.request_type} ({self.status})"
     
     class Meta:
         ordering = ['-created_at']
@@ -349,3 +400,18 @@ class Section11SpecificAchievementsData(models.Model):
     hindi_medium_works = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+class TypingUsageReport(models.Model):
+    """Store typing usage report data for users"""
+    qpr_record = models.OneToOneField(QPRRecord, on_delete=models.CASCADE, related_name='typing_usage_report')
+    total_words = models.IntegerField(null=True, blank=True)
+    hindi_words = models.IntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Typing Usage Report - {self.qpr_record.officeName}"
+
+    class Meta:
+        ordering = ['-created_at']

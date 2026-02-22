@@ -1,0 +1,324 @@
+{% extends 'master.html' %}
+{% load static %}
+{% load translate_tags %}
+
+{% block title %}{{ "Typing Data Report"|t:current_lang }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-container {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .report-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 8px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .report-title {
+        font-size: 28px;
+        font-weight: bold;
+        margin: 0;
+    }
+
+    .report-subtitle {
+        font-size: 14px;
+        margin-top: 10px;
+        opacity: 0.9;
+    }
+
+    .table-responsive {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        overflow: auto;
+    }
+
+    .table {
+        margin-bottom: 0;
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table thead {
+        background-color: #2c5a86;
+        color: white;
+    }
+
+    .table thead th {
+        padding: 12px 8px;
+        font-weight: 600;
+        border: 1px solid #2c5a86;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    .table tbody td {
+        padding: 10px 8px;
+        vertical-align: middle;
+        border: 1px solid #ddd;
+        font-size: 12px;
+    }
+
+    .table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .text-center {
+        text-align: center;
+    }
+
+    .no-data {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .btn-print {
+        background-color: #28a745;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .btn-print:hover {
+        background-color: #218838;
+        color: white;
+    }
+
+    .btn-back {
+        background-color: #6c757d;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .btn-back:hover {
+        background-color: #5a6268;
+        color: white;
+    }
+
+    @media print {
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        .action-buttons,
+        .btn-print,
+        .btn-back {
+            display: none !important;
+        }
+
+        .report-container {
+            max-width: 100%;
+            margin: 0;
+            padding: 10px;
+        }
+
+        .report-header {
+            background: white;
+            color: #2c5a86;
+            border: 2px solid #2c5a86;
+            page-break-after: avoid;
+        }
+
+        .table-responsive {
+            background: white;
+            border-radius: 0;
+            box-shadow: none;
+            overflow: visible;
+            page-break-inside: auto;
+        }
+
+        .table {
+            width: 100%;
+            font-size: 10px;
+            page-break-inside: auto;
+        }
+
+        .table thead {
+            background-color: #2c5a86 !important;
+            display: table-header-group;
+            page-break-inside: avoid;
+            page-break-after: avoid;
+        }
+
+        .table thead th {
+            background-color: #2c5a86 !important;
+            color: white !important;
+            padding: 8px 5px !important;
+            font-weight: bold !important;
+            border: 1px solid #2c5a86 !important;
+            font-size: 9px !important;
+            white-space: normal;
+        }
+
+        .table tbody {
+            page-break-inside: auto;
+        }
+
+        .table tbody tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+        }
+
+        .table tbody td {
+            padding: 6px 4px !important;
+            border: 1px solid #999 !important;
+            font-size: 9px !important;
+        }
+
+        .stat-badge {
+            background-color: #e7f5ff !important;
+            color: #0066cc !important;
+        }
+    }
+
+    .stat-badge {
+        background-color: #e7f5ff;
+        color: #0066cc;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container report-container mt-4 mb-4">
+    <div class="report-header">
+        <h1 class="report-title">
+            <i class="fas fa-keyboard"></i> {{ "Typing Data Report"|t:current_lang }}
+        </h1>
+        <p class="report-subtitle">{{ "All Employees Typing Usage Statistics"|t:current_lang }}</p>
+    </div>
+
+    <div class="action-buttons">
+        <button class="btn btn-print" onclick="window.print()">
+            <i class="fas fa-print"></i> {{ "Print Report"|t:current_lang }}
+        </button>
+        <a href="{% url 'qpr_admin_dashboard' %}" class="btn-back">
+            <i class="fas fa-arrow-left"></i> {{ "Back to Dashboard"|t:current_lang }}
+        </a>
+    </div>
+
+    {% if typing_data %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+                        <th class="text-center" style="width: 50px;">{{ "S. No."|t:current_lang }}</th>
+                        <th>{{ "Employee Name"|t:current_lang }}</th>
+                        <th>{{ "Designation"|t:current_lang }}</th>
+                        <th class="text-center">{{ "Total Notes"|t:current_lang }}</th>
+                        <th class="text-center">{{ "Hindi Notes"|t:current_lang }}</th>
+                        <th class="text-center">{{ "Hindi Notes %"|t:current_lang }}</th>
+                        <th class="text-center">{{ "Total Words"|t:current_lang }}</th>
+                        <th class="text-center">{{ "Hindi Words"|t:current_lang }}</th>
+                        <th class="text-center">{{ "Hindi Words %"|t:current_lang }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in typing_data %}
+                    <tr>
+                        <td class="text-center fw-bold">{{ item.serial_no }}</td>
+                        <td>{{ item.employee_name }}</td>
+                        <td>{{ item.designation }}</td>
+                        <td class="text-center">
+                            {% if item.total_notes > 0 %}
+                                <span class="stat-badge">{{ item.total_notes }}</span>
+                            {% else %}
+                                <span>-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if item.hindi_notes > 0 %}
+                                <span class="stat-badge">{{ item.hindi_notes }}</span>
+                            {% else %}
+                                <span>-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if item.total_notes > 0 %}
+                                {{ item.notes_hindi_percentage }}%
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if item.total_words > 0 %}
+                                <span class="stat-badge">{{ item.total_words }}</span>
+                            {% else %}
+                                <span>-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if item.hindi_words > 0 %}
+                                <span class="stat-badge">{{ item.hindi_words }}</span>
+                            {% else %}
+                                <span>-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if item.total_words > 0 %}
+                                {{ item.words_hindi_percentage }}%
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top: 30px; padding: 20px; background-color: #f8f9fa; border-radius: 8px; text-align: center;">
+            <p style="color: #666; margin: 0;">
+                <strong>{{ "Total Records"|t:current_lang }}:</strong> {{ typing_data|length }}
+            </p>
+        </div>
+    {% else %}
+        <div class="no-data">
+            <i class="fas fa-inbox" style="font-size: 48px; color: #ccc; margin-bottom: 20px;"></i>
+            <p style="font-size: 16px;">{{ "No typing usage data available yet."|t:current_lang }}</p>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Optional: Add any dynamic behavior here
+        console.log('Typing Data Report loaded');
+    });
+</script>
+{% endblock %}
