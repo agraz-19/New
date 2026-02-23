@@ -1,5 +1,6 @@
 import os,io,csv,random,hashlib,json
 from datetime import datetime
+from urllib import request
 from django.utils.timezone import now
 from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
@@ -1493,18 +1494,49 @@ def request_edit_api(request):
 
 class EmployeeListCreateAPI(APIView):
     def get(self, request):
-        if request.session.get('active_role') != 'user': return Response({"error": "Unauthorized"}, status=403)
+        if request.session.get('active_role') != 'user':
+            return Response({"detail": "Unauthorized"}, status=403)
+
+        try:
+            user_empcode = int(request.user.username)
+        except ValueError:
+            return Response({"detail": "Invalid employee code."}, status=400)
+
         status_filter = request.GET.get("status")
-        qs = Employee.objects.all().order_by("-lastupdate")
-        if status_filter: qs = qs.filter(status=status_filter)
-        serializer = EmployeeSerializer(qs, many=True)
+
+        qs = Employee.objects.filter(empcode=user_empcode)
+
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        serializer = EmployeeSerializer(qs.order_by("-lastupdate"), many=True)
         return Response(serializer.data)
     def post(self, request):
-        serializer = EmployeeSerializer(data=request.data)
+        if request.session.get('active_role') != 'user':
+            return Response({"detail": "Unauthorized"}, status=403)
+
+        try:
+            user_empcode = int(request.user.username)
+        except ValueError:
+            return Response({"detail": "Username must be numeric."}, status=400)
+
+        # Allow only one record
+        if Employee.objects.filter(empcode=user_empcode).exists():
+            return Response(
+                {"detail": "You have already created your employee record."},
+                status=400
+            )
+
+        data = request.data.copy()
+        data["empcode"] = user_empcode
+
+        serializer = EmployeeSerializer(data=data)
+
         if serializer.is_valid():
             serializer.save(lastupdate=timezone.now())
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.data, status=201)
+
+        return Response(serializer.errors, status=400)
 
 class EmployeeDetailAPI(APIView):
     def get_object(self, pk):
@@ -1516,15 +1548,32 @@ class EmployeeDetailAPI(APIView):
         return Response(EmployeeSerializer(emp).data)
     def put(self, request, pk):
         emp = self.get_object(pk)
-        if not emp: return Response({"error": "Not found"}, status=404)
+        if not emp:
+            return Response({"error": "Not found"}, status=404)
+
+        # USER cannot edit others
+        if request.user.role == 'user' and str(emp.empcode) != str(request.user.username):
+            return Response({"error": "Unauthorized"}, status=403)
+        if str(emp.empcode) != str(request.user.username):
+            return Response({"detail": "Unauthorized"}, status=403)
+
         serializer = EmployeeSerializer(emp, data=request.data)
+
         if serializer.is_valid():
             serializer.save(lastupdate=timezone.now())
             return Response(serializer.data)
+
         return Response(serializer.errors, status=400)
     def delete(self, request, pk):
         emp = self.get_object(pk)
-        if not emp: return Response({"error": "Not found"}, status=404)
+        if str(emp.empcode) != str(request.user.username):
+            return Response({"detail": "Unauthorized"}, status=403)
+        if not emp:
+            return Response({"error": "Not found"}, status=404)
+
+        if request.user.role == 'user' and str(emp.empcode) != str(request.user.username):
+            return Response({"error": "Unauthorized"}, status=403)
+
         emp.delete()
         return Response({"message": "Deleted"})
 
