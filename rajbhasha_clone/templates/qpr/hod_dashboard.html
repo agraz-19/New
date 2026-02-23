@@ -1,0 +1,165 @@
+{% extends "master.html" %}
+{% load static %}
+{% load translate_tags %}
+
+{% block title %}{{ "HOD Dashboard"|t:current_lang }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-container {
+        margin-top: 30px;
+    }
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        border-left: 5px solid #2c5a86;
+        text-align: center;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    .stat-number {
+        font-size: 36px;
+        font-weight: bold;
+        color: #2c5a86;
+        margin: 10px 0;
+    }
+    .stat-label {
+        color: #666;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .stat-icon {
+        font-size: 32px;
+        color: #2c5a86;
+        margin-bottom: 10px;
+    }
+
+    .header-section {
+        padding: 20px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+    }
+    .quick-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .btn-custom {
+        padding: 10px 20px;
+        border-radius: 6px;
+        transition: all 0.2s;
+    }
+    .btn-custom:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+    @media (max-width: 768px) {
+        .menu-toggle {
+            width: 50px;
+            height: 50px;
+            font-size: 20px;
+        }
+        .stat-number {
+            font-size: 28px;
+        }
+        .quick-actions {
+            flex-direction: column;
+        }
+        .btn-custom {
+            width: 100%;
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container dashboard-container">
+    <div class="header-section">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h3>{{ "HOD Dashboard"|t:current_lang }}</h3>
+                <p class="text-muted mb-0">{{ "Management of employees and progress tracking"|t:current_lang }}</p>
+            </div>
+            <div class="text-end">
+                <small class="text-muted">{{ "HOD"|t:current_lang }}:</small>
+                <h5 style="color: #2c5a86; margin: 0;">{{ hod_name|upper }}</h5>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row">
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-number">{{ total_users }}</div>
+                <div class="stat-label">{{ "Total Employees"|t:current_lang }}</div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-check-circle" style="color: #28a745;"></i>
+                </div>
+                <div class="stat-number" style="color: #28a745;">{{ qpr_submitted }}</div>
+                <div class="stat-label">{{ "QPR Submitted"|t:current_lang }}</div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-clock" style="color: #ffc107;"></i>
+                </div>
+                <div class="stat-number" style="color: #ffc107;">{{ qpr_pending }}</div>
+                <div class="stat-label">{{ "QPR Pending"|t:current_lang }}</div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-user-check" style="color: #17a2b8;"></i>
+                </div>
+                <div class="stat-number" style="color: #17a2b8;">{{ profile_updated }}</div>
+                <div class="stat-label">{{ "Profile Updated"|t:current_lang }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="stat-card" style="border-left: 5px solid #2c5a86;">
+                <h5 style="color: #2c5a86; margin-bottom: 15px; text-align: left;">{{ "Quick Actions"|t:current_lang }}</h5>
+                <div class="quick-actions">
+                    <a href="{% url 'qpr_hod_detail_list' %}" class="btn btn-primary btn-custom">
+                        <i class="fas fa-table"></i> {{ "View Detail List"|t:current_lang }}
+                    </a>
+                    <a href="{% url 'change_password' %}" class="btn btn-warning btn-custom">
+                        <i class="fas fa-lock"></i> {{ "Change Password"|t:current_lang }}
+                    </a>
+                    <a href="{% url 'logout' %}" class="btn btn-danger btn-custom">
+                        <i class="fas fa-sign-out-alt"></i> {{ "Logout"|t:current_lang }}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}

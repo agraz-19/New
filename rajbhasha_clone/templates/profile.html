@@ -53,6 +53,16 @@
                         <input type="email" name="email" class="form-control" value="{{ user.email }}" required>
                         <div class="form-text small">This email will receive your 12-hour reminders.</div>
                     </div>
+                    <div class="mb-3 text-start">
+                        <label class="form-label small fw-bold">HOD (Head of Department/Manager)</label>
+                        <select name="hod_name" class="form-select" required>
+                            <option value="">-- Select HOD --</option>
+                            {% for hod in available_hods %}
+                                <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>{{ hod }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text small">Select the HOD/Manager you work under.</div>
+                    </div>
                 </div>
                 <div class="modal-footer border-0">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>

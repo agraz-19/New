@@ -1,0 +1,141 @@
+{% extends "master.html" %}
+{% load static %}
+{% load translate_tags %}
+
+{% block title %}{{ "Typing Usage Report"|t:current_lang }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .btn-group-custom {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 30px;
+    }
+    
+    .section-header {
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #2c5a86;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+    }
+    
+    .error-message {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="form-container">
+        <div class="card">
+            <div class="section-header">
+                <h3 class="mb-0">{{ "Typing Usage Report"|t:current_lang }}</h3>
+                <p class="mb-0 text-muted mt-2">{{ "Office: "|t:current_lang }} {{ office_name }}</p>
+            </div>
+            
+            <div class="card-body p-4">
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger" role="alert">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                <form method="POST" class="needs-validation">
+                    {% csrf_token %}
+                    
+                    <p class="text-muted mb-4">
+                        {{ "Please provide the following information from your notes:"|t:current_lang }}
+                    </p>
+                    
+                    <!-- Total Words Field -->
+                    <div class="form-group">
+                        <label for="{{ form.total_words.id_for_label }}" class="form-label">
+                            {{ form.total_words.label }}
+                            <span class="text-danger">*</span>
+                        </label>
+                        {{ form.total_words }}
+                        {% if form.total_words.errors %}
+                            <div class="error-message">
+                                {% for error in form.total_words.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <small class="form-text text-muted d-block mt-2">
+                            {{ "Total count of all words across all your notes"|t:current_lang }}
+                        </small>
+                    </div>
+                    
+                    <!-- Hindi Words Field -->
+                    <div class="form-group">
+                        <label for="{{ form.hindi_words.id_for_label }}" class="form-label">
+                            {{ form.hindi_words.label }}
+                            <span class="text-danger">*</span>
+                        </label>
+                        {{ form.hindi_words }}
+                        {% if form.hindi_words.errors %}
+                            <div class="error-message">
+                                {% for error in form.hindi_words.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <small class="form-text text-muted d-block mt-2">
+                            {{ "Total count of words in Hindi within your notes"|t:current_lang }}
+                        </small>
+                    </div>
+                    
+                    <!-- Buttons -->
+                    <div class="btn-group-custom">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-check"></i> {{ "Submit"|t:current_lang }}
+                        </button>
+                        <a href="{% url 'qpr_report_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> {{ "Cancel"|t:current_lang }}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Bootstrap form validation
+    (function() {
+        'use strict';
+        window.addEventListener('load', function() {
+            var forms = document.querySelectorAll('.needs-validation');
+            Array.prototype.slice.call(forms).forEach(function(form) {
+                form.addEventListener('submit', function(event) {
+                    if (form.checkValidity() === false) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                    form.classList.add('was-validated');
+                }, false);
+            });
+        }, false);
+    })();
+</script>
+{% endblock %}
