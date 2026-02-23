@@ -131,13 +131,18 @@
   </div>
 
 <div class="text-center mt-4">
-  <button class="btn btn-warning px-5 fw-bold">{{"Save as Draft"|t:current_lang }}</button>
+  <button type="submit" class="btn btn-warning px-5 fw-bold">{{"Save as Draft"|t:current_lang }}</button>
 </div>
 </form>
 
 <div class="mt-4">
-  <button class="btn btn-outline-primary me-2" onclick="showDrafts()">{{"Show Drafts"|t:current_lang }}</button>
-  <button class="btn btn-outline-secondary" onclick="showSubmitted()">{{"Show Submitted Records"|t:current_lang }}</button>
+ <button type="button" class="btn btn-outline-primary me-2" onclick="showDrafts()">
+  {{"Show Drafts"|t:current_lang }}
+</button>
+
+<button type="button" class="btn btn-outline-secondary" onclick="showSubmitted()">
+  {{"Show Submitted Records"|t:current_lang }}
+</button>
 </div>
 
 <div class="mt-3">
@@ -241,70 +246,104 @@ document.getElementById("designationSelect").addEventListener("change", e => {
   document.getElementById("otherDesignation").style.display = e.target.value === "OTHER" ? "block" : "none";
 });
 
-/* ================= SAVE LOGIC (FIXED) ================= */
+/* ================= SAVE LOGIC (FIXED COMPLETELY) ================= */
+/* ================= SAVE LOGIC (FINAL FIXED VERSION) ================= */
 document.getElementById("employeeForm").addEventListener("submit", async e => {
   e.preventDefault();
-  const formData = new FormData(e.target);
+
+  const form = e.target;
+  const formData = new FormData(form);
   const data = Object.fromEntries(formData.entries());
 
-  // 1. Handle Designation
   const desigSelect = document.getElementById("designationSelect");
-  let finalDesignation = desigSelect.value === "OTHER" ? document.getElementById("otherDesignation").value : desigSelect.value;
-  
-  // FIX: If empty, send "Pending" instead of null. 
-  // This tricks the database into accepting the record even if the field is required.
+  let finalDesignation =
+      desigSelect.value === "OTHER"
+        ? document.getElementById("otherDesignation").value
+        : desigSelect.value;
+
   if (!finalDesignation || finalDesignation === "") {
-      data.designation = "Pending"; 
+      data.designation = "Pending";
   } else {
       data.designation = finalDesignation;
   }
 
-  // 2. Handle Date
-  // Note: If Superannuation Date is required in DB, this might also fail if sent as null.
-  // Ideally, ensure your model allows null=True for dates.
   if (!data.super_annuation_date) {
       data.super_annuation_date = null;
   }
-  
+
   data.status = "draft";
 
-  const url = editingId ? `/api/employees/${editingId}/` : "/api/employees/";
+  const url = editingId
+      ? `/api/employees/${editingId}/`
+      : "/api/employees/";
+
   const method = editingId ? "PUT" : "POST";
 
   try {
       const response = await fetch(url, {
-        method: method,
-        headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
-        body: JSON.stringify(data)
+          method: method,
+          headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": getCookie("csrftoken")
+          },
+          body: JSON.stringify(data)
       });
 
+      const result = await response.json();
+
       if (!response.ok) {
-          const errorData = await response.json();
-          let msg = "Error saving record:\n";
-          // Log error to console for debugging
-          console.error("Server Error Details:", errorData);
-          
-          for (const [field, errors] of Object.entries(errorData)) {
-              msg += `• ${field}: ${errors.join(", ")}\n`;
+
+          let message = "";
+
+          // Duplicate record case
+          if (result.detail && result.detail.includes("already")) {
+              message = result.detail + 
+              "\n\nPlease edit your saved draft instead of creating a new record.";
+              
+              // ✅ CLEAR FORM
+              form.reset();
+              editingId = null;
+              document.getElementById("designationSelect").value = "";
+              document.getElementById("otherDesignation").style.display = "none";
+              document.getElementById("lastUpdatedBox").style.display = "none";
           }
-          alert(msg);
-          return; 
+          else {
+              message = "Error saving record:\n\n";
+
+              if (result.detail) {
+                  message += result.detail;
+              }
+              else {
+                  for (const [field, errors] of Object.entries(result)) {
+                      if (Array.isArray(errors)) {
+                          message += `• ${field}: ${errors.join(", ")}\n`;
+                      }
+                      else {
+                          message += `• ${field}: ${errors}\n`;
+                      }
+                  }
+              }
+          }
+
+          alert(message);
+          return;
       }
 
-      e.target.reset();
+      // SUCCESS
+      form.reset();
       editingId = null;
       document.getElementById("designationSelect").value = "";
       document.getElementById("otherDesignation").style.display = "none";
       document.getElementById("lastUpdatedBox").style.display = "none";
+
       showDrafts();
       alert("Record saved successfully!");
 
-  } catch (err) { 
-      console.error(err);
-      alert("Network Error: Please check console for details."); 
+  } catch (err) {
+      console.error("Network Error:", err);
+      alert("Network Error: Please check console for details.");
   }
 });
-
 /* SHOW DRAFTS */
 async function showDrafts() {
   toggle("draftSection");
@@ -345,22 +384,33 @@ async function showDrafts() {
 /* SHOW SUBMITTED */
 async function showSubmitted() {
   toggle("submittedSection");
+
   try {
       const res = await fetch("/api/employees/?status=submitted");
+
+      if (!res.ok) {
+          console.error("Failed to fetch submitted records");
+          return;
+      }
+
       const data = (await res.json()).reverse();
       const tbody = document.getElementById("submittedTableBody");
       tbody.innerHTML = "";
+
       for (const d of data) {
-        let actionBtn = userRole === 'manager' ? `<td><button class="btn btn-sm btn-warning" onclick="unlockRecord(${d.id})">Unlock</button></td>` : "";
-        
+
+        let actionBtn = userRole === 'manager'
+            ? `<td><button class="btn btn-sm btn-warning" onclick="unlockRecord(${d.id})">Unlock</button></td>`
+            : "";
+
         const rawDate = d.super_annuation_date || d.superannuation_date || "-";
         const maskedDate = maskDate(rawDate);
 
         tbody.insertAdjacentHTML("afterbegin", `
           <tr>
             <td>${d.empcode}</td>
-            <td>${d.ename}</td>
-            <td>${d.hname}</td>
+            <td>${d.ename || "-"}</td>
+            <td>${d.hname || "-"}</td>
             <td>${await translateData(d.designation)}</td>
             <td>${await translateData(d.typing)}</td>
             <td>${await translateData(d.hindiproficiency)}</td>
@@ -373,7 +423,15 @@ async function showSubmitted() {
             ${actionBtn}
           </tr>`);
       }
-  } catch(e) {}
+
+      // 🔒 AUTO-DISABLE FORM IF SUBMITTED RECORD EXISTS
+      if (data.length > 0 && userRole !== 'manager') {
+          disableForm();
+      }
+
+  } catch(e) {
+      console.error("Error loading submitted records:", e);
+  }
 }
 
 async function unlockRecord(id) {
@@ -413,13 +471,21 @@ async function deleteDraft(id) {
 
 async function submitSelectedDrafts() {
   const ids = [...document.querySelectorAll("#draftTableBody input:checked")].map(i => i.value);
+
   if (!ids.length) return alert("Select records first");
+
   const res = await fetch("/api/employees/submit/", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
     body: JSON.stringify({ ids })
   });
-  if(res.ok) { showSubmitted(); showDrafts(); alert("Submitted!"); }
+
+  if (res.ok) {
+      showSubmitted();
+      showDrafts();
+      disableForm(); // 🔥 DISABLE FORM AFTER SUBMIT
+      alert("Submitted successfully! Form is now locked.");
+  }
 }
 
 function toggle(id) {
@@ -445,6 +511,20 @@ function downloadPDF() {
   doc.text("Submitted Employee Records", 40, 40);
   doc.autoTable({ html: "#submittedTable", startY: 60 });
   doc.save("submitted_employees.pdf");
+}
+function disableForm() {
+    const form = document.getElementById("employeeForm");
+
+    form.querySelectorAll("input, select, textarea, button[type='submit']")
+        .forEach(el => el.disabled = true);
+
+    // Optional: Change button color
+    const saveBtn = form.querySelector("button[type='submit']");
+    if (saveBtn) {
+        saveBtn.innerText = "Form Submitted";
+        saveBtn.classList.remove("btn-warning");
+        saveBtn.classList.add("btn-secondary");
+    }
 }
 </script>
 {% endblock %}
