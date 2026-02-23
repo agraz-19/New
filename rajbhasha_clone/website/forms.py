@@ -11,7 +11,6 @@ from captcha.fields import CaptchaField
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
 
-    #captcha = CaptchaField()
     consent = forms.BooleanField(
         required=True, 
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
@@ -101,7 +100,7 @@ class CustomUserCreationForm(UserCreationForm):
 
 class CustomLoginForm(AuthenticationForm):
     role = forms.ChoiceField(
-        choices=[('user', 'User'), ('manager', 'Manager'), ('admin', 'Admin'),('backup_user','Backup User')],
+        choices=[('user', 'User'), ('manager', 'Manager'), ('hod', 'HOD'), ('admin', 'Admin'),('backup_user','Backup User')],
         widget=forms.Select(attrs={'class': 'form-select'})
     )
     captcha = CaptchaField()
@@ -132,6 +131,7 @@ class CustomLoginForm(AuthenticationForm):
         self.fields['role'].choices = [
             ('user', translate_text("User", self.lang)),
             ('manager', translate_text("Manager", self.lang)),
+            ('hod', translate_text("HOD", self.lang)),
             ('admin', translate_text("Admin", self.lang)),
             ('backup_user', translate_text("Backup User", self.lang)),
         ]
@@ -147,3 +147,30 @@ class CustomLoginForm(AuthenticationForm):
             # Apply translated labels as placeholders
             field.widget.attrs['placeholder'] = field.label
 
+
+class TypingUsageReportForm(forms.Form):
+    """Form for entering typing usage report data"""
+    total_words = forms.IntegerField(
+        label="Total Number of Words in All Notes",
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Enter total words', 'min': '0'}),
+        required=True,
+        min_value=0
+    )
+    hindi_words = forms.IntegerField(
+        label="Total Number of Hindi Words in All Notes",
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Enter hindi words', 'min': '0'}),
+        required=True,
+        min_value=0
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        total_words = cleaned_data.get('total_words')
+        hindi_words = cleaned_data.get('hindi_words')
+
+        if total_words is not None and hindi_words is not None:
+            if hindi_words > total_words:
+                raise forms.ValidationError(
+                    "Hindi words cannot be greater than total words."
+                )
+        return cleaned_data
