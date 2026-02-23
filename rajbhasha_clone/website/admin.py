@@ -16,7 +16,8 @@ from .models import (
     Section5EnglishRepliedHindiData, Section6IssuedLettersData,
     Section7NotingsData, Section8WorkshopsData,
     Section9ImplementationCommitteeData, Section10HindiAdvisoryData,
-    Section11SpecificAchievementsData, UserProfile, ManagerRequest
+    Section11SpecificAchievementsData, UserProfile, ManagerRequest,
+    TypingUsageReport
 )
 
 
@@ -110,3 +111,4 @@ admin.site.register(Section10HindiAdvisoryData)
 admin.site.register(Section11SpecificAchievementsData)
 admin.site.register(UserProfile)
 admin.site.register(ManagerRequest)
+admin.site.register(TypingUsageReport)
