@@ -1,0 +1,98 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">{{ "Reject Edit Request"|t:current_lang }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <strong>{{ "User"|t:current_lang }}:</strong> {{ edit_request.user.get_full_name|default:edit_request.user.username }} ({{ edit_request.user.username }})
+                        <br>
+                        <strong>{{ "Employee Code"|t:current_lang }}:</strong> {{ edit_request.user.profile.employee_code|default:"N/A" }}
+                        <br>
+                        <strong>{{ "Request Type"|t:current_lang }}:</strong>
+                        {% if edit_request.request_type == 'profile' %}
+                            {{ "Profile Update"|t:current_lang }}
+                        {% elif edit_request.request_type == 'qpr' %}
+                            {{ "QPR Update"|t:current_lang }}
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <h6>{{ "User's Reason"|t:current_lang }}:</h6>
+                        <div class="p-3 bg-light rounded border-start border-4 border-info">
+                            {{ edit_request.reason|default:"No reason provided" }}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h6>{{ "Requested Changes"|t:current_lang }}:</h6>
+                        <div class="p-3 bg-light rounded">
+                            <pre>{{ edit_request.requested_data|safe }}</pre>
+                        </div>
+                    </div>
+
+                    <form method="post" class="needs-validation">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="admin_notes" class="form-label">
+                                <span class="text-danger">*</span> {{ "Reason for Rejection"|t:current_lang }}
+                            </label>
+                            <textarea name="admin_notes" id="admin_notes" class="form-control" rows="4" placeholder="{{ 'Please explain why this request is being rejected...'|t:current_lang }}" required></textarea>
+                            <small class="text-muted">{{ "This reason will be sent to the user."|t:current_lang }}</small>
+                        </div>
+
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                            {{ "By rejecting this request, the user will NOT be allowed to edit their"|t:current_lang }}
+                            {% if edit_request.request_type == 'profile' %}
+                                {{ "profile"|t:current_lang }}
+                            {% elif edit_request.request_type == 'qpr' %}
+                                {{ "QPR"|t:current_lang }}
+                            {% endif %}
+                            {{ "information until a new request is submitted and approved."|t:current_lang }}
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-times"></i> {{ "Reject Request"|t:current_lang }}
+                            </button>
+                            <a href="{% url 'admin_edit_requests' %}" class="btn btn-secondary">
+                                {{ "Cancel"|t:current_lang }}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer text-muted">
+                    <small>
+                        <strong>{{ "Requested on"|t:current_lang }}:</strong> {{ edit_request.created_at|date:"d M Y, H:i" }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+pre {
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 0.875rem;
+}
+
+.border-start {
+    border-left-width: 4px !important;
+}
+
+textarea:required {
+    border-color: #dc3545;
+}
+</style>
+{% endblock %}

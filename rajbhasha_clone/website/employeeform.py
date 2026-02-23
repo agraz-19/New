@@ -8,8 +8,7 @@ PROFICIENCY_CHOICES = [
 
 
 class EmployeeForm(forms.ModelForm):
-    # EXPLICITLY declare this field so the form knows how to handle it
-    # independently of the encrypted model field.
+   
     super_annuation_date = forms.DateField(
         label="Superannuation Date",
         required=False,
@@ -18,7 +17,6 @@ class EmployeeForm(forms.ModelForm):
 
     class Meta:
         model = Employee
-        # Exclude the internal encrypted field so it doesn't show up
         exclude = ["status", "encrypted_super_annuation_date"]
 
         labels = {
@@ -47,12 +45,10 @@ class EmployeeForm(forms.ModelForm):
             "parangat": forms.Select(attrs={"class": "form-select"}, choices=PROFICIENCY_CHOICES),
             "typing": forms.TextInput(attrs={"class": "form-control"}),
             "hindiproficiency": forms.TextInput(attrs={"class": "form-control"}),
-            # Widget is now handled in the field definition above
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # If editing an existing record, we need to manually decrypt and set the initial value
         if self.instance and self.instance.pk:
             decrypted_date = self.instance.get_super_annuation_date()
             if decrypted_date:
