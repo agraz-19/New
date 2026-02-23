@@ -3,234 +3,235 @@
 
 {% block content %}
 <div class="container-fluid px-4 mt-4">
+
+    {% if user.role == 'manager' %}
     
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="fw-bold text-primary">{{ "Manager Dashboard"|t:current_lang }}</h2>
-            <p class="text-muted">{{ "Manage system access and employee records."|t:current_lang }}</p>
-        </div>
+        <h2 class="fw-bold text-primary">{{ "Manager Dashboard"|t:current_lang }}</h2>
         <div class="d-flex gap-2">
-            <span class="badge bg-secondary p-3 rounded-pill shadow-sm">
-                <i class="bi bi-person-badge me-2"></i>{{ users|length }} {{ "Accounts"|t:current_lang }}
-            </span>
             <span class="badge bg-primary p-3 rounded-pill shadow-sm">
-                <i class="bi bi-file-earmark-text me-2"></i>{{ employees|length }} {{ "Records"|t:current_lang }}
+                <i class="fas fa-file-alt me-2"></i>{{ employees|length }} {{ "Records"|t:current_lang }}
             </span>
         </div>
     </div>
 
-    <ul class="nav nav-tabs mb-3" id="dashboardTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active fw-bold" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button" role="tab">
-                <i class="bi bi-people-fill me-2"></i>{{ "Registered Users (Login Access)"|t:current_lang }}
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link fw-bold" id="records-tab" data-bs-toggle="tab" data-bs-target="#records-pane" type="button" role="tab">
-                <i class="bi bi-folder-fill me-2"></i>{{ "Employee Records (Data)"|t:current_lang }}
-            </button>
-        </li>
+    <ul class="nav nav-tabs mb-3" id="managerTabs" role="tablist">
+        <li class="nav-item"><button class="nav-link active fw-bold" id="employees-tab" data-bs-toggle="tab" data-bs-target="#employees-pane" type="button"><i class="fas fa-id-card me-2"></i>{{ "Employee Records"|t:current_lang }}</button></li>
+        <li class="nav-item"><button class="nav-link fw-bold" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button"><i class="fas fa-user-lock me-2"></i>{{ "System Users"|t:current_lang }}</button></li>
+        <li class="nav-item"><button class="nav-link fw-bold" id="qpr-tab" data-bs-toggle="tab" data-bs-target="#qpr-pane" type="button"><i class="fas fa-clipboard-check me-2"></i>{{ "QPR Status"|t:current_lang }}</button></li>
     </ul>
 
-    <div class="tab-content" id="dashboardTabsContent">
+    <div class="tab-content" id="managerTabsContent">
         
-        <div class="tab-pane fade show active" id="users-pane" role="tabpanel">
+        <div class="tab-pane fade show active" id="employees-pane">
             <div class="card shadow-sm border-0">
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light text-uppercase small">
-                                <tr>
-                                    <th class="px-4 py-3">{{ "User Identity"|t:current_lang }}</th>
-                                    <th>{{ "Role"|t:current_lang }}</th>
-                                    <th>{{ "Account Status"|t:current_lang }}</th>
-                                    <th class="text-end px-4">{{ "Admin Actions"|t:current_lang }}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for u in users %}
-                                <tr class="{% if u.is_archived %}bg-light text-muted{% endif %}">
-                                    <td class="px-4">
-                                        <div class="d-flex align-items-center">
-                                            <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 35px; height: 35px;">
-                                                {{ u.username|first|upper }}
-                                            </div>
-                                            <div>
-                                                <div class="fw-bold">{{ u.username }}</div>
-                                                <div class="small text-muted">{{ u.get_email }}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td><span class="badge bg-light text-dark border">{{ u.role|title }}</span></td>
-                                    <td>
-                                        {% if u.is_archived %}
-                                            <span class="badge bg-danger">{{ "Archived (No Login)"|t:current_lang }}</span>
-                                        {% else %}
-                                            <span class="badge bg-success">{{ "Active"|t:current_lang }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end px-4">
-                                        {% if request.user.role == 'admin' or request.user.is_superuser %}
-                                            {% if u.role != 'admin' %} {% if u.is_archived %}
-                                                    <a href="{% url 'manage_user_action' u.id 'unarchive' %}" class="btn btn-sm btn-success">
-                                                        <i class="bi bi-arrow-counterclockwise"></i> {{ "Restore"|t:current_lang }}
-                                                    </a>
-                                                {% else %}
-                                                    <a href="{% url 'manage_user_action' u.id 'archive' %}" class="btn btn-sm btn-outline-danger"
-                                                       onclick="return confirm('Archive user? They cannot login.');">
-                                                        <i class="bi bi-archive"></i> {{ "Archive"|t:current_lang }}
-                                                    </a>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% else %}
-                                            <span class="text-muted small">{{ "Admin Only"|t:current_lang }}</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                <div class="card-body table-responsive">
+                    <div class="alert alert-info small py-2 mb-3">
+                        <i class="fas fa-info-circle"></i> Use the <i class="bi bi-pencil-square"></i> icon to update designations and the <strong>Unlock</strong> button to allow profile edits.
                     </div>
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Emp Code</th>
+                                <th>Name</th>
+                                <th>Designation</th>
+                                <th>Status</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in employees %}
+                            <tr>
+                                <td class="font-monospace text-primary fw-bold">{{ item.empcode }}</td>
+                                <td>{{ item.name }}</td>
+                                <td>
+                                    <span class="badge bg-info text-dark">{{ item.designation|default:"-" }}</span>
+                                    <button class="btn btn-sm btn-link text-secondary p-0 ms-2"
+                                            onclick="openDesignationModal('{{ item.empcode }}', '{{ item.name|escapejs }}', '{{ item.designation|default:'' }}')"
+                                            title="Update Designation">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                </td>
+                                <td>
+                                    {% if item.status|lower == 'submitted' %}
+                                        <span class="badge bg-success">Submitted</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Draft</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-warning" onclick="triggerUnlock('{{ item.empcode }}')">
+                                        <i class="bi bi-unlock"></i> Unlock
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">No records found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-        <div class="tab-pane fade" id="records-pane" role="tabpanel">
+        <div class="tab-pane fade" id="users-pane">
             <div class="card shadow-sm border-0">
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light text-uppercase small">
-                                <tr>
-                                    <th class="px-4 py-3">{{ "EmpCode"|t:current_lang }}</th>
-                                    <th>{{ "Employee Name"|t:current_lang }}</th>
-                                    <th>{{ "Designation"|t:current_lang }}</th>
-                                    <th>{{ "Form Status"|t:current_lang }}</th>
-                                    <th class="text-end px-4">{{ "Manager Actions"|t:current_lang }}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for emp in employees %}
-                                <tr>
-                                    <td class="px-4 fw-bold font-monospace text-primary">{{ emp.empcode }}</td>
-                                    <td>
-                                        <div>{{ emp.ename }}</div>
-                                        <div class="small text-muted">{{ emp.hname }}</div>
-                                    </td>
-                                    <td>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="fw-bold">{{ emp.designation|default:"-" }}</span>
-                                            {% with designation_value=emp.designation|default:'' %}
-                                            <button class="btn btn-sm btn-link text-secondary p-0"
-                                                    onclick="openDesignationModalByUsername('{{ emp.empcode }}', '{{ designation_value|escapejs }}')"
-                                                    title="Edit Designation">
-                                                <i class="bi bi-pencil-square"></i>
-                                            </button>
-                                            {% endwith %}       
-                                        </div>
-                                    </td>
-                                    <td>
-                                        {% if emp.status == 'submitted' %}
-                                            <span class="badge bg-primary">{{ "Submitted"|t:current_lang }}</span>
-                                        {% else %}
-                                            <span class="badge bg-warning text-dark">{{ "Draft / Editing"|t:current_lang }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end px-4">
-                                        {% if emp.status == 'submitted' %}
-                                            <button class="btn btn-sm btn-outline-primary" 
-                                                    onclick="triggerUnlock('{{ emp.empcode }}')">
-                                                <i class="bi bi-unlock"></i> {{ "Allow Edit"|t:current_lang }}
-                                            </button>
-                                        {% else %}
-                                            <span class="text-muted small"><i class="bi bi-pencil"></i> {{ "User Editing..."|t:current_lang }}</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="card-body table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Username</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in users %}
+                            <tr>
+                                <td class="fw-bold">{{ u.username }}</td>
+                                <td>
+                                    <span class="badge {% if u.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                        {% if u.is_active %}Active{% else %}Inactive{% endif %}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-    </div> </div>
-
-<form id="actionForm" method="post" style="display:none;">
-    {% csrf_token %}
-</form>
-
-<div class="modal fade" id="designationModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">{{ "Assign Designation"|t:current_lang }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="tab-pane fade" id="qpr-pane">
+            <div class="card shadow-sm border-0">
+                <div class="card-body table-responsive">
+                    <table class="table table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Employee</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in employees %}
+                            <tr>
+                                <td><strong>{{ item.name }}</strong> ({{ item.empcode }})</td>
+                                <td>
+                                    {% if item.qpr_is_submitted %}
+                                        <span class="badge bg-success">Submitted</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">In Progress</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if item.qpr_is_submitted and item.qpr_id %}
+                                        <a href="{% url 'manage_user_action' item.qpr_id 'unlock_qpr' %}"
+                                           class="btn btn-sm btn-info text-white"
+                                           onclick="return confirm('Unlock QPR for {{ item.name }}?')">
+                                            <i class="bi bi-unlock"></i> Unlock QPR
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted small">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <form id="designationForm" method="post">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <p class="text-muted">{{ "Assigning designation for:"|t:current_lang }} <strong id="modalUsername"></strong></p>
-                    
-                    <label class="form-label fw-bold">{{ "Designation"|t:current_lang }}</label>
-                    <select name="designation" class="form-select" id="modalDesignationSelect">
-                        <option value="">-- Select --</option>
-                        <option value="Scientist-F">Scientist-F</option>
-                        <option value="Scientist-G">Scientist-G</option>
-                        <option value="Scientist-E">Scientist-E</option>
-                        <option value="Scientist-D">Scientist-D</option>
-                        <option value="Scientist-C">Scientist-C</option>
-                        <option value="Scientist-B">Scientist-B</option>
-                        <option value="Section Officer">Section Officer</option>
-                        <option value="Senior Secretariate Assistant">Senior Secretariate Assistant</option>
-                        <option value="Scientific/Technical Assistant-A">Scientific/Technical Assistant-A</option>
-                        <option value="Scientific/Technical Assistant-B">Scientific/Technical Assistant-B</option>
-                        <option value="Scientific Officer/Engineer-SB">Scientific Officer/Engineer-SB</option>
-                    </select>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ "Cancel"|t:current_lang }}</button>
-                    <button type="submit" class="btn btn-primary">{{ "Save Changes"|t:current_lang }}</button>
-                </div>
-            </form>
         </div>
     </div>
-</div>
 
-<script id="user-lookup" type="application/json">
-{
-    {% for u in users %}
-        "{{ u.username }}": "{{ u.id }}"{% if not forloop.last %},{% endif %}
-    {% endfor %}
-}
-</script>
-
-<script>
-    // Helper to find User ID from Username (EmpCode)
-    function getUserId(username) {
-        const lookup = JSON.parse(document.getElementById('user-lookup').textContent);
-        return lookup[username];
+    <div class="modal fade" id="designationModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="designationForm" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title">Update Designation</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>User: <strong id="modalUsername"></strong></p>
+                        <div class="mb-3">
+                            <label class="form-label">Select New Designation</label>
+                            <select name="designation" class="form-select" id="modalDesignationSelect">
+                                <option value="Scientist-B">Scientist-B</option>
+                                <option value="Scientist-C">Scientist-C</option>
+                                <option value="Scientist-D">Scientist-D</option>
+                                <option value="Scientist-E">Scientist-E</option>
+                                <option value="Scientist-F">Scientist-F</option>
+                                <option value="Scientist-G">Scientist-G</option>
+                                <option value="Section Officer">Section Officer</option>
+                                <option value="Senior Secretariate Assistant">Senior Secretariate Assistant</option>
+                                <option value="Scientific/Technical Assistant-A">Scientific/Technical Assistant-A</option>
+                                <option value="Scientific/Technical Assistant-B">Scientific/Technical Assistant-B</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script id="user-lookup" type="application/json">
+    {
+        {% for u in users %}
+            "{{ u.username }}": "{{ u.id }}"{% if not forloop.last %},{% endif %}
+        {% endfor %}
     }
+    </script>
 
-    function openDesignationModalByUsername(username, currentDesignation) {
-        const userId = getUserId(username);
-        if (!userId) { alert("User account not found for this record."); return; }
-        
-        const form = document.getElementById('designationForm');
-        form.action = `/update-designation/${userId}/`;
-        document.getElementById('modalUsername').textContent = username;
-        document.getElementById('modalDesignationSelect').value = currentDesignation || "";
-        new bootstrap.Modal(document.getElementById('designationModal')).show();
-    }
-
-    function triggerUnlock(username) {
-        const userId = getUserId(username);
-        if (!userId) { alert("User account not found."); return; }
-        
-        if(confirm("Unlock this record? The user will be able to edit their data again.")) {
-            window.location.href = `/action/${userId}/unlock_record/`;
+    <script>
+        // 1. Helper to find User ID from EmpCode
+        function getUserId(empCode) {
+            const lookup = JSON.parse(document.getElementById('user-lookup').textContent);
+            // Convert to string to ensure matching works
+            return lookup[String(empCode).trim()];
         }
-    }
-</script>
+    
+        // 2. Handle Unlock Logic
+        function triggerUnlock(empCode) {
+            const userId = getUserId(empCode);
+            
+            if (!userId) { 
+                alert("Error: No User Account found for Employee Code " + empCode + ". They may not have registered yet.");
+                return; 
+            }
+            
+            if(confirm("Unlock this record? The user will be able to edit their data again.")) {
+                window.location.href = `/action/${userId}/unlock_record/`;
+            }
+        }
+
+        // 3. Handle Designation Update Logic
+        function openDesignationModal(empCode, name, currentDesignation) {
+            const userId = getUserId(empCode);
+            
+            if (!userId) { 
+                alert("Error: No User Account found for Employee Code " + empCode);
+                return; 
+            }
+
+            const form = document.getElementById('designationForm');
+            // Dynamically set the form action to include the User ID
+            form.action = `/update-designation/${userId}/`;
+            
+            document.getElementById('modalUsername').textContent = name + " (" + empCode + ")";
+            document.getElementById('modalDesignationSelect').value = currentDesignation || "Scientist-B";
+            
+            new bootstrap.Modal(document.getElementById('designationModal')).show();
+        }
+    </script>
+
+    {% endif %}
+
+</div>
 {% endblock %}

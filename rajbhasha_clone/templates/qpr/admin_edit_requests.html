@@ -1,0 +1,266 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2>{{ "Edit Requests"|t:current_lang }}</h2>
+            <p class="text-muted">{{ "Review and approve/reject edit requests from users"|t:current_lang }}</p>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'qpr_admin_dashboard' %}" class="btn btn-secondary float-end">
+                {{ "Back to Dashboard"|t:current_lang }}
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label for="status" class="form-label">{{ "Status"|t:current_lang }}</label>
+                    <select name="status" id="status" class="form-select">
+                        <option value="">{{ "All Statuses"|t:current_lang }}</option>
+                        {% for value, label in statuses %}
+                            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
+                                {{ label|t:current_lang }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="type" class="form-label">{{ "Request Type"|t:current_lang }}</label>
+                    <select name="type" id="type" class="form-select">
+                        <option value="">{{ "All Types"|t:current_lang }}</option>
+                        {% for value, label in types %}
+                            <option value="{{ value }}" {% if request_type_filter == value %}selected{% endif %}>
+                                {{ label|t:current_lang }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        {{ "Filter"|t:current_lang }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Requests List -->
+    {% if edit_requests %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ "User"|t:current_lang }}</th>
+                        <th>{{ "Employee Code"|t:current_lang }}</th>
+                        <th>{{ "HOD/Manager"|t:current_lang }}</th>
+                        <th>{{ "Type"|t:current_lang }}</th>
+                        <th>{{ "Status"|t:current_lang }}</th>
+                        <th>{{ "Reason"|t:current_lang }}</th>
+                        <th>{{ "Requested"|t:current_lang }}</th>
+                        <th>{{ "Actions"|t:current_lang }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for request in edit_requests %}
+                        <tr>
+                            <td>
+                                <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+                                <br>
+                                <small class="text-muted">{{ request.user.username }}</small>
+                            </td>
+                            <td>
+                                {% if request.user.profile %}
+                                    {{ request.user.profile.employee_code }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if request.user.profile %}
+                                    <small>{{ request.user.profile.hod_name|default:"N/A" }}</small>
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-info">
+                                    {% if request.request_type == 'profile' %}
+                                        {{ "Profile"|t:current_lang }}
+                                    {% elif request.request_type == 'qpr' %}
+                                        {{ "QPR"|t:current_lang }}
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                {% if request.status == 'pending' %}
+                                    <span class="badge bg-warning">{{ "Pending"|t:current_lang }}</span>
+                                {% elif request.status == 'approved' %}
+                                    <span class="badge bg-success">{{ "Approved"|t:current_lang }}</span>
+                                {% elif request.status == 'rejected' %}
+                                    <span class="badge bg-danger">{{ "Rejected"|t:current_lang }}</span>
+                                {% elif request.status == 'used' %}
+                                    <span class="badge bg-info">{{ "Used"|t:current_lang }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ request.reason|truncatewords:5 }}</small>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ request.created_at|date:"d M Y" }}</small>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="#" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#detailModal{{ request.id }}" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if request.status == 'pending' %}
+                                        <a href="{% url 'approve_edit_request' request.id %}" class="btn btn-outline-success" title="Approve">
+                                            <i class="fas fa-check"></i>
+                                        </a>
+                                        <a href="{% url 'reject_edit_request' request.id %}" class="btn btn-outline-danger" title="Reject">
+                                            <i class="fas fa-times"></i>
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Detail Modal -->
+                        <div class="modal fade" id="detailModal{{ request.id }}" tabindex="-1">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">{{ "Edit Request Details"|t:current_lang }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <strong>{{ "User"|t:current_lang }}:</strong>
+                                                <p>{{ request.user.get_full_name|default:request.user.username }} ({{ request.user.username }})</p>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <strong>{{ "Employee Code"|t:current_lang }}:</strong>
+                                                <p>{{ request.user.profile.employee_code|default:"N/A" }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <strong>{{ "Request Type"|t:current_lang }}:</strong>
+                                                <p>
+                                                    {% if request.request_type == 'profile' %}
+                                                        {{ "Profile Update"|t:current_lang }}
+                                                    {% elif request.request_type == 'qpr' %}
+                                                        {{ "QPR Update"|t:current_lang }}
+                                                    {% endif %}
+                                                </p>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <strong>{{ "Status"|t:current_lang }}:</strong>
+                                                <p>
+                                                    {% if request.status == 'pending' %}
+                                                        <span class="badge bg-warning">{{ "Pending"|t:current_lang }}</span>
+                                                    {% elif request.status == 'approved' %}
+                                                        <span class="badge bg-success">{{ "Approved"|t:current_lang }}</span>
+                                                    {% elif request.status == 'rejected' %}
+                                                        <span class="badge bg-danger">{{ "Rejected"|t:current_lang }}</span>
+                                                    {% elif request.status == 'used' %}
+                                                        <span class="badge bg-info">{{ "Used"|t:current_lang }}</span>
+                                                    {% endif %}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <strong>{{ "Reason"|t:current_lang }}:</strong>
+                                            <p>{{ request.reason|default:"N/A" }}</p>
+                                        </div>
+                                        <div class="mb-3">
+                                            <strong>{{ "Requested Changes"|t:current_lang }}:</strong>
+                                            <div class="bg-light p-3 rounded">
+                                                <pre>{{ request.requested_data|safe }}</pre>
+                                            </div>
+                                        </div>
+                                        {% if request.status != 'pending' %}
+                                            <div class="row mb-3">
+                                                <div class="col-md-6">
+                                                    <strong>{{ "Approved By"|t:current_lang }}:</strong>
+                                                    <p>{{ request.approved_by.get_full_name|default:request.approved_by.username|default:"N/A" }}</p>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <strong>{{ "Approved On"|t:current_lang }}:</strong>
+                                                    <p>{{ request.approved_at|date:"d M Y, H:i"|default:"N/A" }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <strong>{{ "Admin Notes"|t:current_lang }}:</strong>
+                                                <p>{{ request.admin_notes|default:"N/A" }}</p>
+                                            </div>
+                                        {% endif %}
+                                        <div class="row text-muted small">
+                                            <div class="col-md-6">
+                                                <strong>{{ "Requested On"|t:current_lang }}:</strong>
+                                                <p>{{ request.created_at|date:"d M Y, H:i" }}</p>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <strong>{{ "Last Updated"|t:current_lang }}:</strong>
+                                                <p>{{ request.updated_at|date:"d M Y, H:i" }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        {% if request.status == 'pending' %}
+                                            <a href="{% url 'approve_edit_request' request.id %}" class="btn btn-success">
+                                                <i class="fas fa-check"></i> {{ "Approve"|t:current_lang }}
+                                            </a>
+                                            <a href="{% url 'reject_edit_request' request.id %}" class="btn btn-danger">
+                                                <i class="fas fa-times"></i> {{ "Reject"|t:current_lang }}
+                                            </a>
+                                        {% endif %}
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                            {{ "Close"|t:current_lang }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            {{ "No edit requests found."|t:current_lang }}
+        </div>
+    {% endif %}
+</div>
+
+<style>
+.table-hover tbody tr:hover {
+    background-color: #f5f5f5;
+}
+
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.badge {
+    font-size: 0.85rem;
+    padding: 0.35em 0.65em;
+}
+
+pre {
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %}
