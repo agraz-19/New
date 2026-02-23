@@ -1,0 +1,68 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">{{ "Request Profile Edit Approval"|t:current_lang }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        {{ "Your profile has been submitted. To make changes, you need to request approval from the admin."|t:current_lang }}
+                    </div>
+
+                    <form method="post" class="needs-validation">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="name" class="form-label">{{ "Name"|t:current_lang }}</label>
+                            <input type="text" name="name" id="name" class="form-control" value="{{ profile.name|default:'' }}" placeholder="{{ 'Enter your name'|t:current_lang }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label">{{ "Email"|t:current_lang }}</label>
+                            <input type="email" name="email" id="email" class="form-control" value="{{ profile.email|default:'' }}" placeholder="{{ 'Enter your email'|t:current_lang }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="office_name" class="form-label">{{ "Office Name"|t:current_lang }}</label>
+                            <input type="text" name="office_name" id="office_name" class="form-control" value="{{ profile.office_name|default:'' }}" placeholder="{{ 'Enter office name'|t:current_lang }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="office_code" class="form-label">{{ "Office Code"|t:current_lang }}</label>
+                            <input type="text" name="office_code" id="office_code" class="form-control" value="{{ profile.office_code|default:'' }}" placeholder="{{ 'Enter office code'|t:current_lang }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="reason" class="form-label">
+                                <span class="text-danger">*</span> {{ "Reason for Request"|t:current_lang }}
+                            </label>
+                            <textarea name="reason" id="reason" class="form-control" rows="4" placeholder="{{ 'Please explain why you need to edit your profile...'|t:current_lang }}" required></textarea>
+                            <small class="text-muted">{{ "This will be reviewed by the admin along with your request."|t:current_lang }}</small>
+                        </div>
+
+                        <div class="alert alert-warning">
+                            <strong>{{ "Note"|t:current_lang }}:</strong>
+                            {{ "Your request will be submitted to the admin for review. You will receive a notification once the request is approved or rejected."|t:current_lang }}
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> {{ "Submit Request"|t:current_lang }}
+                            </button>
+                            <a href="{% url 'qpr_user_profile' %}" class="btn btn-secondary">
+                                {{ "Cancel"|t:current_lang }}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

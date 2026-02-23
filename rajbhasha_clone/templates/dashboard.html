@@ -1,179 +1,620 @@
 {% extends 'master.html' %}
 {% load translate_tags %}
+{% load static %}
 
-{% block title %}{{ "Dashboard"|t:current_lang }}{% endblock %}
+{% block title %}
+    {% if user.role == 'admin' %} {{ "Admin Dashboard"|t:current_lang }}
+    {% elif user.role == 'manager' %} {{ "Manager Dashboard"|t:current_lang }}
+    {% elif user.role == 'hod' %} {{ "HOD Dashboard"|t:current_lang }}
+    {% else %} {{ "User Dashboard"|t:current_lang }}
+    {% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Stats Cards */
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        border-left: 5px solid #2c5a86;
+        transition: transform 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-5px); }
+    .stat-number { font-size: 32px; font-weight: bold; color: #2c5a86; }
+    .stat-label { color: #666; font-size: 14px; }
+    .stat-icon { font-size: 32px; margin-bottom: 10px; color: #2c5a86; }
+
+    /* HOD Floating Menu */
+    .menu-toggle {
+        position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px;
+        background-color: #2c5a86; color: white; border: none; border-radius: 50%;
+        font-size: 24px; cursor: pointer; z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .menu-items {
+        position: fixed; bottom: 100px; right: 30px; background: white;
+        border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        display: none; z-index: 1000; min-width: 200px;
+    }
+    .menu-items.active { display: block; }
+    .menu-item { padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 10px; color: #333; text-decoration: none; }
+    .menu-item:hover { background: #f8f9fa; }
+    
+    /* User Profile Avatar */
+    .profile-avatar {
+        width: 80px; height: 80px; font-size: 2rem; 
+        font-weight: bold; background-color: #0d6efd; 
+        color: white; display: inline-flex; 
+        align-items: center; justify-content: center;
+        border-radius: 50%;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 {% if messages %}
-{% for message in messages %}
-{% if 'show_welcome_modal' in message.tags %}
-<div class="modal fade" id="welcomeModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content text-center p-4">
-            <div class="modal-body">
-                <h3 class="fw-bold text-primary">🎉 {{ "Account Created!"|t:current_lang }}</h3>
-                <p>{{ "Welcome to the platform. Your data is now 100% encrypted and DPDP compliant."|t:current_lang }}
-                </p>
-                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">{{ "Get Started"|t:current_lang }}</button>
+    {% for message in messages %}
+        {% if 'show_welcome_modal' in message.tags %}
+        <div class="modal fade" id="welcomeModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content text-center p-4">
+                    <div class="modal-body">
+                        <h3 class="fw-bold text-primary">🎉 {{ "Account Created!"|t:current_lang }}</h3>
+                        <p>{{ "Welcome. Your data is 100% encrypted and DPDP compliant."|t:current_lang }}</p>
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">{{ "Get Started"|t:current_lang }}</button>
+                    </div>
+                </div>
             </div>
         </div>
+        <script>
+            window.addEventListener('DOMContentLoaded', () => {
+                new bootstrap.Modal(document.getElementById('welcomeModal')).show();
+            });
+        </script>
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
+<div class="container-fluid px-4 mt-4">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-primary">
+                {% if user.role == 'admin' %} <i class="fas fa-user-shield"></i> {{ "Admin Dashboard"|t:current_lang }}
+                {% elif user.role == 'manager' %} <i class="fas fa-users-cog"></i> {{ "Manager Dashboard"|t:current_lang }}
+                {% elif user.role == 'hod' %} <i class="fas fa-user-tie"></i> {{ "HOD Dashboard"|t:current_lang }}
+                {% elif user.role == 'backup_user' %} <i class="bi bi-database-lock"></i> {{ "Backup Dashboard"|t:current_lang }}
+                {% else %} <i class="fas fa-user"></i> {{ "User Dashboard"|t:current_lang }}
+                {% endif %}
+            </h2>
+            <p class="text-muted">
+                {{ "Welcome back,"|t:current_lang }} <strong>{{ user.username }}</strong>.
+                {% if user.role == 'admin' %} {{ "Manage HOD groups and system approvals."|t:current_lang }}
+                {% elif user.role == 'manager' %} {{ "Manage system access and employee records."|t:current_lang }}
+                {% elif user.role == 'hod' %} {{ "Overview of your department's progress."|t:current_lang }}
+                {% elif user.role == 'backup_user' %} {{ "Manage secure database downloads."|t:current_lang }}
+                {% else %} {{ "Manage your profile and quarterly reports."|t:current_lang }}
+                {% endif %}
+            </p>
+        </div>
+        
+        <div>
+            <span class="badge bg-primary p-2">{{ user.role|upper }}</span>
+            {% if user.role == 'hod' and hod_name %}
+                <span class="badge bg-info text-dark p-2">{{ hod_name }}</span>
+            {% endif %}
+        </div>
     </div>
-</div>
-<script>
-    var myModal = new bootstrap.Modal(document.getElementById('welcomeModal'));
-    myModal.show();
-</script>
-{% endif %}
-{% endfor %}
-{% endif %}
 
-<div class="row justify-content-center">
-    <div class="col-md-10 col-lg-8">
-        <div class="card shadow-sm border-0 p-4 mb-4">
-            <h1 class="fw-bold">{{ "Welcome"|t:current_lang }}, {{ user.username }}!</h1>
-            <p class="lead text-secondary">{{ "Active Session Role"|t:current_lang }}: <span class="badge bg-primary">{{role|title|t:current_lang }}</span></p>
-            <hr class="my-4">
-
-            {% if role == 'admin' %}
-            <div class="alert alert-warning border-0 shadow-sm mb-4">
-                <h5 class="fw-bold">{{ "Admin Control Panel"|t:current_lang }}</h5>
-                <p>{{ "You have access to site-wide configuration and logs."|t:current_lang }}</p>
-                <div class="d-flex gap-2">
-                    <a href="{% url 'manager_dashboard' %}" class="btn btn-outline-dark btn-sm">{{ "Manager Dashboard"|t:current_lang }}</a>
-                </div>
-            </div>
-            {% endif %}
-
-            {% if role == 'manager' %}
-            <div class="card border-info mb-4 shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title fw-bold text-info">{{ "Team Management"|t:current_lang }}</h5>
-                    <p class="card-text">{{ "Review team requests and manage users."|t:current_lang }}</p>
-                    <a href="{% url 'manager_dashboard' %}" class="btn btn-info btn-sm text-white">{{ "Manager Dashboard"|t:current_lang }}</a>
-                </div>
-            </div>
-            {% endif %}
-
-                {% if role == 'backup_user' %}
-    <div class="card shadow-sm border-info mt-4">
+    {% if user.role == 'admin' %}
+    
+    <div class="card shadow-sm border-0 mb-4">
         <div class="card-body">
-            <h3 class="text-info">{{ "Backup Management"|t:current_lang }}</h3>
-            <p>{{ "As a Backup User, you can download the latest encrypted database snapshot."|t:current_lang }}</p>
-            
-            <div class="d-grid gap-2">
-                <a href="{% url 'download_db_backup' %}" class="btn btn-info btn-lg">
-                    <i class="bi bi-database-down"></i> {{ "Download Database Backup"|t:current_lang }}
-                </a>
-            </div>
-            
-            <div class="mt-3 small text-muted">
-                {{ "Note: The backup contains encrypted binary data. You need the ENCRYPTION_KEY to read PII."|t:current_lang }}
-            </div>
-        </div>
-    </div>
-{% endif %}
-            {% if role == 'user' %}
-            <div class="card border-success mb-4 shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title fw-bold text-success">{{ "My Data & Privacy"|t:current_lang }}</h5>
-                    <p class="card-text text-muted small">
-                        {{ "Manage your personal information"|t:current_lang }}
-                    </p>
-                    <div class="mt-4">
-                        <h5 class="fw-bold">{{"Welcome to your Dashboard"|t:current_lang }}</h5>
-                        
-                    </div>
-                    <div class="d-flex gap-2">
-                        <a href="{% url 'export_data' %}" class="btn btn-outline-success btn-sm">
-                            <i class="bi bi-download"></i> {{ "Export My Data"|t:current_lang }}
-                        </a>
-
-                        <a href="{% url 'delete_account' %}" class="btn btn-outline-danger btn-sm">
-                            <i class="bi bi-trash"></i> {{ "Request Erasure"|t:current_lang }}
-                        </a>
-<a href="{% url 'employee_form' %}" class="btn btn-sm btn-success">
-                            {{"Manage Employee Records"|t:current_lang }}
-                        </a>
-                        <button type="button" class="btn btn-primary btn-sm ms-auto" data-bs-toggle="modal"
-                            data-bs-target="#profileModal">
-                            <i class="bi bi-person-gear"></i> {{ "Edit Profile"|t:current_lang }}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Profile Modal -->
-            <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel"
-                aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
-                        <div class="modal-header border-0 pb-0">
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body px-4 pb-4">
-                            <div class="text-center mb-4">
-                                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
-                                    style="width: 80px; height: 80px; font-size: 2rem; font-weight: bold;">
-                                    {{ user.username|first|upper }}
-                                </div>
-                                <h3 class="fw-bold mb-0" id="profileModalLabel">{{ user.username }}</h3>
-                                <p class="text-muted small">{{ user.get_email }}</p>
-                            </div>
-
-                            <form method="post" action="{% url 'profile' %}">
-                                {% csrf_token %}
-                                <div class="mb-3 text-start">
-                                    <label class="form-label fw-bold small">{{ "Notification Email"|t:current_lang }}</label>
-                                    <input type="email" name="email" class="form-control" value="{{ user.get_email }}"
-                                        {% if user.is_frozen and not user.is_edit_allowed %}readonly{% endif %}
-                                        required>
-                                    {% if user.is_frozen and not user.is_edit_allowed %}
-                                    <div class="form-text text-danger small">
-                                        {{ "Profile is frozen. Request edit permission to change email."|t:current_lang }}
+            <h5 class="card-title text-primary fw-bold mb-3">
+                <i class="fas fa-chart-bar"></i> {{ "HOD Statistics"|t:current_lang }}
+            </h5>
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{{ "HOD Name"|t:current_lang }}</th>
+                            <th class="text-center">{{ "Total Employees"|t:current_lang }}</th>
+                            <th class="text-center">{{ "Profile Completed"|t:current_lang }}</th>
+                            <th class="text-center">{{ "QPR Completed"|t:current_lang }}</th>
+                            <th class="text-center">{{ "Completion %"|t:current_lang }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in hod_stats %}
+                        <tr>
+                            <td class="fw-bold">{{ stat.hod_name }}</td>
+                            <td class="text-center">{{ stat.total_employees }}</td>
+                            <td class="text-center text-success">{{ stat.profile_completed }}</td>
+                            <td class="text-center text-primary">{{ stat.qpr_completed }}</td>
+                            <td class="text-center">
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar {% if stat.completion_percentage == 100 %}bg-success{% else %}bg-warning{% endif %}" 
+                                         role="progressbar" style="width: {{ stat.completion_percentage }}%;">
+                                        {{ stat.completion_percentage }}%
                                     </div>
-                                    {% endif %}
                                 </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted">{{ "No HOD data available"|t:current_lang }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
-                                <div class="d-grid gap-2 mt-4">
-                                    {% if not user.is_frozen or user.is_edit_allowed %}
-                                    <button type="submit" class="btn btn-primary fw-bold py-2">{{ "Save Profile Changes"|t:current_lang }}</button>
-                                    {% endif %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body d-flex gap-3 align-items-center flex-wrap">
+                    <h5 class="mb-0 me-auto text-primary fw-bold">{{ "Quick Actions"|t:current_lang }}</h5>
+                    <a href="{% url 'qpr_admin_create_hod' %}" class="btn btn-success text-white">
+                        <i class="fas fa-user-plus"></i> {{ "Create New HOD"|t:current_lang }}
+                    </a>
+                    <a href="{% url 'qpr_admin_employee_list' %}" class="btn btn-info text-white">
+                        <i class="fas fa-sitemap"></i> {{ "Employee Detail List"|t:current_lang }}
+                    </a>
 
-                                    {% if not user.is_frozen %}
-<a href="{% url 'freeze_profile' %}" class="btn btn-outline-warning fw-bold py-2"
-    onclick="return confirm('{{ 'Freeze your profile? You will need manager approval to edit it again.'|t:current_lang }}')">
-    {{ "Freeze Profile"|t:current_lang }}
-</a>
-                                    {% elif not user.is_edit_allowed %}
-                                    <a href="{% url 'request_edit' %}" class="btn btn-outline-info fw-bold py-2">
-                                        {{ "Request Edit Permission"|t:current_lang }}
+                    <a href="{% url 'typing_data_report' %}" class="btn btn-primary text-white">
+                        <i class="fas fa-keyboard"></i> {{ "Typing Data Report"|t:current_lang }}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white fw-bold">{{ "Active System Users"|t:current_lang }}</div>
+        <div class="card-body table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ "Username"|t:current_lang }}</th>
+                        <th>{{ "Email"|t:current_lang }}</th>
+                        <th>{{ "Role"|t:current_lang }}</th>
+                        <th>{{ "Status"|t:current_lang }}</th>
+                        <th>{{ "Actions"|t:current_lang }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td class="fw-bold">{{ u.username }}</td>
+                        <td>{{ u.email }}</td>
+                        <td><span class="badge bg-secondary">{{ u.role }}</span></td>
+                        <td>
+                            {% if u.is_active %}
+                                <span class="badge bg-success">{{ "Active"|t:current_lang }}</span>
+                            {% else %}
+                                <span class="badge bg-danger">{{ "Inactive"|t:current_lang }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'archive_user' u.id %}" 
+                               class="btn btn-sm btn-outline-danger"
+                               onclick="return confirm('{{ 'Are you sure you want to archive this user?'|t:current_lang }}')">
+                                <i class="fas fa-archive"></i> {{ "Archive"|t:current_lang }}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 border-start border-danger border-5 mb-5">
+        <div class="card-header bg-danger text-white fw-bold">
+            <i class="fas fa-trash-restore"></i> {{ "Archived Users Repository"|t:current_lang }}
+        </div>
+        <div class="card-body table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>{{ "Original Username"|t:current_lang }}</th>
+                        <th>{{ "Archived Date"|t:current_lang }}</th>
+                        <th>{{ "Actions"|t:current_lang }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for au in archived_users %}
+                    <tr>
+                        <td>{{ au.username }}</td>
+                        <td>{{ au.archived_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <a href="{% url 'unarchive_user' au.id %}" 
+                               class="btn btn-sm btn-success text-white"
+                               onclick="return confirm('{{ 'Restore this user?'|t:current_lang }}')">
+                                <i class="fas fa-trash-restore-alt"></i> {{ "Unarchive / Restore"|t:current_lang }}
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-muted text-center">{{ "No archived users found."|t:current_lang }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% elif user.role == 'manager' %}
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold text-primary">{{ "Manager Dashboard"|t:current_lang }}</h2>
+        <div class="d-flex gap-2">
+            <span class="badge bg-primary p-3 rounded-pill shadow-sm">
+                <i class="fas fa-file-alt me-2"></i>{{ employees|length }} {{ "Records"|t:current_lang }}
+            </span>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3" id="managerTabs" role="tablist">
+        <li class="nav-item"><button class="nav-link active fw-bold" id="employees-tab" data-bs-toggle="tab" data-bs-target="#employees-pane" type="button"><i class="fas fa-id-card me-2"></i>{{ "Employee Records"|t:current_lang }}</button></li>
+        <li class="nav-item"><button class="nav-link fw-bold" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button"><i class="fas fa-user-lock me-2"></i>{{ "System Users"|t:current_lang }}</button></li>
+        <li class="nav-item"><button class="nav-link fw-bold" id="qpr-tab" data-bs-toggle="tab" data-bs-target="#qpr-pane" type="button"><i class="fas fa-clipboard-check me-2"></i>{{ "QPR Status"|t:current_lang }}</button></li>
+    </ul>
+
+    <div class="tab-content" id="managerTabsContent">
+        
+        <div class="tab-pane fade show active" id="employees-pane">
+            <div class="card shadow-sm border-0"><div class="card-body table-responsive">
+                <div class="alert alert-info small py-2 mb-3">
+                    <i class="fas fa-info-circle"></i> Use the <i class="bi bi-pencil-square"></i> icon to update designations and the <strong>Unlock</strong> button to allow profile edits.
+                </div>
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Emp Code</th>
+                            <th>Name</th>
+                            <th>Designation</th>
+                            <th>Status</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in employees %}
+                        <tr>
+                            <td class="font-monospace text-primary fw-bold">{{ item.empcode }}</td>
+                            <td>{{ item.name }}</td>
+                            <td>
+                                <span class="badge bg-info text-dark">{{ item.designation|default:"-" }}</span>
+                                <button class="btn btn-sm btn-link text-secondary p-0 ms-2" 
+                                        onclick="openDesignationModal('{{ item.empcode }}', '{{ item.name|escapejs }}', '{{ item.designation|default:'' }}')"
+                                        title="Update Designation">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                            </td>
+                            <td>
+                                {% if item.status|lower == 'submitted' %} <span class="badge bg-success">Submitted</span>
+                                {% else %} <span class="badge bg-secondary">Draft</span> {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-warning" onclick="triggerUnlock('{{ item.empcode }}')">
+                                    <i class="bi bi-unlock"></i> Unlock
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted">No records found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div></div>
+        </div>
+
+        <div class="tab-pane fade" id="users-pane">
+            <div class="card shadow-sm border-0"><div class="card-body table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light"><tr><th>Username</th><th>Status</th></tr></thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td class="fw-bold">{{ u.username }}</td>
+                            <td><span class="badge {% if u.is_active %}bg-success{% else %}bg-danger{% endif %}">{% if u.is_active %}Active{% else %}Inactive{% endif %}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div></div>
+        </div>
+
+        <div class="tab-pane fade" id="qpr-pane">
+            <div class="card shadow-sm border-0"><div class="card-body table-responsive">
+                <table class="table table-bordered align-middle">
+                    <thead class="table-light"><tr><th>Employee</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>
+                        {% for item in employees %}
+                        <tr>
+                            <td><strong>{{ item.name }}</strong> ({{ item.empcode }})</td>
+                            <td>
+                                {% if item.qpr_is_submitted %} <span class="badge bg-success">Submitted</span>
+                                {% else %} <span class="badge bg-warning text-dark">In Progress</span> {% endif %}
+                            </td>
+                            <td>
+                                {% if item.qpr_is_submitted and item.qpr_id %}
+                                    <a href="{% url 'manage_user_action' item.qpr_id 'unlock_qpr' %}" 
+                                       class="btn btn-sm btn-info text-white"
+                                       onclick="return confirm('Unlock QPR for {{ item.name }}?')">
+                                        <i class="bi bi-unlock"></i> Unlock QPR
                                     </a>
-                                    {% endif %}
-                                </div>
-                            </form>
+                                {% else %}
+                                    <span class="text-muted small">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div></div>
+        </div>
+    </div>
 
-                            <div class="mt-4 text-center">
-                                <p class="small text-muted mb-0">{{ "Last login"|t:current_lang }}: {{ user.last_login|date:"Y-m-d H:i" }}</p>
-                            </div>
+    <div class="modal fade" id="designationModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="designationForm" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title">Update Designation</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>User: <strong id="modalUsername"></strong></p>
+                        <div class="mb-3">
+                            <label class="form-label">Select New Designation</label>
+                            <select name="designation" class="form-select" id="modalDesignationSelect">
+                                <option value="Scientist-B">Scientist-B</option>
+                                <option value="Scientist-C">Scientist-C</option>
+                                <option value="Scientist-D">Scientist-D</option>
+                                <option value="Scientist-E">Scientist-E</option>
+                                <option value="Scientist-F">Scientist-F</option>
+                                <option value="Scientist-G">Scientist-G</option>
+                                <option value="Section Officer">Section Officer</option>
+                                <option value="Senior Secretariate Assistant">Senior Secretariate Assistant</option>
+                                <option value="Scientific/Technical Assistant-A">Scientific/Technical Assistant-A</option>
+                                <option value="Scientific/Technical Assistant-B">Scientific/Technical Assistant-B</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script id="user-lookup" type="application/json">
+    {
+        {% for u in users %}
+            "{{ u.username }}": "{{ u.id }}"{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    }
+    </script>
+
+    <script>
+        // 1. Helper to find User ID from EmpCode
+        function getUserId(empCode) {
+            const lookup = JSON.parse(document.getElementById('user-lookup').textContent);
+            // Convert to string to ensure matching works
+            return lookup[String(empCode).trim()];
+        }
+    
+        // 2. Handle Unlock Logic
+        function triggerUnlock(empCode) {
+            const userId = getUserId(empCode);
+            
+            if (!userId) { 
+                alert("Error: No User Account found for Employee Code " + empCode + ". They may not have registered yet."); 
+                return; 
+            }
+            
+            if(confirm("Unlock this record? The user will be able to edit their data again.")) {
+                window.location.href = `/action/${userId}/unlock_record/`;
+            }
+        }
+
+        // 3. Handle Designation Update Logic
+        function openDesignationModal(empCode, name, currentDesignation) {
+            const userId = getUserId(empCode);
+            
+            if (!userId) { 
+                alert("Error: No User Account found for Employee Code " + empCode); 
+                return; 
+            }
+
+            const form = document.getElementById('designationForm');
+            // Dynamically set the form action to include the User ID
+            form.action = `/update-designation/${userId}/`;
+            
+            document.getElementById('modalUsername').textContent = name + " (" + empCode + ")";
+            document.getElementById('modalDesignationSelect').value = currentDesignation || "Scientist-B";
+
+            new bootstrap.Modal(document.getElementById('designationModal')).show();
+        }
+    </script>
+        {% elif user.role == 'hod' %}
+        <div class="row">
+            <div class="col-md-3"><div class="stat-card text-center"><i class="fas fa-users stat-icon"></i><div class="stat-number">{{ total_users }}</div><div class="stat-label">{{ "Total Employees"|t:current_lang }}</div></div></div>
+            <div class="col-md-3"><div class="stat-card text-center" style="border-left-color: #28a745;"><i class="fas fa-check-circle stat-icon text-success"></i><div class="stat-number text-success">{{ qpr_submitted }}</div><div class="stat-label">{{ "QPR Submitted"|t:current_lang }}</div></div></div>
+            <div class="col-md-3"><div class="stat-card text-center" style="border-left-color: #ffc107;"><i class="fas fa-clock stat-icon text-warning"></i><div class="stat-number text-warning">{{ qpr_pending }}</div><div class="stat-label">{{ "QPR Pending"|t:current_lang }}</div></div></div>
+            <div class="col-md-3"><div class="stat-card text-center" style="border-left-color: #17a2b8;"><i class="fas fa-user-check stat-icon text-info"></i><div class="stat-number text-info">{{ profile_updated }}</div><div class="stat-label">{{ "Profile Updated"|t:current_lang }}</div></div></div>
+        </div>
+
+        <div class="card shadow-sm border-0 mt-3">
+            <div class="card-body">
+                <h5 class="fw-bold text-primary mb-3">{{ "Quick Actions"|t:current_lang }}</h5>
+                <a href="{% url 'qpr_hod_detail_list' %}" class="btn btn-primary me-2 mb-2"><i class="fas fa-table"></i> {{ "View Detail List"|t:current_lang }}</a>
+                <a href="{% url 'change_password' %}" class="btn btn-warning me-2 mb-2"><i class="fas fa-lock"></i> {{ "Change Password"|t:current_lang }}</a>
+            </div>
+        </div>
+
+        <button class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></button>
+        <div class="menu-items" id="menuItems">
+            <a href="{% url 'qpr_hod_dashboard' %}" class="menu-item"><i class="fas fa-chart-pie"></i> {{ "Dashboard"|t:current_lang }}</a>
+            <a href="{% url 'qpr_hod_detail_list' %}" class="menu-item"><i class="fas fa-list"></i> {{ "Detail List"|t:current_lang }}</a>
+            <a href="{% url 'logout' %}" class="menu-item text-danger"><i class="fas fa-sign-out-alt"></i> {{ "Logout"|t:current_lang }}</a>
+        </div>
+        <script> document.getElementById('menuToggle').addEventListener('click', () => { document.getElementById('menuItems').classList.toggle('active'); }); </script>
+
+    {% elif user.role == 'backup_user' %}
+        <div class="card shadow-sm border-info mt-4">
+            <div class="card-body">
+                <h3 class="text-info">{{ "Backup Management"|t:current_lang }}</h3>
+                <p>{{ "As a Backup User, you can download the latest encrypted database snapshot."|t:current_lang }}</p>
+                
+                <div class="d-grid gap-2">
+                    <a href="{% url 'download_db_backup' %}" class="btn btn-info btn-lg text-white">
+                        <i class="bi bi-database-down"></i> {{ "Download Database Backup"|t:current_lang }}
+                    </a>
+                </div>
+                
+                <div class="mt-3 small text-muted">
+                    {{ "Note: The backup contains encrypted binary data. You need the ENCRYPTION_KEY to read PII."|t:current_lang }}
+                </div>
+            </div>
+        </div>
+
+    {% else %}
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card h-100 border-primary shadow-sm">
+                    <div class="card-body text-center">
+                        <h5 class="card-title text-primary"><i class="fas fa-file-alt"></i> {{ "Quarterly Progress Report"|t:current_lang }}</h5>
+                        <div class="my-3">
+                            {% if qpr_submitted %}
+                                <span class="badge bg-success fs-6">{{ "Submitted"|t:current_lang }}</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark fs-6">{{ "Pending"|t:current_lang }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'qpr_form' %}" class="btn btn-outline-primary"><i class="fas fa-edit"></i> {{ "Fill Report"|t:current_lang }}</a>
+                            <a href="{% url 'qpr_report_list' %}" class="btn btn-outline-secondary"><i class="fas fa-history"></i> {{ "View History"|t:current_lang }}</a>
                         </div>
                     </div>
                 </div>
             </div>
-            {% endif %}
 
-            <div class="mt-4">
-                <hr>
-                <h5 class="fw-bold">{{ "General Information"|t:current_lang }}</h5>
-                <p class="mb-1"><strong>{{ "Email"|t:current_lang }}:</strong> {{ user.get_email }}</p>
-                <p class="mb-1"><strong>{{ "Last Login"|t:current_lang }}:</strong> {{ user.last_login|date:"Y-m-d H:i"}}</p>
-                <p class="mb-1"><strong>{{ "Profile Status"|t:current_lang }}:</strong>
-                    {% if user.is_archived %}<span class="badge bg-secondary">{{ "Archived"|t:current_lang }}</span>
-                    {% elif user.is_frozen %}<span class="badge bg-info">{{ "Frozen"|t:current_lang }}</span>
-                    {% else %}<span class="badge bg-success">{{ "Active"|t:current_lang }}</span>
-                    {% endif %}
-                </p>
+            <div class="col-md-6">
+                <div class="card h-100 border-info shadow-sm">
+                    <div class="card-body text-center">
+                        <h5 class="card-title text-info"><i class="fas fa-user-cog"></i> {{ "Profile Management"|t:current_lang }}</h5>
+                        <div class="my-3">
+                            <span class="badge {% if not user.is_frozen %}bg-success{% else %}bg-info{% endif %} fs-6">
+                                {% if user.is_frozen %}{{ "Frozen"|t:current_lang }}{% else %}{{ "Active"|t:current_lang }}{% endif %}
+                            </span>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-info text-white" data-bs-toggle="modal" data-bs-target="#profileModal">
+                                <i class="bi bi-person-gear"></i> {{ "Edit / Freeze Profile"|t:current_lang }}
+                            </button>
+                            <a href="{% url 'employee_form' %}" class="btn btn-outline-info">
+                                <i class="bi bi-card-list"></i> {{ "Manage Employee Records"|t:current_lang }}
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
+
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body d-flex justify-content-between align-items-center flex-wrap">
+                <div>
+                    <h6 class="fw-bold text-success mb-0"><i class="bi bi-shield-lock"></i> {{ "Data & Privacy"|t:current_lang }}</h6>
+                    <small class="text-muted">{{ "Manage your personal data exports and erasure."|t:current_lang }}</small>
+                </div>
+                <div class="d-flex gap-2 mt-2 mt-md-0">
+                    <a href="{% url 'export_data' %}" class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-download"></i> {{ "Export Data"|t:current_lang }}
+                    </a>
+                    <a href="{% url 'delete_account' %}" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-trash"></i> {{ "Request Erasure"|t:current_lang }}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+                    <div class="modal-header border-0 pb-0">
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body px-4 pb-4">
+                        <div class="text-center mb-4">
+                            <div class="profile-avatar mb-3">
+                                {{ user.username|first|upper }}
+                            </div>
+                            <h3 class="fw-bold mb-0">{{ user.username }}</h3>
+                            <p class="text-muted small">{{ user.get_email }}</p>
+                        </div>
+
+                        <form method="post" action="{% url 'profile' %}">
+                            {% csrf_token %}
+                            {% if current_hod %}<input type="hidden" name="hod_name" value="{{ current_hod }}">{% endif %}
+                            <div class="mb-3 text-start">
+                                <label class="form-label fw-bold small">{{ "Notification Email"|t:current_lang }}</label>
+                                <input type="email" name="email" class="form-control" value="{{ user.get_email }}"
+                                    {% if user.is_frozen and not user.is_edit_allowed and not approved_edit_request %}readonly{% endif %} required>
+                                {% if user.is_frozen and not user.is_edit_allowed and not approved_edit_request %}
+                                <div class="form-text text-danger small">
+                                    {{ "Profile is frozen. Request edit permission to change email."|t:current_lang }}
+                                </div>
+                                {% elif user.is_frozen and approved_edit_request %}
+                                <div class="form-text text-success small">
+                                    <i class="bi bi-check-circle"></i> {{ "Edit permission approved! You can now make changes."|t:current_lang }}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3 text-start">
+                                <label class="form-label fw-bold small">{{ "HOD (Head of Department/Manager)"|t:current_lang }}</label>
+                                <select name="hod_name" class="form-select" required {% if current_hod %}disabled{% endif %}>
+                                    <option value="">-- {{ "Select HOD"|t:current_lang }} --</option>
+                                    {% for hod in available_hods %}
+                                        <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>{{ hod }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% if current_hod %}
+                                <div class="form-text small text-warning"><i class="fas fa-lock"></i> {{ "HOD selection is locked after initial assignment. Contact admin to change."|t:current_lang }}</div>
+                                {% else %}
+                                <div class="form-text small">{{ "Select the HOD/Manager you work under."|t:current_lang }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="d-grid gap-2 mt-4">
+                                {% if not user.is_frozen or user.is_edit_allowed or approved_edit_request %}
+                                <button type="submit" class="btn btn-primary fw-bold py-2">{{ "Save Profile Changes"|t:current_lang }}</button>
+                                {% endif %}
+
+                                {% if not user.is_frozen %}
+                                <a href="{% url 'freeze_profile' %}" class="btn btn-outline-warning fw-bold py-2"
+                                    onclick="return confirm('{{ 'Freeze your profile? You will need manager approval to edit it again.'|t:current_lang }}')">
+                                    {{ "Freeze Profile"|t:current_lang }}
+                                </a>
+                                {% elif not user.is_edit_allowed and not approved_edit_request %}
+                                <a href="{% url 'request_edit' %}" class="btn btn-outline-info fw-bold py-2">
+                                    {{ "Request Edit Permission"|t:current_lang }}
+                                </a>
+                                {% endif %}
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
 </div>
 {% endblock %}
