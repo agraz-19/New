@@ -21,6 +21,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+import os
 from gtts import gTTS
 from captcha.models import CaptchaStore
 from deep_translator import GoogleTranslator
@@ -39,6 +42,8 @@ from .employeeform import EmployeeForm
 from .serializers import EmployeeSerializer
 from .utils import send_system_email
 from .templatetags.translate_tags import translate_text
+FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
+pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
 
 User = get_user_model()
 
@@ -558,17 +563,28 @@ def download_privacy_audit(request):
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
-    p.setFont("Helvetica-Bold", 16)
+    
+    # Use your registered Hindi font for the title
+    p.setFont("HindiFont", 16)
     p.drawString(50, height - 50, "DPDP Privacy Audit Report")
+    
     y = height - 100
     logs = DataAccessLog.objects.all().order_by('-access_time')
+    
     for log in logs:
-        p.setFont("Helvetica", 10)
-        p.drawString(50, y, f"{log.access_time.strftime('%Y-%m-%d')}: {log.accessed_by.username} accessed {log.target_user.username}")
+        # Switch to HindiFont here so Hindi names are visible
+        p.setFont("HindiFont", 10)
+        
+        log_text = f"{log.access_time.strftime('%Y-%m-%d')}: {log.accessed_by.username} accessed {log.target_user.username}"
+        p.drawString(50, y, log_text)
+        
         y -= 20
         if y < 50:
             p.showPage()
+            p.setFont("HindiFont", 10) # Reset font on new page
             y = height - 50
+    p.setFont("HindiFont", 20)
+    p.drawString(100, 100, "रिकी टेस्ट")        
     p.save()
     buffer.seek(0)
     return FileResponse(buffer, as_attachment=True, filename=f'privacy_audit_{timezone.now().date()}.pdf')
@@ -1973,3 +1989,147 @@ def send_reminder_email(request, user_id):
             messages.error(request, translate_text("Unauthorized action.", lang))
             
     return redirect('qpr_hod_detail_list')
+@login_required
+def export_employee_pdf(request):
+    if request.session.get('active_role') != 'user':
+        return redirect('dashboard')
+
+    try:
+        user_empcode = int(request.user.username)
+    except ValueError:
+        messages.error(request, "Invalid employee code.")
+        return redirect('dashboard')
+
+    employees = Employee.objects.filter(empcode=user_empcode, status='submitted')
+    lang = request.GET.get('lang', 'en')
+
+    # Translation dictionary (same as your JS dictionary)
+    hindi_dict = {
+        "Passed": "उत्तीर्ण",
+        "Did not Appear": "उपस्थित नहीं हुए",
+        "Failed": "अनुत्तीर्ण",
+        "Good": "अच्छा",
+        "Average": "औसत",
+        "Basic": "बुनियादी",
+        "Hindi": "हिंदी",
+        "English": "अंग्रेजी",
+        "Both": "दोनों",
+        "Gazetted": "राजपत्रित",
+        "Non-Gazetted": "अराजपत्रित",
+        "Scientist-F": "वैज्ञानिक-एफ",
+        "Scientist-G": "वैज्ञानिक-जी",
+        "Scientist-E": "वैज्ञानिक-ई",
+        "Scientist-D": "वैज्ञानिक-डी",
+        "Scientist-C": "वैज्ञानिक-सी",
+        "Scientist-B": "वैज्ञानिक-बी",
+        "Section Officer": "अनुभाग अधिकारी",
+        "Senior Secretariate Assistant": "वरिष्ठ सचिवालय सहायक",
+        "Scientific/Technical Assistant-A": "वैज्ञानिक/तकनीकी सहायक-ए",
+        "Scientific/Technical Assistant-B": "वैज्ञानिक/तकनीकी सहायक-बी",
+        "Scientific Officer/Engineer-SB": "वैज्ञानिक अधिकारी/इंजीनियर-एसबी",
+        "Pending": "लंबित",
+    }
+
+    def t(value):
+        """Translate value if lang is Hindi"""
+        if not value or value == '-':
+            return '-'
+        if lang == 'hi':
+            return hindi_dict.get(str(value), str(value))
+        return str(value)
+
+    buffer = io.BytesIO()
+
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+
+    page = landscape(A4)
+    margin = 15 * mm
+
+    doc = SimpleDocTemplate(
+        buffer, pagesize=page,
+        rightMargin=margin, leftMargin=margin,
+        topMargin=margin, bottomMargin=margin
+    )
+
+    header_style = ParagraphStyle('Header', fontName='HindiFont', fontSize=8,
+        leading=11, textColor=colors.white, alignment=1)
+    cell_style = ParagraphStyle('Cell', fontName='HindiFont', fontSize=8,
+        leading=11, alignment=1)
+    title_style = ParagraphStyle('Title', fontName='HindiFont', fontSize=14,
+        leading=18, spaceAfter=6)
+    subtitle_style = ParagraphStyle('Subtitle', fontName='HindiFont', fontSize=9,
+        leading=12, spaceAfter=10, textColor=colors.HexColor('#555555'))
+
+    col_widths = [18*mm, 28*mm, 28*mm, 38*mm, 18*mm, 22*mm, 22*mm, 20*mm, 20*mm, 18*mm, 20*mm, 17*mm]
+
+    # Headers — translated if Hindi
+    if lang == 'hi':
+        header_texts = [
+            "एम्पकोड", "अंग्रेजी में नाम", "हिंदी में नाम", "पद का नाम",
+            "टाइपिंग", "हिंदी<br/>प्रवीणता", "राजपत्र", "प्रबोध",
+            "प्रवीण", "प्रज्ञा", "पारंगत", "सेवानिवृत्ति<br/>तिथि"
+        ]
+        title_text = "सबमिट किए गए कर्मचारी रिकॉर्ड"
+    else:
+        header_texts = [
+            "Emp<br/>Code", "Name in<br/>English", "Name in<br/>Hindi", "Designation",
+            "Typing", "Hindi<br/>Proficiency", "Gazet", "Prabodh",
+            "Praveen", "Pragya", "Parangat", "Superann.<br/>Date"
+        ]
+        title_text = "Submitted Employee Records"
+
+    headers = [Paragraph(h, header_style) for h in header_texts]
+    table_data = [headers]
+
+    for emp in employees:
+        raw_date = emp.get_super_annuation_date()
+        masked_date = f"**-**-{raw_date.year}" if raw_date else "-"
+
+        row = [
+            Paragraph(str(emp.empcode or '-'), cell_style),
+            Paragraph(str(emp.ename or '-'), cell_style),
+            Paragraph(str(emp.hname or '-'), cell_style),
+            Paragraph(t(emp.designation), cell_style),
+            Paragraph(t(emp.typing), cell_style),
+            Paragraph(t(emp.hindiproficiency), cell_style),
+            Paragraph(t(emp.gazet), cell_style),
+            Paragraph(t(emp.prabodh), cell_style),
+            Paragraph(t(emp.praveen), cell_style),
+            Paragraph(t(emp.pragya), cell_style),
+            Paragraph(t(emp.parangat), cell_style),
+            Paragraph(masked_date, cell_style),
+        ]
+        table_data.append(row)
+
+    table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a6496')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, -1), 'HindiFont'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#1a6496')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f6fb')]),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+    ]))
+
+    from datetime import date
+    elements = [
+        Paragraph(title_text, title_style),
+        Paragraph(f"Generated on: {date.today().strftime('%d %B %Y')}", subtitle_style),
+        Spacer(1, 4*mm),
+        table,
+    ]
+
+    doc.build(elements)
+    buffer.seek(0)
+    return FileResponse(buffer, as_attachment=True, filename='employee_records.pdf')
