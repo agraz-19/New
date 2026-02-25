@@ -69,6 +69,7 @@ urlpatterns = [
     path('qpr/api/update-hod/', views.api_update_hod, name='api_update_hod'),
 
     path('employee-form/', views.employee_form, name='employee_form'),
+    path('employee/export-pdf/', views.export_employee_pdf, name='export_employee_pdf'), 
     path('api/employees/', EmployeeListCreateAPI.as_view(), name='employee_list_create_api'),
     path('api/employees/<int:pk>/', EmployeeDetailAPI.as_view(), name='employee_detail_api'),
     path('api/employees/submit/', SubmitDraftAPI.as_view(), name='submit_draft_api'),

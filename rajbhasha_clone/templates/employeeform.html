@@ -506,11 +506,7 @@ function downloadExcel() {
 }
 
 function downloadPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF("l", "pt", "a4");
-  doc.text("Submitted Employee Records", 40, 40);
-  doc.autoTable({ html: "#submittedTable", startY: 60 });
-  doc.save("submitted_employees.pdf");
+  window.location.href = `/employee/export-pdf/?lang=${currentLang}`;
 }
 function disableForm() {
     const form = document.getElementById("employeeForm");
