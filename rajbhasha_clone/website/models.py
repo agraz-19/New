@@ -179,7 +179,6 @@ class UserProfile(models.Model):
     hod_name = models.CharField(max_length=50, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
-    phone = models.CharField(max_length=20, blank=True, null=True)
     office_name = models.CharField(max_length=255, blank=True, null=True)
     office_code = models.CharField(max_length=50, blank=True, null=True)
     profile_updated = models.BooleanField(default=False)
