@@ -1,0 +1,45 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+
+{% block title %}{{ "Manager Report Detail"|t:current_lang }}{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <a href="{% url 'manager_report' %}" class="btn btn-secondary mb-3">← {{ "Back"|t:current_lang }}</a>
+
+    <h4>{{ "Report Submitted"|t:current_lang }} — {{ quarter }} / {{ year }}</h4>
+    <p class="text-muted">{{ "Office Code"|t:current_lang }}: <strong>{{ office_code }}</strong></p>
+
+    {% for hod, users in grouped.items %}
+    <div class="card mb-3">
+        <div class="card-header bg-light">
+            <strong>{{ hod }}</strong>
+        </div>
+        <div class="card-body">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>{{ "Employee"|t:current_lang }}</th>
+                        <th>{{ "Emp Code"|t:current_lang }}</th>
+                        <th>{{ "Email"|t:current_lang }}</th>
+                        <th>{{ "Submitted At"|t:current_lang }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td>{{ u.name }}</td>
+                        <td>{{ u.empcode }}</td>
+                        <td>{{ u.email }}</td>
+                        <td>{{ u.submitted_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% empty %}
+    <p class="text-muted">{{ "No submissions found."|t:current_lang }}</p>
+    {% endfor %}
+</div>
+{% endblock %}
