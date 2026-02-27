@@ -90,15 +90,15 @@
                         </div>
                         <div class="row g-2 align-items-center mb-2">
                             <div class="col-md-3 text-end"><span class="lbl-hindi">कार्यालय का नाम</span><span class="lbl-eng">Name of Office</span></div>
-                            <div class="col-md-5"><input type="text" class="form-control form-control-sm" id="officeName"></div>
+                            <div class="col-md-5"><input type="text" class="form-control form-control-sm" id="officeName" value="{{ profile_office_name }}" {% if profile_office_name_filled %}disabled readonly{% endif %}></div>
                         </div>
                         <div class="row g-2 align-items-center mb-2">
                             <div class="col-md-3 text-end"><span class="lbl-hindi">कार्यालय कोड</span><span class="lbl-eng">Office Code</span></div>
-                            <div class="col-md-5"><input type="text" class="form-control form-control-sm" id="officeCode"></div>
+                            <div class="col-md-5"><input type="text" class="form-control form-control-sm" id="officeCode" value="{{ profile_office_code }}" {% if profile_office_code_filled %}disabled readonly{% endif %}></div>
                         </div>
                         <div class="row g-2 align-items-center mb-2">
                             <div class="col-md-3 text-end"><span class="lbl-hindi">फोन न.</span><span class="lbl-eng">Phone No.</span></div>
-                            <div class="col-md-5"><input type="text" class="form-control form-control-sm" id="phone"></div>
+                            <div class="col-md-5"><input type="text" class="form-control form-control-sm" id="phone" value="{{ profile_phone }}" {% if profile_phone_filled %}disabled readonly{% endif %}></div>
                         </div>
                         <div class="row g-2 align-items-center mb-2">
                             <div class="col-md-3 text-end"><span class="lbl-hindi">भाषा क्षेत्र</span><span class="lbl-eng">Language Region</span></div>
@@ -112,7 +112,7 @@
                         </div>
                         <div class="row g-2 align-items-center">
                             <div class="col-md-3 text-end"><span class="lbl-hindi">ई-मेल</span><span class="lbl-eng">(Email ID)</span></div>
-                            <div class="col-md-5"><input type="email" class="form-control form-control-sm" id="email"></div>
+                            <div class="col-md-5"><input type="email" class="form-control form-control-sm" id="email" value="{{ profile_email }}" {% if profile_email_filled %}disabled readonly{% endif %}></div>
                         </div>
                     </div>
                     <hr>
@@ -378,6 +378,9 @@
 <div id="hindiKeyboard"></div>
 
 <script>
+    // Data from server: quarters already used by this user
+    var usedQuarters = {{ used_quarters_json|default:'[]'|safe }};
+
     // Immediately populate year dropdown on page load
     function initYearDropdown() {
         const yearSelect = document.getElementById('year');
@@ -406,6 +409,8 @@
         }
 
         yearSelect.value = `${fiscalYearStart}-${fiscalYearEnd}`;
+        // After populating years, disable quarters that are already used for the selected year
+        try { updateQuarterAvailability(); } catch (e) { console.error(e); }
     }
 
     if (document.readyState === 'loading') {
@@ -413,6 +418,39 @@
     } else {
         initYearDropdown();
     }
+
+    // Disable quarter options that already have a report for the selected year
+    function updateQuarterAvailability() {
+        const yearSelect = document.getElementById('year');
+        const quarterSelect = document.getElementById('quarter');
+        if (!yearSelect || !quarterSelect) return;
+
+        const selectedYear = yearSelect.value;
+        // Build a set of quarters used in this selected year (excluding the currently editing record)
+        const editingId = document.getElementById('recordId') ? document.getElementById('recordId').value : '';
+        const usedForYear = new Set(usedQuarters.filter(u => (u.year||'') === selectedYear && String(u.record_id) !== String(editingId)).map(u => u.quarter.trim()));
+
+        Array.from(quarterSelect.options).forEach(opt => {
+            const txt = opt.textContent.trim();
+            if (usedForYear.has(txt)) {
+                opt.disabled = true;
+                opt.title = 'A report for this quarter already exists';
+            } else {
+                opt.disabled = false;
+                opt.title = '';
+            }
+        });
+    }
+
+    // Recompute quarter availability when year changes
+    document.addEventListener('DOMContentLoaded', function(){
+        const yearSelect = document.getElementById('year');
+        if (yearSelect) yearSelect.addEventListener('change', updateQuarterAvailability);
+        // Also recompute when recordId is set by edit action
+        const observer = new MutationObserver(() => updateQuarterAvailability());
+        const rid = document.getElementById('recordId');
+        if (rid) observer.observe(rid, { attributes: true, childList: true, subtree: false });
+    });
 </script>
 
 <script src="{% static 'js/script.js' %}"></script>

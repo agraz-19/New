@@ -36,6 +36,8 @@ urlpatterns = [
     # --- UNIFIED DASHBOARDS ---
     path('qpr/admin/dashboard/', views.admin_dashboard, name='qpr_admin_dashboard'),
     path('manager/dashboard/', views.manager_dashboard, name='manager_dashboard'),
+    path('manager/report/', views.manager_report, name='manager_report'),
+    path('manager/report/<str:year>/<str:quarter>/', views.manager_report_detail, name='manager_report_detail'),
     path('qpr/hod/dashboard/', views.qpr_hod_dashboard, name='qpr_hod_dashboard'),
     path('qpr/user/dashboard/', views.user_dashboard, name='qpr_user_dashboard'),
 
@@ -46,6 +48,7 @@ urlpatterns = [
     path('qpr/form/', views.qpr_form, name='qpr_form'),
     path('qpr/reports/', views.report_list, name='qpr_report_list'),
     path('qpr/reports/<int:record_id>/', views.report_detail, name='qpr_report_detail'),
+    path('qpr/reports/<int:record_id>/print/', views.print_qpr_report, name='qpr_report_print'),
     path('qpr/reports/<int:record_id>/typing-usage-report/', views.typing_usage_report_form, name='typing_usage_report_form'),
     path('qpr/reports/<int:record_id>/typing-usage-report/view/', views.typing_usage_report_view, name='typing_usage_report_view'),
     path('qpr/reports/<int:record_id>/request-edit/', views.request_qpr_edit, name='request_qpr_edit'),
@@ -69,6 +72,7 @@ urlpatterns = [
     path('qpr/api/update-hod/', views.api_update_hod, name='api_update_hod'),
 
     path('employee-form/', views.employee_form, name='employee_form'),
+    path('employee/export-pdf/', views.export_employee_pdf, name='export_employee_pdf'), 
     path('api/employees/', EmployeeListCreateAPI.as_view(), name='employee_list_create_api'),
     path('api/employees/<int:pk>/', EmployeeDetailAPI.as_view(), name='employee_detail_api'),
     path('api/employees/submit/', SubmitDraftAPI.as_view(), name='submit_draft_api'),

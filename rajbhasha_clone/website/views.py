@@ -3,6 +3,7 @@ from datetime import datetime
 from urllib import request
 from django.utils.timezone import now
 from django.utils import timezone
+from django.db.models import Count
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import login as auth_login, logout, get_user_model
@@ -21,6 +22,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+import os
 from gtts import gTTS
 from captcha.models import CaptchaStore
 from deep_translator import GoogleTranslator
@@ -39,6 +43,8 @@ from .employeeform import EmployeeForm
 from .serializers import EmployeeSerializer
 from .utils import send_system_email
 from .templatetags.translate_tags import translate_text
+FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
+pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
 
 User = get_user_model()
 
@@ -558,17 +564,28 @@ def download_privacy_audit(request):
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
-    p.setFont("Helvetica-Bold", 16)
+    
+    # Use your registered Hindi font for the title
+    p.setFont("HindiFont", 16)
     p.drawString(50, height - 50, "DPDP Privacy Audit Report")
+    
     y = height - 100
     logs = DataAccessLog.objects.all().order_by('-access_time')
+    
     for log in logs:
-        p.setFont("Helvetica", 10)
-        p.drawString(50, y, f"{log.access_time.strftime('%Y-%m-%d')}: {log.accessed_by.username} accessed {log.target_user.username}")
+        # Switch to HindiFont here so Hindi names are visible
+        p.setFont("HindiFont", 10)
+        
+        log_text = f"{log.access_time.strftime('%Y-%m-%d')}: {log.accessed_by.username} accessed {log.target_user.username}"
+        p.drawString(50, y, log_text)
+        
         y -= 20
         if y < 50:
             p.showPage()
+            p.setFont("HindiFont", 10) # Reset font on new page
             y = height - 50
+    p.setFont("HindiFont", 20)
+    p.drawString(100, 100, "रिकी टेस्ट")        
     p.save()
     buffer.seek(0)
     return FileResponse(buffer, as_attachment=True, filename=f'privacy_audit_{timezone.now().date()}.pdf')
@@ -657,13 +674,31 @@ def unarchive_user(request, archive_id):
 
 @login_required
 def profile_view(request):
+    """Unified profile view - displaying QPR office details"""
     lang = request.session.get('lang', 'en')
     user = request.user
     profile = user.profile if hasattr(user, 'profile') else None
     
+    # Fetch QPR details
+    latest_qpr = QPRRecord.objects.filter(user=user).order_by('-updated_at').first()
+    qpr_office_name = ""
+    qpr_office_code = ""
+    qpr_phone = ""
+    qpr_email = ""
+    
+    if latest_qpr:
+        qpr_office_name = latest_qpr.officeName
+        qpr_office_code = latest_qpr.officeCode
+        qpr_phone = latest_qpr.phone or ""
+        qpr_email = latest_qpr.email or ""
+    
     if request.method == 'POST':
         new_email = request.POST.get('email', '').lower().strip()
         hod_name = request.POST.get('hod_name', '').strip()
+        employee_code = request.POST.get('employee_code', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        office_code_post = request.POST.get('office_code', '').strip()
+        office_name_post = request.POST.get('office_name', '').strip()
         
         # Check if user can edit - either not frozen, edit_allowed, or has approved request
         approved_request = EditRequest.objects.filter(
@@ -678,30 +713,39 @@ def profile_view(request):
             messages.error(request, translate_text("Profile is frozen. Request edit permission.", lang), extra_tags='danger')
             return redirect('dashboard')
         
+        # Basic validation
         if not new_email:
             messages.error(request, translate_text("Email is required.", lang), extra_tags='danger')
         elif not hod_name:
             messages.error(request, translate_text("HOD selection is required.", lang), extra_tags='danger')
         else:
+            # prevent duplicate email across users
             email_hash = hashlib.sha256(new_email.encode()).hexdigest()
             if CustomUser.objects.filter(email_hash=email_hash).exclude(pk=user.pk).exists():
                 messages.error(request, translate_text("Email already in use.", lang), extra_tags='danger')
             else:
+                # Update encrypted email on user (keeps auth flow)
                 user.set_email(new_email)
-                if user.is_edit_allowed: 
+                if user.is_edit_allowed:
                     user.is_edit_allowed = False
                 user.save()
-                
-                # Update HOD in profile
+
+                # Update UserProfile fields from submitted form
                 if profile:
+                    if employee_code:
+                        profile.employee_code = employee_code
+                    profile.phone = phone or profile.phone
                     profile.hod_name = hod_name
+                    profile.office_code = office_code_post or profile.office_code
+                    profile.office_name = office_name_post or profile.office_name
+                    profile.email = new_email
                     profile.save()
-                
+
                 # Mark approved request as used
                 if approved_request:
                     approved_request.status = 'used'
                     approved_request.save()
-                
+
                 send_system_email(user, request, 'update')
                 messages.success(request, translate_text("Profile updated successfully!", lang))
                 return redirect('dashboard')
@@ -717,22 +761,55 @@ def profile_view(request):
         status='approved'
     ).first()
     
+    # Check for pending/rejected requests
+    pending_edit_request = EditRequest.objects.filter(
+        user=user,
+        request_type='profile',
+        status='pending'
+    ).first()
+    
+    rejected_edit_request = EditRequest.objects.filter(
+        user=user,
+        request_type='profile',
+        status='rejected'
+    ).order_by('-created_at').first()
+    
     context = {
+        'profile': profile,
         'available_hods': available_hods,
         'current_hod': current_hod,
         'approved_edit_request': approved_request,
+        'pending_edit_request': pending_edit_request,
+        'rejected_edit_request': rejected_edit_request,
+        'can_edit': (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None),
+        'qpr_office_name': qpr_office_name,
+        'qpr_office_code': qpr_office_code,
+        'qpr_phone': qpr_phone,
+        'qpr_email': qpr_email,
     }
     
     return render(request, 'profile.html', context)
 
 @login_required
-@login_required
 def user_profile(request):
-    """QPR specific profile"""
+    """QPR specific profile with office details"""
     lang = request.session.get('lang', 'en')
     profile = request.user.profile
     profile.refresh_from_db()
     profile_submitted = profile.profile_updated
+    
+    # Fetch QPR details
+    latest_qpr = QPRRecord.objects.filter(user=request.user).order_by('-updated_at').first()
+    qpr_office_name = ""
+    qpr_office_code = ""
+    qpr_phone = ""
+    qpr_email = ""
+    
+    if latest_qpr:
+        qpr_office_name = latest_qpr.officeName
+        qpr_office_code = latest_qpr.officeCode
+        qpr_phone = latest_qpr.phone or ""
+        qpr_email = latest_qpr.email or ""
     
     # Check for edit requests
     pending_edit_request = EditRequest.objects.filter(
@@ -789,6 +866,10 @@ def user_profile(request):
         'can_edit': not profile_submitted or approved_edit_request is not None,
         'available_hods': available_hods,
         'current_hod': profile.hod_name,
+        'qpr_office_name': qpr_office_name,
+        'qpr_office_code': qpr_office_code,
+        'qpr_phone': qpr_phone,
+        'qpr_email': qpr_email,
     }
     response = render(request, 'profile.html', context)
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -822,21 +903,42 @@ def request_edit(request):
     if pending_request:
         messages.warning(request, translate_text("You already have a pending profile edit request.", lang))
     else:
-        # Create EditRequest for admin approval
-        EditRequest.objects.create(
-            user=request.user,
-            request_type='profile',
-            requested_data={'reason': 'User requested permission to edit profile'},
-            reason='User requested permission to edit frozen profile',
-            status='pending'
-        )
-        messages.success(request, translate_text("Profile edit request sent to admin for approval.", lang))
-        
-        # Send notification to admin
-        admin = CustomUser.objects.filter(role='admin').first()
-        if admin:
+        # Try to find the user's manager/HOD and send the request there so manager can unlock
+        profile = getattr(request.user, 'profile', None)
+        hod_name = profile.hod_name if profile else None
+        manager_user = None
+        if hod_name:
+            # Try to locate a CustomUser whose profile.hod_name or profile.name matches
+            manager_user = CustomUser.objects.filter(profile__hod_name__iexact=hod_name).first()
+            if not manager_user:
+                manager_user = CustomUser.objects.filter(profile__name__iexact=hod_name).first()
+
+        if manager_user:
+            ManagerRequest.objects.create(
+                hod=manager_user,
+                user=request.user,
+                request_type='profile',
+                reason='User requested permission to edit frozen profile',
+                status='pending'
+            )
+            messages.success(request, translate_text("Profile edit request sent to your manager for approval.", lang))
+            # Notify manager
             msg = f"User {user.username} has requested permission to edit their profile."
-            send_system_email(admin, request, 'manager_alert', extra_context={'body_text': msg})
+            send_system_email(manager_user, request, 'manager_alert', extra_context={'body_text': msg})
+        else:
+            # Fallback to admin approval if no manager found
+            EditRequest.objects.create(
+                user=request.user,
+                request_type='profile',
+                requested_data={'reason': 'User requested permission to edit profile'},
+                reason='User requested permission to edit frozen profile',
+                status='pending'
+            )
+            messages.success(request, translate_text("Profile edit request sent to admin for approval.", lang))
+            admin = CustomUser.objects.filter(role='admin').first()
+            if admin:
+                msg = f"User {user.username} has requested permission to edit their profile."
+                send_system_email(admin, request, 'manager_alert', extra_context={'body_text': msg})
     
     return redirect('dashboard')
 
@@ -968,9 +1070,12 @@ def manager_dashboard(request):
             'qpr_last_updated': qpr_last_updated
         })
 
+    # Pending profile edit requests targeted to this manager
+    pending_profile_requests = ManagerRequest.objects.filter(hod=request.user, request_type='profile', status='pending')
     context = {
         'users': users, 
-        'employees': employee_data
+        'employees': employee_data,
+        'pending_profile_requests': pending_profile_requests,
     }
     return render(request, 'manager_dashboard.html', context)
 
@@ -1020,6 +1125,9 @@ def manage_user_action(request, user_id, action):
             target_user.is_edit_allowed = True
             target_user.save()
             
+            # Mark any pending ManagerRequest for this user as approved
+            ManagerRequest.objects.filter(user=target_user, request_type='profile', status='pending').update(status='approved')
+
             messages.success(request, f"Employee Record for {target_user.username} unlocked.")
         else:
             messages.error(request, f"No Employee Record found linked to user: {target_user.username}")
@@ -1226,7 +1334,27 @@ def update_designation(request, user_id):
 
 @user_passes_test(lambda u: u.is_authenticated and (u.role in ['hod', 'admin'] or u.is_superuser))
 def manage_user_action(request, user_id, action):
-    """Restored Full Action Logic: Archive, Unarchive, Unlock"""
+    """Restored Full Action Logic: Archive, Unarchive, Unlock
+
+    This handler accepts either a user id (for user-level actions) or a QPR id
+    for the special-case action 'unlock_qpr'. We handle 'unlock_qpr' first to
+    avoid attempting to resolve a CustomUser for a QPR id (which caused 404s).
+    """
+    # Special-case: treat provided id as QPR id when unlocking a QPR
+    if action == 'unlock_qpr':
+        if not (request.user.role in ['manager', 'admin'] or request.user.is_superuser):
+            messages.error(request, translate_text("Unauthorized", request.session.get('lang', 'en')))
+            return redirect('manager_dashboard')
+        try:
+            qpr = QPRRecord.objects.get(id=user_id)
+            qpr.is_submitted = False
+            qpr.status = 'Draft'
+            qpr.save()
+            messages.success(request, translate_text("QPR Form unlocked successfully.", request.session.get('lang', 'en')))
+        except QPRRecord.DoesNotExist:
+            messages.error(request, translate_text("QPR Record not found.", request.session.get('lang', 'en')))
+        return redirect('manager_dashboard')
+
     target_user = get_object_or_404(CustomUser, id=user_id)
     lang = request.session.get('lang', 'en')
     
@@ -1261,7 +1389,30 @@ def manage_user_action(request, user_id, action):
 
 @login_required
 def qpr_form(request):
-    return render(request, 'qpr/qpr_form.html')
+    # Prefill QPR form with user's profile values when present (read-only in form)
+    profile = getattr(request.user, 'profile', None)
+    profile_office_name = profile.office_name if profile and profile.office_name else ''
+    profile_office_code = profile.office_code if profile and profile.office_code else ''
+    profile_phone = profile.phone if profile and profile.phone else ''
+    profile_email = profile.email if profile and profile.email else (request.user.get_email() if hasattr(request.user, 'get_email') else '')
+
+    # Build a list of already used quarters for this user (quarter, year, record_id)
+    used = []
+    for r in QPRRecord.objects.filter(user=request.user):
+        used.append({'quarter': r.quarter, 'year': r.year or '', 'record_id': r.id})
+
+    context = {
+        'profile_office_name': profile_office_name,
+        'profile_office_code': profile_office_code,
+        'profile_phone': profile_phone,
+        'profile_email': profile_email,
+        'profile_office_name_filled': bool(profile_office_name),
+        'profile_office_code_filled': bool(profile_office_code),
+        'profile_phone_filled': bool(profile_phone),
+        'profile_email_filled': bool(profile_email),
+        'used_quarters_json': json.dumps(used),
+    }
+    return render(request, 'qpr/qpr_form.html', context)
 
 @login_required
 def report_list(request):
@@ -1403,10 +1554,14 @@ def api_records(request):
             d = serialize_qpr_record(record)
             edit_approved = False
             if record.is_submitted:
-                # Check for approved ManagerRequest (legacy) or approved EditRequest (new)
-                edit_approved = ManagerRequest.objects.filter(hod=request.user, request_type='qpr', status='approved').exists()
+                # Check for approved ManagerRequest targeted to this user (manager approved)
+                # Also respect the user's is_edit_allowed flag (set when manager unlocks)
+                edit_approved = (
+                    ManagerRequest.objects.filter(user=request.user, request_type='qpr', status='approved').exists()
+                    or bool(getattr(request.user, 'is_edit_allowed', False))
+                )
+                # Also allow explicit approved EditRequest entries
                 if not edit_approved:
-                    # Check for approved EditRequest
                     edit_approved = EditRequest.objects.filter(
                         user=request.user,
                         request_type='qpr',
@@ -1433,6 +1588,10 @@ def api_records(request):
                 record.email = data.get('email', '')
                 record.is_submitted = (record.status == 'Submitted')
                 record.save()
+                # If manager temporarily allowed edits, revoke after this save
+                if getattr(request.user, 'is_edit_allowed', False):
+                    request.user.is_edit_allowed = False
+                    request.user.save(update_fields=['is_edit_allowed'])
                 if record.is_submitted:
                     ManagerRequest.objects.filter(hod=request.user, request_type='qpr', status='approved').delete()
                     # Mark approved EditRequest as used
@@ -1447,10 +1606,22 @@ def api_records(request):
                         approved_edit_request.save()
                 _save_section_data(record, details)
             else:
+                # Enforce one record per user per quarter+year. If a record already
+                # exists for this user and quarter/year, disallow creating another
+                # and instruct the user to request edit instead.
+                quarter = data.get('quarter', '').strip()
+                year = data.get('year', '').strip() or None
+                if quarter:
+                    exists = QPRRecord.objects.filter(user=request.user, quarter=quarter)
+                    if year:
+                        exists = exists.filter(year=year)
+                    if exists.exists():
+                        return JsonResponse({'error': 'A report for this quarter already exists. To change it, request edit permission.'}, status=400)
+
                 is_submitted = (data.get('status', 'Draft') == 'Submitted')
                 record = QPRRecord.objects.create(
                     user=request.user, officeName=data.get('officeName', ''), officeCode=data.get('officeCode', ''),
-                    region=data.get('region', ''), quarter=data.get('quarter', ''), status=data.get('status', 'Draft'),
+                    region=data.get('region', ''), quarter=data.get('quarter', ''), year=data.get('year', ''), status=data.get('status', 'Draft'),
                     phone=data.get('phone', ''), email=data.get('email', ''), is_submitted=is_submitted
                 )
                 _save_section_data(record, details)
@@ -1470,9 +1641,38 @@ def api_record_detail(request, record_id):
     try:
         record = QPRRecord.objects.get(pk=record_id, user=request.user)
         data = serialize_qpr_record(record)
+        # Compute edit approval flags consistent with api_records
+        edit_approved = False
+        if record.is_submitted:
+            edit_approved = (
+                ManagerRequest.objects.filter(user=request.user, request_type='qpr', status='approved').exists()
+                or bool(getattr(request.user, 'is_edit_allowed', False))
+            )
+            if not edit_approved:
+                edit_approved = EditRequest.objects.filter(
+                    user=request.user,
+                    request_type='qpr',
+                    qpr_record_id=record.id,
+                    status='approved'
+                ).exists()
+        data['can_edit'] = not record.is_submitted or edit_approved
+        data['edit_approved'] = edit_approved
         return JsonResponse(data, safe=False)
     except QPRRecord.DoesNotExist:
         return JsonResponse({'error': 'Record not found'}, status=404)
+
+
+@login_required
+def print_qpr_report(request, record_id):
+    """Render a server-side printable version of the QPR record (matches view)."""
+    try:
+        record = QPRRecord.objects.get(pk=record_id, user=request.user)
+    except QPRRecord.DoesNotExist:
+        return redirect('qpr_report_list')
+
+    data = serialize_qpr_record(record)
+    # Render server-side template with the same fields used by report_detail
+    return render(request, 'qpr/print_report.html', {'r': data})
 
 @login_required
 @csrf_exempt
@@ -1973,3 +2173,260 @@ def send_reminder_email(request, user_id):
             messages.error(request, translate_text("Unauthorized action.", lang))
             
     return redirect('qpr_hod_detail_list')
+@login_required
+def export_employee_pdf(request):
+    if request.session.get('active_role') != 'user':
+        return redirect('dashboard')
+
+    try:
+        user_empcode = int(request.user.username)
+    except ValueError:
+        messages.error(request, "Invalid employee code.")
+        return redirect('dashboard')
+
+    employees = Employee.objects.filter(empcode=user_empcode, status='submitted')
+    lang = request.GET.get('lang', 'en')
+
+    # Translation dictionary (same as your JS dictionary)
+    hindi_dict = {
+        "Passed": "उत्तीर्ण",
+        "Did not Appear": "उपस्थित नहीं हुए",
+        "Failed": "अनुत्तीर्ण",
+        "Good": "अच्छा",
+        "Average": "औसत",
+        "Basic": "बुनियादी",
+        "Hindi": "हिंदी",
+        "English": "अंग्रेजी",
+        "Both": "दोनों",
+        "Gazetted": "राजपत्रित",
+        "Non-Gazetted": "अराजपत्रित",
+        "Scientist-F": "वैज्ञानिक-एफ",
+        "Scientist-G": "वैज्ञानिक-जी",
+        "Scientist-E": "वैज्ञानिक-ई",
+        "Scientist-D": "वैज्ञानिक-डी",
+        "Scientist-C": "वैज्ञानिक-सी",
+        "Scientist-B": "वैज्ञानिक-बी",
+        "Section Officer": "अनुभाग अधिकारी",
+        "Senior Secretariate Assistant": "वरिष्ठ सचिवालय सहायक",
+        "Scientific/Technical Assistant-A": "वैज्ञानिक/तकनीकी सहायक-ए",
+        "Scientific/Technical Assistant-B": "वैज्ञानिक/तकनीकी सहायक-बी",
+        "Scientific Officer/Engineer-SB": "वैज्ञानिक अधिकारी/इंजीनियर-एसबी",
+        "Pending": "लंबित",
+    }
+
+    def t(value):
+        """Translate value if lang is Hindi"""
+        if not value or value == '-':
+            return '-'
+        if lang == 'hi':
+            return hindi_dict.get(str(value), str(value))
+        return str(value)
+
+    buffer = io.BytesIO()
+
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+
+    page = landscape(A4)
+    margin = 15 * mm
+
+    doc = SimpleDocTemplate(
+        buffer, pagesize=page,
+        rightMargin=margin, leftMargin=margin,
+        topMargin=margin, bottomMargin=margin
+    )
+
+    header_style = ParagraphStyle('Header', fontName='HindiFont', fontSize=8,
+        leading=11, textColor=colors.white, alignment=1)
+    cell_style = ParagraphStyle('Cell', fontName='HindiFont', fontSize=8,
+        leading=11, alignment=1)
+    title_style = ParagraphStyle('Title', fontName='HindiFont', fontSize=14,
+        leading=18, spaceAfter=6)
+    subtitle_style = ParagraphStyle('Subtitle', fontName='HindiFont', fontSize=9,
+        leading=12, spaceAfter=10, textColor=colors.HexColor('#555555'))
+
+    col_widths = [18*mm, 28*mm, 28*mm, 38*mm, 18*mm, 22*mm, 22*mm, 20*mm, 20*mm, 18*mm, 20*mm, 17*mm]
+
+    # Headers — translated if Hindi
+    if lang == 'hi':
+        header_texts = [
+            "एम्पकोड", "अंग्रेजी में नाम", "हिंदी में नाम", "पद का नाम",
+            "टाइपिंग", "हिंदी<br/>प्रवीणता", "राजपत्र", "प्रबोध",
+            "प्रवीण", "प्रज्ञा", "पारंगत", "सेवानिवृत्ति<br/>तिथि"
+        ]
+        title_text = "सबमिट किए गए कर्मचारी रिकॉर्ड"
+    else:
+        header_texts = [
+            "Emp<br/>Code", "Name in<br/>English", "Name in<br/>Hindi", "Designation",
+            "Typing", "Hindi<br/>Proficiency", "Gazet", "Prabodh",
+            "Praveen", "Pragya", "Parangat", "Superann.<br/>Date"
+        ]
+        title_text = "Submitted Employee Records"
+
+    headers = [Paragraph(h, header_style) for h in header_texts]
+    table_data = [headers]
+
+    for emp in employees:
+        raw_date = emp.get_super_annuation_date()
+        masked_date = f"**-**-{raw_date.year}" if raw_date else "-"
+
+        row = [
+            Paragraph(str(emp.empcode or '-'), cell_style),
+            Paragraph(str(emp.ename or '-'), cell_style),
+            Paragraph(str(emp.hname or '-'), cell_style),
+            Paragraph(t(emp.designation), cell_style),
+            Paragraph(t(emp.typing), cell_style),
+            Paragraph(t(emp.hindiproficiency), cell_style),
+            Paragraph(t(emp.gazet), cell_style),
+            Paragraph(t(emp.prabodh), cell_style),
+            Paragraph(t(emp.praveen), cell_style),
+            Paragraph(t(emp.pragya), cell_style),
+            Paragraph(t(emp.parangat), cell_style),
+            Paragraph(masked_date, cell_style),
+        ]
+        table_data.append(row)
+
+    table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a6496')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, -1), 'HindiFont'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#1a6496')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f6fb')]),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+    ]))
+
+    from datetime import date
+    elements = [
+        Paragraph(title_text, title_style),
+        Paragraph(f"Generated on: {date.today().strftime('%d %B %Y')}", subtitle_style),
+        Spacer(1, 4*mm),
+        table,
+    ]
+
+    doc.build(elements)
+    buffer.seek(0)
+<<<<<<< HEAD
+    return FileResponse(buffer, as_attachment=True, filename='employee_records.pdf')
+=======
+    return FileResponse(buffer, as_attachment=True, filename='employee_records.pdf')
+
+
+@login_required
+def manager_report(request):
+    """Manager Report - Display status of last 4 quarterly progress reports"""
+    if not (request.user.role in ['manager', 'admin'] or request.user.is_superuser):
+        return redirect('/')
+    
+    # Get the manager's office code from their associated QPRRecords or default
+    # For now, we'll get all unique office codes from QPRRecords
+    # If manager is associated with specific office, filter accordingly
+    manager_user = request.user
+    
+    # Determine manager's office_code from profile
+    manager_office = getattr(request.user.profile, 'office_code', None)
+    if not manager_office:
+        # fallback: derive from any QPRRecord for this user
+        first = QPRRecord.objects.filter(user=request.user).first()
+        manager_office = first.officeCode if first else None
+
+    # Get users count for this office (role 'user')
+    users_count = 0
+    if manager_office:
+        users_count = UserProfile.objects.filter(office_code=manager_office, role='user').count()
+
+    # Find quarter-year groups for which number of distinct submitted user records == users_count
+    report_data = []
+    if manager_office and users_count > 0:
+        q_groups = QPRRecord.objects.filter(officeCode=manager_office, is_submitted=True) \
+            .values('year', 'quarter') \
+            .annotate(submitted_users=Count('user', distinct=True)) \
+            .order_by('-year', '-quarter')
+
+        for g in q_groups:
+            if g['submitted_users'] >= users_count:
+                # pick a representative record to show status_date
+                rep = QPRRecord.objects.filter(officeCode=manager_office, year=g['year'], quarter=g['quarter'], is_submitted=True).order_by('-updated_at').first()
+                status_date = rep.updated_at.strftime('%b %d, %Y – %I:%M %p') if rep and rep.updated_at else ''
+                report_data.append({
+                    'year': g['year'] or '2025–2026',
+                    'quarter': g['quarter'] or 'Q1',
+                    'office_name': rep.officeName if rep else manager_office,
+                    'status_title': 'Received by Official Language Department',
+                    'status_date': status_date,
+                })
+
+    context = {
+        'office_code': manager_office or '',
+        'qpr_reports': report_data,
+    }
+    
+    return render(request, 'qpr/manager_report.html', context)
+
+
+@login_required
+def manager_report_detail(request, year, quarter):
+    """Show list of users who submitted for given quarter and year, grouped by HOD."""
+    if not (request.user.role in ['manager', 'admin'] or request.user.is_superuser):
+        return redirect('/')
+
+    manager_office = getattr(request.user.profile, 'office_code', None)
+    if not manager_office:
+        first = QPRRecord.objects.filter(user=request.user).first()
+        manager_office = first.officeCode if first else None
+
+    if not manager_office:
+        return redirect('manager_report')
+
+    users_qs = UserProfile.objects.filter(office_code=manager_office, role='user').select_related('user').order_by('hod_name', 'name')
+    total_users = users_qs.count()
+
+    submitted = QPRRecord.objects.filter(officeCode=manager_office, year=year, quarter=quarter, is_submitted=True)
+    submitted_users_count = submitted.values('user').distinct().count()
+
+    # Only allow detail view when all users have submitted
+    if submitted_users_count < total_users:
+        return redirect('manager_report')
+
+    # Build grouping by HOD
+    grouped = {}
+    for up in users_qs:
+        hod = up.hod_name or 'Unassigned'
+        grouped.setdefault(hod, [])
+
+    # Map submitted records by user id
+    submitted_map = {r.user_id: r for r in submitted}
+
+    for up in users_qs:
+        user = up.user
+        if user.id in submitted_map:
+            rec = submitted_map[user.id]
+            grouped.setdefault(up.hod_name or 'Unassigned', []).append({
+                'name': up.name or user.username,
+                'empcode': up.employee_code,
+                'email': up.email or '',
+                'submitted_at': rec.updated_at,
+            })
+
+    context = {
+        'year': year,
+        'quarter': quarter,
+        'office_code': manager_office,
+        'grouped': grouped,
+    }
+<<<<<<< HEAD
+    return render(request, 'qpr/manager_report_detail.html', context)
+>>>>>>> 0615d7b (Apply stashed changes and resolve conflict)
+=======
+    return render(request, 'qpr/manager_report_detail.html', context)
+>>>>>>> 388e46b (changes in print to pdf)
