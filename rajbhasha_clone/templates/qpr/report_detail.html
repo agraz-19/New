@@ -106,22 +106,6 @@
             }
 
             const r = data;
-            // Sanitize all fields from the API to prevent HTML injection
-            function escapeHtml(unsafe) {
-                if (unsafe === null || unsafe === undefined) return '';
-                return String(unsafe).replace(/[&<>"'\/]/g, function (s) {
-                    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;","/":"&#x2F;"})[s];
-                });
-            }
-            for (const k in r) {
-                if (Object.prototype.hasOwnProperty.call(r, k)) {
-                    if (r[k] === null || r[k] === undefined) {
-                        r[k] = '';
-                    } else {
-                        r[k] = escapeHtml(r[k]);
-                    }
-                }
-            }
             let html = `
             <div class="general-info">
                 <div class="row g-2 align-items-center mb-2">

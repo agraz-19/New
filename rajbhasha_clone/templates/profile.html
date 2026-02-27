@@ -1,159 +1,75 @@
 {% extends 'master.html' %}
-{% load translate_tags %}
 
 {% block content %}
-<!-- Profile page -->
-
-<div class="container mt-5 mb-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
-            <!-- Page Title -->
+<div class="container mt-5">
+    <div class="card shadow-sm mx-auto border-0" style="max-width: 500px;">
+        <div class="card-body text-center p-5">
             <div class="mb-4">
-                <h2 class="fw-bold text-primary mb-2">
-                    <i class="fas fa-user-circle"></i> {{ "Edit Profile Details"|t:current_lang }}
-                </h2>
-                <p class="text-muted">{{ "Manage your profile and office information"|t:current_lang }}</p>
-            </div>
-
-            <!-- Status Messages -->
-            {% if pending_edit_request %}
-            <div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
-                <i class="fas fa-info-circle"></i> {{ "Edit request is pending approval. You cannot edit until it is approved."|t:current_lang }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-            {% endif %}
-
-            {% if rejected_edit_request %}
-            <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
-                <i class="fas fa-exclamation-circle"></i> {{ "Your last edit request was rejected."|t:current_lang }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-            {% endif %}
-
-            <!-- Main Form Card -->
-            <div class="card shadow-lg border-0">
-                <div class="card-body p-5">
-                    <form method="post" class="needs-validation" novalidate>
-                        {% csrf_token %}
-                        <!-- Section 1: User Account Information (Employee Code + Phone) -->
-                        <h5 class="fw-bold text-primary mb-4 pb-2 border-bottom">
-                            <i class="fas fa-id-card"></i> {{ "User Account Information"|t:current_lang }}
-                        </h5>
-
-                        <div class="row mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">{{ "Employee Code"|t:current_lang }}</label>
-                                <input type="text" name="employee_code" class="form-control" value="{{ profile.employee_code|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
-                                <small class="text-muted d-block mt-1">{{ "Editable (unless profile is frozen)"|t:current_lang }}</small>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">{{ "Phone Number"|t:current_lang }}</label>
-                                <input type="text" name="phone" class="form-control" value="{{ profile.phone|default:qpr_phone|default:'' }}" {% if not can_edit %}disabled{% endif %}>
-                                <small class="text-muted d-block mt-1">{{ "Primary contact number"|t:current_lang }}</small>
-                            </div>
-                        </div>
-
-                        <!-- Section 2: Office Information (editable in profile; QPR copies remain read-only elsewhere) -->
-                        <h5 class="fw-bold text-primary mb-4 pb-2 border-bottom">
-                            <i class="fas fa-building"></i> {{ "Office Information"|t:current_lang }}
-                        </h5>
-
-                        <div class="row mb-4">
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">{{ "Office Code"|t:current_lang }}</label>
-                                <input type="text" name="office_code" class="form-control" value="{{ profile.office_code|default:qpr_office_code|default:'' }}" {% if not can_edit %}disabled{% endif %}>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">{{ "Office Name"|t:current_lang }}</label>
-                                <input type="text" name="office_name" class="form-control" value="{{ profile.office_name|default:qpr_office_name|default:'' }}" {% if not can_edit %}disabled{% endif %}>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">{{ "Notification Email"|t:current_lang }}</label>
-                                <input type="email" name="email" class="form-control" value="{{ profile.email|default:user.get_email|default:'' }}" required {% if not can_edit %}disabled{% endif %}>
-                            </div>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">{{ "Head of Department / Manager"|t:current_lang }}</label>
-                            <select name="hod_name" class="form-select" required {% if not can_edit %}disabled{% endif %}>
-                                <option value="">-- {{ "Select HOD"|t:current_lang }} --</option>
-                                {% for hod in available_hods %}
-                                    <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>{{ hod }}</option>
-                                {% endfor %}
-                            </select>
-                            <small class="text-muted d-block mt-1">{{ "Select your head of department or reporting officer."|t:current_lang }}</small>
-                        </div>
-
-                        {# Profile status removed per design request #}
-
-                        <!-- Edit Restriction Warning -->
-                        {% if not can_edit %}
-                        <div class="alert alert-warning mb-4">
-                            <i class="fas fa-lock"></i> {{ "Your profile is locked. Request edit permission from admin."|t:current_lang }}
-                        </div>
-                        {% endif %}
-
-                        <!-- Action Buttons -->
-                        <div class="d-flex gap-3 pt-3">
-                            <button type="submit" class="btn btn-primary btn-lg" {% if not can_edit %}disabled{% endif %}>
-                                <i class="fas fa-save"></i> {{ "Save Changes"|t:current_lang }}
-                            </button>
-                            <a href="{% url 'qpr_user_dashboard' %}" class="btn btn-outline-secondary btn-lg">
-                                <i class="fas fa-times"></i> {{ "Cancel"|t:current_lang }}
-                            </a>
-                            {% if not user.is_frozen %}
-                                <a href="{% url 'freeze_profile' %}" class="btn btn-outline-warning btn-lg"
-                                   onclick="return confirm('{{ 'Freeze your profile? You will need manager approval to edit it again.'|t:current_lang }}')">
-                                    <i class="fas fa-snowflake"></i> {{ "Freeze Profile"|t:current_lang }}
-                                </a>
-                            {% elif not user.is_edit_allowed and not approved_edit_request %}
-                                <a href="{% url 'request_edit' %}" class="btn btn-outline-info btn-lg">
-                                    <i class="fas fa-key"></i> {{ "Request Edit Permission"|t:current_lang }}
-                                </a>
-                            {% endif %}
-                        </div>
-                    </form>
+                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px; font-size: 2rem;">
+                    {{ user.username|first|upper }}
                 </div>
             </div>
-
-            {# Additional account info removed per request #}
+            <h2 class="fw-bold mb-1">{{ user.username }}</h2>
+            <p class="text-muted mb-4">{{ user.email }}</p>
+            
+            <div class="d-grid gap-2">
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+                    Edit Profile
+                </button>
+                <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Back to Dashboard</a>
+            </div>
         </div>
     </div>
 </div>
+<hr class="my-4">
 
-<style>
-    body {
-        background-color: #f8f9fa;
-    }
-    .card {
-        border-radius: 12px;
-    }
-    .form-label {
-        color: #2c5a86;
-        margin-bottom: 0.5rem;
-    }
-    .btn-primary {
-        background: linear-gradient(135deg, #2c5a86 0%, #1f4788 100%);
-        border: none;
-    }
-    .btn-primary:hover {
-        background: linear-gradient(135deg, #1f4788 0%, #0d2236 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(44, 90, 134, 0.3);
-    }
-    .alert-light {
-        background-color: #f0f7ff;
-    }
-    h5.text-primary {
-        color: #2c5a86 !important;
-        font-size: 1.1rem;
-    }
-    .form-control:disabled, .form-select:disabled {
-        background-color: #e9ecef;
-        color: #6c757d;
-    }
-    .border-bottom {
-        border-bottom-color: #d4e2f0 !important;
-    }
-</style>
+<div class="text-start small text-muted">
+    <div class="d-flex justify-content-between mb-2">
+        <span> <strong>Joined:</strong></span>
+        <span>{{ user.date_joined|date:"F d, Y" }}</span>
+    </div>
+    <div class="d-flex justify-content-between">
+        <span><strong>Last Login:</strong></span>
+        <span>{{ user.last_login|timesince }} ago</span>
+    </div>
+</div>
+
+<div class="modal fade" id="editProfileModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Edit Your Profile</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3 text-start">
+                        <label class="form-label small fw-bold">Username</label>
+                        <input type="text" name="username" class="form-control" value="{{ user.username }}" required>
+                    </div>
+                    <div class="mb-3 text-start">
+                        <label class="form-label small fw-bold">Email (Notifications)</label>
+                        <input type="email" name="email" class="form-control" value="{{ user.email }}" required>
+                        <div class="form-text small">This email will receive your 12-hour reminders.</div>
+                    </div>
+                    <div class="mb-3 text-start">
+                        <label class="form-label small fw-bold">HOD (Head of Department/Manager)</label>
+                        <select name="hod_name" class="form-select" required>
+                            <option value="">-- Select HOD --</option>
+                            {% for hod in available_hods %}
+                                <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>{{ hod }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text small">Select the HOD/Manager you work under.</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
