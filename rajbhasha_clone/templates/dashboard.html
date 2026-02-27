@@ -516,9 +516,9 @@
                             </span>
                         </div>
                         <div class="d-grid gap-2">
-                            <a href="{% url 'profile' %}" class="btn btn-info text-white">
+                            <button type="button" class="btn btn-info text-white" data-bs-toggle="modal" data-bs-target="#profileModal">
                                 <i class="bi bi-person-gear"></i> {{ "Edit / Freeze Profile"|t:current_lang }}
-                            </a>
+                            </button>
                             <a href="{% url 'employee_form' %}" class="btn btn-outline-info">
                                 <i class="bi bi-card-list"></i> {{ "Manage Employee Records"|t:current_lang }}
                             </a>
@@ -545,7 +545,75 @@
             </div>
         </div>
 
-        {# Modal removed: profile editing now handled on the dedicated profile page. #}
+        <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+                    <div class="modal-header border-0 pb-0">
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body px-4 pb-4">
+                        <div class="text-center mb-4">
+                            <div class="profile-avatar mb-3">
+                                {{ user.username|first|upper }}
+                            </div>
+                            <h3 class="fw-bold mb-0">{{ user.username }}</h3>
+                            <p class="text-muted small">{{ user.get_email }}</p>
+                        </div>
+
+                        <form method="post" action="{% url 'profile' %}">
+                            {% csrf_token %}
+                            {% if current_hod %}<input type="hidden" name="hod_name" value="{{ current_hod }}">{% endif %}
+                            <div class="mb-3 text-start">
+                                <label class="form-label fw-bold small">{{ "Notification Email"|t:current_lang }}</label>
+                                <input type="email" name="email" class="form-control" value="{{ user.get_email }}"
+                                    {% if user.is_frozen and not user.is_edit_allowed and not approved_edit_request %}readonly{% endif %} required>
+                                {% if user.is_frozen and not user.is_edit_allowed and not approved_edit_request %}
+                                <div class="form-text text-danger small">
+                                    {{ "Profile is frozen. Request edit permission to change email."|t:current_lang }}
+                                </div>
+                                {% elif user.is_frozen and approved_edit_request %}
+                                <div class="form-text text-success small">
+                                    <i class="bi bi-check-circle"></i> {{ "Edit permission approved! You can now make changes."|t:current_lang }}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3 text-start">
+                                <label class="form-label fw-bold small">{{ "HOD (Head of Department/Manager)"|t:current_lang }}</label>
+                                <select name="hod_name" class="form-select" required {% if current_hod %}disabled{% endif %}>
+                                    <option value="">-- {{ "Select HOD"|t:current_lang }} --</option>
+                                    {% for hod in available_hods %}
+                                        <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>{{ hod }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% if current_hod %}
+                                <div class="form-text small text-warning"><i class="fas fa-lock"></i> {{ "HOD selection is locked after initial assignment. Contact admin to change."|t:current_lang }}</div>
+                                {% else %}
+                                <div class="form-text small">{{ "Select the HOD/Manager you work under."|t:current_lang }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="d-grid gap-2 mt-4">
+                                {% if not user.is_frozen or user.is_edit_allowed or approved_edit_request %}
+                                <button type="submit" class="btn btn-primary fw-bold py-2">{{ "Save Profile Changes"|t:current_lang }}</button>
+                                {% endif %}
+
+                                {% if not user.is_frozen %}
+                                <a href="{% url 'freeze_profile' %}" class="btn btn-outline-warning fw-bold py-2"
+                                    onclick="return confirm('{{ 'Freeze your profile? You will need manager approval to edit it again.'|t:current_lang }}')">
+                                    {{ "Freeze Profile"|t:current_lang }}
+                                </a>
+                                {% elif not user.is_edit_allowed and not approved_edit_request %}
+                                <a href="{% url 'request_edit' %}" class="btn btn-outline-info fw-bold py-2">
+                                    {{ "Request Edit Permission"|t:current_lang }}
+                                </a>
+                                {% endif %}
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
     {% endif %}
 
 </div>
