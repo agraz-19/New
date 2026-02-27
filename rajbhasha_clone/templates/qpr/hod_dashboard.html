@@ -6,9 +6,6 @@
 
 {% block extra_css %}
 <style>
-    .dashboard-container {
-        margin-top: 30px;
-    }
     .stat-card {
         background: white;
         border-radius: 12px;
@@ -23,143 +20,117 @@
         transform: translateY(-5px);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
-    .stat-number {
-        font-size: 36px;
-        font-weight: bold;
-        color: #2c5a86;
-        margin: 10px 0;
+    .stat-icon {
+        font-size: 32px;
+        margin-bottom: 10px;
     }
     .stat-label {
         color: #666;
         font-size: 14px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .stat-icon {
-        font-size: 32px;
-        color: #2c5a86;
-        margin-bottom: 10px;
     }
 
-    .header-section {
-        padding: 20px;
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        margin-bottom: 30px;
+    .menu-toggle {
+        position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px;
+        background-color: #2c5a86; color: white; border: none; border-radius: 50%;
+        font-size: 24px; cursor: pointer; z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
-    .quick-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
+    .menu-items {
+        position: fixed; bottom: 100px; right: 30px; background: white;
+        border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        display: none; z-index: 1000; min-width: 200px;
     }
-    .btn-custom {
-        padding: 10px 20px;
-        border-radius: 6px;
-        transition: all 0.2s;
-    }
-    .btn-custom:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    }
-    @media (max-width: 768px) {
-        .menu-toggle {
-            width: 50px;
-            height: 50px;
-            font-size: 20px;
-        }
-        .stat-number {
-            font-size: 28px;
-        }
-        .quick-actions {
-            flex-direction: column;
-        }
-        .btn-custom {
-            width: 100%;
-            text-align: center;
-        }
-    }
+    .menu-items.active { display: block; }
+    .menu-item { padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 10px; color: #333; text-decoration: none; }
+    .menu-item:hover { background: #f8f9fa; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container dashboard-container">
-    <div class="header-section">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <h3>{{ "HOD Dashboard"|t:current_lang }}</h3>
-                <p class="text-muted mb-0">{{ "Management of employees and progress tracking"|t:current_lang }}</p>
-            </div>
-            <div class="text-end">
-                <small class="text-muted">{{ "HOD"|t:current_lang }}:</small>
-                <h5 style="color: #2c5a86; margin: 0;">{{ hod_name|upper }}</h5>
-            </div>
+<div class="container-fluid px-4 mt-4">
+    
+    <!-- Header Section - Matching Main Dashboard -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-primary">
+                <i class="fas fa-user-tie"></i> {{ "HOD Dashboard"|t:current_lang }}
+            </h2>
+            <p class="text-muted">
+                {{ "Welcome back,"|t:current_lang }} <strong>{{ user.username }}</strong>.
+                {{ "Overview of your department's progress."|t:current_lang }}
+            </p>
+        </div>
+        
+        <div>
+            <span class="badge bg-primary p-2">{{ user.role|upper }}</span>
+            {% if hod_name %}
+                <span class="badge bg-info text-dark p-2">
+                    <i class="fas fa-user-tie"></i> {{ hod_name }}
+                </span>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Statistics Cards -->
-    <div class="row">
-        <div class="col-md-3 col-sm-6">
+    <!-- Stats Cards Row -->
+    <div class="row mb-4">
+        <div class="col-md-3">
             <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-users"></i>
-                </div>
-                <div class="stat-number">{{ total_users }}</div>
+                <i class="fas fa-users stat-icon"></i>
                 <div class="stat-label">{{ "Total Employees"|t:current_lang }}</div>
+                <div style="font-size: 28px; font-weight: bold; color: #2c5a86; margin-top: 10px;">{{ total_users }}</div>
             </div>
         </div>
-
-        <div class="col-md-3 col-sm-6">
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-check-circle" style="color: #28a745;"></i>
-                </div>
-                <div class="stat-number" style="color: #28a745;">{{ qpr_submitted }}</div>
+        <div class="col-md-3">
+            <div class="stat-card" style="border-left-color: #28a745;">
+                <i class="fas fa-check-circle stat-icon text-success"></i>
                 <div class="stat-label">{{ "QPR Submitted"|t:current_lang }}</div>
+                <div style="font-size: 28px; font-weight: bold; color: #28a745; margin-top: 10px;">{{ qpr_submitted }}</div>
             </div>
         </div>
-
-        <div class="col-md-3 col-sm-6">
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-clock" style="color: #ffc107;"></i>
-                </div>
-                <div class="stat-number" style="color: #ffc107;">{{ qpr_pending }}</div>
+        <div class="col-md-3">
+            <div class="stat-card" style="border-left-color: #ffc107;">
+                <i class="fas fa-clock stat-icon text-warning"></i>
                 <div class="stat-label">{{ "QPR Pending"|t:current_lang }}</div>
+                <div style="font-size: 28px; font-weight: bold; color: #ffc107; margin-top: 10px;">{{ qpr_pending }}</div>
             </div>
         </div>
-
-        <div class="col-md-3 col-sm-6">
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-user-check" style="color: #17a2b8;"></i>
-                </div>
-                <div class="stat-number" style="color: #17a2b8;">{{ profile_updated }}</div>
+        <div class="col-md-3">
+            <div class="stat-card" style="border-left-color: #17a2b8;">
+                <i class="fas fa-user-check stat-icon text-info"></i>
                 <div class="stat-label">{{ "Profile Updated"|t:current_lang }}</div>
+                <div style="font-size: 28px; font-weight: bold; color: #17a2b8; margin-top: 10px;">{{ profile_updated }}</div>
             </div>
         </div>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="row mt-4">
-        <div class="col-md-12">
-            <div class="stat-card" style="border-left: 5px solid #2c5a86;">
-                <h5 style="color: #2c5a86; margin-bottom: 15px; text-align: left;">{{ "Quick Actions"|t:current_lang }}</h5>
-                <div class="quick-actions">
-                    <a href="{% url 'qpr_hod_detail_list' %}" class="btn btn-primary btn-custom">
-                        <i class="fas fa-table"></i> {{ "View Detail List"|t:current_lang }}
-                    </a>
-                    <a href="{% url 'change_password' %}" class="btn btn-warning btn-custom">
-                        <i class="fas fa-lock"></i> {{ "Change Password"|t:current_lang }}
-                    </a>
-                    <a href="{% url 'logout' %}" class="btn btn-danger btn-custom">
-                        <i class="fas fa-sign-out-alt"></i> {{ "Logout"|t:current_lang }}
-                    </a>
-                </div>
+    <!-- Quick Actions Card -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <h5 class="fw-bold text-primary mb-3">{{ "Quick Actions"|t:current_lang }}</h5>
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{% url 'qpr_hod_detail_list' %}" class="btn btn-primary">
+                    <i class="fas fa-table"></i> {{ "View Detail List"|t:current_lang }}
+                </a>
+                <a href="{% url 'change_password' %}" class="btn btn-warning">
+                    <i class="fas fa-lock"></i> {{ "Change Password"|t:current_lang }}
+                </a>
             </div>
         </div>
     </div>
+
+    <!-- Floating Menu Toggle -->
+    <button class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></button>
+    <div class="menu-items" id="menuItems">
+        <a href="{% url 'qpr_hod_dashboard' %}" class="menu-item"><i class="fas fa-chart-pie"></i> {{ "Dashboard"|t:current_lang }}</a>
+        <a href="{% url 'qpr_hod_detail_list' %}" class="menu-item"><i class="fas fa-list"></i> {{ "Detail List"|t:current_lang }}</a>
+        <a href="{% url 'logout' %}" class="menu-item text-danger"><i class="fas fa-sign-out-alt"></i> {{ "Logout"|t:current_lang }}</a>
+    </div>
+
+    <script> 
+        document.getElementById('menuToggle').addEventListener('click', () => { 
+            document.getElementById('menuItems').classList.toggle('active'); 
+        }); 
+    </script>
+
 </div>
-
-
 {% endblock %}
