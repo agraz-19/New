@@ -2424,9 +2424,4 @@ def manager_report_detail(request, year, quarter):
         'office_code': manager_office,
         'grouped': grouped,
     }
-<<<<<<< HEAD
     return render(request, 'qpr/manager_report_detail.html', context)
->>>>>>> 0615d7b (Apply stashed changes and resolve conflict)
-=======
-    return render(request, 'qpr/manager_report_detail.html', context)
->>>>>>> 388e46b (changes in print to pdf)
