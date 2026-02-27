@@ -2316,9 +2316,6 @@ def export_employee_pdf(request):
 
     doc.build(elements)
     buffer.seek(0)
-<<<<<<< HEAD
-    return FileResponse(buffer, as_attachment=True, filename='employee_records.pdf')
-=======
     return FileResponse(buffer, as_attachment=True, filename='employee_records.pdf')
 
 
