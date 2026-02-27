@@ -69,8 +69,8 @@ function maskSensitiveData(value) {
     return valueStr.charAt(0) + '*'.repeat(valueStr.length - 2) + valueStr.charAt(valueStr.length - 1);
 }
 
-// Fields to mask when in draft mode
-const SENSITIVE_FIELDS = ['officeCode', 'phone', 'email'];
+// Fields to mask when in draft mode (don't mask officeCode anymore)
+const SENSITIVE_FIELDS = ['phone', 'email'];
 
 // --- 1. Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -366,7 +366,8 @@ function editRecord(id) {
     console.log("Filling form with record:", record);
     document.getElementById('recordId').value = record.id;
     document.getElementById('officeName').value = record.officeName;
-    document.getElementById('officeCode').value = maskSensitiveData(record.officeCode);
+    // Do not mask office code — show the full code so it is saved unchanged
+    document.getElementById('officeCode').value = record.officeCode || '';
     document.getElementById('region').value = record.region;
     document.getElementById('quarter').value = record.quarter;
     

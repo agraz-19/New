@@ -46,6 +46,8 @@ from .templatetags.translate_tags import translate_text
 FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
 pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
 
+import logging
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 def is_admin(user):
@@ -1580,7 +1582,8 @@ def api_records(request):
             if record_id:
                 record = QPRRecord.objects.get(pk=record_id, user=request.user)
                 record.officeName = data.get('officeName', '')
-                record.officeCode = data.get('officeCode', '')
+                # Remove mask characters from officeCode before saving
+                record.officeCode = (data.get('officeCode', '') or '').replace('*', '')
                 record.region = data.get('region', '')
                 record.quarter = data.get('quarter', '')
                 record.status = data.get('status', 'Draft')
@@ -1620,7 +1623,7 @@ def api_records(request):
 
                 is_submitted = (data.get('status', 'Draft') == 'Submitted')
                 record = QPRRecord.objects.create(
-                    user=request.user, officeName=data.get('officeName', ''), officeCode=data.get('officeCode', ''),
+                    user=request.user, officeName=data.get('officeName', ''), officeCode=(data.get('officeCode', '') or '').replace('*',''),
                     region=data.get('region', ''), quarter=data.get('quarter', ''), year=data.get('year', ''), status=data.get('status', 'Draft'),
                     phone=data.get('phone', ''), email=data.get('email', ''), is_submitted=is_submitted
                 )
@@ -2340,7 +2343,10 @@ def manager_report(request):
     # Get users count for this office (role 'user')
     users_count = 0
     if manager_office:
-        users_count = UserProfile.objects.filter(office_code=manager_office, role='user').count()
+        # expected users list (use user_id to avoid mismatches)
+        expected_user_ids = list(UserProfile.objects.filter(office_code=manager_office, role='user').values_list('user_id', flat=True))
+        users_count = len(expected_user_ids)
+    logger.debug('manager_report: manager=%s office=%s users_count=%s', request.user.username, manager_office, users_count)
 
     # Find quarter-year groups for which number of distinct submitted user records == users_count
     report_data = []
@@ -2351,8 +2357,10 @@ def manager_report(request):
             .order_by('-year', '-quarter')
 
         for g in q_groups:
-            if g['submitted_users'] >= users_count:
-                # pick a representative record to show status_date
+            # get distinct user ids who submitted for this quarter
+            submitted_user_ids = list(QPRRecord.objects.filter(officeCode=manager_office, year=g['year'], quarter=g['quarter'], is_submitted=True).values_list('user', flat=True).distinct())
+            # require that all expected users have submitted (subset test)
+            if set(expected_user_ids).issubset(set([u for u in submitted_user_ids if u is not None])):
                 rep = QPRRecord.objects.filter(officeCode=manager_office, year=g['year'], quarter=g['quarter'], is_submitted=True).order_by('-updated_at').first()
                 status_date = rep.updated_at.strftime('%b %d, %Y – %I:%M %p') if rep and rep.updated_at else ''
                 report_data.append({
@@ -2361,6 +2369,10 @@ def manager_report(request):
                     'office_name': rep.officeName if rep else manager_office,
                     'status_title': 'Received by Official Language Department',
                     'status_date': status_date,
+                    'id': rep.id if rep else None,
+                    'edit_count': EditRequest.objects.filter(qpr_record_id=rep.id, status__in=['approved','used']).count() if rep else 0,
+                    'submitted_users': len([u for u in submitted_user_ids if u is not None]),
+                    'expected_users': users_count,
                 })
 
     context = {
@@ -2390,12 +2402,12 @@ def manager_report_detail(request, year, quarter):
 
     submitted = QPRRecord.objects.filter(officeCode=manager_office, year=year, quarter=quarter, is_submitted=True)
     submitted_users_count = submitted.values('user').distinct().count()
+    total_users = users_qs.count()
 
-    # Only allow detail view when all users have submitted
-    if submitted_users_count < total_users:
-        return redirect('manager_report')
+    # Flag indicating whether all users have submitted (used to control view behavior)
+    all_submitted = submitted_users_count >= total_users
 
-    # Build grouping by HOD
+    # Build grouping by HOD and include every employee; mark submitted status
     grouped = {}
     for up in users_qs:
         hod = up.hod_name or 'Unassigned'
@@ -2406,19 +2418,60 @@ def manager_report_detail(request, year, quarter):
 
     for up in users_qs:
         user = up.user
-        if user.id in submitted_map:
-            rec = submitted_map[user.id]
-            grouped.setdefault(up.hod_name or 'Unassigned', []).append({
-                'name': up.name or user.username,
-                'empcode': up.employee_code,
-                'email': up.email or '',
-                'submitted_at': rec.updated_at,
-            })
+        rec = submitted_map.get(user.id)
+        grouped.setdefault(up.hod_name or 'Unassigned', []).append({
+            'name': up.name or user.username,
+            'empcode': up.employee_code,
+            'email': up.email or '',
+            'submitted': bool(rec),
+            'submitted_at': rec.updated_at if rec else None,
+        })
 
     context = {
         'year': year,
         'quarter': quarter,
         'office_code': manager_office,
         'grouped': grouped,
+        'all_submitted': all_submitted,
+        'submitted_users_count': submitted_users_count,
+        'total_users': total_users,
     }
+    
     return render(request, 'qpr/manager_report_detail.html', context)
+
+
+@login_required
+def qpr_certificate(request, record_id):
+    """Render a printable certificate for a QPR record (open in new tab and print)."""
+    try:
+        rec = QPRRecord.objects.get(pk=record_id)
+    except QPRRecord.DoesNotExist:
+        return redirect('manager_report')
+
+    # Permission: only manager/admin or same office manager can view
+    if not (request.user.role in ['manager', 'admin'] or request.user.is_superuser):
+        return redirect('/')
+
+    # If user is manager, ensure office matches their profile where possible
+    mgr_office = getattr(request.user.profile, 'office_code', None)
+    if request.user.role == 'manager' and mgr_office and mgr_office != rec.officeCode:
+        return redirect('manager_report')
+
+    context = {
+        'record': rec,
+    }
+    return render(request, 'qpr/certificate.html', context)
+
+
+@login_required
+def manager_report_detail_by_record(request, record_id):
+    """Lookup the record by id and call the existing manager_report_detail view.
+    This avoids putting `quarter` (which may contain slashes) into the URL path.
+    """
+    try:
+        rec = QPRRecord.objects.get(pk=record_id)
+    except QPRRecord.DoesNotExist:
+        return redirect('manager_report')
+
+    # Delegate to manager_report_detail using the record's year and quarter
+    return manager_report_detail(request, rec.year, rec.quarter)

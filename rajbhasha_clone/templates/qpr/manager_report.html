@@ -191,7 +191,7 @@
                     <small>{{ report.status_date }}</small>
                 </td>
                 <td>
-                    <a href="/qpr/view/{{ report.id }}" class="action-link">
+                    <a href="/manager/report/record/{{ report.id }}/" class="action-link" onclick="window.location.href=this.href;">
                         {{ "View"|t:current_lang }}
                     </a>
                 </td>
@@ -217,4 +217,22 @@
     </table>
 
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Debug handler: log action-link clicks and force navigation (capture phase)
+    document.querySelectorAll('.action-link').forEach(function(a) {
+        a.addEventListener('click', function(e) {
+            try {
+                console.log('DEBUG: action-link clicked ->', this.href, 'defaultPrevented=', e.defaultPrevented);
+            } catch (err) {
+                console.log('DEBUG: action-link clicked (href unavailable)');
+            }
+            e.preventDefault();
+            // force navigation programmatically to bypass other handlers
+            setTimeout(() => { window.location.href = this.href; }, 10);
+        }, true);
+    });
+});
+</script>
 {% endblock %}

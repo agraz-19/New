@@ -1,0 +1,60 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+
+{% block title %}Certificate{% endblock %}
+
+{% block extra_css %}
+<style>
+    .certificate {
+        max-width: 800px;
+        margin: 30px auto;
+        padding: 30px;
+        border: 1px solid #ccc;
+        background: white;
+        font-family: 'Nirmala UI', Arial, sans-serif;
+    }
+    .certificate h2, .certificate h3 {text-align:center}
+    .meta {margin-top:20px}
+    .meta strong {display:inline-block; width:160px}
+    .signature {margin-top:40px}
+    @media print {
+        body {background: #fff}
+        .no-print {display:none}
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="certificate">
+        <div class="text-end no-print"><button onclick="window.print()" class="btn btn-primary">{{ "Print"|t:current_lang }}</button></div>
+        <h4>{{ "Enclosure"|t:current_lang }}</h4>
+        <h2>{{ "Certificate"|t:current_lang }}</h2>
+
+        <div class="meta">
+            <p><strong>{{ "Office Code:"|t:current_lang }}</strong> {{ record.officeCode }}</p>
+            <p><strong>{{ "Financial Year:"|t:current_lang }}</strong> {{ record.year }}</p>
+            <p><strong>{{ "Quarter Ending:"|t:current_lang }}</strong> {{ record.quarter }}</p>
+        </div>
+
+        <div style="margin-top:20px; text-align:justify;">
+            <p>
+            {{ "I certify that the information given in the attached quarterly progress report (Part I/II) ending"|t:current_lang }} {{ record.quarter }} {{ "is on the basis of available records and is absolutely true as per my knowledge. I am quite aware that the undersigned is responsible for proper compliance of the instructions given in the provisions of the Official Language Act, 1963 and Official Languages Rules, 1976. If at any stage the data given in the report are found to be untrue or exaggerated, this office will be deprived of the rajbhasha Awards for the next 03 years and the matter will also be brought to the notice of my controlling Office/Ministry to take action for giving false information."|t:current_lang }}
+            </p>
+
+            <p style="margin-top:30px">({{ "Signature with stamp"|t:current_lang }})</p>
+
+            <div class="signature">
+                <p><strong>{{ "Name of the chairperson of the O.L.I.C of Min./Dep./Org."|t:current_lang }}:</strong> ______________________</p>
+                <p><strong>{{ "Designation"|t:current_lang }}:</strong> ______________________</p>
+                <p><strong>{{ "Name of Min./Dep./Org."|t:current_lang }}:</strong> ______________________</p>
+                <p><strong>{{ "Telephone/ Fax No."|t:current_lang }}:</strong> ______________________</p>
+                <p><strong>{{ "Email address"|t:current_lang }}:</strong> ______________________</p>
+                <p><strong>{{ "Date"|t:current_lang }} :</strong> ______________________ &nbsp;&nbsp; <strong>{{ "Place"|t:current_lang }} :</strong> ______________________</p>
+            </div>
+
+            <p style="margin-top:20px; font-size:0.9rem">{{ "Note: Soft copy in PDF Format of the said signed certificate should be compulsorily uploaded with quarterly progress report otherwise your report will be considered as unfilled."|t:current_lang }}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

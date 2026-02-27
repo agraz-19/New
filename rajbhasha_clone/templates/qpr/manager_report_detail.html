@@ -7,8 +7,9 @@
 <div class="container my-4">
     <a href="{% url 'manager_report' %}" class="btn btn-secondary mb-3">← {{ "Back"|t:current_lang }}</a>
 
-    <h4>{{ "Report Submitted"|t:current_lang }} — {{ quarter }} / {{ year }}</h4>
+    <h4>{{ "Report Submitted"|t:current_lang }} — {{ year }} / {{ quarter }}</h4>
     <p class="text-muted">{{ "Office Code"|t:current_lang }}: <strong>{{ office_code }}</strong></p>
+    <p class="text-muted">{{ submitted_users_count }} {{ "of"|t:current_lang }} {{ total_users }} {{ "users have submitted"|t:current_lang }}</p>
 
     {% for hod, users in grouped.items %}
     <div class="card mb-3">
@@ -16,13 +17,13 @@
             <strong>{{ hod }}</strong>
         </div>
         <div class="card-body">
-            <table class="table table-sm">
+                <table class="table table-sm">
                 <thead>
                     <tr>
                         <th>{{ "Employee"|t:current_lang }}</th>
                         <th>{{ "Emp Code"|t:current_lang }}</th>
-                        <th>{{ "Email"|t:current_lang }}</th>
                         <th>{{ "Submitted At"|t:current_lang }}</th>
+                        <th>{{ "Status"|t:current_lang }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -30,8 +31,14 @@
                     <tr>
                         <td>{{ u.name }}</td>
                         <td>{{ u.empcode }}</td>
-                        <td>{{ u.email }}</td>
-                        <td>{{ u.submitted_at }}</td>
+                        <td>{% if u.submitted_at %}{{ u.submitted_at }}{% else %}-{% endif %}</td>
+                            <td>
+                                {% if u.submitted %}
+                                    <span class="badge bg-success">{{ "Submitted"|t:current_lang }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ "Pending"|t:current_lang }}</span>
+                                {% endif %}
+                            </td>
                     </tr>
                     {% endfor %}
                 </tbody>

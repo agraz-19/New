@@ -38,6 +38,8 @@ urlpatterns = [
     path('manager/dashboard/', views.manager_dashboard, name='manager_dashboard'),
     path('manager/report/', views.manager_report, name='manager_report'),
     path('manager/report/<str:year>/<str:quarter>/', views.manager_report_detail, name='manager_report_detail'),
+    path('manager/report/record/<int:record_id>/', views.manager_report_detail_by_record, name='manager_report_detail_by_record'),
+    path('qpr/certificate/<int:record_id>/', views.qpr_certificate, name='qpr_certificate'),
     path('qpr/hod/dashboard/', views.qpr_hod_dashboard, name='qpr_hod_dashboard'),
     path('qpr/user/dashboard/', views.user_dashboard, name='qpr_user_dashboard'),
 

@@ -87,11 +87,11 @@
                     actionButtons = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${r.id})">{{ "Request to Edit"|t:current_lang }}</button>`;
                 }
 
-                const maskedCode = maskSensitiveData(r.officeCode);
+                const rawCode = r.officeCode || '-';
 
                 tr.innerHTML = `
                 <td>${r.officeName || '-'}</td>
-                <td>${maskedCode}</td>
+                <td>${rawCode}</td>
                 <td>${r.region || '-'}</td>
                 <td>${r.quarter || '-'}</td>
                 <td>${status}</td>
