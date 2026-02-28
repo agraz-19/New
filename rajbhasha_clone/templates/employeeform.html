@@ -175,9 +175,16 @@
 </div>
 
 <div id="submittedSection" style="display:none;">
-<div class="d-flex justify-content-end mb-2">
-  <button type="button" class="btn btn-success me-2" onclick="downloadExcel()">{{"Download Excel"|t:current_lang }}</button>
-  <button type="button" class="btn btn-danger" onclick="downloadPDF()">{{"Download PDF"|t:current_lang }}</button>
+<div class="d-flex justify-content-end align-items-center gap-3 mb-2">
+  
+  <button type="button" class="download-icon-btn" onclick="downloadExcel()" title="Download Excel">
+    <img src="https://img.icons8.com/color/48/microsoft-excel-2019--v1.png" alt="Excel">
+  </button>
+
+  <button type="button" class="download-icon-btn" onclick="downloadPDF()" title="Download PDF">
+    <img src="https://img.icons8.com/color/48/pdf-2--v1.png" alt="PDF">
+  </button>
+  
 </div>
 <div class="table-responsive">
   <table class="table table-bordered table-sm align-middle" id="submittedTable">

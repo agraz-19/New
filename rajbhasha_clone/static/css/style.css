@@ -989,3 +989,20 @@ textarea:focus {
     outline: none !important;
     box-shadow: 0 0 0 2px rgba(13,110,253,0.15);
 }
+
+/* Style for the new image icons */
+  .download-icon-btn {
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      transition: transform 0.2s;
+  }
+  .download-icon-btn:hover {
+      transform: scale(1.1);
+  }
+  .download-icon-btn img {
+      width: 35px; /* Adjust size to match your UI */
+      height: auto;
+      display: block;
+  }
