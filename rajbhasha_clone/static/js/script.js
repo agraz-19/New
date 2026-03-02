@@ -74,12 +74,17 @@ const SENSITIVE_FIELDS = ['phone', 'email'];
 
 // --- 1. Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Check if user is authenticated
-    checkAuthentication();
+    // Always initialize UI helpers
     populateYearDropdown();
-    loadData();
     initHindiKeyboard();
     bindHindiFocusHandlers();
+
+    // Only run QPR data loading / masking on QPR pages where related elements exist
+    const isQPRPage = !!(document.getElementById('tableBody') || document.getElementById('qprForm') || document.getElementById('year'));
+    if (isQPRPage) {
+        checkAuthentication();
+        loadData();
+    }
 });
 
 // Check if user is authenticated
@@ -335,12 +340,26 @@ async function saveData(status) {
             body: JSON.stringify(payload)
         });
         
+        console.log("Response status:", res.status, "ok:", res.ok);
+        
         if (res.ok) {
             alert(status === 'Draft' ? "Draft Saved Successfully!" : "Report Submitted Successfully!");
-            clearForm();
-            loadData(); 
+            
+            console.log("Alert shown. Status is:", status);
+            
+            // If submitted, redirect to report list; if draft, reload form
+            if (status === 'Submitted') {
+                console.log("Redirecting to /qpr/reports/");
+                window.location.href = "/qpr/reports/";
+            } else {
+                console.log("Not submitted, reloading form");
+                clearForm();
+                loadData();
+            }
         } else {
-            alert("Server Error: " + res.statusText);
+            const errorData = await res.json().catch(() => ({}));
+            console.error("Response error:", errorData);
+            alert("Server Error: " + (errorData.error || res.statusText));
         }
     } catch (err) {
         console.error("Save Error:", err);

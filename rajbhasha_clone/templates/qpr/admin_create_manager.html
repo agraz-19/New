@@ -2,7 +2,7 @@
 {% load static %}
 {% load translate_tags %}
 
-{% block title %}{{ "Create HOD"|t:current_lang }}{% endblock %}
+{% block title %}{{ "Create Manager"|t:current_lang }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -74,7 +74,7 @@
 {% block content %}
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
-        <h4><i class="fas fa-plus-circle"></i> {{ "Create New HOD"|t:current_lang }}</h4>
+        <h4><i class="fas fa-plus-circle"></i> {{ "Create New Manager"|t:current_lang }}</h4>
         <div>
             <a href="{% url 'qpr_admin_dashboard' %}" class="btn btn-light btn-sm border me-2">
                 <i class="fas fa-arrow-left"></i> {{ "Back"|t:current_lang }}
@@ -84,7 +84,7 @@
 
     <div class="card-custom">
         <div class="form-header">
-            <h3><i class="fas fa-user-tie"></i> {{ "HOD Registration"|t:current_lang }}</h3>
+            <h3><i class="fas fa-user-tie"></i> {{ "Manager Registration"|t:current_lang }}</h3>
         </div>
 
         <div class="info-box">
@@ -119,9 +119,9 @@
             </div>
 
             <div class="form-group mb-3">
-                <label for="hod_name" class="form-label">{{ "HOD's Name"|t:current_lang }} <span
+                <label for="manager_name" class="form-label">{{ "Manager's Name"|t:current_lang }} <span
                         style="color: red;">*</span></label>
-                <input type="text" class="form-control" id="hod_name" readonly
+                <input type="text" class="form-control" id="manager_name" readonly
                     placeholder="{{ 'Name will appear here'|t:current_lang }}">
             </div>
 
@@ -129,7 +129,7 @@
 
             <div class="form-group">
                 <button type="submit" class="btn btn-custom" id="submitBtn" disabled>
-                    <i class="fas fa-check"></i> {{ "Create HOD"|t:current_lang }}
+                    <i class="fas fa-check"></i> {{ "Create Manager"|t:current_lang }}
                 </button>
                 <a href="{% url 'qpr_admin_dashboard' %}" class="btn btn-secondary ms-2">
                     <i class="fas fa-times"></i> {{ "Cancel"|t:current_lang }}
@@ -141,7 +141,7 @@
 
 <script>
     const empCodeInput = document.getElementById('emp_code');
-    const hodNameInput = document.getElementById('hod_name');
+    const managerNameInput = document.getElementById('manager_name');
     const loadingSpinner = document.getElementById('loadingSpinner');
     const empCodeError = document.getElementById('empCodeError');
     const empCodeSuccess = document.getElementById('empCodeSuccess');
@@ -153,7 +153,7 @@
         // Clear previous messages and reset button
         empCodeError.textContent = '';
         empCodeSuccess.textContent = '';
-        hodNameInput.value = '';
+        managerNameInput.value = '';
         submitBtn.disabled = true;
 
         if (!empCode) {
@@ -168,7 +168,7 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                hodNameInput.value = data.name;
+                managerNameInput.value = data.name;
                 empCodeSuccess.textContent = '{{ "Employee found!"|t:current_lang }}';
                 submitBtn.disabled = false;
             } else {

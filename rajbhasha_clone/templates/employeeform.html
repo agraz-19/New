@@ -291,36 +291,54 @@ document.getElementById("employeeForm").addEventListener("submit", async e => {
 
       const result = await response.json();
 
+      // Handle existing record case (user tries to create but one already exists)
+      if (response.ok && result.id && result.message) {
+          alert(result.message);
+          
+          // Load existing record for editing
+          editingId = result.id;
+          const existingData = result.data;
+          
+          // Populate form fields with existing data
+          document.getElementById("id_empcode").value = existingData.empcode || "";
+          document.getElementById("id_ename").value = existingData.ename || "";
+          document.getElementById("id_hname").value = existingData.hname || "";
+          document.getElementById("id_super_annuation_date").value = existingData.super_annuation_date || "";
+          
+          if (existingData.designation) {
+              const desigSelect = document.getElementById("designationSelect");
+              if ([...desigSelect.options].map(o => o.value).includes(existingData.designation)) {
+                  desigSelect.value = existingData.designation;
+              } else {
+                  desigSelect.value = "OTHER";
+                  document.getElementById("otherDesignation").style.display = "block";
+                  document.getElementById("otherDesignation").value = existingData.designation;
+              }
+          }
+          
+          // Show last updated info
+          if (existingData.lastupdate) {
+              document.getElementById("lastUpdatedText").innerText = new Date(existingData.lastupdate).toLocaleString();
+              document.getElementById("lastUpdatedBox").style.display = "block";
+          }
+          
+          return;
+      }
+
       if (!response.ok) {
 
-          let message = "";
+          let message = "Error saving record:\n\n";
 
-          // Duplicate record case
-          if (result.detail && result.detail.includes("already")) {
-              message = result.detail + 
-              "\n\nPlease edit your saved draft instead of creating a new record.";
-              
-              // ✅ CLEAR FORM
-              form.reset();
-              editingId = null;
-              document.getElementById("designationSelect").value = "";
-              document.getElementById("otherDesignation").style.display = "none";
-              document.getElementById("lastUpdatedBox").style.display = "none";
+          if (result.detail) {
+              message += result.detail;
           }
           else {
-              message = "Error saving record:\n\n";
-
-              if (result.detail) {
-                  message += result.detail;
-              }
-              else {
-                  for (const [field, errors] of Object.entries(result)) {
-                      if (Array.isArray(errors)) {
-                          message += `• ${field}: ${errors.join(", ")}\n`;
-                      }
-                      else {
-                          message += `• ${field}: ${errors}\n`;
-                      }
+              for (const [field, errors] of Object.entries(result)) {
+                  if (Array.isArray(errors)) {
+                      message += `• ${field}: ${errors.join(", ")}\n`;
+                  }
+                  else {
+                      message += `• ${field}: ${errors}\n`;
                   }
               }
           }
@@ -329,7 +347,7 @@ document.getElementById("employeeForm").addEventListener("submit", async e => {
           return;
       }
 
-      // SUCCESS
+      // SUCCESS - new record created
       form.reset();
       editingId = null;
       document.getElementById("designationSelect").value = "";

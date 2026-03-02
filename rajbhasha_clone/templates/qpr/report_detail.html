@@ -71,10 +71,17 @@
             <button onclick="window.print()" class="btn btn-outline-primary me-2">
                 <i class="bi bi-printer"></i> {{ "Print to PDF"|t:current_lang }}
             </button>
-            <a href="{% url 'qpr_report_list' %}" class="btn btn-outline-secondary">
+            <button id="requestEditBtn" class="btn btn-warning me-2" style="display:none;" data-bs-toggle="modal" data-bs-target="#editRequestModal">
+                <i class="fas fa-edit"></i> {{ "Request Edit"|t:current_lang }}
+            </button>
+            <a id="backBtn" href="{% url 'qpr_report_list' %}" class="btn btn-outline-secondary">
                 ← {{ "Back to Report List"|t:current_lang }}
             </a>
         </div>
+    </div>
+
+    <div id="editStatusAlert" class="alert alert-info" style="display:none;">
+        <strong id="editStatusMsg"></strong>
     </div>
 
     <div class="card shadow-sm">
@@ -85,6 +92,30 @@
         </div>
     </div>
 
+</div>
+
+<!-- Edit Request Modal -->
+<div class="modal fade" id="editRequestModal" tabindex="-1" aria-labelledby="editRequestLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editRequestLabel">{{ "Request Edit Permission"|t:current_lang }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editRequestForm">
+                    <div class="mb-3">
+                        <label for="reasonField" class="form-label">{{ "Reason for Edit"|t:current_lang }}</label>
+                        <textarea class="form-control" id="reasonField" rows="4" placeholder="{{ 'Enter reason for requesting edit' | t:current_lang }}" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ "Cancel"|t:current_lang }}</button>
+                <button type="button" class="btn btn-primary" id="submitEditRequestBtn">{{ "Submit Request"|t:current_lang }}</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -373,10 +404,96 @@
             console.log('HTML generated, length:', html.length);
             document.getElementById('reportContainer').innerHTML = html;
             console.log('HTML inserted successfully');
+            
+            // Show Request Edit button if submitted and no pending approval
+            if (data.is_submitted) {
+                // Check if there's a pending or approved edit request
+                const hasPendingRequest = data.has_pending_edit_request || false;
+                const hasApprovedRequest = data.edit_approved || false;
+                
+                if (hasPendingRequest) {
+                    document.getElementById('editStatusAlert').innerHTML = '<strong>Edit request pending manager approval</strong>';
+                    document.getElementById('editStatusAlert').style.display = 'block';
+                } else if (hasApprovedRequest) {
+                    document.getElementById('editStatusAlert').innerHTML = '<strong>Edit approved by manager - you can now edit this form</strong>';
+                    document.getElementById('editStatusAlert').style.display = 'block';
+                } else {
+                    // Show Request Edit button
+                    document.getElementById('requestEditBtn').style.display = 'inline-block';
+                }
+            }
         } catch (err) {
             console.error('Full error:', err);
             document.getElementById('reportContainer').innerHTML = '<div class="text-danger" style="padding: 20px;">Error loading record: ' + err.message + '</div>';
         }
+    }
+
+    // Handle edit request submission
+    document.getElementById('submitEditRequestBtn').addEventListener('click', async function() {
+        const reason = document.getElementById('reasonField').value;
+        if (!reason.trim()) {
+            alert('Please enter a reason for the edit request');
+            return;
+        }
+        
+        try {
+            const res = await fetch(`/qpr/api/request-edit/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    record_id: recordId,
+                    reason: reason,
+                    request_type: 'qpr'
+                })
+            });
+            
+            if (!res.ok) {
+                const err = await res.json();
+                alert(err.error || 'Failed to submit request');
+                return;
+            }
+            
+            const result = await res.json();
+            alert('Edit request submitted to manager for approval');
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editRequestModal'));
+            modal.hide();
+            
+            // Reload the page
+            location.reload();
+        } catch (err) {
+            console.error('Error:', err);
+            alert('Error submitting request: ' + err.message);
+        }
+    });
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Check for back_to parameter and update back button
+    const urlParams = new URLSearchParams(window.location.search);
+    const backTo = urlParams.get('back_to');
+    const backBtn = document.getElementById('backBtn');
+    
+    if (backTo === 'manager_report') {
+        backBtn.href = "{% url 'manager_report' %}";
+        backBtn.innerHTML = '← Back to Report';
     }
 
     window.addEventListener("DOMContentLoaded", loadReport);

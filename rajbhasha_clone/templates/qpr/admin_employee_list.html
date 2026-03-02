@@ -228,12 +228,14 @@
                         {{ user.year|default:"N/A" }}
                     </td>
                     <td>
-                        {% if user.qpr_status == "Draft" %}
-                        <span class="status-badge status-draft">{{ "Draft"|t:current_lang }}</span>
+                        {% if user.qpr_record_id %}
+                            <a href="{% url 'qpr_report_detail' user.qpr_record_id %}" class="btn btn-sm btn-outline-primary">View</a>
+                        {% elif user.qpr_status == "Draft" %}
+                            <span class="status-badge status-draft">{{ "Draft"|t:current_lang }}</span>
                         {% elif user.qpr_status == "Submitted" %}
-                        <span class="status-badge status-submitted">{{ "Submitted"|t:current_lang }}</span>
+                            <span class="status-badge status-submitted">{{ "Submitted"|t:current_lang }}</span>
                         {% else %}
-                        <span class="status-badge status-draft">{{ "Not Submitted"|t:current_lang }}</span>
+                            <span class="status-badge status-draft">{{ "Not Submitted"|t:current_lang }}</span>
                         {% endif %}
                     </td>
                 </tr>

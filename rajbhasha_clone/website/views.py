@@ -29,19 +29,21 @@ from gtts import gTTS
 from captcha.models import CaptchaStore
 from deep_translator import GoogleTranslator
 from .models import (
-    Employee, CustomUser, DataAccessLog, ArchivedUser, cipher_suite,
+    Employee, CustomUser, Role, DataAccessLog, ArchivedUser, cipher_suite,
+    Office,
     QPRRecord, Section1FilesData, Section2MeetingsData,
     Section3OfficialLanguagesData, Section4HindiLettersData,
     Section5EnglishRepliedHindiData, Section6IssuedLettersData,
     Section7NotingsData, Section8WorkshopsData,
     Section9ImplementationCommitteeData, Section10HindiAdvisoryData,
     Section11SpecificAchievementsData, UserProfile, ManagerRequest, EditRequest,
-    TypingUsageReport
+    TypingUsageReport, CertificateData
 )
-from .forms import CustomLoginForm, CustomUserCreationForm, TypingUsageReportForm
+from .forms import CustomLoginForm, CustomUserCreationForm, TypingUsageReportForm, CertificateDataForm
 from .employeeform import EmployeeForm
 from .serializers import EmployeeSerializer
 from .utils import send_system_email
+from typing import cast
 from .templatetags.translate_tags import translate_text
 FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
 pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
@@ -50,18 +52,79 @@ import logging
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
+# Helper functions to safely access a user's roles for type-checkers
+def user_has_role(user, role_name):
+    """Check if user has a specific role
+    Can accept either a single role string or a list of role strings"""
+    if user is None or not user.is_authenticated:
+        return False
+    
+    # Handle both single role (string) and multiple roles (list)
+    # Check both `CustomUser.roles` and `UserProfile.roles` to handle legacy/sync cases
+    profile = getattr(user, 'profile', None)
+    if isinstance(role_name, list):
+        user_has = user.roles.filter(name__in=role_name).exists()
+        profile_has = profile.roles.filter(name__in=role_name).exists() if profile else False
+        return user_has or profile_has
+    else:
+        user_has = user.roles.filter(name=role_name).exists()
+        profile_has = profile.roles.filter(name=role_name).exists() if profile else False
+        return user_has or profile_has
+
+def user_role(user):
+    """Return user's primary role (for backward compatibility)
+    Returns the first role from: admin > manager > hod > user > None
+    This is for views that expect a single role string"""
+    if user is None or not user.is_authenticated:
+        return None
+    
+    # Check roles in priority order. Consider both user.roles and profile.roles to handle unsynced data.
+    priority_roles = ['admin', 'manager', 'hod', 'user', 'backup_user']
+    profile = getattr(user, 'profile', None)
+    for role in priority_roles:
+        if user.roles.filter(name=role).exists():
+            return role
+        if profile and profile.roles.filter(name=role).exists():
+            return role
+    return None
+
+def user_get_all_roles(user):
+    """Get all role names as a list"""
+    if user is None or not user.is_authenticated:
+        return []
+    profile = getattr(user, 'profile', None)
+    user_roles = set(user.roles.values_list('name', flat=True))
+    profile_roles = set(profile.roles.values_list('name', flat=True)) if profile else set()
+    return list(sorted(user_roles.union(profile_roles)))
+
 def is_admin(user):
-    return user.is_authenticated and user.role == 'admin'
+    """Check if user is an admin"""
+    return user.is_authenticated and user_has_role(user, 'admin')
+
+def can_access_user_site(user):
+    """User site accessible to all authenticated users (everyone starts as 'user')"""
+    return user.is_authenticated and user_has_role(user, 'user')
+
+def can_access_hod_site(user):
+    """HOD site accessible to users with 'hod' role"""
+    return user.is_authenticated and user_has_role(user, 'hod')
+
+def can_access_manager_site(user):
+    """Manager site accessible to users with 'manager' role"""
+    return user.is_authenticated and user_has_role(user, 'manager')
 
 def get_active_hods():
     """Get list of all active HODs for registration/selection dropdowns"""
-    # Get HODs with role='hod'
-    hod_names = list(UserProfile.objects.filter(role='hod').values_list('hod_name', flat=True).distinct())
+    # Get HODs (users with hod role)
+    hod_names = list(UserProfile.objects.filter(
+        roles__name='hod'
+    ).values_list('hod_name', flat=True).distinct())
     
     # Also add users with hod_name=None as their own HODs (using their name)
     unassigned_hod_names = list(UserProfile.objects.filter(
-        role='user', 
-        hod_name__isnull=True
+        roles__name='user'
+    ).exclude(
+        hod_name__isnull=False
     ).values_list('name', flat=True).distinct())
     
     # Combine and sort
@@ -265,7 +328,9 @@ def error_500(request): return universal_error_view(request, None, 500)
 def dashboard(request):
     """Central Dashboard Router - Routes each role to their dedicated dashboard"""
     user = request.user
-    role = request.session.get('active_role', user.role)
+    role = request.session.get('active_role', user_role(user))
+    
+    # Dashboard routing uses session active_role (set at login) or falls back to user's primary role
     
     context = {
         'current_lang': request.session.get('lang', 'en'),
@@ -308,22 +373,45 @@ class CustomLoginView(LoginView):
         return reverse('dashboard')
 
     def form_valid(self, form):
-        user = form.get_user()
+        user = cast(CustomUser, form.get_user())
         auth_login(self.request, user)
-        selected_role = form.cleaned_data.get('role')
         current_lang = self.request.session.get('lang', 'en')
-        user.role = selected_role
-        user.save(update_fields=['role'])
+        
+        # Get the selected role from the form
+        selected_role = form.cleaned_data.get('role')
+        # Check if user actually has the selected role and use it; otherwise fall back
+        if selected_role and user_has_role(user, selected_role):
+            active_role = selected_role
+        else:
+            active_role = user_role(user)
+
+        # Set session variables and ensure session is saved
         self.request.session['lang'] = current_lang
-        self.request.session['active_role'] = selected_role
+        self.request.session['active_role'] = active_role
+        self.request.session.modified = True
         self.request.session.save()
+        
         send_system_email(user, self.request, 'login')
+        # If user is a regular user and hasn't completed profile, force profile completion first
+        try:
+            profile = getattr(user, 'profile', None)
+        except Exception:
+            profile = None
+
+        if user_role(user) == 'user' and profile and not profile.profile_updated:
+            return redirect('qpr_user_profile')
+
         return redirect(self.get_success_url())
 
     def form_invalid(self, form):
         username = form.data.get('username')
         user = CustomUser.objects.filter(username=username).first()
-        if user and not user.is_active and user.check_password(form.data.get('password')):
+        # Ensure we have a password string before passing to check_password
+        raw_password = form.data.get('password')
+        if not isinstance(raw_password, str):
+            return super().form_invalid(form)
+
+        if user and not user.is_active and user.check_password(raw_password):
             lang = self.request.session.get('lang', 'en')
             messages.error(self.request, translate_text("Your account has been archived. Please contact the admin.", lang))
             return self.render_to_response(self.get_context_data(form=form))
@@ -335,34 +423,40 @@ class CustomLoginView(LoginView):
         return kwargs
 
 def signup(request):
-    if request.user.is_authenticated: 
+    if request.user.is_authenticated:
         return redirect('dashboard')
-    
+
     lang = request.session.get('lang', 'en')
     form = CustomUserCreationForm(request.POST or None, request=request)
-    
+
     if request.method == "POST":
         if form.is_valid():
             user = form.save(commit=False)
-            
+
+            # hod_name removed from user-editable form (admin-managed)
+            employee_code = request.POST.get('employee_code', '').strip()
+            phone = request.POST.get('phone', '').strip()
+
+            # Generate OTP and keep signup data in session until verification
             otp = str(random.randint(100000, 999999))
-            request.session['signup_data'] = {
+            signup_data = {
                 'username': user.username,
                 'email': form.cleaned_data['email'],
-                'password': user.password, 
+                'password': user.password,
                 'first_name': user.first_name,
                 'otp': otp,
                 'otp_time': timezone.now().timestamp()
             }
+            request.session['signup_data'] = signup_data
             request.session['is_signup'] = True
-            
+
             send_system_email(user, request, 'otp', extra_context={'otp': otp, 'lang': lang})
-            
+
             messages.success(request, "Account verification initiated! Please verify your email with the OTP sent.")
             return redirect('verify_otp')
         else:
             messages.error(request, "Please correct the errors below.")
-    
+
     return render(request, 'registration/signup.html', {'form': form})
 
 # ==================== PASSWORD & OTP ====================
@@ -417,14 +511,14 @@ class VerifyOTPView(View):
                         user.save()
                         profile, _ = UserProfile.objects.get_or_create(
                             user=user,
-                            defaults={"employee_code": user.username, "role": "user"}
+                            defaults={"employee_code": user.username}
                         )
-                        profile.profile_updated = True
+                        # New users should fill profile after signup; mark as not submitted
+                        profile.profile_updated = False
                         profile.save()
-                        if not Employee.objects.filter(empcode=user.username).exists():
-                            Employee.objects.create(empcode=user.username, ename=user.first_name or "", status='draft')
-                        user.backend = 'django.contrib.auth.backends.ModelBackend'
-                        auth_login(request, user)
+                        # Do not auto-create an Employee record here; user should fill employee form manually.
+                        # Pre-fill values will be available from UserProfile and User fields.
+                        auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
                         request.session['lang'] = lang
                         request.session['active_role'] = 'user'
                         send_system_email(user, request, 'welcome')
@@ -447,7 +541,7 @@ class VerifyOTPView(View):
             return render(request, 'registration/verify_otp.html', {'is_blocked': True, 'current_lang': lang})
         user = CustomUser.objects.filter(email_hash=email_hash).first()
         if user and user.otp == otp_input:
-            if (timezone.now() - user.otp_created_at).total_seconds() < 300:
+            if user.otp_created_at and (timezone.now() - user.otp_created_at).total_seconds() < 300:
                 request.session['otp_verified'] = True
                 return redirect('reset_password')
         attempts = cache.get(att_key, 0) + 1
@@ -618,12 +712,33 @@ def archive_user(request, user_id):  # ✅ FIXED: Added 'request' argument
     user_to_archive = get_object_or_404(CustomUser, id=user_id)
     
     # 2. Prevent archiving yourself
-    if user_to_archive.id == request.user.id:
+    if getattr(user_to_archive, 'id', None) == getattr(request.user, 'id', None):
         messages.error(request, "You cannot archive yourself.")
         return redirect('dashboard')
 
     # 3. Create Snapshot for Archive
-    employee = Employee.objects.filter(empcode=user_to_archive.username).first()
+    # Employee.empcode is an IntegerField. Try to resolve a numeric empcode
+    # from the user's username or from their profile.employee_code.
+    empcode_val = None
+    # Prefer profile.employee_code if available
+    profile = getattr(user_to_archive, 'profile', None)
+    if profile and getattr(profile, 'employee_code', None):
+        try:
+            empcode_val = int(profile.employee_code)
+        except (TypeError, ValueError):
+            empcode_val = None
+
+    # Fallback: try to use username if it's numeric
+    if empcode_val is None:
+        try:
+            empcode_val = int(user_to_archive.username)
+        except (TypeError, ValueError):
+            empcode_val = None
+
+    employee = None
+    if empcode_val is not None:
+        employee = Employee.objects.filter(empcode=empcode_val).first()
+
     snapshot = {}
     if employee:
         snapshot = {
@@ -638,7 +753,7 @@ def archive_user(request, user_id):  # ✅ FIXED: Added 'request' argument
         username=user_to_archive.username,
         email_hash=user_to_archive.email_hash,
         encrypted_email_data=user_to_archive.encrypted_email_data,
-        original_user_id=user_to_archive.id,
+        original_user_id=user_to_archive.pk,
         employee_snapshot=json.dumps(snapshot) 
     )
     
@@ -696,7 +811,7 @@ def profile_view(request):
     
     if request.method == 'POST':
         new_email = request.POST.get('email', '').lower().strip()
-        hod_name = request.POST.get('hod_name', '').strip()
+        # hod_name removed from user-editable form (admin-managed)
         employee_code = request.POST.get('employee_code', '').strip()
         phone = request.POST.get('phone', '').strip()
         office_code_post = request.POST.get('office_code', '').strip()
@@ -715,11 +830,9 @@ def profile_view(request):
             messages.error(request, translate_text("Profile is frozen. Request edit permission.", lang), extra_tags='danger')
             return redirect('dashboard')
         
-        # Basic validation
+        # Basic validation (HOD is admin-managed; users need not supply it)
         if not new_email:
             messages.error(request, translate_text("Email is required.", lang), extra_tags='danger')
-        elif not hod_name:
-            messages.error(request, translate_text("HOD selection is required.", lang), extra_tags='danger')
         else:
             # prevent duplicate email across users
             email_hash = hashlib.sha256(new_email.encode()).hexdigest()
@@ -732,12 +845,11 @@ def profile_view(request):
                     user.is_edit_allowed = False
                 user.save()
 
-                # Update UserProfile fields from submitted form
+                # Update UserProfile fields from submitted form (do not overwrite hod_name)
                 if profile:
                     if employee_code:
                         profile.employee_code = employee_code
                     profile.phone = phone or profile.phone
-                    profile.hod_name = hod_name
                     profile.office_code = office_code_post or profile.office_code
                     profile.office_name = office_name_post or profile.office_name
                     profile.email = new_email
@@ -789,7 +901,18 @@ def profile_view(request):
         'qpr_phone': qpr_phone,
         'qpr_email': qpr_email,
     }
-    
+    # Include office list for dropdowns in the profile template
+    try:
+        from .models import Office
+        offices = Office.objects.all()
+    except Exception:
+        offices = []
+
+    context.update({
+        'offices': offices,
+        'profile_updated': profile.profile_updated if profile else False,
+    })
+
     return render(request, 'profile.html', context)
 
 @login_required
@@ -833,31 +956,55 @@ def user_profile(request):
     ).order_by('-created_at').first()
 
     if request.method == 'POST':
-        email = request.POST.get('email')
-        hod_name = request.POST.get('hod_name', '').strip()
-        if not email:
+        # Collect posted values
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        office_code = request.POST.get('office_code', '').strip()
+        # Phone may be submitted by the user; ensure it's defined before use
+        phone = request.POST.get('phone', '').strip()
+        # Basic validation (HOD is admin-managed; do not require it from the user)
+        if not username:
+            messages.error(request, translate_text('Username is required', lang))
+        elif User.objects.exclude(id=getattr(request.user, 'id', None)).filter(username=username).exists():
+            messages.error(request, translate_text('Username already taken', lang))
+        elif not email:
             messages.error(request, translate_text('Email is required', lang))
-        elif not hod_name:
-            messages.error(request, translate_text('HOD selection is required', lang))
+        elif not office_code:
+            messages.error(request, translate_text('Office selection is required', lang))
         elif profile_submitted and not approved_edit_request:
             messages.error(request, translate_text('You cannot edit a submitted profile. Please request approval from Admin first.', lang))
         else:
+            # Lookup office name
+            from .models import Office
+            office = Office.objects.filter(code=office_code).first()
+            office_name = office.name if office else ''
+
+            # Save profile and user (do not change hod_name here)
             profile.email = email
-            profile.hod_name = hod_name
+            profile.phone = phone or profile.phone
+            profile.office_code = office_code
+            profile.office_name = office_name
             profile.profile_updated = True
             profile.save()
+
             request.user.email = email
+            # update username if changed
+            if request.user.username != username:
+                request.user.username = username
             request.user.save()
-            
+
             # Clear approved request after edit
             if approved_edit_request:
                 approved_edit_request.delete()
-            
+
             messages.success(request, translate_text('Profile updated successfully! Your profile is now frozen. To edit it again, request approval from admin.', lang))
             return redirect('qpr_user_dashboard')
 
     # Get list of available HODs for selection
     available_hods = get_active_hods()
+    # Get list of offices for dropdown
+    from .models import Office
+    offices = Office.objects.all()
 
     context = {
         'profile': profile,
@@ -872,6 +1019,7 @@ def user_profile(request):
         'qpr_office_code': qpr_office_code,
         'qpr_phone': qpr_phone,
         'qpr_email': qpr_email,
+        'offices': offices,
     }
     response = render(request, 'profile.html', context)
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -937,7 +1085,7 @@ def request_edit(request):
                 status='pending'
             )
             messages.success(request, translate_text("Profile edit request sent to admin for approval.", lang))
-            admin = CustomUser.objects.filter(role='admin').first()
+            admin = CustomUser.objects.filter(roles__name='admin').first()
             if admin:
                 msg = f"User {user.username} has requested permission to edit their profile."
                 send_system_email(admin, request, 'manager_alert', extra_context={'body_text': msg})
@@ -968,17 +1116,31 @@ def user_dashboard(request):
     """User Dashboard View - Unified"""
     profile, created = UserProfile.objects.get_or_create(
         user=request.user,
-        defaults={"employee_code": f"EMP{request.user.id}", "role": request.user.role}
+        defaults={"employee_code": f"EMP{getattr(request.user, 'id', '')}"}
     )
     profile.refresh_from_db()
+    # If profile not completed, redirect user to fill profile first (only first time)
+    if not profile.profile_updated:
+        return redirect('qpr_user_profile')
     qpr_records = QPRRecord.objects.filter(user=request.user)
     submitted_qprs = qpr_records.filter(is_submitted=True).count()
+    
+    # Get list of available HODs for dropdown
+    available_hods = get_active_hods()
+    
+    # Check if user has HOD or Manager roles (disable HOD selection if they do)
+    is_hod_or_manager = user_has_role(request.user, ['hod', 'manager'])
+    
     context = {
+        'role': 'user',  # Explicitly set role for template to avoid showing other roles' content
         'profile': profile,
         'profile_status': 'Updated' if profile.profile_updated else 'Needs Update',
         'qpr_submitted': submitted_qprs > 0, 
         'qpr_count': qpr_records.count(),
-        'user': request.user
+        'user': request.user,
+        'available_hods': available_hods,
+        'current_hod': profile.hod_name or '',
+        'is_hod_or_manager': is_hod_or_manager
     }
     response = render(request, 'dashboard.html', context)
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -986,29 +1148,53 @@ def user_dashboard(request):
     response['Expires'] = '0'
     return response 
 @login_required
-@login_required
 def qpr_hod_dashboard(request):
     """HOD Dashboard - Department overview and employee statistics"""
-    if request.user.profile.role != 'hod': return redirect('/')
+    if not user_has_role(request.user, 'hod'): return redirect('/')
     lang = request.session.get('lang', 'en')
-    hod_name = request.user.profile.hod_name
-    users_under_hod = UserProfile.objects.filter(role='user', hod_name=hod_name)
+    
+    # Force fresh database fetch
+    from django.db import connections
+    connections.close_all()
+    
+    hod_profile = UserProfile.objects.select_related('user').get(user=request.user)
+    # Use hod_name to find employees - this is what they selected from dropdown
+    hod_name = hod_profile.hod_name or hod_profile.name
+    hod_name = hod_name.strip() if hod_name else None
+    
+    # Query users assigned to this HOD and include the HOD themselves
+    from django.db.models import Q
+    
+    if hod_name:
+        # Query: users assigned this HOD (consider 'user' role on both profile and CustomUser)
+        user_role_q = Q(roles__name='user') | Q(user__roles__name='user')
+        users_under_hod = UserProfile.objects.filter(
+            (user_role_q & Q(hod_name__iexact=hod_name)) | Q(user=request.user)
+        ).distinct()
+    else:
+        # If no hod_name, just include the HOD themselves
+        users_under_hod = UserProfile.objects.filter(user=request.user).distinct()
+
+    # Compute summary counts only; detailed listing moved to `hod_detail_list` quick action
     total_users = users_under_hod.count()
     qpr_submitted_count = 0
-    profile_updated_count = 0
-    for user_profile in users_under_hod:
-        if user_profile.user.qpr_records.filter(is_submitted=True).exists():
+    profile_updated_count = users_under_hod.filter(profile_updated=True).count()
+
+    # Count submitted QPRs for users under HOD
+    for up in users_under_hod:
+        if up.user.qpr_records.filter(is_submitted=True).exists():
             qpr_submitted_count += 1
-        if user_profile.profile_updated:
-            profile_updated_count += 1
+
     qpr_pending = total_users - qpr_submitted_count
+
     context = {
+        'role': 'hod',
         'total_users': total_users,
-        'qpr_submitted': qpr_submitted_count, 
+        'qpr_submitted': qpr_submitted_count,
         'qpr_pending': qpr_pending,
         'profile_updated': profile_updated_count,
         'hod_name': hod_name,
-        'current_lang': lang
+        'current_lang': lang,
     }
     response = render(request, 'qpr/hod_dashboard.html', context)
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -1019,7 +1205,7 @@ def qpr_hod_dashboard(request):
 @login_required
 def manager_dashboard(request):
     """Manager Dashboard - Manage system access and employee records"""
-    if not (request.user.role in ['manager', 'admin'] or request.user.is_superuser):
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
         return redirect('/')
     
     users = CustomUser.objects.all().order_by('-date_joined')
@@ -1029,14 +1215,16 @@ def manager_dashboard(request):
     
     for emp in raw_employees:
         # --- 1. ROBUST USER LOOKUP ---
-        # Try exact match first
-        user = CustomUser.objects.filter(username=emp.empcode).first()
+        # Try matching by username (which is often the employee name)
+        user = CustomUser.objects.filter(username__iexact=emp.ename).first()
         
-        # If not found, convert Integer to String (e.g., 101 -> "101")
+        # If not found, try other variations
+        if not user:
+            user = CustomUser.objects.filter(username=emp.empcode).first()
+        
         if not user:
             user = CustomUser.objects.filter(username=str(emp.empcode)).first()
             
-        # If still not found, try removing spaces (e.g., " 101 " -> "101")
         if not user:
             clean_code = str(emp.empcode).strip()
             user = CustomUser.objects.filter(username=clean_code).first()
@@ -1048,14 +1236,14 @@ def manager_dashboard(request):
         qpr_last_updated = None
         
         # Get ID safely
-        linked_user_id = user.id if user else None
+        linked_user_id = getattr(user, 'id', None) if user else None
         
         if user:
             latest_qpr = QPRRecord.objects.filter(user=user).order_by('-updated_at').first()
             if latest_qpr:
                 qpr_is_submitted = latest_qpr.is_submitted
                 qpr_status_text = "Submitted" if qpr_is_submitted else "Draft"
-                latest_qpr_id = latest_qpr.id
+                latest_qpr_id = getattr(latest_qpr, 'id', None)
                 qpr_last_updated = latest_qpr.updated_at
 
         employee_data.append({
@@ -1074,10 +1262,47 @@ def manager_dashboard(request):
 
     # Pending profile edit requests targeted to this manager
     pending_profile_requests = ManagerRequest.objects.filter(hod=request.user, request_type='profile', status='pending')
+    
+    # QPR edit requests (pending and approved) from employees in this manager's office
+    manager_office = getattr(request.user.profile, 'office_code', None)
+    pending_qpr_edits = []
+    edit_requests_by_user = {}  # Map user_id -> EditRequest for quick lookup (pending or approved)
+    
+    if manager_office:
+        # Get both pending and approved edit requests
+        edit_requests = EditRequest.objects.filter(
+            request_type='qpr',
+            status__in=['pending', 'approved']  # Include both pending and approved
+        ).select_related('user').filter(
+            user__profile__office_code=manager_office
+        )
+        
+        # Filter pending ones for the quick actions section
+        pending_qpr_edits = [req for req in edit_requests if req.status == 'pending']
+        
+        # Build dictionary for template lookup (stores latest edit request per user)
+        for req in edit_requests:
+            # Only store if newer or first one
+            if req.user_id not in edit_requests_by_user or req.created_at > edit_requests_by_user[req.user_id].created_at:
+                edit_requests_by_user[req.user_id] = req
+    
+    # Enrich employee_data with edit request info
+    for emp in employee_data:
+        emp['pending_edit_request'] = None
+        emp['approved_edit_request'] = None
+        
+        if emp['user_id'] in edit_requests_by_user:
+            req = edit_requests_by_user[emp['user_id']]
+            if req.status == 'pending':
+                emp['pending_edit_request'] = req
+            elif req.status == 'approved':
+                emp['approved_edit_request'] = req
+    
     context = {
         'users': users, 
         'employees': employee_data,
         'pending_profile_requests': pending_profile_requests,
+        'pending_qpr_edits': pending_qpr_edits,
     }
     return render(request, 'manager_dashboard.html', context)
 
@@ -1088,7 +1313,7 @@ def manage_user_action(request, user_id, action):
     # ==========================================
     if action == 'unlock_qpr':
         # Check permissions
-        if not (request.user.role in ['manager', 'admin'] or request.user.is_superuser):
+        if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
             messages.error(request, "Unauthorized")
             return redirect('dashboard')
             
@@ -1136,7 +1361,7 @@ def manage_user_action(request, user_id, action):
 
     # B. Admin Archive Actions
     elif action == 'archive':
-        if request.user.role != 'admin':
+        if not user_has_role(request.user, ['admin']):
             messages.error(request, "Only Admins can archive.")
         else:
             target_user.is_active = False
@@ -1145,7 +1370,7 @@ def manage_user_action(request, user_id, action):
             messages.success(request, "User archived.")
 
     elif action == 'unarchive':
-        if request.user.role != 'admin':
+        if not user_has_role(request.user, ['admin']):
             messages.error(request, "Only Admins can restore.")
         else:
             target_user.is_active = True
@@ -1157,7 +1382,7 @@ def manage_user_action(request, user_id, action):
 
 @login_required
 def admin_dashboard(request):
-    if request.user.profile.role != 'admin': return redirect('/')
+    if user_role(request.user) != 'admin': return redirect('/')
     
     # --- ACTIVE USERS ---
     users = CustomUser.objects.filter(is_active=True, is_archived=False).order_by('-date_joined')
@@ -1166,11 +1391,11 @@ def admin_dashboard(request):
     archived_users = ArchivedUser.objects.all().order_by('-archived_at')
     
     hod_stats = []
-    hods = UserProfile.objects.filter(role='hod').order_by('name')
+    hods = UserProfile.objects.filter(roles__name='hod').order_by('name')
     for hod_profile in hods:
         hod_key = hod_profile.hod_name or hod_profile.name or hod_profile.employee_code
         hod_display = hod_profile.name or hod_key or 'UNKNOWN'
-        users_under_hod = UserProfile.objects.filter(role='user', hod_name__iexact=hod_key)
+        users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_key)
         total_users = users_under_hod.count()
         profile_complete = sum(1 for p in users_under_hod if p.profile_updated)
         qpr_complete = sum(1 for p in users_under_hod if QPRRecord.objects.filter(user=p.user, status='Submitted').exists())
@@ -1182,11 +1407,11 @@ def admin_dashboard(request):
             'qpr_completed': qpr_complete,
             'completion_percentage': completion_pct,
         })
-    unique_hod_names = set(UserProfile.objects.filter(role='user').exclude(hod_name__isnull=True).values_list('hod_name', flat=True))
-    actual_hod_names = set(UserProfile.objects.filter(role='hod').values_list('hod_name', flat=True))
+    unique_hod_names = set(UserProfile.objects.filter(roles__name='user').exclude(hod_name__isnull=True).values_list('hod_name', flat=True))
+    actual_hod_names = set(UserProfile.objects.filter(roles__name='hod').values_list('hod_name', flat=True))
     uncovered = unique_hod_names - actual_hod_names
     for hod_name in sorted(uncovered):
-        users_under_hod = UserProfile.objects.filter(role='user', hod_name__iexact=hod_name)
+        users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_name)
         total_users = users_under_hod.count()
         qpr_complete = sum(1 for p in users_under_hod if QPRRecord.objects.filter(user=p.user, status='Submitted').exists())
         completion_pct = int((qpr_complete / total_users) * 100) if total_users > 0 else 0
@@ -1198,8 +1423,9 @@ def admin_dashboard(request):
             'completion_percentage': completion_pct,
         })
     # 3. Pending Requests
-    pending_requests = ManagerRequest.objects.filter(status='pending', hod__profile__role='user')
+    pending_requests = ManagerRequest.objects.filter(status='pending', hod__roles__name='user')
     context = {
+        'role': 'admin',  # Explicitly set role for template to avoid showing other roles' content
         'hod_stats': hod_stats, 
         'manager_requests': pending_requests,
         'users': users,
@@ -1215,35 +1441,123 @@ def admin_dashboard(request):
 
 @login_required
 def admin_create_hod(request):
-    if request.user.profile.role != 'admin': return redirect('/')
+    if not user_has_role(request.user, 'admin'): return redirect('/')
     if request.method == 'POST':
         emp_code = request.POST.get('emp_code', '').strip()
-        first_name = request.POST.get('first_name', '').strip()
-        email = request.POST.get('email', '').strip()
-        password = '123456'
-        if not emp_code or not first_name or not email:
-            messages.error(request, 'All fields required')
-        elif UserProfile.objects.filter(employee_code=emp_code).exists() or User.objects.filter(username=emp_code).exists():
-            messages.error(request, 'User/Employee code already exists')
+        if not emp_code:
+            messages.error(request, 'Employee code is required')
         else:
+            # Check if employee code exists in registered users
             try:
-                user = User.objects.create_user(username=emp_code, password=password, email=email, first_name=first_name)
-                profile, created = UserProfile.objects.get_or_create(user=user)
-                profile.role = 'hod'
-                profile.hod_name = first_name
-                profile.name = first_name
-                profile.employee_code = emp_code
-                profile.profile_updated = True
-                profile.save()
-                messages.success(request, f'HOD {first_name} created!')
-                return redirect('qpr_admin_dashboard')
-            except Exception as e:
-                messages.error(request, f'Error: {str(e)}')
+                profile = UserProfile.objects.get(employee_code=emp_code)
+                display_name = profile.name or profile.user.get_full_name() or profile.user.username
+                if profile.roles.filter(name='hod').exists():
+                    messages.error(request, 'This user is already assigned a HOD role')
+                else:
+                    # Assign HOD role (sync to both profile and user)
+                    hod_role = Role.objects.get(name='hod')
+                    user_role_obj = Role.objects.get(name='user')
+                    profile.roles.add(hod_role, user_role_obj)
+                    # Ensure CustomUser.roles is in sync
+                    try:
+                        profile.user.roles.add(hod_role, user_role_obj)
+                        profile.user.save()
+                    except Exception:
+                        pass
+                    profile.hod_name = display_name
+                    profile.profile_updated = True
+                    profile.save()
+                    messages.success(request, f'HOD {display_name} created!')
+                    return redirect('qpr_admin_dashboard')
+            except UserProfile.DoesNotExist:
+                messages.error(request, 'User has not registered or entered employee code is incorrect')
     return render(request, 'qpr/admin_create_hod.html')
 
 @login_required
+def admin_create_manager(request):
+    if not user_has_role(request.user, 'admin'): return redirect('/')
+    if request.method == 'POST':
+        emp_code = request.POST.get('emp_code', '').strip()
+        if not emp_code:
+            messages.error(request, 'Employee code is required')
+        else:
+            # Check if employee code exists in registered users
+            try:
+                profile = UserProfile.objects.get(employee_code=emp_code)
+                display_name = profile.name or profile.user.get_full_name() or profile.user.username
+                if profile.roles.filter(name='manager').exists():
+                    messages.error(request, 'This user is already assigned a Manager role')
+                else:
+                    # Assign Manager role (sync to both profile and user)
+                    manager_role = Role.objects.get(name='manager')
+                    user_role_obj = Role.objects.get(name='user')
+                    profile.roles.add(manager_role, user_role_obj)
+                    try:
+                        profile.user.roles.add(manager_role, user_role_obj)
+                        profile.user.save()
+                    except Exception:
+                        pass
+                    profile.profile_updated = True
+                    profile.save()
+                    messages.success(request, f'Manager {display_name} created!')
+                    return redirect('qpr_admin_dashboard')
+            except UserProfile.DoesNotExist:
+                messages.error(request, 'User has not registered or entered employee code is incorrect')
+    return render(request, 'qpr/admin_create_manager.html')
+
+def api_get_employee_details(request):
+    """API endpoint to fetch employee details by employee code"""
+    emp_code = request.GET.get('emp_code', '').strip()
+    
+    if not emp_code:
+        return JsonResponse({'error': 'Employee code is required'}, status=400)
+    
+    try:
+        profile = UserProfile.objects.get(employee_code=emp_code)
+        # Return profile display name and existing roles so admin UI can decide actions.
+        roles = list(profile.roles.values_list('name', flat=True))
+        display_name = profile.name or profile.user.get_full_name() or profile.user.username
+        return JsonResponse({
+            'success': True,
+            'name': display_name,
+            'employee_code': profile.employee_code,
+            'roles': roles or ['user']
+        })
+    except UserProfile.DoesNotExist:
+        return JsonResponse({
+            'error': 'User has not registered or entered employee code is incorrect'
+        }, status=404)
+
+
+@login_required
+def api_create_office(request):
+    """Admin-only endpoint to create an office (POST)"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    if not user_has_role(request.user, 'admin'):
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    code = request.POST.get('office_code', '').strip()
+    name = request.POST.get('office_name', '').strip()
+    if not code or not name:
+        return JsonResponse({'error': 'Office code and name are required'}, status=400)
+
+    from .models import Office
+    office, created = Office.objects.get_or_create(code=code, defaults={'name': name})
+    if not created:
+        return JsonResponse({'error': 'Office code already exists'}, status=400)
+    return JsonResponse({'success': True, 'code': office.code, 'name': office.name})
+
+
+def api_list_offices(request):
+    """Return list of offices for dropdowns"""
+    from .models import Office
+    offices = list(Office.objects.all().values('code', 'name'))
+    return JsonResponse({'offices': offices})
+
+@login_required
 def admin_approve_request(request, request_id):
-    if request.user.profile.role != 'admin': return redirect('/')
+    if not user_has_role(request.user, 'admin'): return redirect('/')
     try:
         req = ManagerRequest.objects.get(id=request_id)
         if request.method == 'POST':
@@ -1262,13 +1576,13 @@ def admin_approve_request(request, request_id):
 
 @login_required
 def admin_employee_list(request):
-    if request.user.profile.role != 'admin': return redirect('/')
+    if not user_has_role(request.user, 'admin'): return redirect('/')
     employee_code_filter = request.GET.get('employee_code', '').strip()
     name_filter = request.GET.get('name', '').strip()
     quarter_filter = request.GET.get('quarter', '').strip()
     year_filter = request.GET.get('year', '').strip()
     
-    hods = UserProfile.objects.filter(role='hod').order_by('name')
+    hods = UserProfile.objects.filter(roles__name='hod').order_by('name')
     hod_groups = []
     
     # Collect all unique quarters and years for filter dropdowns
@@ -1276,26 +1590,58 @@ def admin_employee_list(request):
     all_quarters = sorted(set(all_qpr_records.values_list('quarter', flat=True).filter(quarter__isnull=False)))
     all_years = sorted(set(all_qpr_records.values_list('year', flat=True).filter(year__isnull=False)), reverse=True)
     
+    from .models import Employee
     for hod_profile in hods:
-        users_under_hod = UserProfile.objects.filter(role='user', hod_name=hod_profile.hod_name).order_by('name')
+        users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name=hod_profile.hod_name).order_by('name')
         user_details = []
         for user_profile in users_under_hod:
-            if employee_code_filter and employee_code_filter.lower() not in user_profile.employee_code.lower(): continue
-            user_name = user_profile.name or user_profile.user.get_full_name() or user_profile.user.username
-            if name_filter and name_filter.lower() not in user_name.lower(): continue
+            # employee_code may be None; normalize to empty string
+            emp_code_val = (user_profile.employee_code or '').strip()
+            if employee_code_filter and employee_code_filter.lower() not in emp_code_val.lower():
+                continue
+
+            user_name = (user_profile.name or user_profile.user.get_full_name() or user_profile.user.username) or ''
+
+            # Try to fill missing name from Employee table when profile name is blank or 'None'
+            emp_record = None
+            if (not user_name) or user_name.strip().lower() in ['', 'none']:
+                # Attempt integer conversion for codes with leading zeros (e.g., '003')
+                if emp_code_val:
+                    try:
+                        emp_int = int(emp_code_val)
+                        emp_record = Employee.objects.filter(empcode=emp_int).first()
+                    except Exception:
+                        emp_record = Employee.objects.filter(empcode=emp_code_val).first()
+                # fallback: try to match by username
+                if not emp_record:
+                    emp_record = Employee.objects.filter(empcode=user_profile.user.username).first()
+                if emp_record and emp_record.ename:
+                    user_name = emp_record.ename
+
+            if name_filter and name_filter.lower() not in (user_name or '').lower():
+                continue
+
             qpr_records = QPRRecord.objects.filter(user=user_profile.user).order_by('-id')
             latest_qpr = qpr_records.first() if qpr_records else None
-            
+
             # Apply quarter and year filters
-            if quarter_filter and latest_qpr and latest_qpr.quarter != quarter_filter: continue
-            if year_filter and latest_qpr and latest_qpr.year != year_filter: continue
-            
+            if quarter_filter and latest_qpr and latest_qpr.quarter != quarter_filter:
+                continue
+            if year_filter and latest_qpr and latest_qpr.year != year_filter:
+                continue
+
+            # Fill office info: prefer profile, then latest QPR, else Employee.hname
+            office_name_val = user_profile.office_name or (latest_qpr.officeName if latest_qpr else '')
+            office_code_val = user_profile.office_code or (latest_qpr.officeCode if latest_qpr else '')
+            if (not office_name_val or office_name_val.strip() == '') and emp_record:
+                office_name_val = getattr(emp_record, 'hname', '') or office_name_val
+
             user_details.append({
                 'emp_code': user_profile.employee_code,
                 'name': user_name,
                 'email': user_profile.user.email,
-                'office_name': user_profile.office_name or (latest_qpr.officeName if latest_qpr else 'Not Set'),
-                'office_code': user_profile.office_code or (latest_qpr.officeCode if latest_qpr else 'Not Set'),
+                'office_name': office_name_val or 'Not Set',
+                'office_code': office_code_val or 'Not Set',
                 'quarter': latest_qpr.quarter if latest_qpr else 'N/A',
                 'year': latest_qpr.year if latest_qpr else 'N/A',
                 'qpr_status': latest_qpr.status if latest_qpr else 'Not Submitted',
@@ -1320,7 +1666,7 @@ def admin_employee_list(request):
     }
     return render(request, 'qpr/admin_employee_list.html', context)
 
-@user_passes_test(lambda u: u.role in ['hod', 'admin'])
+@user_passes_test(lambda u: user_has_role(u, ['hod', 'admin']))
 def update_designation(request, user_id):
     if request.method == "POST":
         target_user = get_object_or_404(CustomUser, id=user_id)
@@ -1334,7 +1680,7 @@ def update_designation(request, user_id):
             messages.error(request, "Employee record not found.")
     return redirect('manager_dashboard')
 
-@user_passes_test(lambda u: u.is_authenticated and (u.role in ['hod', 'admin'] or u.is_superuser))
+@user_passes_test(lambda u: u.is_authenticated and (user_has_role(u, ['hod', 'admin']) or u.is_superuser))
 def manage_user_action(request, user_id, action):
     """Restored Full Action Logic: Archive, Unarchive, Unlock
 
@@ -1344,7 +1690,7 @@ def manage_user_action(request, user_id, action):
     """
     # Special-case: treat provided id as QPR id when unlocking a QPR
     if action == 'unlock_qpr':
-        if not (request.user.role in ['manager', 'admin'] or request.user.is_superuser):
+        if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
             messages.error(request, translate_text("Unauthorized", request.session.get('lang', 'en')))
             return redirect('manager_dashboard')
         try:
@@ -1361,7 +1707,7 @@ def manage_user_action(request, user_id, action):
     lang = request.session.get('lang', 'en')
     
     if action in ['archive', 'unarchive']:
-        if request.user.role != 'admin' and not request.user.is_superuser:
+        if not (user_has_role(request.user, ['admin']) or request.user.is_superuser):
             messages.error(request, translate_text("Only Admins can perform this action.", lang))
             return redirect('manager_dashboard')
         
@@ -1401,7 +1747,7 @@ def qpr_form(request):
     # Build a list of already used quarters for this user (quarter, year, record_id)
     used = []
     for r in QPRRecord.objects.filter(user=request.user):
-        used.append({'quarter': r.quarter, 'year': r.year or '', 'record_id': r.id})
+        used.append({'quarter': r.quarter, 'year': r.year or '', 'record_id': r.pk})
 
     context = {
         'profile_office_name': profile_office_name,
@@ -1476,12 +1822,12 @@ def typing_usage_report_view(request, record_id):
     except Employee.DoesNotExist:
         pass
     
-    # Get section7 data (notings data)
-    try:
-        section7 = qpr_record.section7
-        total_notes = section7.total_pages or 0
-        hindi_notes = section7.hindi_pages or 0
-    except:
+    # Get section7 data (notings data) using safe attribute access
+    section7 = getattr(qpr_record, 'section7', None)
+    if section7:
+        total_notes = getattr(section7, 'total_pages', 0) or 0
+        hindi_notes = getattr(section7, 'hindi_pages', 0) or 0
+    else:
         total_notes = 0
         hindi_notes = 0
     
@@ -1516,9 +1862,20 @@ def typing_usage_report_view(request, record_id):
 @login_required
 @login_required
 def hod_detail_list(request):
-    if request.user.profile.role != 'hod': return redirect('/')
-    hod_name = request.user.profile.hod_name
-    users_under_hod = UserProfile.objects.filter(role='user', hod_name=hod_name).select_related('user')
+    if not user_has_role(request.user, 'hod'): return redirect('/')
+    # Determine hod_name from profile (fallback to profile.name)
+    hod_profile = getattr(request.user, 'profile', None)
+    hod_name = (hod_profile.hod_name or hod_profile.name) if hod_profile else None
+    hod_name = hod_name.strip() if hod_name else None
+
+    # Robustly include users who have the 'user' role on either UserProfile or CustomUser
+    if hod_name:
+        user_role_q = Q(roles__name='user') | Q(user__roles__name='user')
+        users_under_hod = UserProfile.objects.filter(
+            user_role_q & Q(hod_name__iexact=hod_name)
+        ).select_related('user').distinct()
+    else:
+        users_under_hod = UserProfile.objects.filter(user=request.user).select_related('user')
     users_data = []
     for user_profile in users_under_hod:
         user = user_profile.user
@@ -1529,10 +1886,37 @@ def hod_detail_list(request):
             first_qpr = qpr_records.first()
             office_code = first_qpr.officeCode
             office_name = first_qpr.officeName
+
+        # Normalize employee code and try to fill missing profile fields from Employee
+        emp_code_val = (user_profile.employee_code or '').strip()
+        emp_record = None
+        if emp_code_val:
+            try:
+                emp_int = int(emp_code_val)
+                from .models import Employee
+                emp_record = Employee.objects.filter(empcode=emp_int).first()
+            except Exception:
+                from .models import Employee
+                emp_record = Employee.objects.filter(empcode=emp_code_val).first()
+
+        # Build display name: prefer profile.name, then full name, then Employee.ename, then username
+        display_name = user_profile.name or user.get_full_name() or ''
+        if not display_name or display_name.strip().lower() in ['', 'none']:
+            if emp_record and emp_record.ename:
+                display_name = emp_record.ename
+            else:
+                display_name = user.username
+
+        # Fill office info: prefer profile, then QPR, then Employee.hname
+        office_name_val = user_profile.office_name or office_name or ''
+        office_code_val = user_profile.office_code or office_code or ''
+        if (not office_name_val or office_name_val.strip() == '') and emp_record:
+            office_name_val = getattr(emp_record, 'hname', '') or office_name_val
+
         has_pending = ManagerRequest.objects.filter(hod=user, request_type='qpr', status='pending').exists()
         users_data.append({
             'profile': user_profile, 'user': user, 'employee_code': user_profile.employee_code,
-            'name': user_profile.name, 'office_code': office_code, 'office_name': office_name,
+            'name': display_name, 'office_code': office_code_val or 'Not Set', 'office_name': office_name_val or 'Not Set',
             'profile_complete': user_profile.profile_updated, 'qpr_complete': qpr_records.filter(is_submitted=True).exists(),
             'has_pending_edit_request': has_pending
         })
@@ -1567,7 +1951,7 @@ def api_records(request):
                     edit_approved = EditRequest.objects.filter(
                         user=request.user,
                         request_type='qpr',
-                        qpr_record_id=record.id,
+                        qpr_record_id=record.pk,
                         status='approved'
                     ).exists()
             d['can_edit'] = not record.is_submitted or edit_approved
@@ -1601,7 +1985,7 @@ def api_records(request):
                     approved_edit_request = EditRequest.objects.filter(
                         user=request.user,
                         request_type='qpr',
-                        qpr_record_id=record.id,
+                        qpr_record_id=record.pk,
                         status='approved'
                     ).first()
                     if approved_edit_request:
@@ -1628,7 +2012,7 @@ def api_records(request):
                     phone=data.get('phone', ''), email=data.get('email', ''), is_submitted=is_submitted
                 )
                 _save_section_data(record, details)
-            return JsonResponse({'id': record.id, 'message': 'Saved successfully!'})
+            return JsonResponse({'id': record.pk, 'message': 'Saved successfully!'})
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
     elif request.method == 'DELETE':
@@ -1642,27 +2026,64 @@ def api_records(request):
 @csrf_exempt
 def api_record_detail(request, record_id):
     try:
+        # First check if the user owns the record
         record = QPRRecord.objects.get(pk=record_id, user=request.user)
-        data = serialize_qpr_record(record)
-        # Compute edit approval flags consistent with api_records
-        edit_approved = False
-        if record.is_submitted:
-            edit_approved = (
-                ManagerRequest.objects.filter(user=request.user, request_type='qpr', status='approved').exists()
-                or bool(getattr(request.user, 'is_edit_allowed', False))
-            )
-            if not edit_approved:
-                edit_approved = EditRequest.objects.filter(
-                    user=request.user,
-                    request_type='qpr',
-                    qpr_record_id=record.id,
-                    status='approved'
-                ).exists()
-        data['can_edit'] = not record.is_submitted or edit_approved
-        data['edit_approved'] = edit_approved
-        return JsonResponse(data, safe=False)
     except QPRRecord.DoesNotExist:
-        return JsonResponse({'error': 'Record not found'}, status=404)
+        # If not, check if the current user is a manager/HOD/admin who can view it
+        try:
+            record = QPRRecord.objects.get(pk=record_id)
+            # Allow access if user is manager, HOD, or admin
+            is_manager = user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser
+            is_hod = user_has_role(request.user, ['hod']) 
+            
+            if not (is_manager or is_hod or request.user == record.user):
+                return JsonResponse({'error': 'Access denied'}, status=403)
+            
+            # For HOD, check if the record owner is under their supervision
+            if is_hod and not is_manager:
+                record_office = record.officeCode
+                hod_office = getattr(request.user.profile, 'office_code', None)
+                hod_employees = UserProfile.objects.filter(
+                    office_code=hod_office,
+                    hod_name=request.user.username
+                )
+                if not hod_employees.filter(user_id=record.user_id).exists():
+                    return JsonResponse({'error': 'Access denied'}, status=403)
+        except QPRRecord.DoesNotExist:
+            return JsonResponse({'error': 'Record not found'}, status=404)
+    
+    data = serialize_qpr_record(record)
+    # Compute edit approval flags consistent with api_records
+    edit_approved = False
+    has_pending_edit_request = False
+    
+    if record.is_submitted:
+        edit_approved = (
+            ManagerRequest.objects.filter(user=record.user, request_type='qpr', status='approved').exists()
+            or bool(getattr(record.user, 'is_edit_allowed', False))
+        )
+        if not edit_approved:
+            edit_approved = EditRequest.objects.filter(
+                user=record.user,
+                request_type='qpr',
+                qpr_record_id=record.pk,
+                status='approved'
+            ).exists()
+        
+        # Check if there's a pending edit request
+        has_pending_edit_request = EditRequest.objects.filter(
+            user=record.user,
+            request_type='qpr',
+            qpr_record_id=record.pk,
+            status='pending'
+        ).exists()
+    
+    # User can edit if they own it and it's not submitted, or if they have edit approval
+    data['can_edit'] = (record.user == request.user and not record.is_submitted) or edit_approved
+    data['edit_approved'] = edit_approved
+    data['has_pending_edit_request'] = has_pending_edit_request
+    data['is_submitted'] = record.is_submitted
+    return JsonResponse(data, safe=False)
 
 
 @login_required
@@ -1680,14 +2101,68 @@ def print_qpr_report(request, record_id):
 @login_required
 @csrf_exempt
 def request_edit_api(request):
+    """API endpoint for requesting QPR edits"""
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
             request_type = data.get('request_type')
             record_id = data.get('record_id')
             reason = data.get('reason', '')
-            admin_users = User.objects.filter(profile__role='admin')
-            #if not admin_users.exists(): return JsonResponse({'success': False, 'error': 'No Admin found'}, status=400)
+            
+            if not request_type or not record_id:
+                return JsonResponse({'error': 'Missing required fields'}, status=400)
+            
+            # For QPR requests, create an EditRequest
+            if request_type == 'qpr':
+                try:
+                    record = QPRRecord.objects.get(pk=record_id, user=request.user)
+                except QPRRecord.DoesNotExist:
+                    return JsonResponse({'error': 'Record not found'}, status=404)
+                
+                # Check if there's already a pending request
+                existing = EditRequest.objects.filter(
+                    user=request.user,
+                    request_type='qpr',
+                    qpr_record_id=record_id,
+                    status__in=['pending', 'approved']
+                ).first()
+                
+                if existing:
+                    return JsonResponse({'error': 'Request already exists with status: ' + existing.status}, status=400)
+                
+                # Create the EditRequest
+                edit_req = EditRequest.objects.create(
+                    user=request.user,
+                    request_type='qpr',
+                    qpr_record_id=record_id,
+                    reason=reason,
+                    status='pending'
+                )
+                
+                # Send notification to manager(s)
+                from .utils import send_system_email
+                manager_office = record.officeCode
+                managers = UserProfile.objects.filter(
+                    office_code=manager_office,
+                    roles__name='manager'
+                ).select_related('user')
+                
+                for profile in managers:
+                    try:
+                        msg = f"Employee {request.user.get_full_name() or request.user.username} has requested permission to edit their QPR submission.\n\nReason: {reason}"
+                        send_system_email(
+                            profile.user,
+                            request,
+                            'manager_alert',
+                            extra_context={'body_text': msg, 'subject': 'QPR Edit Request'}
+                        )
+                    except Exception as e:
+                        print(f"Error sending email to manager: {e}")
+                
+                return JsonResponse({'success': True, 'message': 'Edit request submitted to manager'})
+            
+            # For profile requests, create the old way with ManagerRequest
+            admin_users = User.objects.filter(profile__roles__name='admin')
             for admin_user in admin_users:
                 ManagerRequest.objects.create(hod=request.user, user=admin_user, request_type=request_type, reason=f"Edit request: {reason}")
             return JsonResponse({'success': True, 'message': 'Request sent'})
@@ -1700,9 +2175,15 @@ class EmployeeListCreateAPI(APIView):
         if request.session.get('active_role') != 'user':
             return Response({"detail": "Unauthorized"}, status=403)
 
+        # Use profile.employee_code when available (some users have non-numeric username)
+        user_empcode = None
         try:
-            user_empcode = int(request.user.username)
-        except ValueError:
+            profile = getattr(request.user, 'profile', None)
+            if profile and profile.employee_code:
+                user_empcode = int(profile.employee_code)
+            else:
+                user_empcode = int(request.user.username)
+        except Exception:
             return Response({"detail": "Invalid employee code."}, status=400)
 
         status_filter = request.GET.get("status")
@@ -1718,16 +2199,28 @@ class EmployeeListCreateAPI(APIView):
         if request.session.get('active_role') != 'user':
             return Response({"detail": "Unauthorized"}, status=403)
 
+        # Resolve the numeric employee code from the user's profile when possible
         try:
-            user_empcode = int(request.user.username)
-        except ValueError:
+            profile = getattr(request.user, 'profile', None)
+            if profile and profile.employee_code:
+                user_empcode = int(profile.employee_code)
+            else:
+                user_empcode = int(request.user.username)
+        except Exception:
             return Response({"detail": "Username must be numeric."}, status=400)
 
-        # Allow only one record
-        if Employee.objects.filter(empcode=user_empcode).exists():
+        # Check if a record already exists
+        existing_emp = Employee.objects.filter(empcode=user_empcode).first()
+        if existing_emp:
+            # Return the existing record so user can edit it
+            serializer = EmployeeSerializer(existing_emp)
             return Response(
-                {"detail": "You have already created your employee record."},
-                status=400
+                {
+                    "id": existing_emp.id,
+                    "message": "A record already exists for you. Edit your saved draft instead of creating a new record.",
+                    "data": serializer.data
+                },
+                status=200
             )
 
         data = request.data.copy()
@@ -1754,11 +2247,19 @@ class EmployeeDetailAPI(APIView):
         if not emp:
             return Response({"error": "Not found"}, status=404)
 
-        # USER cannot edit others
-        if request.user.role == 'user' and str(emp.empcode) != str(request.user.username):
+        # Get user's employee code from profile or username
+        try:
+            profile = getattr(request.user, 'profile', None)
+            if profile and profile.employee_code:
+                user_empcode = int(profile.employee_code)
+            else:
+                user_empcode = int(request.user.username)
+        except (ValueError, TypeError):
+            return Response({"error": "Invalid employee code"}, status=400)
+        
+        # USER can only edit their own records, admins/managers can edit others
+        if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
             return Response({"error": "Unauthorized"}, status=403)
-        if str(emp.empcode) != str(request.user.username):
-            return Response({"detail": "Unauthorized"}, status=403)
 
         serializer = EmployeeSerializer(emp, data=request.data)
 
@@ -1769,12 +2270,21 @@ class EmployeeDetailAPI(APIView):
         return Response(serializer.errors, status=400)
     def delete(self, request, pk):
         emp = self.get_object(pk)
-        if str(emp.empcode) != str(request.user.username):
-            return Response({"detail": "Unauthorized"}, status=403)
         if not emp:
             return Response({"error": "Not found"}, status=404)
 
-        if request.user.role == 'user' and str(emp.empcode) != str(request.user.username):
+        # Get user's employee code from profile or username
+        try:
+            profile = getattr(request.user, 'profile', None)
+            if profile and profile.employee_code:
+                user_empcode = int(profile.employee_code)
+            else:
+                user_empcode = int(request.user.username)
+        except (ValueError, TypeError):
+            return Response({"error": "Invalid employee code"}, status=400)
+        
+        # USER can only delete their own records, admins/managers can delete others
+        if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
             return Response({"error": "Unauthorized"}, status=403)
 
         emp.delete()
@@ -1789,7 +2299,39 @@ class SubmitDraftAPI(APIView):
 @login_required
 def employee_form(request):
     if request.session.get('active_role') != 'user': return redirect('dashboard')
-    form = EmployeeForm()
+    profile = getattr(request.user, 'profile', None)
+    from .models import Employee
+
+    # If an Employee record already exists for this user's empcode, let them edit it.
+    emp_record = None
+    if profile and profile.employee_code:
+        emp_record = Employee.objects.filter(empcode=profile.employee_code).first()
+
+    if request.method == 'POST':
+        if emp_record:
+            form = EmployeeForm(request.POST, instance=emp_record)
+        else:
+            form = EmployeeForm(request.POST)
+
+        if form.is_valid():
+            obj = form.save(commit=False)
+            # Ensure empcode is set from user's profile and do not auto-submit; user saves manually
+            if profile and profile.employee_code:
+                obj.empcode = profile.employee_code
+            obj.lastupdate = timezone.now()
+            obj.save()
+            messages.success(request, 'Employee record saved successfully.')
+            return redirect('dashboard')
+    else:
+        if emp_record:
+            form = EmployeeForm(instance=emp_record)
+        else:
+            initial = {}
+            if profile and profile.employee_code:
+                initial['empcode'] = profile.employee_code
+            initial['ename'] = request.user.first_name or request.user.username
+            form = EmployeeForm(initial=initial)
+
     return render(request, "employeeform.html", {"form": form})
 
 
@@ -1815,6 +2357,7 @@ def request_profile_edit(request):
             
             reason = request.POST.get('reason', '')
             profile_data = {
+                'username': request.POST.get('username', ''),
                 'email': request.POST.get('email', ''),
                 'name': request.POST.get('name', ''),
                 'office_name': request.POST.get('office_name', ''),
@@ -1831,7 +2374,7 @@ def request_profile_edit(request):
             messages.success(request, translate_text("Profile edit request submitted to admin for approval. You will not be able to submit again until approved or rejected.", lang))
             
             # Send notification to admins
-            admins = CustomUser.objects.filter(role='admin', is_active=True)
+            admins = CustomUser.objects.filter(roles__name='admin', is_active=True)
             for admin in admins:
                 msg = f"User {request.user.username} ({request.user.profile.employee_code}) has requested to edit their profile."
                 send_system_email(admin, request, 'manager_alert', extra_context={'body_text': msg})
@@ -1889,7 +2432,7 @@ def request_qpr_edit(request, record_id):
                 messages.success(request, translate_text("QPR edit request submitted to admin for approval.", lang))
                 
                 # Send notification to admins
-                admins = CustomUser.objects.filter(role='admin', is_active=True)
+                admins = CustomUser.objects.filter(roles__name='admin', is_active=True)
                 for admin in admins:
                     msg = f"User {request.user.username} ({request.user.profile.employee_code}) has requested to edit QPR for {qpr_record.quarter}."
                     send_system_email(admin, request, 'manager_alert', extra_context={'body_text': msg})
@@ -1906,7 +2449,7 @@ def request_qpr_edit(request, record_id):
 @login_required
 def admin_edit_requests(request):
     """Admin view all pending edit requests"""
-    if request.user.role != 'admin':
+    if not user_has_role(request.user, ['admin']):
         return redirect('/')
     lang = request.session.get('lang', 'en')
     
@@ -1935,7 +2478,7 @@ def admin_edit_requests(request):
 @login_required
 def approve_edit_request(request, request_id):
     """Manager/Admin approves an edit request"""
-    if request.user.role not in ['manager', 'admin']:
+    if not user_has_role(request.user, ['manager', 'admin']):
         return redirect('/')
     lang = request.session.get('lang', 'en')
     
@@ -1967,13 +2510,13 @@ def approve_edit_request(request, request_id):
             )
             
             messages.success(request, translate_text("Edit request approved.", lang))
-            if request.user.role == 'manager':
+            if user_role(request.user) == 'manager':
                 return redirect('manager_dashboard')
             else:
                 return redirect('qpr_admin_dashboard')
         except Exception as e:
             messages.error(request, translate_text(f"Error approving request: {str(e)}", lang))
-            if request.user.role == 'manager':
+            if user_role(request.user) == 'manager':
                 return redirect('manager_dashboard')
             else:
                 return redirect('qpr_admin_dashboard')
@@ -1985,7 +2528,7 @@ def approve_edit_request(request, request_id):
 @login_required
 def reject_edit_request(request, request_id):
     """Manager/Admin rejects an edit request"""
-    if request.user.role not in ['manager', 'admin']:
+    if not user_has_role(request.user, ['manager', 'admin']):
         return redirect('/')
     lang = request.session.get('lang', 'en')
     
@@ -2019,13 +2562,13 @@ def reject_edit_request(request, request_id):
             )
             
             messages.success(request, translate_text("Edit request rejected.", lang))
-            if request.user.role == 'manager':
+            if user_role(request.user) == 'manager':
                 return redirect('manager_dashboard')
             else:
                 return redirect('qpr_admin_dashboard')
         except Exception as e:
             messages.error(request, translate_text(f"Error rejecting request: {str(e)}", lang))
-            if request.user.role == 'manager':
+            if user_role(request.user) == 'manager':
                 return redirect('manager_dashboard')
             else:
                 return redirect('qpr_admin_dashboard')
@@ -2049,31 +2592,32 @@ def typing_data_report(request):
     data = []
     for report in typing_reports:
         qpr_record = report.qpr_record
-        user_profile = qpr_record.user.profile
+        user_profile = qpr_record.user.profile if qpr_record.user else None
         
         # Get employee name
-        employee_name = user_profile.name or qpr_record.user.username
+        employee_name = (user_profile.name if user_profile else None) or (qpr_record.user.username if qpr_record.user else 'Unknown')
         
         # Get designation
-        designation = user_profile.office_name or 'N/A'
+        designation = (user_profile.office_name if user_profile else None) or 'N/A'
         try:
-            employee = Employee.objects.get(empcode=user_profile.employee_code)
-            designation = employee.designation or designation
+            if user_profile and user_profile.employee_code:
+                employee = Employee.objects.get(empcode=user_profile.employee_code)
+                designation = employee.designation or designation
         except Employee.DoesNotExist:
             pass
         
-        # Get section7 data
-        try:
-            section7 = qpr_record.section7
-            total_notes = section7.total_pages or 0
-            hindi_notes = section7.hindi_pages or 0
-        except:
+        # Get section7 data using safe attribute access
+        section7 = getattr(qpr_record, 'section7', None)
+        if section7:
+            total_notes = getattr(section7, 'total_pages', 0) or 0
+            hindi_notes = getattr(section7, 'hindi_pages', 0) or 0
+        else:
             total_notes = 0
             hindi_notes = 0
         
         # Calculate percentages
         notes_hindi_percentage = (hindi_notes / total_notes * 100) if total_notes > 0 else 0
-        words_hindi_percentage = (report.hindi_words / report.total_words * 100) if report.total_words and report.total_words > 0 else 0
+        words_hindi_percentage = ((report.hindi_words or 0) / (report.total_words or 1) * 100) if (report.total_words and report.total_words > 0) else 0
         
         data.append({
             'serial_no': len(data) + 1,
@@ -2094,13 +2638,63 @@ def typing_data_report(request):
     return render(request, 'qpr/typing_data_report.html', context)
 
 
+# ==================== USER HOD SELECTION ====================
+
+@login_required
+def api_user_change_hod(request):
+    """API endpoint for users to change their assigned HOD"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST method required'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        new_hod_name = data.get('hod_name', '').strip()
+        
+        if not new_hod_name:
+            return JsonResponse({'success': False, 'error': 'HOD name is required'}, status=400)
+        
+        # Check if user is HOD or Manager - they shouldn't be able to change HOD
+        if user_has_role(request.user, ['hod', 'manager', 'admin']):
+            return JsonResponse({'success': False, 'error': 'Only users can change their HOD'}, status=403)
+        
+        # Get user's profile
+        try:
+            profile = UserProfile.objects.get(user=request.user)
+        except UserProfile.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'User profile not found'}, status=404)
+        
+        # Verify the selected HOD exists (check both profile.roles and the user's roles)
+        hod_exists = UserProfile.objects.filter(
+            Q(roles__name='hod') | Q(user__roles__name='hod'),
+            hod_name__iexact=new_hod_name
+        ).exists()
+        if not hod_exists:
+            return JsonResponse({'success': False, 'error': 'Selected HOD does not exist'}, status=400)
+        
+        # Update the HOD
+        old_hod = profile.hod_name
+        profile.hod_name = new_hod_name
+        profile.save()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'HOD changed successfully from {old_hod or "None"} to {new_hod_name}',
+            'new_hod': new_hod_name
+        })
+    
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
 # ==================== HOD MANAGEMENT (ADMIN ONLY) ====================
 
 @csrf_exempt
 @login_required
 def api_update_hod(request):
     """API endpoint to update HOD name and employee code (Admin only)"""
-    if request.user.role != 'admin':
+    if not user_has_role(request.user, ['admin']):
         return JsonResponse({'success': False, 'error': 'Access denied. Admin only.'}, status=403)
     
     if request.method == 'POST':
@@ -2119,7 +2713,7 @@ def api_update_hod(request):
             
             # Find the HOD user profile
             try:
-                hod_profile = UserProfile.objects.get(employee_code=old_employee_code, role='hod')
+                hod_profile = UserProfile.objects.get(employee_code=old_employee_code, roles__name='hod')
             except UserProfile.DoesNotExist:
                 return JsonResponse({
                     'success': False,
@@ -2163,13 +2757,15 @@ def api_update_hod(request):
     
     return JsonResponse({'error': 'Invalid method'}, status=400)
 def send_reminder_email(request, user_id):
-    if request.user.profile.role != 'hod': 
+    user_profile = getattr(request.user, 'profile', None)
+    if not user_profile or not user_profile.roles.filter(name='hod').exists(): 
         return redirect('/')
         
     if request.method == 'POST':
         target_user = get_object_or_404(CustomUser, id=user_id)
         lang = request.session.get('lang', 'en')
-        if target_user.profile.hod_name == request.user.profile.hod_name:
+        target_profile = getattr(target_user, 'profile', None)
+        if target_profile and target_profile.hod_name == user_profile.hod_name:
             send_system_email(target_user, request, 'reminder')
             messages.success(request, translate_text(f"Reminder email sent successfully to {target_user.username}.", lang))
         else:
@@ -2325,7 +2921,7 @@ def export_employee_pdf(request):
 @login_required
 def manager_report(request):
     """Manager Report - Display status of last 4 quarterly progress reports"""
-    if not (request.user.role in ['manager', 'admin'] or request.user.is_superuser):
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
         return redirect('/')
     
     # Get the manager's office code from their associated QPRRecords or default
@@ -2344,7 +2940,10 @@ def manager_report(request):
     users_count = 0
     if manager_office:
         # expected users list (use user_id to avoid mismatches)
-        expected_user_ids = list(UserProfile.objects.filter(office_code=manager_office, role='user').values_list('user_id', flat=True))
+        # Include users who have the 'user' role on either UserProfile or CustomUser
+        expected_user_ids = list(UserProfile.objects.filter(office_code=manager_office).filter(
+            Q(roles__name='user') | Q(user__roles__name='user')
+        ).values_list('user_id', flat=True))
         users_count = len(expected_user_ids)
     logger.debug('manager_report: manager=%s office=%s users_count=%s', request.user.username, manager_office, users_count)
 
@@ -2369,8 +2968,8 @@ def manager_report(request):
                     'office_name': rep.officeName if rep else manager_office,
                     'status_title': 'Received by Official Language Department',
                     'status_date': status_date,
-                    'id': rep.id if rep else None,
-                    'edit_count': EditRequest.objects.filter(qpr_record_id=rep.id, status__in=['approved','used']).count() if rep else 0,
+                    'id': rep.pk if rep else None,
+                    'edit_count': EditRequest.objects.filter(qpr_record_id=rep.pk, status__in=['approved','used']).count() if rep else 0,
                     'submitted_users': len([u for u in submitted_user_ids if u is not None]),
                     'expected_users': users_count,
                 })
@@ -2386,7 +2985,7 @@ def manager_report(request):
 @login_required
 def manager_report_detail(request, year, quarter):
     """Show list of users who submitted for given quarter and year, grouped by HOD."""
-    if not (request.user.role in ['manager', 'admin'] or request.user.is_superuser):
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
         return redirect('/')
 
     manager_office = getattr(request.user.profile, 'office_code', None)
@@ -2397,10 +2996,16 @@ def manager_report_detail(request, year, quarter):
     if not manager_office:
         return redirect('manager_report')
 
-    users_qs = UserProfile.objects.filter(office_code=manager_office, role='user').select_related('user').order_by('hod_name', 'name')
+    users_qs = UserProfile.objects.filter(office_code=manager_office).filter(
+        Q(roles__name='user') | Q(user__roles__name='user')
+    ).select_related('user').distinct().order_by('hod_name', 'name')
     total_users = users_qs.count()
 
-    submitted = QPRRecord.objects.filter(officeCode=manager_office, year=year, quarter=quarter, is_submitted=True)
+    # Normalize year: if year contains '2025' treat as empty string (DB stores year='')
+    normalized_year = '' if '2025' in year or year == '2025-2026' else year
+    
+    # Find submitted QPRs matching the office, normalized year, and quarter
+    submitted = QPRRecord.objects.filter(officeCode=manager_office, year=normalized_year, quarter=quarter, is_submitted=True)
     submitted_users_count = submitted.values('user').distinct().count()
     total_users = users_qs.count()
 
@@ -2409,22 +3014,23 @@ def manager_report_detail(request, year, quarter):
 
     # Build grouping by HOD and include every employee; mark submitted status
     grouped = {}
-    for up in users_qs:
-        hod = up.hod_name or 'Unassigned'
-        grouped.setdefault(hod, [])
 
     # Map submitted records by user id
-    submitted_map = {r.user_id: r for r in submitted}
+    submitted_map = {r.user.id: r for r in submitted if r.user is not None}
 
     for up in users_qs:
         user = up.user
-        rec = submitted_map.get(user.id)
-        grouped.setdefault(up.hod_name or 'Unassigned', []).append({
+        rec = submitted_map.get(getattr(user, 'id', None))
+        hod = up.hod_name or 'Unassigned'
+        if hod not in grouped:
+            grouped[hod] = []
+        grouped[hod].append({
             'name': up.name or user.username,
             'empcode': up.employee_code,
             'email': up.email or '',
             'submitted': bool(rec),
             'submitted_at': rec.updated_at if rec else None,
+            'qpr_record_id': rec.id if rec else None,
         })
 
     context = {
@@ -2449,12 +3055,12 @@ def qpr_certificate(request, record_id):
         return redirect('manager_report')
 
     # Permission: only manager/admin or same office manager can view
-    if not (request.user.role in ['manager', 'admin'] or request.user.is_superuser):
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
         return redirect('/')
 
     # If user is manager, ensure office matches their profile where possible
     mgr_office = getattr(request.user.profile, 'office_code', None)
-    if request.user.role == 'manager' and mgr_office and mgr_office != rec.officeCode:
+    if user_role(request.user) == 'manager' and mgr_office and mgr_office != rec.officeCode:
         return redirect('manager_report')
 
     context = {
@@ -2475,3 +3081,115 @@ def manager_report_detail_by_record(request, record_id):
 
     # Delegate to manager_report_detail using the record's year and quarter
     return manager_report_detail(request, rec.year, rec.quarter)
+
+
+@login_required
+def certificate_form_view(request, record_id):
+    """Auto-populate certificate data and redirect to display"""
+    try:
+        record = QPRRecord.objects.get(pk=record_id)
+    except QPRRecord.DoesNotExist:
+        return redirect('manager_report')
+
+    # Only manager/admin can view certificate for submitted records
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return redirect('/')
+
+    # Get or create certificate data with auto-populated values from record
+    cert_data, created = CertificateData.objects.get_or_create(
+        qpr_record=record,
+        defaults={
+            'financial_year': record.year if record.year else '2025-2026',
+            'quarter_ending': record.quarter if record.quarter else '',
+        }
+    )
+    
+    # Redirect to display view
+    return redirect('certificate_display', record_id=record.id)
+
+
+@login_required
+def certificate_display_view(request, record_id):
+    """Display the certificate in Enclosure format"""
+    try:
+        record = QPRRecord.objects.get(pk=record_id)
+    except QPRRecord.DoesNotExist:
+        return redirect('manager_report')
+
+    # Only manager/admin can view certificate
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return redirect('/')
+
+    # Get certificate data
+    cert_data = CertificateData.objects.filter(qpr_record=record).first()
+    if not cert_data:
+        # Redirect to form if certificate data doesn't exist
+        return redirect('certificate_form', record_id=record.id)
+
+    context = {
+        'record': record,
+        'cert_data': cert_data,
+    }
+    return render(request, 'qpr/certificate_display.html', context)
+
+
+@login_required
+def manager_report_edit_view(request, record_id):
+    """Unlock user forms for editing (max 2 times per record) - returns JSON response"""
+    try:
+        # Only allow POST requests
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'error': f'Method {request.method} not allowed. Use POST.'}, status=405)
+        
+        if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+            return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+        # Get the record to extract year and quarter
+        try:
+            record = QPRRecord.objects.get(pk=record_id)
+        except QPRRecord.DoesNotExist:
+            return JsonResponse({'success': False, 'error': f'Record {record_id} not found'}, status=404)
+
+        # Verify manager can edit this record
+        mgr_office = getattr(request.user.profile, 'office_code', None)
+        if not mgr_office:
+            first = QPRRecord.objects.filter(user=request.user).first()
+            mgr_office = first.officeCode if first else None
+
+        if not mgr_office or mgr_office != record.officeCode:
+            return JsonResponse({'success': False, 'error': f'Unauthorized: Your office ({mgr_office}) does not match this record ({record.officeCode})'}, status=403)
+
+        # Check if edit count has reached maximum (2)
+        if record.cert_edit_count >= 2:
+            return JsonResponse({
+                'success': False,
+                'error': 'Maximum edit attempts (2) reached for this record.'
+            })
+
+        # Increment edit count
+        record.cert_edit_count += 1
+        record.save()
+
+        # Unlock all QPR records for this year and quarter in this office for users to edit
+        unlocked_count = QPRRecord.objects.filter(
+            officeCode=mgr_office,
+            year=record.year,
+            quarter=record.quarter,
+            is_submitted=True
+        ).update(is_editing_allowed=True)
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Forms unlocked for editing. This is unlock attempt {record.cert_edit_count} of 2.',
+            'unlocked_count': unlocked_count,
+            'edit_count': record.cert_edit_count
+        })
+    
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"ERROR in manager_report_edit_view: {error_details}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Server error: {str(e)}'
+        }, status=500)

@@ -22,8 +22,8 @@
                     <tr>
                         <th>{{ "Employee"|t:current_lang }}</th>
                         <th>{{ "Emp Code"|t:current_lang }}</th>
-                        <th>{{ "Submitted At"|t:current_lang }}</th>
-                        <th>{{ "Status"|t:current_lang }}</th>
+                        <th>{{ "QPR Status"|t:current_lang }}</th>
+                        <th>{{ "Action"|t:current_lang }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -31,10 +31,21 @@
                     <tr>
                         <td>{{ u.name }}</td>
                         <td>{{ u.empcode }}</td>
-                        <td>{% if u.submitted_at %}{{ u.submitted_at }}{% else %}-{% endif %}</td>
+                        <td>
+                            {% if u.submitted %}
+                                <span class="badge bg-success">{{ "Submitted"|t:current_lang }}</span>
+                                {% if u.submitted_at %}
+                                    <br><small class="text-muted">{{ u.submitted_at|date:"d M Y, H:i" }}</small>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-warning">{{ "Pending"|t:current_lang }}</span>
+                            {% endif %}
+                        </td>
                             <td>
-                                {% if u.submitted %}
-                                    <span class="badge bg-success">{{ "Submitted"|t:current_lang }}</span>
+                                {% if u.submitted and u.qpr_record_id %}
+                                    <a href="{% url 'qpr_report_detail' u.qpr_record_id %}?back_to=manager_report" class="btn btn-sm btn-primary" title="{{ 'View submitted QPR form'|t:current_lang }}">
+                                        <i class="fas fa-eye"></i> {{ "View QPR"|t:current_lang }}
+                                    </a>
                                 {% else %}
                                     <span class="badge bg-secondary">{{ "Pending"|t:current_lang }}</span>
                                 {% endif %}

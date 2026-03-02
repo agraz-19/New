@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager
 from cryptography.fernet import Fernet
 from django.conf import settings
 import hashlib
@@ -9,7 +11,26 @@ from django.contrib.auth.models import BaseUserManager
 
 cipher_suite = Fernet(settings.ENCRYPTION_KEY)
 
-class CustomUserManager(BaseUserManager):
+class Role(models.Model):
+    """Role model for multi-role support"""
+    ROLE_CHOICES = [
+        ('user', 'User'),
+        ('manager', 'Manager'),
+        ('hod', 'HOD'),
+        ('admin', 'Admin'),
+        ('backup_user', 'Backup User'),
+    ]
+    name = models.CharField(max_length=20, unique=True, choices=ROLE_CHOICES)
+    description = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        ordering = ['name']
+
+class CustomUserManager(UserManager["CustomUser"]):
     def create_user(self, username, email=None, password=None, **extra_fields):
         if not email:
             raise ValueError('The Email field must be set')
@@ -18,26 +39,25 @@ class CustomUserManager(BaseUserManager):
         # Use your custom encryption method
         user.set_email(email) 
         user.save(using=self._db)
+        # Assign 'user' role by default
+        user_role = Role.objects.get_or_create(name='user')[0]
+        user.roles.add(user_role)
         return user
 
     def create_superuser(self, username, email=None, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('role', 'admin')
-        return self.create_user(username, email, password, **extra_fields)
+        user = self.create_user(username, email, password, **extra_fields)
+        # Assign 'admin' role
+        admin_role = Role.objects.get_or_create(name='admin')[0]
+        user.roles.add(admin_role)
+        return user
 
 class CustomUser(AbstractUser):
-    ROLE_CHOICES = [
-        ('user', 'User'),
-        ('manager', 'Manager'),
-        ('hod', 'HOD'),
-        ('admin', 'Admin'),
-        ('backup_user', 'Backup User'),
-    ]
     email_hash = models.CharField(max_length=64, unique=True, null=True, blank=True)
     encrypted_email_data = models.BinaryField(null=True, blank=True)
     email = models.EmailField(unique=False, null=True, blank=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
+    roles = models.ManyToManyField(Role, related_name='users', blank=True)
     otp = models.CharField(max_length=6, blank=True, null=True)
     otp_created_at = models.DateTimeField(blank=True, null=True)
     consent_given_at = models.DateTimeField(null=True, blank=True)
@@ -62,6 +82,17 @@ class CustomUser(AbstractUser):
         if self.encrypted_email_data:
             return cipher_suite.decrypt(self.encrypted_email_data).decode()
         return None
+    @property
+    def role(self):
+        """Return primary role string for template compatibility (admin > manager > hod > user > backup_user)."""
+        try:
+            priority_roles = ['admin', 'manager', 'hod', 'user', 'backup_user']
+            for r in priority_roles:
+                if self.roles.filter(name=r).exists():
+                    return r
+        except Exception:
+            return None
+        return None
 class DataAccessLog(models.Model):
     accessed_by = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='audit_actions')
     target_user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='access_history')
@@ -79,6 +110,16 @@ class ArchivedUser(models.Model):
     employee_snapshot = models.TextField(null=True, blank=True) 
     archived_at = models.DateTimeField(auto_now_add=True)
     original_user_id = models.IntegerField()
+
+
+class Office(models.Model):
+    """Office lookup table created by admin via Quick Actions"""
+    code = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
 
 
 class Employee(models.Model):
@@ -165,17 +206,10 @@ class TranslationCache(models.Model):
 
 class UserProfile(models.Model):
     """Extended user profile for storing additional information"""
-    ROLE_CHOICES = [
-        ('user', 'User'),
-        ('manager', 'Manager'),
-        ('hod', 'HOD'),
-        ('admin', 'Admin'),
-        ('backup_user', 'Backup User'),
-    ]
     
     user = models.OneToOneField(settings.AUTH_USER_MODEL,on_delete=models.CASCADE,related_name='profile')
     employee_code = models.CharField(max_length=50, unique=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
+    roles = models.ManyToManyField(Role, related_name='user_profiles', blank=True)
     hod_name = models.CharField(max_length=50, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
@@ -187,7 +221,8 @@ class UserProfile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"{self.employee_code} - {self.role}"
+        roles_str = ', '.join(self.roles.values_list('name', flat=True))
+        return f"{self.employee_code} - {roles_str or 'user'}"
     
     class Meta:
         ordering = ['-id']
@@ -283,6 +318,11 @@ class QPRRecord(models.Model):
     phone = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     is_submitted = models.BooleanField(default=False)
+    is_editing_allowed = models.BooleanField(default=False, help_text='Allow editing of submitted form after unlock')
+    cert_edit_count = models.IntegerField(default=0, help_text='Track certificate edits (max 2)')
+    cert_office_code = models.CharField(max_length=50, blank=True, null=True, help_text='Override office code for certificate')
+    cert_quarter = models.CharField(max_length=50, blank=True, null=True, help_text='Override quarter for certificate')
+    cert_year = models.CharField(max_length=20, blank=True, null=True, help_text='Override year for certificate')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -413,6 +453,21 @@ class TypingUsageReport(models.Model):
 
     def __str__(self):
         return f"Typing Usage Report - {self.qpr_record.officeName}"
+
+
+class CertificateData(models.Model):
+    """Store certificate data (year and quarter) selected by manager for each QPR submission"""
+    qpr_record = models.OneToOneField(QPRRecord, on_delete=models.CASCADE, related_name='certificate_data')
+    financial_year = models.CharField(max_length=20)
+    quarter_ending = models.CharField(max_length=50)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Certificate - {self.qpr_record.officeName} ({self.quarter_ending})"
+
+    class Meta:
+        ordering = ['-created_at']
 
     class Meta:
         ordering = ['-created_at']

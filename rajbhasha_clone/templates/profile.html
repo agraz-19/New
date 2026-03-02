@@ -47,8 +47,16 @@
                                 <small class="text-muted d-block mt-1">{{ "Editable (unless profile is frozen)"|t:current_lang }}</small>
                             </div>
                             <div class="col-md-6">
+                                <label class="form-label fw-bold">{{ "Username"|t:current_lang }}</label>
+                                <input type="text" name="username" class="form-control" value="{{ user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
+                                <small class="text-muted d-block mt-1">{{ "Your login username"|t:current_lang }}</small>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Phone Number"|t:current_lang }}</label>
-                                <input type="text" name="phone" class="form-control" value="{{ profile.phone|default:qpr_phone|default:'' }}" {% if not can_edit %}disabled{% endif %}>
+                                <input type="text" name="phone" class="form-control" value="{{ profile.phone|default:'' }}" {% if not can_edit %}disabled{% endif %}>
                                 <small class="text-muted d-block mt-1">{{ "Primary contact number"|t:current_lang }}</small>
                             </div>
                         </div>
@@ -61,11 +69,16 @@
                         <div class="row mb-4">
                             <div class="col-md-4">
                                 <label class="form-label fw-bold">{{ "Office Code"|t:current_lang }}</label>
-                                <input type="text" name="office_code" class="form-control" value="{{ profile.office_code|default:qpr_office_code|default:'' }}" {% if not can_edit %}disabled{% endif %}>
+                                <select name="office_code" id="office_code_select" class="form-select" {% if not can_edit %}disabled{% endif %} required>
+                                    <option value="">-- {{ "Select Office"|t:current_lang }} --</option>
+                                        {% for o in offices %}
+                                            <option value="{{ o.code }}" data-name="{{ o.name }}" {% if o.code == profile.office_code %}selected{% endif %}>{{ o.code }}</option>
+                                        {% endfor %}
+                                </select>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-bold">{{ "Office Name"|t:current_lang }}</label>
-                                <input type="text" name="office_name" class="form-control" value="{{ profile.office_name|default:qpr_office_name|default:'' }}" {% if not can_edit %}disabled{% endif %}>
+                                <input type="text" name="office_name" id="office_name_field" class="form-control" value="{{ profile.office_name|default:qpr_office_name|default:'' }}" readonly>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-bold">{{ "Notification Email"|t:current_lang }}</label>
@@ -73,16 +86,7 @@
                             </div>
                         </div>
 
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">{{ "Head of Department / Manager"|t:current_lang }}</label>
-                            <select name="hod_name" class="form-select" required {% if not can_edit %}disabled{% endif %}>
-                                <option value="">-- {{ "Select HOD"|t:current_lang }} --</option>
-                                {% for hod in available_hods %}
-                                    <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>{{ hod }}</option>
-                                {% endfor %}
-                            </select>
-                            <small class="text-muted d-block mt-1">{{ "Select your head of department or reporting officer."|t:current_lang }}</small>
-                        </div>
+                        <!-- HOD display removed as per design: HOD assigned by admin and not editable here -->
 
                         {# Profile status removed per design request #}
 
@@ -156,4 +160,28 @@
         border-bottom-color: #d4e2f0 !important;
     }
 </style>
+    <script>
+        (function() {
+            const officeSelect = document.getElementById('office_code_select');
+            const officeNameField = document.getElementById('office_name_field');
+            if (!officeSelect) return;
+
+            // Build a client-side map from the select options using data-name
+            const map = {};
+            for (let i = 0; i < officeSelect.options.length; i++) {
+                const opt = officeSelect.options[i];
+                if (!opt.value) continue;
+                map[opt.value] = opt.dataset.name || '';
+            }
+
+            officeSelect.addEventListener('change', function() {
+                const code = this.value;
+                officeNameField.value = map[code] || '';
+            });
+            // Initialize office name on load if a code is already selected
+            if (officeSelect.value) {
+                officeNameField.value = map[officeSelect.value] || officeNameField.value || '';
+            }
+        })();
+    </script>
 {% endblock %}

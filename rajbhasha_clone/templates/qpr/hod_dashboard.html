@@ -159,6 +159,56 @@
             </div>
         </div>
     </div>
+
+    <!-- Employee List -->
+    {% if user_list %}
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white fw-bold">
+                    <i class="fas fa-list"></i> {{ "Employees Under"|t:current_lang }} {{ hod_name|upper }}
+                </div>
+                <div class="card-body table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{{ "Name"|t:current_lang }}</th>
+                                <th>{{ "Employee Code"|t:current_lang }}</th>
+                                <th>{{ "Profile Status"|t:current_lang }}</th>
+                                <th>{{ "QPR Status"|t:current_lang }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in user_list %}
+                            <tr>
+                                <td class="fw-bold">
+                                    {{ user.name }}
+                                    {% if user.is_hod %}<span class="badge bg-success ms-2">{{ "HOD"|t:current_lang }}</span>{% endif %}
+                                </td>
+                                <td>{{ user.employee_code }}</td>
+                                <td>
+                                    {% if user.profile_updated %}
+                                        <span class="badge bg-success">{{ "Completed"|t:current_lang }}</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">{{ "Pending"|t:current_lang }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.qpr_status == 'Submitted' %}
+                                        <span class="badge bg-success">{{ "Submitted"|t:current_lang }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ "Draft"|t:current_lang }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 
