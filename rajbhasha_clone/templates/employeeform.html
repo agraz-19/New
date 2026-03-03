@@ -59,7 +59,15 @@
 <div class="row g-3">
   <div class="col-md-6">
     <label>{{"Empcode"|t:current_lang }}</label>
-    {{ form.empcode}}
+
+      {% if role == 'user' %}
+      <input type="text"
+            class="form-control"
+            value="{{ username }}"
+            readonly>
+      {% else %}
+      {{ form.empcode }}
+      {% endif %}
 
     <label class="mt-2">{{"Name in English"|t:current_lang }}</label>
     {{ form.ename}}
@@ -456,7 +464,13 @@ async function showSubmitted() {
           </tr>`);
       }
 
-      // 🔒 AUTO-DISABLE FORM IF SUBMITTED RECORD EXISTS
+      // 🔥 ADD THIS PART FOR SCROLLING
+      const section = document.getElementById("submittedSection");
+      if (section) {
+          section.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      // Auto-disable form if needed
       if (data.length > 0 && userRole !== 'manager') {
           disableForm();
       }

@@ -1615,11 +1615,29 @@ class SubmitDraftAPI(APIView):
         count = Employee.objects.filter(id__in=ids, status="draft").update(status="submitted", lastupdate=timezone.now())
         return Response({"message": f"{count} record(s) submitted"})
 
+# @login_required
+# def employee_form(request):
+#     if request.session.get('active_role') != 'user': return redirect('dashboard')
+#     form = EmployeeForm()
+#     return render(request, "employeeform.html", {"form": form})
+
 @login_required
 def employee_form(request):
-    if request.session.get('active_role') != 'user': return redirect('dashboard')
+    role = request.session.get('active_role')
+    
+    if role != 'user':
+        return redirect('dashboard')
+
     form = EmployeeForm()
-    return render(request, "employeeform.html", {"form": form})
+
+    context = {
+        "form": form,
+        "role": role,
+        "current_lang": request.session.get("lang", "en"),
+        "username": request.user.username   # 🔥 THIS IS IMPORTANT
+    }
+
+    return render(request, "employeeform.html", context)
 
 
 # ==================== EDIT REQUEST WORKFLOW ====================
