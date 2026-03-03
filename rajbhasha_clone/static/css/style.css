@@ -989,3 +989,183 @@ textarea:focus {
     outline: none !important;
     box-shadow: 0 0 0 2px rgba(13,110,253,0.15);
 }
+
+/* Style for the new image icons */
+  .download-icon-btn {
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      transition: transform 0.2s;
+  }
+  .download-icon-btn:hover {
+      transform: scale(1.1);
+  }
+  .download-icon-btn img {
+      width: 35px; /* Adjust size to match your UI */
+      height: auto;
+      display: block;
+  }
+  /* === Top right action buttons (View / PDF / Excel) === */
+.custom-btn-group{
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Button shell */
+.rect-slanted-btn{
+  --bg: #1f73b7;          /* main blue */
+  --bg-hover: #1a65a3;    /* hover blue */
+  --icon-bg: rgba(255,255,255,.14);
+
+  display: inline-flex;
+  align-items: stretch;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
+  cursor: pointer;
+  user-select: none;
+
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  transition: transform .08s ease, background .15s ease, box-shadow .15s ease;
+}
+
+.rect-slanted-btn:hover{
+  background: var(--bg-hover);
+  box-shadow: 0 4px 14px rgba(0,0,0,.16);
+}
+
+.rect-slanted-btn:active{
+  transform: translateY(1px);
+}
+
+.rect-slanted-btn:focus-visible{
+  outline: 3px solid rgba(13,110,253,.35);
+  outline-offset: 2px;
+}
+
+/* Left text part */
+.rect-slanted-btn .btn-text{
+  display: flex;
+  align-items: center;
+  padding: 10px 18px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: .2px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Right icon part */
+.rect-slanted-btn .btn-icon{
+  width: 52px;
+  display: grid;
+  place-items: center;
+  background: var(--icon-bg);
+  position: relative;
+}
+
+/* Creates the slanted divider */
+.rect-slanted-btn .btn-icon::before{
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 0;
+  height: 100%;
+  width: 28px;
+  background: inherit;
+  transform: skewX(-22deg);
+}
+
+/* Icon styling */
+.rect-slanted-btn .btn-icon img{
+  width: 18px;
+  height: 18px;
+  z-index: 1;
+
+  /* Makes most icons look white like the sample */
+  filter: brightness(0) invert(1);
+  opacity: .95;
+}
+
+/* Optional: compact size on small screens */
+@media (max-width: 576px){
+  .rect-slanted-btn .btn-text{ padding: 9px 14px; font-size: 15px; }
+  .rect-slanted-btn .btn-icon{ width: 46px; }
+}
+/* Force the classic PDF document icon */
+.download-icon-btn img.pdf-doc-icon{
+  width: 35px !important;
+  height: auto !important;
+  filter: none !important;
+  background: transparent !important;
+}
+
+<style>
+  .custom-btn-group{
+    display:flex !important;
+    gap:10px !important;
+    align-items:center !important;
+  }
+
+  button.rect-slanted-btn{
+    --bg:#1f73b7;
+    --bg-hover:#1a65a3;
+    --icon-bg:rgba(255,255,255,.14);
+
+    display:inline-flex !important;
+    align-items:stretch !important;
+    padding:0 !important;
+    border:0 !important;
+    border-radius:8px !important;
+    overflow:hidden !important;
+    background:var(--bg) !important;
+    cursor:pointer !important;
+    box-shadow:0 2px 8px rgba(0,0,0,.12) !important;
+  }
+
+  button.rect-slanted-btn:hover{ background:var(--bg-hover) !important; }
+
+  button.rect-slanted-btn .btn-text{
+    display:flex !important;
+    align-items:center !important;
+    padding:10px 18px !important;
+    color:#fff !important;
+    font-weight:700 !important;
+    font-size:16px !important;
+    line-height:1 !important;
+    white-space:nowrap !important;
+  }
+
+  button.rect-slanted-btn .btn-icon{
+    width:52px !important;
+    display:grid !important;
+    place-items:center !important;
+    background:var(--icon-bg) !important;
+    position:relative !important;
+  }
+
+  button.rect-slanted-btn .btn-icon::before{
+    content:"";
+    position:absolute;
+    left:-14px;
+    top:0;
+    height:100%;
+    width:28px;
+    background:inherit;
+    transform:skewX(-22deg);
+  }
+
+  /* keep these top icons white */
+  button.rect-slanted-btn .btn-icon img{
+    width:18px !important;
+    height:18px !important;
+    z-index:1;
+    filter:brightness(0) invert(1) !important;
+    opacity:.95 !important;
+  }
+</style>

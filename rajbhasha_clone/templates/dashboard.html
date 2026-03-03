@@ -103,8 +103,10 @@
         
         <div>
             <span class="badge bg-primary p-2">{{ user.role|upper }}</span>
-            {% if user.role == 'hod' and hod_name %}
-                <span class="badge bg-info text-dark p-2">{{ hod_name }}</span>
+            {% if user.role == 'hod' %}
+                <span class="badge bg-info text-dark p-2">
+                    <i class="fas fa-user-tie"></i> {{ user.profile.name|default:user.username }}
+                </span>
             {% endif %}
         </div>
     </div>
@@ -443,29 +445,63 @@
             new bootstrap.Modal(document.getElementById('designationModal')).show();
         }
     </script>
-        {% elif user.role == 'hod' %}
-        <div class="row">
-            <div class="col-md-3"><div class="stat-card text-center"><i class="fas fa-users stat-icon"></i><div class="stat-number">{{ total_users }}</div><div class="stat-label">{{ "Total Employees"|t:current_lang }}</div></div></div>
-            <div class="col-md-3"><div class="stat-card text-center" style="border-left-color: #28a745;"><i class="fas fa-check-circle stat-icon text-success"></i><div class="stat-number text-success">{{ qpr_submitted }}</div><div class="stat-label">{{ "QPR Submitted"|t:current_lang }}</div></div></div>
-            <div class="col-md-3"><div class="stat-card text-center" style="border-left-color: #ffc107;"><i class="fas fa-clock stat-icon text-warning"></i><div class="stat-number text-warning">{{ qpr_pending }}</div><div class="stat-label">{{ "QPR Pending"|t:current_lang }}</div></div></div>
-            <div class="col-md-3"><div class="stat-card text-center" style="border-left-color: #17a2b8;"><i class="fas fa-user-check stat-icon text-info"></i><div class="stat-number text-info">{{ profile_updated }}</div><div class="stat-label">{{ "Profile Updated"|t:current_lang }}</div></div></div>
-        </div>
+  {% elif user.role == 'hod' %}
 
-        <div class="card shadow-sm border-0 mt-3">
-            <div class="card-body">
-                <h5 class="fw-bold text-primary mb-3">{{ "Quick Actions"|t:current_lang }}</h5>
-                <a href="{% url 'qpr_hod_detail_list' %}" class="btn btn-primary me-2 mb-2"><i class="fas fa-table"></i> {{ "View Detail List"|t:current_lang }}</a>
-                <a href="{% url 'change_password' %}" class="btn btn-warning me-2 mb-2"><i class="fas fa-lock"></i> {{ "Change Password"|t:current_lang }}</a>
+    <!-- Stats Cards Row -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card text-center">
+                <i class="fas fa-users stat-icon"></i>
+                <div class="stat-label">{{ "Total Employees"|t:current_lang }}</div>
             </div>
         </div>
-
-        <button class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></button>
-        <div class="menu-items" id="menuItems">
-            <a href="{% url 'qpr_hod_dashboard' %}" class="menu-item"><i class="fas fa-chart-pie"></i> {{ "Dashboard"|t:current_lang }}</a>
-            <a href="{% url 'qpr_hod_detail_list' %}" class="menu-item"><i class="fas fa-list"></i> {{ "Detail List"|t:current_lang }}</a>
-            <a href="{% url 'logout' %}" class="menu-item text-danger"><i class="fas fa-sign-out-alt"></i> {{ "Logout"|t:current_lang }}</a>
+        <div class="col-md-3">
+            <div class="stat-card text-center" style="border-left-color: #28a745;">
+                <i class="fas fa-check-circle stat-icon text-success"></i>
+                <div class="stat-label text-success">{{ "QPR Submitted"|t:current_lang }}</div>
+            </div>
         </div>
-        <script> document.getElementById('menuToggle').addEventListener('click', () => { document.getElementById('menuItems').classList.toggle('active'); }); </script>
+        <div class="col-md-3">
+            <div class="stat-card text-center" style="border-left-color: #ffc107;">
+                <i class="fas fa-clock stat-icon text-warning"></i>
+                <div class="stat-label text-warning">{{ "QPR Pending"|t:current_lang }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card text-center" style="border-left-color: #17a2b8;">
+                <i class="fas fa-user-check stat-icon text-info"></i>
+                <div class="stat-label text-info">{{ "Profile Updated"|t:current_lang }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions Card -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <h5 class="fw-bold text-primary mb-3">{{ "Quick Actions"|t:current_lang }}</h5>
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{% url 'qpr_hod_detail_list' %}" class="btn btn-primary">
+                    <i class="fas fa-table"></i> {{ "View Detail List"|t:current_lang }}
+                </a>
+                <a href="{% url 'change_password' %}" class="btn btn-warning">
+                    <i class="fas fa-lock"></i> {{ "Change Password"|t:current_lang }}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Menu Toggle -->
+    <button class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></button>
+    <div class="menu-items" id="menuItems">
+        <a href="{% url 'qpr_hod_dashboard' %}" class="menu-item"><i class="fas fa-chart-pie"></i> {{ "Dashboard"|t:current_lang }}</a>
+        <a href="{% url 'qpr_hod_detail_list' %}" class="menu-item"><i class="fas fa-list"></i> {{ "Detail List"|t:current_lang }}</a>
+        <a href="{% url 'logout' %}" class="menu-item text-danger"><i class="fas fa-sign-out-alt"></i> {{ "Logout"|t:current_lang }}</a>
+    </div>
+    <script> 
+        document.getElementById('menuToggle').addEventListener('click', () => { 
+            document.getElementById('menuItems').classList.toggle('active'); 
+        }); 
+    </script>
 
     {% elif user.role == 'backup_user' %}
         <div class="card shadow-sm border-info mt-4">

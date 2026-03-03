@@ -21,7 +21,32 @@
 
 <div class="container-fluid mt-4 mb-5 px-4">
 
-<h4 class="text-primary border-bottom pb-2">{{"Employee Entry Form"|t:current_lang }}</h4>
+<div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-4">
+    <h4 class="text-primary mb-0">{{"Employee Entry Form"|t:current_lang }}</h4>
+    
+    <div class="custom-btn-group">
+        <button type="button" class="rect-slanted-btn" onclick="showSubmitted()">
+  <span class="btn-text">View</span>
+  <div class="btn-icon">
+    <img src="https://img.icons8.com/ios-filled/24/ffffff/document.png" alt="view">
+  </div>
+</button>
+
+<button type="button" class="rect-slanted-btn" onclick="downloadPDF()">
+  <span class="btn-text">PDF</span>
+  <div class="btn-icon">
+    <img src="https://img.icons8.com/ios-filled/24/ffffff/pdf.png" alt="pdf">
+  </div>
+</button>
+
+<button type="button" class="rect-slanted-btn" onclick="downloadExcel()">
+  <span class="btn-text">Excel</span>
+  <div class="btn-icon">
+    <img src="https://img.icons8.com/material-rounded/24/ffffff/ms-excel.png" alt="excel">
+  </div>
+</button>
+    </div>
+</div>
 
 <div id="lastUpdatedBox" class="text-muted small mb-2" style="display:none;">
   <strong>{{"Last Updated On:"|t:current_lang }}</strong>
@@ -34,7 +59,15 @@
 <div class="row g-3">
   <div class="col-md-6">
     <label>{{"Empcode"|t:current_lang }}</label>
-    {{ form.empcode}}
+
+      {% if role == 'user' %}
+      <input type="text"
+            class="form-control"
+            value="{{ username }}"
+            readonly>
+      {% else %}
+      {{ form.empcode }}
+      {% endif %}
 
     <label class="mt-2">{{"Name in English"|t:current_lang }}</label>
     {{ form.ename}}
@@ -175,9 +208,16 @@
 </div>
 
 <div id="submittedSection" style="display:none;">
-<div class="d-flex justify-content-end mb-2">
-  <button type="button" class="btn btn-success me-2" onclick="downloadExcel()">{{"Download Excel"|t:current_lang }}</button>
-  <button type="button" class="btn btn-danger" onclick="downloadPDF()">{{"Download PDF"|t:current_lang }}</button>
+<div class="d-flex justify-content-end align-items-center gap-3 mb-2">
+  
+  <button type="button" class="download-icon-btn" onclick="downloadExcel()" title="Download Excel">
+    <img src="https://img.icons8.com/ios-filled/24/4caf50/ms-excel.png" alt="Excel">
+</button>
+
+  <button type="button" class="download-icon-btn" onclick="downloadPDF()" title="Download PDF">
+  <img class="pdf-doc-icon" src="https://img.icons8.com/color/48/pdf.png?v=9999" alt="PDF">
+</button>
+  
 </div>
 <div class="table-responsive">
   <table class="table table-bordered table-sm align-middle" id="submittedTable">
@@ -424,7 +464,13 @@ async function showSubmitted() {
           </tr>`);
       }
 
-      // 🔒 AUTO-DISABLE FORM IF SUBMITTED RECORD EXISTS
+      // 🔥 ADD THIS PART FOR SCROLLING
+      const section = document.getElementById("submittedSection");
+      if (section) {
+          section.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      // Auto-disable form if needed
       if (data.length > 0 && userRole !== 'manager') {
           disableForm();
       }

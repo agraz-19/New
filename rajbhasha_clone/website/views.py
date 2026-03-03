@@ -898,22 +898,37 @@ def user_dashboard(request):
     response['Expires'] = '0'
     return response 
 @login_required
-@login_required
 def qpr_hod_dashboard(request):
     """HOD Dashboard - Department overview and employee statistics"""
-    if request.user.profile.role != 'hod': return redirect('/')
+    if request.user.profile.role != 'hod': 
+        return redirect('/')
+    
     lang = request.session.get('lang', 'en')
-    hod_name = request.user.profile.hod_name
+    profile = request.user.profile
+    
+    # Multiple fallback options
+    hod_name = (
+        profile.hod_name or 
+        profile.name or 
+        request.user.get_full_name() or 
+        request.user.username or 
+        "Department Head"
+    )
+    
     users_under_hod = UserProfile.objects.filter(role='user', hod_name=hod_name)
     total_users = users_under_hod.count()
+    
     qpr_submitted_count = 0
     profile_updated_count = 0
+    
     for user_profile in users_under_hod:
         if user_profile.user.qpr_records.filter(is_submitted=True).exists():
             qpr_submitted_count += 1
         if user_profile.profile_updated:
             profile_updated_count += 1
+    
     qpr_pending = total_users - qpr_submitted_count
+    
     context = {
         'total_users': total_users,
         'qpr_submitted': qpr_submitted_count, 
@@ -922,6 +937,7 @@ def qpr_hod_dashboard(request):
         'hod_name': hod_name,
         'current_lang': lang
     }
+    
     response = render(request, 'qpr/hod_dashboard.html', context)
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
@@ -1380,7 +1396,7 @@ def typing_usage_report_view(request, record_id):
 @login_required
 def hod_detail_list(request):
     if request.user.profile.role != 'hod': return redirect('/')
-    hod_name = request.user.profile.hod_name
+    hod_name = request.user.profile.name or request.user.username
     users_under_hod = UserProfile.objects.filter(role='user', hod_name=hod_name).select_related('user')
     users_data = []
     for user_profile in users_under_hod:
@@ -1599,11 +1615,29 @@ class SubmitDraftAPI(APIView):
         count = Employee.objects.filter(id__in=ids, status="draft").update(status="submitted", lastupdate=timezone.now())
         return Response({"message": f"{count} record(s) submitted"})
 
+# @login_required
+# def employee_form(request):
+#     if request.session.get('active_role') != 'user': return redirect('dashboard')
+#     form = EmployeeForm()
+#     return render(request, "employeeform.html", {"form": form})
+
 @login_required
 def employee_form(request):
-    if request.session.get('active_role') != 'user': return redirect('dashboard')
+    role = request.session.get('active_role')
+    
+    if role != 'user':
+        return redirect('dashboard')
+
     form = EmployeeForm()
-    return render(request, "employeeform.html", {"form": form})
+
+    context = {
+        "form": form,
+        "role": role,
+        "current_lang": request.session.get("lang", "en"),
+        "username": request.user.username   # 🔥 THIS IS IMPORTANT
+    }
+
+    return render(request, "employeeform.html", context)
 
 
 # ==================== EDIT REQUEST WORKFLOW ====================
