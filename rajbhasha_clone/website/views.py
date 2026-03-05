@@ -38,6 +38,7 @@ from .models import (
     Section9ImplementationCommitteeData, Section10HindiAdvisoryData,
     Section11SpecificAchievementsData, UserProfile, ManagerRequest, EditRequest,
     TypingUsageReport, CertificateData
+    , QPRPartTwo, StaffHindiKnowledge, HindiPost
 )
 from .forms import CustomLoginForm, CustomUserCreationForm, TypingUsageReportForm, CertificateDataForm
 from .employeeform import EmployeeForm
@@ -1307,80 +1308,6 @@ def manager_dashboard(request):
     return render(request, 'manager_dashboard.html', context)
 
 @login_required
-def manage_user_action(request, user_id, action):
-    # ==========================================
-    # 1. HANDLE QPR ACTIONS (Uses QPR ID)
-    # ==========================================
-    if action == 'unlock_qpr':
-        # Check permissions
-        if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
-            messages.error(request, "Unauthorized")
-            return redirect('dashboard')
-            
-        try:
-            # Here 'user_id' is actually the QPR Record ID
-            qpr = QPRRecord.objects.get(id=user_id)
-            qpr.is_submitted = False
-            qpr.status = "Draft"
-            qpr.save()
-            messages.success(request, "QPR Form unlocked successfully.")
-        except QPRRecord.DoesNotExist:
-            messages.error(request, "QPR Record not found.")
-        return redirect('dashboard')
-
-    # ==========================================
-    # 2. HANDLE USER ACTIONS (Uses User ID)
-    # ==========================================
-    # Now it is safe to look for the user
-    target_user = get_object_or_404(CustomUser, id=user_id)
-    lang = request.session.get('lang', 'en')
-
-    # A. Unlock Employee Profile (Uses User -> Employee Lookup)
-    if action == 'unlock_record':
-        # Robust Lookup: Try strict match, then string conversion match
-        employee = Employee.objects.filter(empcode=target_user.username).first()
-        
-        if not employee:
-            # Fallback: username might be string "101" while empcode is int 101 or vice versa
-            employee = Employee.objects.filter(empcode=str(target_user.username)).first()
-
-        if employee:
-            employee.status = 'draft'
-            employee.save()
-            
-            # Also allow user to edit profile (email/etc)
-            target_user.is_edit_allowed = True
-            target_user.save()
-            
-            # Mark any pending ManagerRequest for this user as approved
-            ManagerRequest.objects.filter(user=target_user, request_type='profile', status='pending').update(status='approved')
-
-            messages.success(request, f"Employee Record for {target_user.username} unlocked.")
-        else:
-            messages.error(request, f"No Employee Record found linked to user: {target_user.username}")
-
-    # B. Admin Archive Actions
-    elif action == 'archive':
-        if not user_has_role(request.user, ['admin']):
-            messages.error(request, "Only Admins can archive.")
-        else:
-            target_user.is_active = False
-            target_user.is_archived = True
-            target_user.save()
-            messages.success(request, "User archived.")
-
-    elif action == 'unarchive':
-        if not user_has_role(request.user, ['admin']):
-            messages.error(request, "Only Admins can restore.")
-        else:
-            target_user.is_active = True
-            target_user.is_archived = False
-            target_user.save()
-            messages.success(request, "User restored.")
-
-    return redirect('dashboard')
-
-@login_required
 def admin_dashboard(request):
     if user_role(request.user) != 'admin': return redirect('/')
     
@@ -1859,7 +1786,6 @@ def typing_usage_report_view(request, record_id):
     
     return render(request, 'qpr/typing_usage_report_view.html', context)
 
-@login_required
 @login_required
 def hod_detail_list(request):
     if not user_has_role(request.user, 'hod'): return redirect('/')
@@ -2577,27 +2503,17 @@ def reject_edit_request(request, request_id):
     return render(request, 'qpr/reject_edit_request.html', context)
 
 
-@login_required
-@user_passes_test(is_admin)
 def typing_data_report(request):
-    """Admin view all employees' typing usage data"""
     lang = request.session.get('lang', 'en')
-    
-    # Get all typing usage reports with related data
     typing_reports = TypingUsageReport.objects.select_related(
         'qpr_record__user__profile',
         'qpr_record__section7'
     ).all()
-    
     data = []
     for report in typing_reports:
         qpr_record = report.qpr_record
         user_profile = qpr_record.user.profile if qpr_record.user else None
-        
-        # Get employee name
         employee_name = (user_profile.name if user_profile else None) or (qpr_record.user.username if qpr_record.user else 'Unknown')
-        
-        # Get designation
         designation = (user_profile.office_name if user_profile else None) or 'N/A'
         try:
             if user_profile and user_profile.employee_code:
@@ -2615,7 +2531,6 @@ def typing_data_report(request):
             total_notes = 0
             hindi_notes = 0
         
-        # Calculate percentages
         notes_hindi_percentage = (hindi_notes / total_notes * 100) if total_notes > 0 else 0
         words_hindi_percentage = ((report.hindi_words or 0) / (report.total_words or 1) * 100) if (report.total_words and report.total_words > 0) else 0
         
@@ -2941,9 +2856,12 @@ def manager_report(request):
     if manager_office:
         # expected users list (use user_id to avoid mismatches)
         # Include users who have the 'user' role on either UserProfile or CustomUser
+        # Use distinct() to avoid duplicate user_ids from join duplication
         expected_user_ids = list(UserProfile.objects.filter(office_code=manager_office).filter(
             Q(roles__name='user') | Q(user__roles__name='user')
-        ).values_list('user_id', flat=True))
+        ).values_list('user_id', flat=True).distinct())
+        # Ensure we only consider non-null user ids
+        expected_user_ids = [u for u in expected_user_ids if u is not None]
         users_count = len(expected_user_ids)
     logger.debug('manager_report: manager=%s office=%s users_count=%s', request.user.username, manager_office, users_count)
 
@@ -3034,7 +2952,7 @@ def manager_report_detail(request, year, quarter):
         })
 
     context = {
-        'year': year,
+        'year': year if year else '2025-2026', # <--- Add the fallback here too!
         'quarter': quarter,
         'office_code': manager_office,
         'grouped': grouped,
@@ -3071,14 +2989,12 @@ def qpr_certificate(request, record_id):
 
 @login_required
 def manager_report_detail_by_record(request, record_id):
-    """Lookup the record by id and call the existing manager_report_detail view.
-    This avoids putting `quarter` (which may contain slashes) into the URL path.
-    """
     try:
         rec = QPRRecord.objects.get(pk=record_id)
     except QPRRecord.DoesNotExist:
         return redirect('manager_report')
-
+    
+    safe_year = rec.year if rec.year else '2025-2026'
     # Delegate to manager_report_detail using the record's year and quarter
     return manager_report_detail(request, rec.year, rec.quarter)
 
@@ -3104,8 +3020,11 @@ def certificate_form_view(request, record_id):
         }
     )
     
-    # Redirect to display view
-    return redirect('certificate_display', record_id=record.id)
+    # Redirect to Part II form view (manager fills Part II here)
+    return redirect('certificate_part2', record_id=record.id)
+
+
+
 
 
 @login_required
@@ -3131,6 +3050,328 @@ def certificate_display_view(request, record_id):
         'cert_data': cert_data,
     }
     return render(request, 'qpr/certificate_display.html', context)
+
+
+@login_required
+def certificate_part2_view(request, record_id):
+    """Render and save Part II of QPR (manager-facing form).
+    GET: render the `certificate_part2.html` form pre-filled when data exists.
+    POST: accept JSON payload and create/update QPRPartTwo + related rows.
+    Enforce at most 2 manager edits for existing records (uses QPRRecord.cert_edit_count).
+    """
+    try:
+        record = QPRRecord.objects.get(pk=record_id)
+    except QPRRecord.DoesNotExist:
+        return redirect('manager_report')
+
+    # Permission: only manager/admin
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return redirect('/')
+
+    if request.method == 'GET':
+        part2 = getattr(record, 'part2', None)
+
+        # Prepare JSON payload for client-side prefill, include all scalar fields
+        part2_data = {}
+        if part2:
+            part2_data = {
+                'financial_year': part2.financial_year,
+                'is_notified_rule_10_4': bool(part2.is_notified_rule_10_4),
+                'total_sub_offices': part2.total_sub_offices,
+                'notified_sub_offices': part2.notified_sub_offices,
+                'computer_training_total_staff': part2.computer_training_total_staff,
+                'computer_training_trained': part2.computer_training_trained,
+                'computer_training_working': part2.computer_training_working,
+                'total_computers': part2.total_computers,
+                'hindi_enabled_computers': part2.hindi_enabled_computers,
+                'officials_issued_rule_8_4_orders': part2.officials_issued_rule_8_4_orders,
+                'training_total_duration_hours': part2.training_total_duration_hours,
+                'training_imparted_hindi': part2.training_imparted_hindi,
+                'training_imparted_english': part2.training_imparted_english,
+                'training_imparted_mixed': part2.training_imparted_mixed,
+                'sec8_total_sections': part2.sec8_total_sections,
+                'sec8_inspected_sections': part2.sec8_inspected_sections,
+                'sec8_total_sub_offices': part2.sec8_total_sub_offices,
+                'sec8_inspected_sub_offices': part2.sec8_inspected_sub_offices,
+                'magazines_total': part2.magazines_total,
+                'magazines_hindi': part2.magazines_hindi,
+                'magazines_english': part2.magazines_english,
+                'expenditure_total_books': str(part2.expenditure_total_books),
+                'expenditure_hindi_books': str(part2.expenditure_hindi_books),
+                'hindi_event_start_date': part2.hindi_event_start_date.isoformat() if part2.hindi_event_start_date else '',
+                'hindi_event_end_date': part2.hindi_event_end_date.isoformat() if part2.hindi_event_end_date else '',
+                'seminar_date': part2.seminar_date.isoformat() if part2.seminar_date else '',
+                'seminar_subject': part2.seminar_subject,
+                'other_activities_date': part2.other_activities_date.isoformat() if part2.other_activities_date else '',
+                'other_activities_subject': part2.other_activities_subject,
+                'staff_knowledge': list(part2.staff_knowledge.values('category', 'officers_count', 'employees_count', 'total_count')),
+                'hindi_posts': list(part2.hindi_posts.values('designation', 'sanctioned', 'vacant')),
+                'typing_knowledge': list(part2.typing_knowledge.values('category', 'total_no', 'trained_in_hindi', 'work_in_hindi', 'yet_to_be_trained')),
+                'translation_knowledge': list(part2.translation_knowledge.values('category', 'officers_count', 'employees_count', 'total_count')),
+                'code_manuals': list(part2.codes_manuals.values('category', 'total_no', 'bilingual_no')),
+                'officers_work': list(part2.officers_work.values('level', 'total_officers', 'knowledge_of_hindi', 'not_doing', 'doing_upto_25', 'doing_26_to_50', 'doing_51_to_75', 'doing_more_76', 'doing_cent_percent')),
+                'websites': list(part2.websites.values('url', 'status')),
+                'chairperson': {
+                    'name': part2.chairperson_name or '',
+                    'designation': part2.chairperson_designation or '',
+                    'phone': part2.chairperson_phone or '',
+                    'fax': part2.chairperson_fax or '',
+                    'email': part2.chairperson_email or ''
+                }
+            }
+
+        context = {
+            'record': record,
+            'part2': part2,
+            'part2_json': json.dumps(part2_data)
+        }
+        return render(request, 'qpr/certificate_part2.html', context)
+
+    # POST - save JSON payload
+    try:
+        payload = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON payload'}, status=400)
+    # Determine action: 'save' or 'submit'
+    action = payload.get('action', 'save')
+
+    existing = getattr(record, 'part2', None)
+    if existing:
+        part2 = existing
+        # If already submitted and not unlocked for editing, block edits (except admins)
+        if part2.is_submitted and not record.is_editing_allowed and not (user_has_role(request.user, ['admin']) or request.user.is_superuser):
+            return JsonResponse({'success': False, 'error': 'This Part II has been submitted and is locked for editing.'}, status=403)
+    else:
+        from decimal import Decimal
+        part2 = QPRPartTwo.objects.create(qpr_record=record, financial_year=payload.get('financial_year', record.year or ''))
+
+    # Update scalar fields on part2
+    # Map known scalar fields if present
+    if 'financial_year' in payload:
+        part2.financial_year = payload.get('financial_year')
+    if 'is_notified_rule_10_4' in payload:
+        part2.is_notified_rule_10_4 = bool(payload.get('is_notified_rule_10_4'))
+    if 'total_sub_offices' in payload:
+        part2.total_sub_offices = int(payload.get('total_sub_offices') or 0)
+    if 'notified_sub_offices' in payload:
+        part2.notified_sub_offices = int(payload.get('notified_sub_offices') or 0)
+    # Additional scalar fields
+    if 'computer_training_total_staff' in payload:
+        part2.computer_training_total_staff = int(payload.get('computer_training_total_staff') or 0)
+    if 'computer_training_trained' in payload:
+        part2.computer_training_trained = int(payload.get('computer_training_trained') or 0)
+    if 'computer_training_working' in payload:
+        part2.computer_training_working = int(payload.get('computer_training_working') or 0)
+    if 'total_computers' in payload:
+        part2.total_computers = int(payload.get('total_computers') or 0)
+    if 'hindi_enabled_computers' in payload:
+        part2.hindi_enabled_computers = int(payload.get('hindi_enabled_computers') or 0)
+    if 'officials_issued_rule_8_4_orders' in payload:
+        part2.officials_issued_rule_8_4_orders = int(payload.get('officials_issued_rule_8_4_orders') or 0)
+    if 'training_total_duration_hours' in payload:
+        part2.training_total_duration_hours = int(payload.get('training_total_duration_hours') or 0)
+    if 'training_imparted_hindi' in payload:
+        part2.training_imparted_hindi = int(payload.get('training_imparted_hindi') or 0)
+    if 'training_imparted_english' in payload:
+        part2.training_imparted_english = int(payload.get('training_imparted_english') or 0)
+    if 'training_imparted_mixed' in payload:
+        part2.training_imparted_mixed = int(payload.get('training_imparted_mixed') or 0)
+    if 'sec8_total_sections' in payload:
+        part2.sec8_total_sections = int(payload.get('sec8_total_sections') or 0)
+    if 'sec8_inspected_sections' in payload:
+        part2.sec8_inspected_sections = int(payload.get('sec8_inspected_sections') or 0)
+    if 'sec8_total_sub_offices' in payload:
+        part2.sec8_total_sub_offices = int(payload.get('sec8_total_sub_offices') or 0)
+    if 'sec8_inspected_sub_offices' in payload:
+        part2.sec8_inspected_sub_offices = int(payload.get('sec8_inspected_sub_offices') or 0)
+    if 'magazines_total' in payload:
+        part2.magazines_total = int(payload.get('magazines_total') or 0)
+    if 'magazines_hindi' in payload:
+        part2.magazines_hindi = int(payload.get('magazines_hindi') or 0)
+    if 'magazines_english' in payload:
+        part2.magazines_english = int(payload.get('magazines_english') or 0)
+    if 'expenditure_total_books' in payload:
+        try:
+            part2.expenditure_total_books = Decimal(str(payload.get('expenditure_total_books') or 0))
+        except Exception:
+            part2.expenditure_total_books = Decimal('0.00')
+    if 'expenditure_hindi_books' in payload:
+        try:
+            part2.expenditure_hindi_books = Decimal(str(payload.get('expenditure_hindi_books') or 0))
+        except Exception:
+            part2.expenditure_hindi_books = Decimal('0.00')
+    # Dates and text
+    if 'hindi_event_start_date' in payload:
+        part2.hindi_event_start_date = payload.get('hindi_event_start_date') or None
+    if 'hindi_event_end_date' in payload:
+        part2.hindi_event_end_date = payload.get('hindi_event_end_date') or None
+    if 'seminar_date' in payload:
+        part2.seminar_date = payload.get('seminar_date') or None
+    if 'seminar_subject' in payload:
+        part2.seminar_subject = payload.get('seminar_subject') or ''
+    if 'other_activities_date' in payload:
+        part2.other_activities_date = payload.get('other_activities_date') or None
+    if 'other_activities_subject' in payload:
+        part2.other_activities_subject = payload.get('other_activities_subject') or ''
+
+    # Other scalar fields can be mapped similarly if included in payload
+    part2.save()
+
+    # If action is 'submit' mark submitted and lock editing
+    if action == 'submit':
+        from django.utils import timezone
+        part2.is_submitted = True
+        part2.submitted_at = timezone.now()
+        part2.submitted_by = request.user
+        part2.save()
+        # Lock editing until manager unlocks via manager table
+        record.is_editing_allowed = False
+        record.save(update_fields=['is_editing_allowed'])
+
+    # Replace staff_knowledge rows
+    if 'staff_knowledge' in payload:
+        part2.staff_knowledge.all().delete()
+        for item in payload.get('staff_knowledge', []):
+            StaffHindiKnowledge.objects.create(
+                report=part2,
+                category=item.get('category', ''),
+                officers_count=int(item.get('officers_count') or 0),
+                employees_count=int(item.get('employees_count') or 0),
+                total_count=int(item.get('total_count') or 0)
+            )
+
+    # Typing/Stenography rows
+    if 'typing_knowledge' in payload:
+        part2.typing_knowledge.all().delete()
+        for item in payload.get('typing_knowledge', []):
+            from website.models import TypingStenographyKnowledge
+            TypingStenographyKnowledge.objects.create(
+                report=part2,
+                category=item.get('category', ''),
+                total_no=int(item.get('total_no') or 0),
+                trained_in_hindi=int(item.get('trained_in_hindi') or 0),
+                work_in_hindi=int(item.get('work_in_hindi') or 0),
+                yet_to_be_trained=int(item.get('yet_to_be_trained') or 0)
+            )
+
+    # Translation knowledge
+    if 'translation_knowledge' in payload:
+        part2.translation_knowledge.all().delete()
+        for item in payload.get('translation_knowledge', []):
+            from website.models import TranslationKnowledge
+            TranslationKnowledge.objects.create(
+                report=part2,
+                category=item.get('category', ''),
+                officers_count=int(item.get('officers_count') or 0),
+                employees_count=int(item.get('employees_count') or 0),
+                total_count=int(item.get('total_count') or 0)
+            )
+
+    # Code/manuals
+    if 'code_manuals' in payload:
+        part2.codes_manuals.all().delete()
+        for item in payload.get('code_manuals', []):
+            from website.models import CodeManualStandardForms
+            CodeManualStandardForms.objects.create(
+                report=part2,
+                category=item.get('category', ''),
+                total_no=int(item.get('total_no') or 0),
+                bilingual_no=int(item.get('bilingual_no') or 0)
+            )
+
+    # Officers work (sections 11 & 12)
+    if 'officers_work' in payload:
+        part2.officers_work.all().delete()
+        for item in payload.get('officers_work', []):
+            from website.models import OfficersWorkInHindi
+            OfficersWorkInHindi.objects.create(
+                report=part2,
+                level=item.get('level', ''),
+                total_officers=int(item.get('total_officers') or 0),
+                knowledge_of_hindi=int(item.get('knowledge_of_hindi') or 0),
+                not_doing=int(item.get('not_doing') or 0),
+                doing_upto_25=int(item.get('doing_upto_25') or 0),
+                doing_26_to_50=int(item.get('doing_26_to_50') or 0),
+                doing_51_to_75=int(item.get('doing_51_to_75') or 0),
+                doing_more_76=int(item.get('doing_more_76') or 0),
+                doing_cent_percent=int(item.get('doing_cent_percent') or 0)
+            )
+
+    # Websites
+    if 'websites' in payload:
+        part2.websites.all().delete()
+        for w in payload.get('websites', []):
+            from website.models import WebsiteDetail
+            if not w.get('url'): continue
+            WebsiteDetail.objects.create(
+                report=part2,
+                url=w.get('url'),
+                status=w.get('status') or ''
+            )
+
+    # Chairperson / contact
+    if 'chairperson' in payload:
+        ch = payload.get('chairperson') or {}
+        part2.chairperson_name = ch.get('name') or ''
+        part2.chairperson_designation = ch.get('designation') or ''
+        part2.chairperson_phone = ch.get('phone') or ''
+        part2.chairperson_fax = ch.get('fax') or ''
+        part2.chairperson_email = ch.get('email') or ''
+        part2.save()
+
+    # Replace hindi_posts rows
+    if 'hindi_posts' in payload:
+        part2.hindi_posts.all().delete()
+        for p in payload.get('hindi_posts', []):
+            if not p.get('designation'):
+                continue
+            HindiPost.objects.create(
+                report=part2,
+                designation=p.get('designation'),
+                sanctioned=int(p.get('sanctioned') or 0),
+                vacant=int(p.get('vacant') or 0)
+            )
+
+    return JsonResponse({'success': True, 'message': 'Part II saved', 'edit_count': record.cert_edit_count})
+
+
+@login_required
+def certificate_part2_print_view(request, record_id):
+    try:
+        record = QPRRecord.objects.get(pk=record_id)
+    except QPRRecord.DoesNotExist:
+        raise Http404()
+
+    # Permission: manager/admin or read-only for others who can view
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser or request.user == record.user):
+        raise PermissionDenied()
+
+    part2 = getattr(record, 'part2', None)
+    part2_data = {}
+    if part2:
+        part2_data = {
+            'financial_year': part2.financial_year,
+            'is_notified_rule_10_4': bool(part2.is_notified_rule_10_4),
+            'total_sub_offices': part2.total_sub_offices,
+            'notified_sub_offices': part2.notified_sub_offices,
+            'staff_knowledge': list(part2.staff_knowledge.values('category', 'officers_count', 'employees_count', 'total_count')),
+            'hindi_posts': list(part2.hindi_posts.values('designation', 'sanctioned', 'vacant')),
+            'typing_knowledge': list(part2.typing_knowledge.values('category', 'total_no', 'trained_in_hindi', 'work_in_hindi', 'yet_to_be_trained')),
+            'translation_knowledge': list(part2.translation_knowledge.values('category', 'officers_count', 'employees_count', 'total_count')),
+            'code_manuals': list(part2.codes_manuals.values('category', 'total_no', 'bilingual_no')),
+            'officers_work': list(part2.officers_work.values('level', 'total_officers', 'knowledge_of_hindi', 'not_doing', 'doing_upto_25', 'doing_26_to_50', 'doing_51_to_75', 'doing_more_76', 'doing_cent_percent')),
+            'websites': list(part2.websites.values('url', 'status')),
+            'chairperson': {
+                'name': part2.chairperson_name or '',
+                'designation': part2.chairperson_designation or '',
+                'phone': part2.chairperson_phone or '',
+                'fax': part2.chairperson_fax or '',
+                'email': part2.chairperson_email or ''
+            }
+        }
+
+    context = {'record': record, 'part2': part2, 'part2_data': part2_data}
+    return render(request, 'qpr/certificate_part2_print.html', context)
 
 
 @login_required
@@ -3193,3 +3434,105 @@ def manager_report_edit_view(request, record_id):
             'success': False,
             'error': f'Server error: {str(e)}'
         }, status=500)
+from gtts import gTTS
+import os
+from django.conf import settings
+
+def generate_captcha_audio(text):
+    # This creates the audio from the captcha text
+    tts = gTTS(text=text, lang='en')
+    filename = os.path.join(settings.MEDIA_ROOT, 'captcha_audio.mp3')
+    tts.save(filename)
+    return filename
+
+@login_required
+def print_all_qpr_reports(request, year, quarter):
+    """Aggregates Part 1, Certificate, and Part 2 for all submitted employees for printing."""
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return redirect('/')
+
+    # Determine manager's office
+    manager_office = getattr(request.user.profile, 'office_code', None)
+    if not manager_office:
+        first = QPRRecord.objects.filter(user=request.user).first()
+        manager_office = first.officeCode if first else None
+
+    if not manager_office:
+        return redirect('manager_report')
+
+    normalized_year = '' if '2025' in year or year == '2025-2026' else year
+    
+    # Fetch all submitted QPRs for this office, year, and quarter
+    submitted_qprs = QPRRecord.objects.filter(
+        officeCode=manager_office, 
+        year=normalized_year, 
+        quarter=quarter, 
+        is_submitted=True
+    ).select_related('user', 'part2', 'certificate_data').order_by('user__username')
+
+    all_reports_data = []
+    
+    for record in submitted_qprs:
+        # 1. Part 1 Data
+        part1_data = serialize_qpr_record(record)
+        
+        # 2. Certificate Data
+        cert_data = getattr(record, 'certificate_data', None)
+        
+        # 3. Part 2 Data
+        part2 = getattr(record, 'part2', None)
+        part2_data = {}
+        if part2:
+            part2_data = {
+                'financial_year': part2.financial_year,
+                'is_notified_rule_10_4': bool(part2.is_notified_rule_10_4),
+                'total_sub_offices': part2.total_sub_offices,
+                'notified_sub_offices': part2.notified_sub_offices,
+                'staff_knowledge': list(part2.staff_knowledge.values('category', 'officers_count', 'employees_count', 'total_count')),
+                'hindi_posts': list(part2.hindi_posts.values('designation', 'sanctioned', 'vacant')),
+                'typing_knowledge': list(part2.typing_knowledge.values('category', 'total_no', 'trained_in_hindi', 'work_in_hindi', 'yet_to_be_trained')),
+                'translation_knowledge': list(part2.translation_knowledge.values('category', 'officers_count', 'employees_count', 'total_count')),
+                'code_manuals': list(part2.codes_manuals.values('category', 'total_no', 'bilingual_no')),
+                'officers_work': list(part2.officers_work.values('level', 'total_officers', 'knowledge_of_hindi', 'not_doing', 'doing_upto_25', 'doing_26_to_50', 'doing_51_to_75', 'doing_more_76', 'doing_cent_percent')),
+                'websites': list(part2.websites.values('url', 'status')),
+                'chairperson': {
+                    'name': part2.chairperson_name or '',
+                    'designation': part2.chairperson_designation or '',
+                    'phone': part2.chairperson_phone or '',
+                    'fax': part2.chairperson_fax or '',
+                    'email': part2.chairperson_email or ''
+                }
+            }
+
+        all_reports_data.append({
+            'record': record,
+            'part1': part1_data,
+            'cert': cert_data,
+            'part2': part2,
+            'part2_data': part2_data,
+            'employee_name': record.user.get_full_name() or record.user.username,
+            'emp_code': getattr(record.user.profile, 'employee_code', 'N/A') if hasattr(record.user, 'profile') else 'N/A'
+        })
+
+    context = {
+        'year': year,
+        'quarter': quarter,
+        'reports': all_reports_data,
+        'office_code': manager_office
+    }
+    return render(request, 'qpr/print_all_reports.html', context)
+# Debug helper: returns current user/session info (useful to verify AJAX session & roles)
+def debug_whoami(request):
+    try:
+        user = request.user
+        data = {
+            'is_authenticated': user.is_authenticated,
+            'username': user.username if user and user.is_authenticated else None,
+            'roles': user_get_all_roles(user) if user and user.is_authenticated else [],
+            'profile_office_code': getattr(getattr(user, 'profile', None), 'office_code', None),
+            'session_key': request.session.session_key,
+            'method': request.method,
+        }
+        return JsonResponse({'success': True, 'whoami': data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

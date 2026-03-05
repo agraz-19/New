@@ -1,4 +1,5 @@
 from django.urls import path, include
+from captcha import views as captcha_views
 from website import views
 from website.views import (
     CustomLoginView, signup, ForgotPasswordView, VerifyOTPView, ResetPasswordView,
@@ -7,7 +8,7 @@ from website.views import (
 
 urlpatterns = [
     path('captcha/', include('captcha.urls')),
-    
+path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),    
     # Core & Auth
     path('', views.home, name='home'),
     path('dashboard/', views.dashboard, name='dashboard'), # Central Router
@@ -39,10 +40,14 @@ urlpatterns = [
     path('manager/report/', views.manager_report, name='manager_report'),
     path('manager/report/edit/<int:record_id>/', views.manager_report_edit_view, name='manager_report_edit'),
     path('manager/report/record/<int:record_id>/', views.manager_report_detail_by_record, name='manager_report_detail_by_record'),
-    path('manager/report/<str:year>/<str:quarter>/', views.manager_report_detail, name='manager_report_detail'),
+    #path('manager/report/<str:year>/<path:quarter>/', views.manager_report_detail, name='manager_report_detail'),
     path('qpr/certificate/<int:record_id>/', views.qpr_certificate, name='qpr_certificate'),
     path('qpr/certificate/<int:record_id>/form/', views.certificate_form_view, name='certificate_form'),
     path('qpr/certificate/<int:record_id>/display/', views.certificate_display_view, name='certificate_display'),
+    path('qpr/certificate/<int:record_id>/part2/', views.certificate_part2_view, name='certificate_part2'),
+        path('qpr/certificate/<int:record_id>/part2/print/', views.certificate_part2_print_view, name='certificate_part2_print'),
+        # Debug
+        path('debug/whoami/', views.debug_whoami, name='debug_whoami'),
     path('qpr/hod/dashboard/', views.qpr_hod_dashboard, name='qpr_hod_dashboard'),
     path('qpr/user/dashboard/', views.user_dashboard, name='qpr_user_dashboard'),
 
@@ -90,4 +95,7 @@ urlpatterns = [
     path('download-backup/', views.download_db_backup, name='download_db_backup'),
     path('perform/archive/<int:user_id>/', views.archive_user, name='archive_user'),
     path('perform/unarchive/<int:archive_id>/', views.unarchive_user, name='unarchive_user'),
+
+path('manager/report/<str:year>/<path:quarter>/print-all/', views.print_all_qpr_reports, name='print_all_qpr_reports'),
+path('manager/report/<str:year>/<path:quarter>/', views.manager_report_detail, name='manager_report_detail'),
 ]
