@@ -3,7 +3,7 @@ from django.dispatch import receiver
 from django.contrib.auth.signals import user_logged_in
 from django.contrib.auth import get_user_model
 
-from .models import UserProfile
+from .models import UserProfile, Role
 from .utils import send_system_email
 
 User = get_user_model()
@@ -13,30 +13,47 @@ User = get_user_model()
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
-        UserProfile.objects.get_or_create(
+        profile, _ = UserProfile.objects.get_or_create(
             user=instance,
             defaults={
                 "employee_code": instance.username,
-                "role": getattr(instance, "role", "user"),
             }
         )
+        
+        # Assign appropriate roles to profile based on user
+        if instance.is_superuser:
+            # Superuser gets admin role
+            admin_role = Role.objects.get_or_create(name='admin')[0]
+            profile.roles.add(admin_role)
+        else:
+            # Regular users get user role
+            user_role = Role.objects.get_or_create(name='user')[0]
+            profile.roles.add(user_role)
 
 
-# 🔹 Always ensure profile exists and sync role
+# 🔹 Always ensure profile exists and sync roles
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
     profile, created = UserProfile.objects.get_or_create(
         user=instance,
         defaults={
             "employee_code": instance.username,
-            "role": getattr(instance, "role", "user"),
         }
     )
 
-    # Keep profile role synced with user role
-    if hasattr(instance, "role"):
-        profile.role = instance.role
-        profile.save()
+    # Sync user roles with profile roles
+    if instance.is_superuser:
+        # Superuser should have admin role
+        admin_role = Role.objects.get_or_create(name='admin')[0]
+        if not instance.roles.filter(name='admin').exists():
+            instance.roles.add(admin_role)
+        if not profile.roles.filter(name='admin').exists():
+            profile.roles.add(admin_role)
+    elif not instance.roles.exists():
+        # Ensure user has at least 'user' role
+        user_role = Role.objects.get_or_create(name='user')[0]
+        instance.roles.add(user_role)
+        profile.roles.add(user_role)
 
 
 # 🔹 Login signal

@@ -69,17 +69,22 @@ function maskSensitiveData(value) {
     return valueStr.charAt(0) + '*'.repeat(valueStr.length - 2) + valueStr.charAt(valueStr.length - 1);
 }
 
-// Fields to mask when in draft mode
-const SENSITIVE_FIELDS = ['officeCode', 'phone', 'email'];
+// Fields to mask when in draft mode (don't mask officeCode anymore)
+const SENSITIVE_FIELDS = ['phone', 'email'];
 
 // --- 1. Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Check if user is authenticated
-    checkAuthentication();
+    // Always initialize UI helpers
     populateYearDropdown();
-    loadData();
     initHindiKeyboard();
     bindHindiFocusHandlers();
+
+    // Only run QPR data loading / masking on QPR pages where related elements exist
+    const isQPRPage = !!(document.getElementById('tableBody') || document.getElementById('qprForm') || document.getElementById('year'));
+    if (isQPRPage) {
+        checkAuthentication();
+        loadData();
+    }
 });
 
 // Check if user is authenticated
@@ -335,12 +340,26 @@ async function saveData(status) {
             body: JSON.stringify(payload)
         });
         
+        console.log("Response status:", res.status, "ok:", res.ok);
+        
         if (res.ok) {
             alert(status === 'Draft' ? "Draft Saved Successfully!" : "Report Submitted Successfully!");
-            clearForm();
-            loadData(); 
+            
+            console.log("Alert shown. Status is:", status);
+            
+            // If submitted, redirect to report list; if draft, reload form
+            if (status === 'Submitted') {
+                console.log("Redirecting to /qpr/reports/");
+                window.location.href = "/qpr/reports/";
+            } else {
+                console.log("Not submitted, reloading form");
+                clearForm();
+                loadData();
+            }
         } else {
-            alert("Server Error: " + res.statusText);
+            const errorData = await res.json().catch(() => ({}));
+            console.error("Response error:", errorData);
+            alert("Server Error: " + (errorData.error || res.statusText));
         }
     } catch (err) {
         console.error("Save Error:", err);
@@ -366,7 +385,8 @@ function editRecord(id) {
     console.log("Filling form with record:", record);
     document.getElementById('recordId').value = record.id;
     document.getElementById('officeName').value = record.officeName;
-    document.getElementById('officeCode').value = maskSensitiveData(record.officeCode);
+    // Do not mask office code — show the full code so it is saved unchanged
+    document.getElementById('officeCode').value = record.officeCode || '';
     document.getElementById('region').value = record.region;
     document.getElementById('quarter').value = record.quarter;
     
