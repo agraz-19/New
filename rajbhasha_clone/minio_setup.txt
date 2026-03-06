@@ -3,7 +3,35 @@ MINIO SETUP GUIDE (LOCAL DEVELOPMENT)
 This project uses MinIO Object Storage to store event images dynamically
 for the homepage event gallery.
 
-To simply run and view the website, you ONLY need to start the MinIO server.
+IMPORTANT NOTE:
+
+The following files/folders are intentionally ignored in the Git repository
+because they exceed GitHub's file size limits (100MB) and are runtime storage files.
+
+Ignored files:
+- minio.exe
+- mc.exe
+- data/
+
+Each developer must download these files manually before running the project.
+
+Download links:
+
+MinIO Server:
+https://dl.min.io/server/minio/release/windows-amd64/minio.exe
+
+MinIO Client (mc):
+https://dl.min.io/client/mc/release/windows-amd64/mc.exe
+
+After downloading, place them inside the project folder:
+
+rajbhasha_clone/
+    minio/
+        minio.exe
+        mc.exe
+        data/
+
+Create the "data" folder manually if it does not exist.
 
 --------------------------------------------------
 
@@ -19,7 +47,7 @@ Example terminal path:
 
 PS D:\New\rajbhasha_clone\minio>
 
-Run the following command(IMPORTANT):
+Run the following command (IMPORTANT):
 
 .\minio.exe server data --console-address ":9001"
 
