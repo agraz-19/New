@@ -1,0 +1,164 @@
+MINIO SETUP GUIDE (LOCAL DEVELOPMENT)
+
+This project uses MinIO Object Storage to store event images dynamically.
+To simply run and view the website, you ONLY need to start the MinIO server.(STEP 1 to )
+
+--------------------------------------------------
+
+STEP 1 — Download MinIO Community Server
+
+Download from:
+https://min.io/download#/windows
+
+Download:
+MinIO Community Server (Windows)
+
+Rename the downloaded file to:
+minio.exe
+
+--------------------------------------------------
+
+STEP 2 — Create MinIO Folder
+
+Create a folder on your system:
+
+D:\minio
+
+Place the file inside:
+
+D:\minio\minio.exe
+
+--------------------------------------------------
+
+STEP 3 — Create Data Directory
+
+Inside the same folder create:
+
+D:\minio\data
+
+Final structure:
+
+D:\minio
+    minio.exe
+    data/
+
+--------------------------------------------------
+
+STEP 4 — Start MinIO Server
+
+Open Command Prompt and run:
+
+cd D:\minio
+
+Then start server:
+
+minio.exe server data --console-address ":9001"
+
+You will see output like:
+
+API: http://127.0.0.1:9000
+WebUI: http://127.0.0.1:9001
+
+Login credentials:
+
+Username: minioadmin
+Password: minioadmin
+
+--------------------------------------------------
+
+STEP 5 — Install MinIO CLI
+
+Download MinIO Client:
+
+https://dl.min.io/client/mc/release/windows-amd64/mc.exe
+
+Place it inside:
+
+D:\minio
+
+--------------------------------------------------
+
+STEP 6 — Configure MinIO CLI
+
+Run:
+
+mc alias set local http://127.0.0.1:9000 minioadmin minioadmin
+
+--------------------------------------------------
+
+STEP 7 — Create Events Bucket
+
+Run:
+
+mc mb local/events
+
+--------------------------------------------------
+
+STEP 8 — Make Bucket Public
+
+Run:
+
+mc anonymous set public local/events
+
+--------------------------------------------------
+
+STEP 9 — Upload Event Images
+
+Events are stored as folders inside the bucket.
+
+Folder naming format:
+
+YYYY-MM-DD_event-name
+
+Example:
+
+2026-09-14_hindi-diwas
+2026-08-25_rajbhasha-kirti-awards
+
+Upload images inside folder.
+
+Example structure:
+
+events/
+    2026-09-14_hindi-diwas/
+        img1.jpg
+        img2.jpg
+        img3.jpg
+
+    2026-08-25_rajbhasha-kirti-awards/
+        img1.jpg
+        img2.jpg
+
+--------------------------------------------------
+
+STEP 10 — Access Images
+
+Example URL format:
+
+http://127.0.0.1:9000/events/2026-09-14_hindi-diwas/img1.jpg
+
+--------------------------------------------------
+
+STEP 11 — Django Configuration
+
+Ensure settings.py contains:
+
+MINIO_ENDPOINT = "127.0.0.1:9000"
+MINIO_ACCESS_KEY = "minioadmin"
+MINIO_SECRET_KEY = "minioadmin"
+MINIO_BUCKET_NAME = "events"
+MINIO_SECURE = False
+
+--------------------------------------------------
+
+STEP 12 — Run Django Server
+
+python manage.py runserver
+
+Open homepage.
+
+Event cards will load automatically from MinIO.
+
+Clicking an event will display its images inside the homepage carousel.
+
+--------------------------------------------------
