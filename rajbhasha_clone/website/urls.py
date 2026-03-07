@@ -77,4 +77,6 @@ urlpatterns = [
     path('download-backup/', views.download_db_backup, name='download_db_backup'),
     path('perform/archive/<int:user_id>/', views.archive_user, name='archive_user'),
     path('perform/unarchive/<int:archive_id>/', views.unarchive_user, name='unarchive_user'),
+
+    path("event/<str:folder>/", views.event_detail, name="event_detail"),
 ]
