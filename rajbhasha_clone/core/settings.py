@@ -166,3 +166,10 @@ CAPTCHA_FLITE_PATH = os.path.join(BASE_DIR, 'espeak_wrapper.sh')
 # ENCRYPTION
 ENCRYPTION_KEY = 'EOxZWt1RC6O9GKhF8d30FUxyCyjGAz29smC5i8tWA0I='
 CSRF_FAILURE_VIEW = 'website.views.csrf_failure'
+# ---------------- MINIO CONFIG ---------------- #
+
+MINIO_ENDPOINT = "127.0.0.1:9000"
+MINIO_ACCESS_KEY = "minioadmin"
+MINIO_SECRET_KEY = "minioadmin"
+MINIO_BUCKET_NAME = "events"
+MINIO_SECURE = False  # False because localhost (http)

@@ -96,6 +96,7 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
     path('perform/archive/<int:user_id>/', views.archive_user, name='archive_user'),
     path('perform/unarchive/<int:archive_id>/', views.unarchive_user, name='unarchive_user'),
 
-path('manager/report/<str:year>/<path:quarter>/print-all/', views.print_all_qpr_reports, name='print_all_qpr_reports'),
-path('manager/report/<str:year>/<path:quarter>/', views.manager_report_detail, name='manager_report_detail'),
+    path('manager/report/<str:year>/<path:quarter>/print-all/', views.print_all_qpr_reports, name='print_all_qpr_reports'),
+    path('manager/report/<str:year>/<path:quarter>/', views.manager_report_detail, name='manager_report_detail'),
+    path("event/<str:folder>/", views.event_detail, name="event_detail"),
 ]

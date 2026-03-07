@@ -146,7 +146,7 @@
     </div>
 </div>
 
-<div class="content-container my-5">
+<!-- <div class="content-container my-5">
     <div id="newsSlider" class="carousel slide" data-bs-ride="false">
         <div class="carousel-inner">
             
@@ -230,6 +230,36 @@
             <a class="news-control-btn" href="#newsSlider" data-bs-slide="next">&rsaquo;</a>
         </div>
     </div>
+</div> -->
+<div class="content-container my-5">
+
+    <h4 class="fw-bold mb-4">{{ "Events & Highlights"|t:current_lang }}</h4>
+
+    <div class="row g-4">
+    {% for event in events %}
+    <div class="col-md-4">
+
+    <div class="card news-card event-card"
+        data-images="{% for img in event.images %}{{ img }}{% if not forloop.last %},{% endif %}{% endfor %}">
+
+        <div class="news-card-img-wrapper">
+            <img src="{{ event.thumbnail }}" alt="{{ event.title }}">
+        </div>
+
+        <div class="news-date">
+            {{ event.date }}
+        </div>
+
+        <div class="news-title">
+            {{ event.title }}
+        </div>
+
+    </div>
+
+    </div>
+    {% endfor %}
+    </div>
+
 </div>
 
 <div class="content-container mb-5">
@@ -262,77 +292,86 @@
 </div>
 
 <script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const triggers = document.querySelectorAll(".event-trigger");
-    const carouselInner = document.getElementById("mainCarouselInner");
-    const carouselIndicators = document.getElementById("mainCarouselIndicators");
-    const mainCarouselElement = document.getElementById("mainCarousel");
 
-    let mainCarousel = bootstrap.Carousel.getInstance(mainCarouselElement) ||
-      new bootstrap.Carousel(mainCarouselElement, {
-        interval: 3000,
+document.addEventListener("DOMContentLoaded", function () {
+
+const cards = document.querySelectorAll(".event-card");
+
+const carouselInner = document.getElementById("mainCarouselInner");
+const carouselIndicators = document.getElementById("mainCarouselIndicators");
+const mainCarouselElement = document.getElementById("mainCarousel");
+
+let carousel = bootstrap.Carousel.getInstance(mainCarouselElement);
+
+if (!carousel) {
+    carousel = new bootstrap.Carousel(mainCarouselElement, {
+        interval: 2000,
         ride: "carousel",
         pause: false,
-        touch: true,
-        wrap: true
-      });
-
-    triggers.forEach((trigger) => {
-      trigger.addEventListener("click", function () {
-        const imagesStr = this.getAttribute("data-images");
-        if (!imagesStr) return;
-
-        const images = imagesStr.split(",").map(s => s.trim()).filter(Boolean);
-
-        // Stop + destroy old instance (important)
-        const oldInstance = bootstrap.Carousel.getInstance(mainCarouselElement);
-        if (oldInstance) {
-          oldInstance.pause();
-          oldInstance.dispose();
-        }
-
-        // Clear current carousel content
-        carouselInner.innerHTML = "";
-        carouselIndicators.innerHTML = "";
-
-        // Generate new slides and indicators
-        images.forEach((imgSrc, index) => {
-          const activeClass = index === 0 ? "active" : "";
-
-          carouselInner.insertAdjacentHTML(
-            "beforeend",
-            `<div class="carousel-item ${activeClass}">
-               <img src="${imgSrc}" alt="Event Image ${index + 1}">
-             </div>`
-          );
-
-          carouselIndicators.insertAdjacentHTML(
-            "beforeend",
-            `<button type="button"
-                     data-bs-target="#mainCarousel"
-                     data-bs-slide-to="${index}"
-                     class="${activeClass}"
-                     ${index === 0 ? 'aria-current="true"' : ""}
-                     aria-label="Slide ${index + 1}">
-             </button>`
-          );
-        });
-
-        // Recreate carousel AFTER DOM update + start auto slide
-        mainCarousel = new bootstrap.Carousel(mainCarouselElement, {
-          interval: 3000,
-          ride: "carousel",
-          pause: false,
-          touch: true,
-          wrap: true
-        });
-
-        mainCarousel.cycle(); // force auto sliding
-
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      });
+        wrap: true,
+        touch: true
     });
-  });
+}
+
+cards.forEach(card => {
+
+card.addEventListener("click", function(){
+
+const images = this.dataset.images.split(",");
+
+carouselInner.innerHTML = "";
+carouselIndicators.innerHTML = "";
+
+images.forEach((img, index)=>{
+
+const active = index === 0 ? "active" : "";
+
+carouselInner.insertAdjacentHTML("beforeend",
+`
+<div class="carousel-item ${active}" data-bs-interval="2000">
+<img src="${img}" class="d-block w-100"
+style="height:450px;object-fit:contain;background:#f8f9fa;">
+</div>
+`
+);
+
+carouselIndicators.insertAdjacentHTML("beforeend",
+`
+<button type="button"
+data-bs-target="#mainCarousel"
+data-bs-slide-to="${index}"
+class="${active}"
+${index === 0 ? 'aria-current="true"' : ""}
+></button>
+`
+);
+
+});
+
+const oldInstance = bootstrap.Carousel.getInstance(mainCarouselElement);
+
+if (oldInstance) {
+    oldInstance.dispose();
+}
+
+carousel = new bootstrap.Carousel(mainCarouselElement,{
+    interval: 2000,
+    ride: "carousel",
+    pause: false,
+    wrap: true,
+    touch: true
+});
+
+carousel.cycle();
+
+window.scrollTo({top:0,behavior:"smooth"});
+
+});
+
+});
+
+});
+
 </script>
 
 {% endblock %}
