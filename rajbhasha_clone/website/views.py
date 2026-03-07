@@ -268,25 +268,25 @@ def serialize_qpr_record(record):
         's6_c_eng': getattr(record.section6, 'region_c_english_only', '') if hasattr(record, 'section6') else '',
         's6_c_total': getattr(record.section6, 'region_c_total', '') if hasattr(record, 'section6') else '',
         # Section 7
-        's7_hindi': getattr(record.section7, 'hindi_notings_pages', '') if hasattr(record, 'section7') else '',
-        's7_eng': getattr(record.section7, 'english_notings_pages', '') if hasattr(record, 'section7') else '',
-        's7_total': getattr(record.section7, 'total_notings_pages', '') if hasattr(record, 'section7') else '',
+        's7_hindi': getattr(record.section7, 'hindi_pages', '') if hasattr(record, 'section7') else '',
+        's7_eng': getattr(record.section7, 'english_pages', '') if hasattr(record, 'section7') else '',
+        's7_total': getattr(record.section7, 'total_pages', '') if hasattr(record, 'section7') else '',
         's7_eoffice': getattr(record.section7, 'eoffice_notings', '') if hasattr(record, 'section7') else '',
         # Section 8
-        's8_workshops': getattr(record.section8, 'workshops_count', '') if hasattr(record, 'section8') else '',
+        's8_workshops': getattr(record.section8, 'full_day_workshops', '') if hasattr(record, 'section8') else '',
         's8_officers': getattr(record.section8, 'officers_trained', '') if hasattr(record, 'section8') else '',
         's8_employees': getattr(record.section8, 'employees_trained', '') if hasattr(record, 'section8') else '',
         # Section 9
         's9_date': getattr(record.section9, 'meeting_date', '') if hasattr(record, 'section9') else '',
         's9_sub_committees': getattr(record.section9, 'sub_committees_count', '') if hasattr(record, 'section9') else '',
-        's9_meetings_count': getattr(record.section9, 'meetings_count', '') if hasattr(record, 'section9') else '',
-        's9_agenda_hindi': getattr(record.section9, 'agenda_in_hindi', '') if hasattr(record, 'section9') else '',
+        's9_meetings_count': getattr(record.section9, 'meetings_organized', '') if hasattr(record, 'section9') else '',
+        's9_agenda_hindi': getattr(record.section9, 'agenda_hindi', '') if hasattr(record, 'section9') else '',
         # Section 10
         's10_date': getattr(record.section10, 'meeting_date', '') if hasattr(record, 'section10') else '',
         # Section 11
         's12_1': getattr(record.section11, 'innovative_work', '') if hasattr(record, 'section11') else '',
-        's12_2': getattr(record.section11, 'special_event', '') if hasattr(record, 'section11') else '',
-        's12_3': getattr(record.section11, 'other_works', '') if hasattr(record, 'section11') else '',
+        's12_2': getattr(record.section11, 'special_events', '') if hasattr(record, 'section11') else '',
+        's12_3': getattr(record.section11, 'hindi_medium_works', '') if hasattr(record, 'section11') else '',
         'details': {}
     }
     return data
@@ -2545,10 +2545,14 @@ def typing_data_report(request):
             'total_words': report.total_words or 0,
             'hindi_words': report.hindi_words or 0,
             'words_hindi_percentage': round(words_hindi_percentage, 2),
+            'year': qpr_record.year,
+            'quarter': qpr_record.quarter,
         })
     
     context = {
         'typing_data': data,
+        'years': sorted(set(r['year'] for r in data if r['year']), reverse=True),
+        'quarters': sorted(set(r['quarter'] for r in data if r['quarter'])),
         'current_lang': lang,
     }
     return render(request, 'qpr/typing_data_report.html', context)

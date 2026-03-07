@@ -223,7 +223,31 @@
         <p class="report-subtitle">{{ "All Employees Typing Usage Statistics"|t:current_lang }}</p>
     </div>
 
-    <div class="action-buttons">
+        <div class="row mb-3">
+
+            <div class="col-md-3">
+                <label><strong>Year</strong></label>
+                <select id="yearFilter" class="form-control">
+                    <option value="">All Years</option>
+                    {% for y in years %}
+                    <option value="{{ y }}">{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label><strong>Quarter</strong></label>
+                <select id="quarterFilter" class="form-control">
+                    <option value="">All Quarters</option>
+                    {% for q in quarters %}
+                    <option value="{{ q }}">{{ q }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+        </div>
+        <div class="action-buttons">
+
         <button class="btn btn-print" onclick="window.print()">
             <i class="fas fa-print"></i> {{ "Print Report"|t:current_lang }}
         </button>
@@ -250,7 +274,7 @@
                 </thead>
                 <tbody>
                     {% for item in typing_data %}
-                    <tr>
+                    <tr data-year="{{ item.year }}" data-quarter="{{ item.quarter }}">
                         <td class="text-center fw-bold">{{ item.serial_no }}</td>
                         <td>{{ item.employee_name }}</td>
                         <td>{{ item.designation }}</td>
@@ -316,9 +340,47 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Optional: Add any dynamic behavior here
-        console.log('Typing Data Report loaded');
+    document.addEventListener("DOMContentLoaded", function () {
+
+    const yearFilter = document.getElementById("yearFilter");
+    const quarterFilter = document.getElementById("quarterFilter");
+
+    function filterTable() {
+
+        const selectedYear = yearFilter.value;
+        const selectedQuarter = quarterFilter.value;
+
+        const rows = document.querySelectorAll("tbody tr");
+
+        rows.forEach(row => {
+
+            const rowYear = row.dataset.year;
+            const rowQuarter = row.dataset.quarter;
+
+            let showRow = true;
+
+            if (selectedYear && rowYear !== selectedYear) {
+                showRow = false;
+                }
+
+            if (selectedQuarter && rowQuarter !== selectedQuarter) {
+                showRow = false;
+                }
+
+            row.style.display = showRow ? "" : "none";
+
+            });
+
+        }
+
+    if (yearFilter) {
+        yearFilter.addEventListener("change", filterTable);
+        }
+
+    if (quarterFilter) {
+        quarterFilter.addEventListener("change", filterTable);
+        }
+
     });
 </script>
 {% endblock %}

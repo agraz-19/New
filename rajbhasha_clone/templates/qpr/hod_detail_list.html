@@ -273,36 +273,4 @@
     </div>
     {% endif %}
 </div>
-
-<button class="menu-toggle" id="menuToggle" title="Menu">
-    <i class="fas fa-bars"></i>
-</button>
-
-<div class="menu-items" id="menuItems">
-    <a href="{% url 'qpr_hod_dashboard' %}" class="menu-item">
-        <i class="fas fa-chart-pie"></i> {{ "Dashboard"|t:current_lang }}
-    </a>
-    <a href="{% url 'qpr_hod_detail_list' %}" class="menu-item">
-        <i class="fas fa-list"></i> {{ "Detail List"|t:current_lang }}
-    </a>
-    <a href="{% url 'logout' %}" class="menu-item" style="color: #dc3545;">
-        <i class="fas fa-sign-out-alt"></i> {{ "Logout"|t:current_lang }}
-    </a>
-</div>
-
-<script>
-    const menuToggle = document.getElementById('menuToggle');
-    const menuItems = document.getElementById('menuItems');
-
-    menuToggle.addEventListener('click', () => {
-        menuItems.classList.toggle('active');
-    });
-
-    // Close menu when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.menu-toggle') && !e.target.closest('.menu-items')) {
-            menuItems.classList.remove('active');
-        }
-    });
-</script>
 {% endblock %}

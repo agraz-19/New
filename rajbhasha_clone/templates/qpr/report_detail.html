@@ -89,8 +89,8 @@
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 
     body, html { margin: 0; padding: 0; }
-    nav, .navbar, .sidebar, footer, .print-btn-bar,
-    .card-header, .btn, .alert { display: none !important; }
+    #topHeader, nav, .navbar, .sidebar, footer, .print-btn-bar, .card-header, .btn, .alert { display: none !important; }
+    .qpr-header{display: none !important;}
     .container, .container-fluid { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
     .card { box-shadow: none !important; border: none !important; }
     .card-body { padding: 0 !important; }
@@ -146,9 +146,11 @@ function cell(val) {
 
 async function loadReport() {
     try {
-        const res = await fetch(`/qpr/api/records/${recordId}/`);
+        const res = await fetch(`/qpr/api/records/`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const r = await res.json();
+
+        const data = await res.json();
+        const r = data.find(x => x.id == recordId);
         if (!r || r.error) {
             document.getElementById('reportContainer').innerHTML =
                 `<div class="text-danger p-4">${r?.error || 'Failed to load'}</div>`;
@@ -182,7 +184,7 @@ async function loadReport() {
         </tr>
         <tr>
             <td class="lh">फोन / Phone</td>
-            <td>${v(r.phone) ?? '–'}</td>
+            <td>${v(r.phone) ?? ''}</td>
             <td class="lh">ई-मेल / Email</td>
             <td colspan="3">${v(r.email) ?? '–'}</td>
         </tr>
