@@ -800,9 +800,9 @@
 </script>
 
 <div class="text-end my-3">
-    <button type="button" class="btn btn-secondary" onclick="savePart2()">Save Draft</button>
-    <button type="button" class="btn btn-success" onclick="submitPart2()" style="margin-left:8px;">Submit & Lock</button>
-    <a class="btn btn-outline-primary" href="{% url 'certificate_part2_print' record.id %}" target="_blank" style="margin-left:8px;">Print Preview</a>
+    <button type="button" class="btn btn-success" onclick="submitPart2()">Submit & Lock</button>
+
+    <a href="javascript:history.back()" class="btn btn-secondary" style="margin-left:8px;"> Back </a>
 </div>
 
     </form>

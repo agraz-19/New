@@ -245,6 +245,16 @@
                 </select>
             </div>
 
+            <div class="col-md-3">
+                <label><strong>Employee Name</strong></label>
+                <input type="text" id="nameFilter" class="form-control" placeholder="Enter Employee Name">
+            </div>
+
+            <div class="col-md-3">
+                <label><strong>Office Code</strong></label>
+                <input type="text" id="officeFilter" class="form-control" placeholder="Enter Office Code">
+            </div>
+
         </div>
         <div class="action-buttons">
 
@@ -263,6 +273,7 @@
                     <tr>
                         <th class="text-center" style="width: 50px;">{{ "S. No."|t:current_lang }}</th>
                         <th>{{ "Employee Name"|t:current_lang }}</th>
+                        <th>{{ "Office Code"|t:current_lang }}</th>
                         <th>{{ "Designation"|t:current_lang }}</th>
                         <th class="text-center">{{ "Total Notes"|t:current_lang }}</th>
                         <th class="text-center">{{ "Hindi Notes"|t:current_lang }}</th>
@@ -274,9 +285,10 @@
                 </thead>
                 <tbody>
                     {% for item in typing_data %}
-                    <tr data-year="{{ item.year }}" data-quarter="{{ item.quarter }}">
+                    <tr data-year="{{ item.year }}" data-quarter="{{ item.quarter }}" data-name="{{ item.employee_name }}" data-officecode="{{ item.office_code }}">
                         <td class="text-center fw-bold">{{ item.serial_no }}</td>
                         <td>{{ item.employee_name }}</td>
+                        <td>{{ item.office_code }}</td>
                         <td>{{ item.designation }}</td>
                         <td class="text-center">
                             {% if item.total_notes > 0 %}
@@ -344,11 +356,15 @@
 
     const yearFilter = document.getElementById("yearFilter");
     const quarterFilter = document.getElementById("quarterFilter");
+    const nameFilter = document.getElementById("nameFilter");
+    const officeFilter = document.getElementById("officeFilter");
 
     function filterTable() {
 
         const selectedYear = yearFilter.value;
         const selectedQuarter = quarterFilter.value;
+        const empName = nameFilter.value.toLowerCase();
+        const officeCode = officeFilter.value.toLowerCase();
 
         const rows = document.querySelectorAll("tbody tr");
 
@@ -356,12 +372,22 @@
 
             const rowYear = row.dataset.year;
             const rowQuarter = row.dataset.quarter;
-
+            const rowName = (row.dataset.name || "").toLowerCase();
+            const rowOffice = (row.dataset.officecode || "").toLowerCase();
+            
             let showRow = true;
 
             if (selectedYear && rowYear !== selectedYear) {
                 showRow = false;
                 }
+
+            if (empName && !rowName.includes(empName)) {
+                showRow = false;
+            }
+
+            if (officeCode && !rowOffice.includes(officeCode)) {
+                showRow = false;
+            }
 
             if (selectedQuarter && rowQuarter !== selectedQuarter) {
                 showRow = false;
@@ -380,6 +406,8 @@
     if (quarterFilter) {
         quarterFilter.addEventListener("change", filterTable);
         }
+    nameFilter.addEventListener("keyup", filterTable);
+    officeFilter.addEventListener("keyup", filterTable);
 
     });
 </script>

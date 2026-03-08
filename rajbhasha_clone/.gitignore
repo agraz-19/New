@@ -12,7 +12,7 @@ db.sqlite3
 .env
 
 # MinIO local storage
-minio/
+minio_server/
 
 # OS files
 .DS_Store

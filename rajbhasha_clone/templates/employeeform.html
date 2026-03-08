@@ -36,16 +36,16 @@
 <div class="row g-3">
   <div class="col-md-6">
     <label>{{"Empcode"|t:current_lang }}</label>
-    {{ form.empcode}}
+    <input type="text" name="empcode" value="{{ form.empcode.value }}" class="form-control" readonly>
 
     <label class="mt-2">{{"Name in English"|t:current_lang }}</label>
-    {{ form.ename}}
+    <input type="text" name="ename" value="{{ form.ename.value }}" class="form-control" readonly>
 
     <label class="mt-2">{{"Name in Hindi"|t:current_lang }}</label>
     {{ form.hname }}
 
     <label class="mt-2">{{"Designation"|t:current_lang }} {% if role == 'manager' %}<span class="badge bg-info text-dark">Manager Only</span>{% endif %}</label>
-    <select id="designationSelect" class="form-select">
+    <select id="designationSelect" name="designation" class="form-select">
       <option value="">-- {{"Select"|t:current_lang }} --</option>
       <option value="Scientist-F">{{"Scientist-F"|t:current_lang }}</option>
       <option value="Scientist-G">{{"Scientist-G"|t:current_lang }}</option>
@@ -451,7 +451,7 @@ async function showSubmitted() {
           </tr>`);
       }
 
-      // 🔒 AUTO-DISABLE FORM IF SUBMITTED RECORD EXISTS
+      //  AUTO-DISABLE FORM IF SUBMITTED RECORD EXISTS
       if (data.length > 0 && userRole !== 'manager') {
           disableForm();
       }
@@ -510,7 +510,7 @@ async function submitSelectedDrafts() {
   if (res.ok) {
       showSubmitted();
       showDrafts();
-      disableForm(); // 🔥 DISABLE FORM AFTER SUBMIT
+      disableForm(); //  DISABLE FORM AFTER SUBMIT
       alert("Submitted successfully! Form is now locked.");
   }
 }

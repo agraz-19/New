@@ -1,79 +1,265 @@
-{% extends "master.html" %}
-{% load translate_tags %}
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
 
-{% block extra_css %}
 <style>
-    body { background: white; font-size: 12px; }
-    .value-display { display: block; background-color: #f9f9f9; border: 1px solid #ddd; padding: 6px; border-radius: 3px; font-size: 11px; }
-    .section-box { margin-bottom: 12px; }
-    .card { box-shadow: none; border: none; }
-    /* Try to fit the whole report on one page when printing */
-    @page { size: A4 portrait; margin: 10mm; }
-    @media print {
-        html, body { width: 210mm; height: 297mm; }
-        .no-print { display: none !important; }
-        .container { max-width: 100%; padding: 0; }
-        .card-body { padding: 6px; }
-        .section-box { margin-bottom: 6px; }
-        .value-display { padding: 4px; font-size: 10px; }
-        h4, h6 { margin: 2px 0; font-weight: 600; }
-        /* avoid page breaks inside the main card */
-        .card { page-break-inside: avoid; }
-    }
+body{
+    font-family: "Noto Sans", "Noto Sans Devanagari", Arial, sans-serif;
+    font-size:12px;
+}
+
+h2{
+    text-align:center;
+    margin-bottom:20px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-bottom:12px;
+}
+
+td,th{
+    border:1px solid black;
+    padding:4px;
+}
+
+.section-title{
+    font-weight:bold;
+    margin-top:10px;
+}
+
+@page{
+    size:A4 portrait;
+    margin:15mm;
+}
 </style>
-{% endblock %}
+</head>
 
-{% block content %}
-<div class="container my-4">
-    <div class="d-flex justify-content-between align-items-center mb-3 no-print">
-        <h4>{{ "Printable Report"|t:current_lang }}</h4>
-        <div>
-            <button onclick="window.print()" class="btn btn-outline-primary">
-                <i class="bi bi-printer"></i> {{ "Print"|t:current_lang }}
-            </button>
-            <a href="{% url 'qpr_report_detail' r.id %}" class="btn btn-outline-secondary">{{ "Back"|t:current_lang }}</a>
-        </div>
-    </div>
+<body>
 
-    <div class="card">
-        <div class="card-body">
-            <div class="general-info mb-3">
-                <div><strong>{{ "Quarter"|t:current_lang }}:</strong> {{ r.quarter }}</div>
-                <div><strong>{{ "Office Name"|t:current_lang }}:</strong> {{ r.officeName }}</div>
-                <div><strong>{{ "Office Code"|t:current_lang }}:</strong> {{ r.officeCode }}</div>
-                <div><strong>{{ "Phone"|t:current_lang }}:</strong> {{ r.phone }}</div>
-                <div><strong>{{ "Email"|t:current_lang }}:</strong> {{ r.email }}</div>
-            </div>
+<h2>राजभाषा विभाग / Department of Official Language</h2>
 
-            <!-- Sections: reuse keys from serialize_qpr_record -->
-            <div class="section-box">
-                <h6>1. {{ "Files Sent To Minister"|t:current_lang }}</h6>
-                <div class="value-display">{{ r.s1_total }} / {{ r.s1_hindi }}</div>
-            </div>
+<p>
+<strong>Quarter:</strong> {{ r.quarter }}<br>
+<strong>Year:</strong> {{ r.year }}<br>
+<strong>Office Name:</strong> {{ r.officeName }}<br>
+<strong>Office Code:</strong> {{ r.officeCode }}<br>
+<strong>Phone:</strong> {{ r.phone }}<br>
+<strong>Email:</strong> {{ r.email }}
+</p>
 
-            <div class="section-box">
-                <h6>2. {{ "Meetings / Papers"|t:current_lang }}</h6>
-                <div class="value-display">{{ r.s2_meetings }} / {{ r.s2_minutes }} / {{ r.s2_papers_total }} / {{ r.s2_papers_hindi }}</div>
-            </div>
+<div class="section-title">1. Files Sent to Minister</div>
 
-            <!-- For brevity render remaining sections in a simple list -->
-            <div class="section-box">
-                <h6>Other Details</h6>
-                <div class="value-display">3. {{ r.s3_total }} / {{ r.s3_bilingual }} / {{ r.s3_english }} / {{ r.s3_hindi_only }}</div>
-                <div class="value-display">4. {{ r.s4_total }} / {{ r.s4_no_reply }} / {{ r.s4_replied_hindi }} / {{ r.s4_replied_eng }}</div>
-                <div class="value-display">5. {{ r.s5_total }} / {{ r.s5_hindi }} / {{ r.s5_english }} / {{ r.s5_noreply }}</div>
-                <div class="value-display">6A. {{ r.s6_a_hindi }} / {{ r.s6_a_eng }} / {{ r.s6_a_total }}</div>
-                <div class="value-display">6B. {{ r.s6_b_hindi }} / {{ r.s6_b_eng }} / {{ r.s6_b_total }}</div>
-                <div class="value-display">6C. {{ r.s6_c_hindi }} / {{ r.s6_c_eng }} / {{ r.s6_c_total }}</div>
-            </div>
+<table>
+<tr>
+<td>Total Files Sent</td>
+<td>{{ r.s1_total }}</td>
+</tr>
+<tr>
+<td>Files Sent in Hindi</td>
+<td>{{ r.s1_hindi }}</td>
+</tr>
+</table>
 
-            <div class="section-box">
-                <h6>Summary Texts</h6>
-                <div class="value-display">1) {{ r.s12_1 }}</div>
-                <div class="value-display">2) {{ r.s12_2 }}</div>
-                <div class="value-display">3) {{ r.s12_3 }}</div>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
+<div class="section-title">2. Meetings / Papers</div>
+
+<table>
+<tr>
+<td>Meetings Held</td>
+<td>{{ r.s2_meetings }}</td>
+</tr>
+<tr>
+<td>Minutes Issued in Hindi</td>
+<td>{{ r.s2_minutes }}</td>
+</tr>
+<tr>
+<td>Total Papers Issued</td>
+<td>{{ r.s2_papers_total }}</td>
+</tr>
+<tr>
+<td>Papers Issued in Hindi</td>
+<td>{{ r.s2_papers_hindi }}</td>
+</tr>
+</table>
+
+<div class="section-title">3. Documents under Section 3(3)</div>
+
+<table>
+<tr>
+<td>Total</td>
+<td>{{ r.s3_total }}</td>
+</tr>
+<tr>
+<td>Bilingual</td>
+<td>{{ r.s3_bilingual }}</td>
+</tr>
+<tr>
+<td>English Only</td>
+<td>{{ r.s3_english }}</td>
+</tr>
+<tr>
+<td>Hindi Only</td>
+<td>{{ r.s3_hindi_only }}</td>
+</tr>
+</table>
+
+<div class="section-title">4. Letters Received in Hindi</div>
+
+<table>
+<tr>
+<td>Total Letters</td>
+<td>{{ r.s4_total }}</td>
+</tr>
+<tr>
+<td>No Reply Needed</td>
+<td>{{ r.s4_no_reply }}</td>
+</tr>
+<tr>
+<td>Replied in Hindi/Bilingual</td>
+<td>{{ r.s4_replied_hindi }}</td>
+</tr>
+<tr>
+<td>Replied in English</td>
+<td>{{ r.s4_replied_eng }}</td>
+</tr>
+</table>
+
+<div class="section-title">5. English Letters Replied in Hindi</div>
+
+<table>
+<tr>
+<td>Total Letters</td>
+<td>{{ r.s5_total }}</td>
+</tr>
+<tr>
+<td>Replied in Hindi</td>
+<td>{{ r.s5_hindi }}</td>
+</tr>
+<tr>
+<td>Replied in English</td>
+<td>{{ r.s5_english }}</td>
+</tr>
+<tr>
+<td>No Reply</td>
+<td>{{ r.s5_noreply }}</td>
+</tr>
+</table>
+
+<div class="section-title">6. Letters Issued</div>
+
+<table>
+<tr>
+<th>Region</th>
+<th>Hindi/Bilingual</th>
+<th>English</th>
+<th>Total</th>
+</tr>
+<tr>
+<td>A</td>
+<td>{{ r.s6_a_hindi }}</td>
+<td>{{ r.s6_a_eng }}</td>
+<td>{{ r.s6_a_total }}</td>
+</tr>
+<tr>
+<td>B</td>
+<td>{{ r.s6_b_hindi }}</td>
+<td>{{ r.s6_b_eng }}</td>
+<td>{{ r.s6_b_total }}</td>
+</tr>
+<tr>
+<td>C</td>
+<td>{{ r.s6_c_hindi }}</td>
+<td>{{ r.s6_c_eng }}</td>
+<td>{{ r.s6_c_total }}</td>
+</tr>
+</table>
+
+<div class="section-title">7. File Notings</div>
+
+<table>
+<tr>
+<td>Hindi Pages</td>
+<td>{{ r.s7_hindi }}</td>
+</tr>
+<tr>
+<td>English Pages</td>
+<td>{{ r.s7_eng }}</td>
+</tr>
+<tr>
+<td>Total Pages</td>
+<td>{{ r.s7_total }}</td>
+</tr>
+<tr>
+<td>eOffice Notings</td>
+<td>{{ r.s7_eoffice }}</td>
+</tr>
+</table>
+
+<div class="section-title">8. Hindi Workshops</div>
+
+<table>
+<tr>
+<td>Workshops</td>
+<td>{{ r.s8_workshops }}</td>
+</tr>
+<tr>
+<td>Officers Trained</td>
+<td>{{ r.s8_officers }}</td>
+</tr>
+<tr>
+<td>Employees Trained</td>
+<td>{{ r.s8_employees }}</td>
+</tr>
+</table>
+
+<div class="section-title">9. OL Implementation Committee</div>
+
+<table>
+<tr>
+<td>Date</td>
+<td>{{ r.s9_date }}</td>
+</tr>
+<tr>
+<td>Sub Committees</td>
+<td>{{ r.s9_sub_committees }}</td>
+</tr>
+<tr>
+<td>Meetings</td>
+<td>{{ r.s9_meetings_count }}</td>
+</tr>
+<tr>
+<td>Agenda in Hindi</td>
+<td>{{ r.s9_agenda_hindi }}</td>
+</tr>
+</table>
+
+<div class="section-title">10. Hindi Advisory Committee</div>
+
+<table>
+<tr>
+<td>Date</td>
+<td>{{ r.s10_date }}</td>
+</tr>
+</table>
+
+<div class="section-title">11. Achievements</div>
+
+<table>
+<tr>
+<td>Innovative Work</td>
+<td>{{ r.s12_1 }}</td>
+</tr>
+<tr>
+<td>Special Events</td>
+<td>{{ r.s12_2 }}</td>
+</tr>
+<tr>
+<td>Other Work</td>
+<td>{{ r.s12_3 }}</td>
+</tr>
+</table>
+
+</body>
+</html>

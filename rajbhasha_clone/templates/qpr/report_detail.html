@@ -117,7 +117,7 @@
             <button onclick="window.print()" class="btn btn-primary btn-sm me-2">
                 <i class="bi bi-printer-fill"></i> Print to PDF
             </button>
-            <a href="{% url 'qpr_report_list' %}" class="btn btn-outline-secondary btn-sm">← Back</a>
+            <a id="backBtn" href="{% url 'qpr_report_list' %}" class="btn btn-secondary">← Back</a>
         </div>
     </div>
 
@@ -134,6 +134,13 @@
 const pathParts = window.location.pathname.split('/');
 const recordId = pathParts[pathParts.length - 2];
 
+const params = new URLSearchParams(window.location.search);
+const backTo = params.get("back_to");
+
+if (backTo === "manager_report") {
+    document.getElementById("backBtn").href = "/manager/report/";
+}
+
 function v(val) {
     if (val === null || val === undefined || val === '' || val === 'None') return null;
     return val;
@@ -146,11 +153,10 @@ function cell(val) {
 
 async function loadReport() {
     try {
-        const res = await fetch(`/qpr/api/records/`);
+        const res = await fetch(`/qpr/api/records/${recordId}/`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-        const data = await res.json();
-        const r = data.find(x => x.id == recordId);
+        const r = await res.json();
         if (!r || r.error) {
             document.getElementById('reportContainer').innerHTML =
                 `<div class="text-danger p-4">${r?.error || 'Failed to load'}</div>`;

@@ -290,9 +290,15 @@
                     </a>
                 </td>
                 <td>
-                    <button class="edit-btn" onclick="showUnlockModal({{ report.id }}, '{{ report.quarter }}', {{ report.edit_count }})">
-                        {{ "Edit"|t:current_lang }} {{ report.edit_count }}
+                {% if report.edit_count >= 2 %}
+                    <button class="edit-btn" disabled style="color:#999; cursor:not-allowed;">
+                        {{ "Edit"|t:current_lang }} ({{ report.edit_count }}/2)
                     </button>
+                {% else %}
+                    <button class="edit-btn" onclick="showUnlockModal({{ report.id }}, '{{ report.quarter }}', {{ report.edit_count }})">
+                        {{ "Edit"|t:current_lang }} ({{ report.edit_count }}/2)
+                    </button>
+                {% endif %}
                 </td>
                 <td>
                     <a href="{% url 'certificate_form' report.id %}" class="action-link">

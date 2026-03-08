@@ -224,18 +224,28 @@
     
     <script id="user-lookup" type="application/json">
     {
-        {% for u in users %}
-            "{{ u.username }}": "{{ u.id }}"{% if not forloop.last %},{% endif %}
-        {% endfor %}
+    {% for u in users %}
+        {% if u.profile and u.profile.employee_code %}
+        "{{ u.profile.employee_code }}": "{{ u.id }}"{% if not forloop.last %},{% endif %}
+        {% endif %}
+    {% endfor %}
     }
     </script>
 
     <script>
         // 1. Helper to find User ID from EmpCode
         function getUserId(empCode) {
-            const lookup = JSON.parse(document.getElementById('user-lookup').textContent);
-            // Convert to string to ensure matching works
-            return lookup[String(empCode).trim()];
+
+            const lookup = JSON.parse(
+                document.getElementById('user-lookup').textContent
+            );
+
+            empCode = String(empCode).trim();
+
+            // convert 1 → 001
+            empCode = empCode.padStart(3, '0');
+
+            return lookup[empCode];
         }
     
         // 2. Handle Unlock Logic

@@ -7,11 +7,16 @@ from django.db.models import Count
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import login as auth_login, logout, get_user_model
+from django.http import FileResponse
 from django.contrib.auth.views import LoginView
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.csrf import csrf_exempt
 from django.views import View
 from django.core.cache import cache
+from weasyprint import HTML
+from pypdf import PdfWriter, PdfReader
+from django.template.loader import render_to_string
+import tempfile
 from django.urls import reverse
 from django.http import HttpResponse, FileResponse, Http404, JsonResponse
 from django.core.exceptions import PermissionDenied
@@ -45,6 +50,7 @@ from .employeeform import EmployeeForm
 from .serializers import EmployeeSerializer
 from .utils import send_system_email
 from typing import cast
+from datetime import date
 from .templatetags.translate_tags import translate_text
 from .minio_service import get_all_events
 FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
@@ -115,19 +121,13 @@ def can_access_manager_site(user):
     """Manager site accessible to users with 'manager' role"""
     return user.is_authenticated and user_has_role(user, 'manager')
 
-def get_active_hods():
+def get_active_hods(office_code):
     """Get list of all active HODs for registration/selection dropdowns"""
     # Get HODs (users with hod role)
-    hod_names = list(UserProfile.objects.filter(
-        roles__name='hod'
-    ).values_list('hod_name', flat=True).distinct())
+    hod_names = list(UserProfile.objects.filter( roles__name='hod', office_code=office_code ).values_list('hod_name', flat=True).distinct())
     
     # Also add users with hod_name=None as their own HODs (using their name)
-    unassigned_hod_names = list(UserProfile.objects.filter(
-        roles__name='user'
-    ).exclude(
-        hod_name__isnull=False
-    ).values_list('name', flat=True).distinct())
+    unassigned_hod_names = list(UserProfile.objects.filter( roles__name='user', office_code=office_code ).exclude( hod_name__isnull=False ).values_list('name', flat=True).distinct())
     
     # Combine and sort
     all_hod_names = sorted(set([h for h in hod_names if h] + [u for u in unassigned_hod_names if u]))
@@ -144,6 +144,27 @@ def _convert_to_date(value):
         if isinstance(value, str): return datetime.fromisoformat(value).date()
         return value
     except (ValueError, TypeError, AttributeError): return None
+
+def get_current_quarter():
+    m = date.today().month
+
+    if m <= 3:
+        return "31 मार्च / Mar 31"
+    elif m <= 6:
+        return "30 जून / Jun 30"
+    elif m <= 9:
+        return "30 सितंबर / Sep 30"
+    else:
+        return "31 दिसंबर / Dec 31"
+
+
+def get_current_year_label():
+    y = date.today().year
+    return f"{y}-{y+1}"
+
+
+def get_base_year(year_label):
+    return int(year_label.split("-")[0])
 
 def _save_section_data(record, details):
     # Section 1
@@ -877,7 +898,7 @@ def profile_view(request):
                 return redirect('dashboard')
     
     # Get list of available HODs
-    available_hods = get_active_hods()
+    available_hods = get_active_hods(profile.office_code) if profile else []
     current_hod = profile.hod_name if profile else None
     
     # Check for approved request
@@ -1013,7 +1034,7 @@ def user_profile(request):
             return redirect('qpr_user_dashboard')
 
     # Get list of available HODs for selection
-    available_hods = get_active_hods()
+    available_hods = get_active_hods(profile.office_code) if profile.office_code else []
     # Get list of offices for dropdown
     from .models import Office
     offices = Office.objects.all()
@@ -1138,7 +1159,7 @@ def user_dashboard(request):
     submitted_qprs = qpr_records.filter(is_submitted=True).count()
     
     # Get list of available HODs for dropdown
-    available_hods = get_active_hods()
+    available_hods = get_active_hods(profile.office_code)
     
     # Check if user has HOD or Manager roles (disable HOD selection if they do)
     is_hod_or_manager = user_has_role(request.user, ['hod', 'manager'])
@@ -1169,6 +1190,9 @@ def qpr_hod_dashboard(request):
     from django.db import connections
     connections.close_all()
     
+    current_quarter = get_current_quarter()
+    current_year = get_current_year_label()
+
     hod_profile = UserProfile.objects.select_related('user').get(user=request.user)
     # Use hod_name to find employees - this is what they selected from dropdown
     hod_name = hod_profile.hod_name or hod_profile.name
@@ -1194,8 +1218,14 @@ def qpr_hod_dashboard(request):
 
     # Count submitted QPRs for users under HOD
     for up in users_under_hod:
-        if up.user.qpr_records.filter(is_submitted=True).exists():
-            qpr_submitted_count += 1
+
+        current_qpr = up.user.qpr_records.filter(
+        quarter=current_quarter,
+        year=current_year
+        ).first()
+
+    if current_qpr and current_qpr.is_submitted:
+        qpr_submitted_count += 1
 
     qpr_pending = total_users - qpr_submitted_count
 
@@ -1207,6 +1237,8 @@ def qpr_hod_dashboard(request):
         'profile_updated': profile_updated_count,
         'hod_name': hod_name,
         'current_lang': lang,
+        'current_quarter': current_quarter,
+        'current_year': current_year,
     }
     response = render(request, 'qpr/hod_dashboard.html', context)
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -1220,27 +1252,26 @@ def manager_dashboard(request):
     if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
         return redirect('/')
     
-    users = CustomUser.objects.all().order_by('-date_joined')
-    raw_employees = Employee.objects.all().order_by('-lastupdate')
+    manager_office = getattr(request.user.profile, 'office_code', None)
+
+    users = CustomUser.objects.select_related('profile').filter( profile__office_code=manager_office ).order_by('-date_joined')
+
+    manager_office = getattr(request.user.profile, 'office_code', None)
+
+    # Get usernames of users in this office
+    office_usernames = CustomUser.objects.filter( profile__office_code=manager_office ).values_list('username', flat=True)
+
+# Fetch employee records whose name matches those users
+    raw_employees = Employee.objects.filter( ename__in=office_usernames ).order_by('-lastupdate')
     
     employee_data = []
     
     for emp in raw_employees:
         # --- 1. ROBUST USER LOOKUP ---
         # Try matching by username (which is often the employee name)
-        user = CustomUser.objects.filter(username__iexact=emp.ename).first()
-        
-        # If not found, try other variations
-        if not user:
-            user = CustomUser.objects.filter(username=emp.empcode).first()
-        
-        if not user:
-            user = CustomUser.objects.filter(username=str(emp.empcode)).first()
-            
-        if not user:
-            clean_code = str(emp.empcode).strip()
-            user = CustomUser.objects.filter(username=clean_code).first()
-        
+        # --- USER LOOKUP USING EMPCODE ---
+        user = CustomUser.objects.filter( profile__employee_code=str(emp.empcode).zfill(3)).first()
+
         # --- 2. QPR DATA ---
         qpr_status_text = "Not Started"
         qpr_is_submitted = False
@@ -1327,6 +1358,9 @@ def admin_dashboard(request):
     
     # --- ARCHIVED USERS ---
     archived_users = ArchivedUser.objects.all().order_by('-archived_at')
+
+    current_quarter = get_current_quarter()
+    current_year = get_current_year_label()
     
     hod_stats = []
     hods = UserProfile.objects.filter(roles__name='hod').order_by('name')
@@ -1336,7 +1370,7 @@ def admin_dashboard(request):
         users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_key)
         total_users = users_under_hod.count()
         profile_complete = sum(1 for p in users_under_hod if p.profile_updated)
-        qpr_complete = sum(1 for p in users_under_hod if QPRRecord.objects.filter(user=p.user, status='Submitted').exists())
+        qpr_complete = sum( 1 for p in users_under_hod if QPRRecord.objects.filter( user=p.user, quarter=current_quarter, year=current_year, is_submitted=True ).exists())
         completion_pct = int((qpr_complete / total_users) * 100) if total_users > 0 else 0
         hod_stats.append({
             'hod_name': str(hod_display).upper(),
@@ -1520,7 +1554,11 @@ def admin_employee_list(request):
     name_filter = request.GET.get('name', '').strip()
     quarter_filter = request.GET.get('quarter', '').strip()
     year_filter = request.GET.get('year', '').strip()
-    
+    if not quarter_filter:
+        quarter_filter = get_current_quarter()
+    if not year_filter:
+        year_filter = get_current_year_label()
+
     hods = UserProfile.objects.filter(roles__name='hod').order_by('name')
     hod_groups = []
     
@@ -1528,6 +1566,11 @@ def admin_employee_list(request):
     all_qpr_records = QPRRecord.objects.all()
     all_quarters = sorted(set(all_qpr_records.values_list('quarter', flat=True).filter(quarter__isnull=False)))
     all_years = sorted(set(all_qpr_records.values_list('year', flat=True).filter(year__isnull=False)), reverse=True)
+
+    current_year = get_current_year_label()
+
+    if current_year not in all_years:
+        all_years.insert(0, current_year)
     
     from .models import Employee
     for hod_profile in hods:
@@ -1560,18 +1603,12 @@ def admin_employee_list(request):
             if name_filter and name_filter.lower() not in (user_name or '').lower():
                 continue
 
-            qpr_records = QPRRecord.objects.filter(user=user_profile.user).order_by('-id')
-            latest_qpr = qpr_records.first() if qpr_records else None
-
-            # Apply quarter and year filters
-            if quarter_filter and latest_qpr and latest_qpr.quarter != quarter_filter:
-                continue
-            if year_filter and latest_qpr and latest_qpr.year != year_filter:
-                continue
+            qpr_record = QPRRecord.objects.filter( user=user_profile.user, quarter=quarter_filter, year=year_filter ).first()
 
             # Fill office info: prefer profile, then latest QPR, else Employee.hname
-            office_name_val = user_profile.office_name or (latest_qpr.officeName if latest_qpr else '')
-            office_code_val = user_profile.office_code or (latest_qpr.officeCode if latest_qpr else '')
+            office_name_val = user_profile.office_name or (qpr_record.officeName if qpr_record else '')
+            office_code_val = user_profile.office_code or (qpr_record.officeCode if qpr_record else '')
+
             if (not office_name_val or office_name_val.strip() == '') and emp_record:
                 office_name_val = getattr(emp_record, 'hname', '') or office_name_val
 
@@ -1581,9 +1618,9 @@ def admin_employee_list(request):
                 'email': user_profile.user.email,
                 'office_name': office_name_val or 'Not Set',
                 'office_code': office_code_val or 'Not Set',
-                'quarter': latest_qpr.quarter if latest_qpr else 'N/A',
-                'year': latest_qpr.year if latest_qpr else 'N/A',
-                'qpr_status': latest_qpr.status if latest_qpr else 'Not Submitted',
+                'quarter': quarter_filter,
+                'year': year_filter,
+                'qpr_status': qpr_record.status if qpr_record else 'Not Submitted',
             })
         if user_details:
             hod_groups.append({
@@ -1642,7 +1679,14 @@ def manage_user_action(request, user_id, action):
             messages.error(request, translate_text("QPR Record not found.", request.session.get('lang', 'en')))
         return redirect('manager_dashboard')
 
-    target_user = get_object_or_404(CustomUser, id=user_id)
+    try:
+    # First try treating it as user id
+        target_user = CustomUser.objects.get(id=user_id)
+    except CustomUser.DoesNotExist:
+    # If not found, treat it as employee_code
+        profile = get_object_or_404(UserProfile, employee_code=user_id)
+        target_user = profile.user
+
     lang = request.session.get('lang', 'en')
     
     if action in ['archive', 'unarchive']:
@@ -1663,7 +1707,7 @@ def manage_user_action(request, user_id, action):
 
     # 2. Manager Actions
     elif action == 'unlock_record':
-        emp = Employee.objects.filter(empcode=target_user.username).first()
+        emp = Employee.objects.filter( empcode=int(target_user.profile.employee_code)).first()
         if emp:
             emp.status = 'draft'
             emp.save()
@@ -1815,6 +1859,8 @@ def hod_detail_list(request):
     else:
         users_under_hod = UserProfile.objects.filter(user=request.user).select_related('user')
     users_data = []
+    current_quarter = get_current_quarter()
+    current_year = get_current_year_label()
     for user_profile in users_under_hod:
         user = user_profile.user
         qpr_records = user.qpr_records.all()
@@ -1852,13 +1898,14 @@ def hod_detail_list(request):
             office_name_val = getattr(emp_record, 'hname', '') or office_name_val
 
         has_pending = ManagerRequest.objects.filter(hod=user, request_type='qpr', status='pending').exists()
+        current_qpr = qpr_records.filter( quarter=current_quarter, year=current_year ).first()
         users_data.append({
             'profile': user_profile, 'user': user, 'employee_code': user_profile.employee_code,
             'name': display_name, 'office_code': office_code_val or 'Not Set', 'office_name': office_name_val or 'Not Set',
-            'profile_complete': user_profile.profile_updated, 'qpr_complete': qpr_records.filter(is_submitted=True).exists(),
+            'profile_complete': user_profile.profile_updated, 'qpr_complete': current_qpr.is_submitted if current_qpr else False,
             'has_pending_edit_request': has_pending
         })
-    context = {'users_data': users_data, 'hod_name': hod_name}
+    context = {'users_data': users_data, 'hod_name': hod_name, 'current_quarter': current_quarter, 'current_year': current_year}
     response = render(request, 'qpr/hod_detail_list.html', context)
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
@@ -1964,31 +2011,30 @@ def api_records(request):
 @csrf_exempt
 def api_record_detail(request, record_id):
     try:
-        # First check if the user owns the record
-        record = QPRRecord.objects.get(pk=record_id, user=request.user)
+        record = QPRRecord.objects.get(pk=record_id)
     except QPRRecord.DoesNotExist:
-        # If not, check if the current user is a manager/HOD/admin who can view it
-        try:
-            record = QPRRecord.objects.get(pk=record_id)
-            # Allow access if user is manager, HOD, or admin
-            is_manager = user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser
-            is_hod = user_has_role(request.user, ['hod']) 
-            
-            if not (is_manager or is_hod or request.user == record.user):
-                return JsonResponse({'error': 'Access denied'}, status=403)
-            
-            # For HOD, check if the record owner is under their supervision
-            if is_hod and not is_manager:
-                record_office = record.officeCode
-                hod_office = getattr(request.user.profile, 'office_code', None)
-                hod_employees = UserProfile.objects.filter(
-                    office_code=hod_office,
-                    hod_name=request.user.username
-                )
-                if not hod_employees.filter(user_id=record.user_id).exists():
-                    return JsonResponse({'error': 'Access denied'}, status=403)
-        except QPRRecord.DoesNotExist:
-            return JsonResponse({'error': 'Record not found'}, status=404)
+        return JsonResponse({'error': 'Record not found'}, status=404)
+
+    # Determine roles
+    is_owner = record.user == request.user
+    is_manager = user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser
+    is_hod = user_has_role(request.user, ['hod'])
+
+    # Basic permission check
+    if not (is_owner or is_manager or is_hod):
+        return JsonResponse({'error': 'Access denied'}, status=403)
+
+    # Additional HOD restriction
+    if not is_manager and is_hod:
+        hod_office = getattr(request.user.profile, 'office_code', None)
+
+        hod_employees = UserProfile.objects.filter(
+            office_code=hod_office,
+            hod_name=request.user.username
+        )
+
+        if not hod_employees.filter(user_id=record.user_id).exists():
+            return JsonResponse({'error': 'Access denied'}, status=403)
     
     data = serialize_qpr_record(record)
     # Compute edit approval flags consistent with api_records
@@ -2028,9 +2074,16 @@ def api_record_detail(request, record_id):
 def print_qpr_report(request, record_id):
     """Render a server-side printable version of the QPR record (matches view)."""
     try:
-        record = QPRRecord.objects.get(pk=record_id, user=request.user)
+        record = QPRRecord.objects.get(pk=record_id)
     except QPRRecord.DoesNotExist:
         return redirect('qpr_report_list')
+    
+    if not (
+        record.user == request.user or
+        user_has_role(request.user, ['manager', 'admin']) or
+        request.user.is_superuser
+    ):
+        return redirect('dashboard')
 
     data = serialize_qpr_record(record)
     # Render server-side template with the same fields used by report_detail
@@ -2526,11 +2579,14 @@ def typing_data_report(request):
         qpr_record = report.qpr_record
         user_profile = qpr_record.user.profile if qpr_record.user else None
         employee_name = (user_profile.name if user_profile else None) or (qpr_record.user.username if qpr_record.user else 'Unknown')
-        designation = (user_profile.office_name if user_profile else None) or 'N/A'
+        designation = 'N/A'
+        office_code = (user_profile.office_code if user_profile else None) or 'N/A'
+
         try:
             if user_profile and user_profile.employee_code:
                 employee = Employee.objects.get(empcode=user_profile.employee_code)
-                designation = employee.designation or designation
+                designation = employee.designation or 'N/A'
+                office_code = (user_profile.office_code if user_profile else None) or 'N/A'
         except Employee.DoesNotExist:
             pass
         
@@ -2550,6 +2606,7 @@ def typing_data_report(request):
             'serial_no': len(data) + 1,
             'employee_name': employee_name,
             'designation': designation,
+            'office_code': office_code,
             'total_notes': total_notes,
             'hindi_notes': hindi_notes,
             'notes_hindi_percentage': round(notes_hindi_percentage, 2),
@@ -2942,8 +2999,8 @@ def manager_report_detail(request, year, quarter):
     total_users = users_qs.count()
 
     # Normalize year: if year contains '2025' treat as empty string (DB stores year='')
-    normalized_year = '' if '2025' in year or year == '2025-2026' else year
-    
+    normalized_year = year
+
     # Find submitted QPRs matching the office, normalized year, and quarter
     submitted = QPRRecord.objects.filter(officeCode=manager_office, year=normalized_year, quarter=quarter, is_submitted=True)
     submitted_users_count = submitted.values('user').distinct().count()
@@ -3398,64 +3455,60 @@ def certificate_part2_print_view(request, record_id):
 
 @login_required
 def manager_report_edit_view(request, record_id):
-    """Unlock user forms for editing (max 2 times per record) - returns JSON response"""
+    """Unlock ONLY certificate Part-II for editing (max 2 times)"""
+
     try:
-        # Only allow POST requests
+
         if request.method != 'POST':
-            return JsonResponse({'success': False, 'error': f'Method {request.method} not allowed. Use POST.'}, status=405)
-        
+            return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
         if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
             return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
 
-        # Get the record to extract year and quarter
         try:
             record = QPRRecord.objects.get(pk=record_id)
         except QPRRecord.DoesNotExist:
-            return JsonResponse({'success': False, 'error': f'Record {record_id} not found'}, status=404)
+            return JsonResponse({'success': False, 'error': 'Record not found'}, status=404)
 
-        # Verify manager can edit this record
+        # Verify manager office
         mgr_office = getattr(request.user.profile, 'office_code', None)
-        if not mgr_office:
-            first = QPRRecord.objects.filter(user=request.user).first()
-            mgr_office = first.officeCode if first else None
+        if mgr_office != record.officeCode:
+            return JsonResponse({'success': False, 'error': 'Unauthorized office'}, status=403)
 
-        if not mgr_office or mgr_office != record.officeCode:
-            return JsonResponse({'success': False, 'error': f'Unauthorized: Your office ({mgr_office}) does not match this record ({record.officeCode})'}, status=403)
-
-        # Check if edit count has reached maximum (2)
+        # LIMIT EDITS
         if record.cert_edit_count >= 2:
             return JsonResponse({
                 'success': False,
-                'error': 'Maximum edit attempts (2) reached for this record.'
+                'error': 'Maximum edit attempts (2) reached'
             })
 
-        # Increment edit count
+        # increase edit count
         record.cert_edit_count += 1
-        record.save()
+        record.is_editing_allowed = True
+        record.save(update_fields=['cert_edit_count', 'is_editing_allowed'])
 
-        # Unlock all QPR records for this year and quarter in this office for users to edit
-        unlocked_count = QPRRecord.objects.filter(
-            officeCode=mgr_office,
-            year=record.year,
-            quarter=record.quarter,
-            is_submitted=True
-        ).update(is_editing_allowed=True)
+        # unlock ONLY the certificate
+        part2 = getattr(record, 'part2', None)
+
+        if part2:
+            part2.is_submitted = False
+            part2.save(update_fields=['is_submitted'])
 
         return JsonResponse({
             'success': True,
-            'message': f'Forms unlocked for editing. This is unlock attempt {record.cert_edit_count} of 2.',
-            'unlocked_count': unlocked_count,
+            'message': f'Certificate unlocked. Edit attempt {record.cert_edit_count}/2',
             'edit_count': record.cert_edit_count
         })
-    
+
     except Exception as e:
         import traceback
-        error_details = traceback.format_exc()
-        print(f"ERROR in manager_report_edit_view: {error_details}")
+        print(traceback.format_exc())
+
         return JsonResponse({
             'success': False,
-            'error': f'Server error: {str(e)}'
+            'error': str(e)
         }, status=500)
+        
 from gtts import gTTS
 import os
 from django.conf import settings
@@ -3482,7 +3535,7 @@ def print_all_qpr_reports(request, year, quarter):
     if not manager_office:
         return redirect('manager_report')
 
-    normalized_year = '' if '2025' in year or year == '2025-2026' else year
+    normalized_year = year
     
     # Fetch all submitted QPRs for this office, year, and quarter
     submitted_qprs = QPRRecord.objects.filter(
@@ -3491,6 +3544,8 @@ def print_all_qpr_reports(request, year, quarter):
         quarter=quarter, 
         is_submitted=True
     ).select_related('user', 'part2', 'certificate_data').order_by('user__username')
+
+    print("Submitted QPRs found:", submitted_qprs.count())
 
     all_reports_data = []
     
@@ -3542,7 +3597,91 @@ def print_all_qpr_reports(request, year, quarter):
         'reports': all_reports_data,
         'office_code': manager_office
     }
-    return render(request, 'qpr/print_all_reports.html', context)
+    writer = PdfWriter()
+    temp_files = []
+
+    # ---------- PART 1 : All Employee QPR Reports ----------
+    for item in all_reports_data:
+
+        html_string = render_to_string(
+            "qpr/print_report.html",
+            {"r": item['part1'], "record": item['record'], "current_lang": request.session.get("lang", "en")}
+        )
+
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+        HTML( string=html_string, base_url=request.build_absolute_uri("/")).write_pdf(tmp.name)
+        reader = PdfReader(tmp.name)
+        print("Generated PDF pages:", len(reader.pages))   # DEBUG LINE
+        for page in reader.pages:
+            writer.add_page(page)
+        temp_files.append(tmp.name)
+
+
+    # ---------- PART 2 : Manager Form ----------
+    manager_item = all_reports_data[0] if all_reports_data else None
+
+    if manager_item and manager_item['part2']:
+
+        html_string = render_to_string(
+            "qpr/print_certificate_part2.html",
+            {
+                "record": manager_item['record'],
+                "part2": manager_item['part2'],
+                "part2_data": manager_item['part2_data'],
+                "current_lang": request.session.get("lang", "en")
+            }
+        )
+
+
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+        HTML( string=html_string, base_url=request.build_absolute_uri("/")).write_pdf(tmp.name)
+        reader = PdfReader(tmp.name)
+        print("Generated PDF pages:", len(reader.pages))   # DEBUG LINE
+        for page in reader.pages:
+            writer.add_page(page)
+        temp_files.append(tmp.name)
+
+
+    # ---------- PART 3 : Final Certificate ----------
+    if manager_item and manager_item['cert']:
+
+        html_string = render_to_string(
+            "qpr/certificate.html",
+            {
+                "record": manager_item['record'],
+                "cert_data": manager_item['cert'],
+                "current_lang": request.session.get("lang", "en")
+            }
+        )
+
+ 
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+        HTML( string=html_string, base_url=request.build_absolute_uri("/")).write_pdf(tmp.name)
+        reader = PdfReader(tmp.name)
+        print("Generated PDF pages:", len(reader.pages))   # DEBUG LINE
+        for page in reader.pages:
+            writer.add_page(page)
+        temp_files.append(tmp.name)
+
+
+    # ---------- FINAL MERGED PDF ----------
+    # ---------- FINAL PDF ----------
+    output = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+
+    with open(output.name, "wb") as f:
+        writer.write(f)
+
+    pdf_file = open(output.name, "rb")
+
+    response = FileResponse(
+        pdf_file,
+        content_type="application/pdf"
+    )
+
+    response["Content-Disposition"] = f'inline; filename="QPR_{quarter}_{year}.pdf"'
+
+    return response
+
 # Debug helper: returns current user/session info (useful to verify AJAX session & roles)
 def debug_whoami(request):
     try:
