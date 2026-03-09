@@ -42,6 +42,7 @@ from .employeeform import EmployeeForm
 from .serializers import EmployeeSerializer
 from .utils import send_system_email
 from .templatetags.translate_tags import translate_text
+from .minio_service import get_all_events
 FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
 pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
 
@@ -238,7 +239,17 @@ def custom_logout(request):
     return redirect('home')
 
 def home(request):
-    return render(request, 'home.html')
+    events = get_all_events()
+    return render(request, "home.html", {"events": events})
+
+def event_detail(request, folder):
+    events = get_all_events()
+    selected_event = next((e for e in events if e["folder"] == folder), None)
+
+    if not selected_event:
+        return redirect("home")
+
+    return render(request, "event_detail.html", {"event": selected_event})
 
 def universal_error_view(request, exception=None, status_code=500):
     lang = request.session.get('lang', 'en')
@@ -1615,11 +1626,29 @@ class SubmitDraftAPI(APIView):
         count = Employee.objects.filter(id__in=ids, status="draft").update(status="submitted", lastupdate=timezone.now())
         return Response({"message": f"{count} record(s) submitted"})
 
+# @login_required
+# def employee_form(request):
+#     if request.session.get('active_role') != 'user': return redirect('dashboard')
+#     form = EmployeeForm()
+#     return render(request, "employeeform.html", {"form": form})
+
 @login_required
 def employee_form(request):
-    if request.session.get('active_role') != 'user': return redirect('dashboard')
+    role = request.session.get('active_role')
+    
+    if role != 'user':
+        return redirect('dashboard')
+
     form = EmployeeForm()
-    return render(request, "employeeform.html", {"form": form})
+
+    context = {
+        "form": form,
+        "role": role,
+        "current_lang": request.session.get("lang", "en"),
+        "username": request.user.username   # 🔥 THIS IS IMPORTANT
+    }
+
+    return render(request, "employeeform.html", context)
 
 
 # ==================== EDIT REQUEST WORKFLOW ====================
