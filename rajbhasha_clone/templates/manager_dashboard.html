@@ -15,6 +15,41 @@
         </div>
     </div>
 
+    <!-- Quick Actions Section -->
+    <div class="card shadow-sm border-0 mb-4" style="border-left: 5px solid #0066cc;">
+        <div class="card-body">
+            <h5 class="fw-bold mb-3" style="color: #0066cc;">{{ "Quick Actions"|t:current_lang }}</h5>
+            
+            {% if pending_profile_requests and pending_profile_requests.count > 0 %}
+            <div class="alert alert-warning mb-3">
+                <h6 class="mb-2">Pending Profile Edit Requests</h6>
+                <ul class="mb-0">
+                    {% for req in pending_profile_requests %}
+                        <li class="d-flex justify-content-between align-items-center py-1">
+                            <div>{{ req.user.username }} &mdash; {{ req.reason|default:'Request to edit profile' }}</div>
+                            <div>
+                                <a href="/action/{{ req.user.id }}/unlock_record/" class="btn btn-sm btn-warning" onclick="return confirm('Unlock profile for {{ req.user.username }}?')">Unlock</a>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{% url 'manager_report' %}" class="btn btn-primary" style="background-color: #0066cc;">
+                    <i class="fas fa-chart-bar"></i> {{ "Manager Report"|t:current_lang }}
+                </a>
+                <a href="{% url 'change_password' %}" class="btn btn-secondary">
+                    <i class="fas fa-lock"></i> {{ "Change Password"|t:current_lang }}
+                </a>
+                <a href="{% url 'logout' %}" class="btn btn-danger">
+                    <i class="fas fa-sign-out-alt"></i> {{ "Logout"|t:current_lang }}
+                </a>
+            </div>
+        </div>
+    </div>
+
     <ul class="nav nav-tabs mb-3" id="managerTabs" role="tablist">
         <li class="nav-item"><button class="nav-link active fw-bold" id="employees-tab" data-bs-toggle="tab" data-bs-target="#employees-pane" type="button"><i class="fas fa-id-card me-2"></i>{{ "Employee Records"|t:current_lang }}</button></li>
         <li class="nav-item"><button class="nav-link fw-bold" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button"><i class="fas fa-user-lock me-2"></i>{{ "System Users"|t:current_lang }}</button></li>
@@ -119,18 +154,24 @@
                             <tr>
                                 <td><strong>{{ item.name }}</strong> ({{ item.empcode }})</td>
                                 <td>
-                                    {% if item.qpr_is_submitted %}
+                                    {% if item.pending_edit_request %}
+                                        <span class="badge bg-info">Edit Pending Approval</span>
+                                    {% elif item.approved_edit_request %}
+                                        <span class="badge bg-warning">Edit Approved</span>
+                                    {% elif item.qpr_is_submitted %}
                                         <span class="badge bg-success">Submitted</span>
                                     {% else %}
-                                        <span class="badge bg-warning text-dark">In Progress</span>
+                                        <span class="badge bg-secondary text-dark">In Progress</span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if item.qpr_is_submitted and item.qpr_id %}
-                                        <a href="{% url 'manage_user_action' item.qpr_id 'unlock_qpr' %}"
-                                           class="btn btn-sm btn-info text-white"
-                                           onclick="return confirm('Unlock QPR for {{ item.name }}?')">
-                                            <i class="bi bi-unlock"></i> Unlock QPR
+                                    {% if item.pending_edit_request %}
+                                        <!-- Show Approve/Reject for pending edit requests -->
+                                        <a href="{% url 'approve_edit_request' item.pending_edit_request.id %}" class="btn btn-sm btn-success">
+                                            <i class="bi bi-check-circle"></i> Approve
+                                        </a>
+                                        <a href="{% url 'reject_edit_request' item.pending_edit_request.id %}" class="btn btn-sm btn-danger">
+                                            <i class="bi bi-x-circle"></i> Reject
                                         </a>
                                     {% else %}
                                         <span class="text-muted small">-</span>
@@ -183,18 +224,28 @@
     
     <script id="user-lookup" type="application/json">
     {
-        {% for u in users %}
-            "{{ u.username }}": "{{ u.id }}"{% if not forloop.last %},{% endif %}
-        {% endfor %}
+    {% for u in users %}
+        {% if u.profile and u.profile.employee_code %}
+        "{{ u.profile.employee_code }}": "{{ u.id }}"{% if not forloop.last %},{% endif %}
+        {% endif %}
+    {% endfor %}
     }
     </script>
 
     <script>
         // 1. Helper to find User ID from EmpCode
         function getUserId(empCode) {
-            const lookup = JSON.parse(document.getElementById('user-lookup').textContent);
-            // Convert to string to ensure matching works
-            return lookup[String(empCode).trim()];
+
+            const lookup = JSON.parse(
+                document.getElementById('user-lookup').textContent
+            );
+
+            empCode = String(empCode).trim();
+
+            // convert 1 → 001
+            empCode = empCode.padStart(3, '0');
+
+            return lookup[empCode];
         }
     
         // 2. Handle Unlock Logic

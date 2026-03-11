@@ -54,4 +54,4 @@ class EmployeeSerializer(serializers.ModelSerializer):
             'gazet', 'prabodh', 'praveen', 'pragya', 'parangat',
             'typing', 'hindiproficiency', 'status', 'lastupdate',
             'super_annuation_date' # This maps to your model property
-        ]
+        ]        

@@ -2,10 +2,12 @@
 {% load translate_tags %}
 {% load static %}
 
+{# prefer session 'role' via `role` context, fallback to user's primary role inline #}
+
 {% block title %}
-    {% if user.role == 'admin' %} {{ "Admin Dashboard"|t:current_lang }}
-    {% elif user.role == 'manager' %} {{ "Manager Dashboard"|t:current_lang }}
-    {% elif user.role == 'hod' %} {{ "HOD Dashboard"|t:current_lang }}
+    {% if role|default:user.role == 'admin' %} {{ "Admin Dashboard"|t:current_lang }}
+    {% elif role|default:user.role == 'manager' %} {{ "Manager Dashboard"|t:current_lang }}
+    {% elif role|default:user.role == 'hod' %} {{ "HOD Dashboard"|t:current_lang }}
     {% else %} {{ "User Dashboard"|t:current_lang }}
     {% endif %}
 {% endblock %}
@@ -83,35 +85,33 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="fw-bold text-primary">
-                {% if user.role == 'admin' %} <i class="fas fa-user-shield"></i> {{ "Admin Dashboard"|t:current_lang }}
-                {% elif user.role == 'manager' %} <i class="fas fa-users-cog"></i> {{ "Manager Dashboard"|t:current_lang }}
-                {% elif user.role == 'hod' %} <i class="fas fa-user-tie"></i> {{ "HOD Dashboard"|t:current_lang }}
-                {% elif user.role == 'backup_user' %} <i class="bi bi-database-lock"></i> {{ "Backup Dashboard"|t:current_lang }}
+                {% if role|default:user.role == 'admin' %} <i class="fas fa-user-shield"></i> {{ "Admin Dashboard"|t:current_lang }}
+                {% elif role|default:user.role == 'manager' %} <i class="fas fa-users-cog"></i> {{ "Manager Dashboard"|t:current_lang }}
+                {% elif role|default:user.role == 'hod' %} <i class="fas fa-user-tie"></i> {{ "HOD Dashboard"|t:current_lang }}
+                {% elif role|default:user.role == 'backup_user' %} <i class="bi bi-database-lock"></i> {{ "Backup Dashboard"|t:current_lang }}
                 {% else %} <i class="fas fa-user"></i> {{ "User Dashboard"|t:current_lang }}
                 {% endif %}
             </h2>
             <p class="text-muted">
                 {{ "Welcome back,"|t:current_lang }} <strong>{{ user.username }}</strong>.
-                {% if user.role == 'admin' %} {{ "Manage HOD groups and system approvals."|t:current_lang }}
-                {% elif user.role == 'manager' %} {{ "Manage system access and employee records."|t:current_lang }}
-                {% elif user.role == 'hod' %} {{ "Overview of your department's progress."|t:current_lang }}
-                {% elif user.role == 'backup_user' %} {{ "Manage secure database downloads."|t:current_lang }}
+                {% if role|default:user.role == 'admin' %} {{ "Manage HOD groups and system approvals."|t:current_lang }}
+                {% elif role|default:user.role == 'manager' %} {{ "Manage system access and employee records."|t:current_lang }}
+                {% elif role|default:user.role == 'hod' %} {{ "Overview of your department's progress."|t:current_lang }}
+                {% elif role|default:user.role == 'backup_user' %} {{ "Manage secure database downloads."|t:current_lang }}
                 {% else %} {{ "Manage your profile and quarterly reports."|t:current_lang }}
                 {% endif %}
             </p>
         </div>
         
         <div>
-            <span class="badge bg-primary p-2">{{ user.role|upper }}</span>
-            {% if user.role == 'hod' %}
-                <span class="badge bg-info text-dark p-2">
-                    <i class="fas fa-user-tie"></i> {{ user.profile.name|default:user.username }}
-                </span>
+            <span class="badge bg-primary p-2">{{ role|default:user.role|upper }}</span>
+            {% if role|default:user.role == 'hod' and hod_name %}
+                <span class="badge bg-info text-dark p-2">{{ hod_name }}</span>
             {% endif %}
         </div>
     </div>
 
-    {% if user.role == 'admin' %}
+    {% if role|default:user.role == 'admin' %}
     
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-body">
@@ -162,13 +162,15 @@
                     <a href="{% url 'qpr_admin_create_hod' %}" class="btn btn-success text-white">
                         <i class="fas fa-user-plus"></i> {{ "Create New HOD"|t:current_lang }}
                     </a>
+                    <a href="{% url 'qpr_admin_create_manager' %}" class="btn btn-success text-white">
+                        <i class="fas fa-user-plus"></i> {{ "Create New Manager"|t:current_lang }}
+                    </a>
                     <a href="{% url 'qpr_admin_employee_list' %}" class="btn btn-info text-white">
                         <i class="fas fa-sitemap"></i> {{ "Employee Detail List"|t:current_lang }}
                     </a>
-
-                    <a href="{% url 'typing_data_report' %}" class="btn btn-primary text-white">
-                        <i class="fas fa-keyboard"></i> {{ "Typing Data Report"|t:current_lang }}
-                    </a>
+                    <button type="button" class="btn btn-warning text-white" data-bs-toggle="modal" data-bs-target="#officeDetailsModal">
+                        <i class="fas fa-building"></i> {{ "Office Details"|t:current_lang }}
+                    </button>
                 </div>
             </div>
         </div>
@@ -248,7 +250,7 @@
         </div>
     </div>
 
-    {% elif user.role == 'manager' %}
+    {% elif role|default:user.role == 'manager' %}
     
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold text-primary">{{ "Manager Dashboard"|t:current_lang }}</h2>
@@ -445,65 +447,31 @@
             new bootstrap.Modal(document.getElementById('designationModal')).show();
         }
     </script>
-  {% elif user.role == 'hod' %}
+        {% elif role|default:user.role == 'hod' %}
+        <div class="row">
+            <div class="col-md-3"><div class="stat-card text-center"><i class="fas fa-users stat-icon"></i><div class="stat-number">{{ total_users }}</div><div class="stat-label">{{ "Total Employees"|t:current_lang }}</div></div></div>
+            <div class="col-md-3"><div class="stat-card text-center" style="border-left-color: #28a745;"><i class="fas fa-check-circle stat-icon text-success"></i><div class="stat-number text-success">{{ qpr_submitted }}</div><div class="stat-label">{{ "QPR Submitted"|t:current_lang }}</div></div></div>
+            <div class="col-md-3"><div class="stat-card text-center" style="border-left-color: #ffc107;"><i class="fas fa-clock stat-icon text-warning"></i><div class="stat-number text-warning">{{ qpr_pending }}</div><div class="stat-label">{{ "QPR Pending"|t:current_lang }}</div></div></div>
+            <div class="col-md-3"><div class="stat-card text-center" style="border-left-color: #17a2b8;"><i class="fas fa-user-check stat-icon text-info"></i><div class="stat-number text-info">{{ profile_updated }}</div><div class="stat-label">{{ "Profile Updated"|t:current_lang }}</div></div></div>
+        </div>
 
-    <!-- Stats Cards Row -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="stat-card text-center">
-                <i class="fas fa-users stat-icon"></i>
-                <div class="stat-label">{{ "Total Employees"|t:current_lang }}</div>
+        <div class="card shadow-sm border-0 mt-3">
+            <div class="card-body">
+                <h5 class="fw-bold text-primary mb-3">{{ "Quick Actions"|t:current_lang }}</h5>
+                <a href="{% url 'qpr_hod_detail_list' %}" class="btn btn-primary me-2 mb-2"><i class="fas fa-table"></i> {{ "View Detail List"|t:current_lang }}</a>
+                <a href="{% url 'change_password' %}" class="btn btn-warning me-2 mb-2"><i class="fas fa-lock"></i> {{ "Change Password"|t:current_lang }}</a>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="stat-card text-center" style="border-left-color: #28a745;">
-                <i class="fas fa-check-circle stat-icon text-success"></i>
-                <div class="stat-label text-success">{{ "QPR Submitted"|t:current_lang }}</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stat-card text-center" style="border-left-color: #ffc107;">
-                <i class="fas fa-clock stat-icon text-warning"></i>
-                <div class="stat-label text-warning">{{ "QPR Pending"|t:current_lang }}</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stat-card text-center" style="border-left-color: #17a2b8;">
-                <i class="fas fa-user-check stat-icon text-info"></i>
-                <div class="stat-label text-info">{{ "Profile Updated"|t:current_lang }}</div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Quick Actions Card -->
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body">
-            <h5 class="fw-bold text-primary mb-3">{{ "Quick Actions"|t:current_lang }}</h5>
-            <div class="d-flex gap-2 flex-wrap">
-                <a href="{% url 'qpr_hod_detail_list' %}" class="btn btn-primary">
-                    <i class="fas fa-table"></i> {{ "View Detail List"|t:current_lang }}
-                </a>
-                <a href="{% url 'change_password' %}" class="btn btn-warning">
-                    <i class="fas fa-lock"></i> {{ "Change Password"|t:current_lang }}
-                </a>
-            </div>
+        <button class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></button>
+        <div class="menu-items" id="menuItems">
+            <a href="{% url 'qpr_hod_dashboard' %}" class="menu-item"><i class="fas fa-chart-pie"></i> {{ "Dashboard"|t:current_lang }}</a>
+            <a href="{% url 'qpr_hod_detail_list' %}" class="menu-item"><i class="fas fa-list"></i> {{ "Detail List"|t:current_lang }}</a>
+            <a href="{% url 'logout' %}" class="menu-item text-danger"><i class="fas fa-sign-out-alt"></i> {{ "Logout"|t:current_lang }}</a>
         </div>
-    </div>
+        <script> document.getElementById('menuToggle').addEventListener('click', () => { document.getElementById('menuItems').classList.toggle('active'); }); </script>
 
-    <!-- Floating Menu Toggle -->
-    <button class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></button>
-    <div class="menu-items" id="menuItems">
-        <a href="{% url 'qpr_hod_dashboard' %}" class="menu-item"><i class="fas fa-chart-pie"></i> {{ "Dashboard"|t:current_lang }}</a>
-        <a href="{% url 'qpr_hod_detail_list' %}" class="menu-item"><i class="fas fa-list"></i> {{ "Detail List"|t:current_lang }}</a>
-        <a href="{% url 'logout' %}" class="menu-item text-danger"><i class="fas fa-sign-out-alt"></i> {{ "Logout"|t:current_lang }}</a>
-    </div>
-    <script> 
-        document.getElementById('menuToggle').addEventListener('click', () => { 
-            document.getElementById('menuItems').classList.toggle('active'); 
-        }); 
-    </script>
-
-    {% elif user.role == 'backup_user' %}
+    {% elif role|default:user.role == 'backup_user' %}
         <div class="card shadow-sm border-info mt-4">
             <div class="card-body">
                 <h3 class="text-info">{{ "Backup Management"|t:current_lang }}</h3>
@@ -552,9 +520,9 @@
                             </span>
                         </div>
                         <div class="d-grid gap-2">
-                            <button type="button" class="btn btn-info text-white" data-bs-toggle="modal" data-bs-target="#profileModal">
+                            <a href="{% url 'profile' %}" class="btn btn-info text-white">
                                 <i class="bi bi-person-gear"></i> {{ "Edit / Freeze Profile"|t:current_lang }}
-                            </button>
+                            </a>
                             <a href="{% url 'employee_form' %}" class="btn btn-outline-info">
                                 <i class="bi bi-card-list"></i> {{ "Manage Employee Records"|t:current_lang }}
                             </a>
@@ -581,76 +549,206 @@
             </div>
         </div>
 
-        <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
-                    <div class="modal-header border-0 pb-0">
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body px-4 pb-4">
-                        <div class="text-center mb-4">
-                            <div class="profile-avatar mb-3">
-                                {{ user.username|first|upper }}
-                            </div>
-                            <h3 class="fw-bold mb-0">{{ user.username }}</h3>
-                            <p class="text-muted small">{{ user.get_email }}</p>
+        <!-- HOD Selection Card - Only for Regular Users (Disabled for HOD/Manager) -->
+        {% if role|default:user.role == 'user' %}
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body d-flex justify-content-between align-items-center flex-wrap">
+                <div>
+                    <h6 class="fw-bold text-primary mb-0"><i class="bi bi-person-badge"></i> {{ "HOD Assignment"|t:current_lang }}</h6>
+                    <small class="text-muted">{{ "Select the HOD you want to work under."|t:current_lang }}</small>
+                    {% if current_hod %}
+                        <div class="mt-2">
+                            <span class="badge bg-info">{{ "Current HOD:"|t:current_lang }} <strong>{{ current_hod }}</strong></span>
                         </div>
-
-                        <form method="post" action="{% url 'profile' %}">
-                            {% csrf_token %}
-                            {% if current_hod %}<input type="hidden" name="hod_name" value="{{ current_hod }}">{% endif %}
-                            <div class="mb-3 text-start">
-                                <label class="form-label fw-bold small">{{ "Notification Email"|t:current_lang }}</label>
-                                <input type="email" name="email" class="form-control" value="{{ user.get_email }}"
-                                    {% if user.is_frozen and not user.is_edit_allowed and not approved_edit_request %}readonly{% endif %} required>
-                                {% if user.is_frozen and not user.is_edit_allowed and not approved_edit_request %}
-                                <div class="form-text text-danger small">
-                                    {{ "Profile is frozen. Request edit permission to change email."|t:current_lang }}
-                                </div>
-                                {% elif user.is_frozen and approved_edit_request %}
-                                <div class="form-text text-success small">
-                                    <i class="bi bi-check-circle"></i> {{ "Edit permission approved! You can now make changes."|t:current_lang }}
-                                </div>
-                                {% endif %}
-                            </div>
-
-                            <div class="mb-3 text-start">
-                                <label class="form-label fw-bold small">{{ "HOD (Head of Department/Manager)"|t:current_lang }}</label>
-                                <select name="hod_name" class="form-select" required {% if current_hod %}disabled{% endif %}>
-                                    <option value="">-- {{ "Select HOD"|t:current_lang }} --</option>
-                                    {% for hod in available_hods %}
-                                        <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>{{ hod }}</option>
-                                    {% endfor %}
-                                </select>
-                                {% if current_hod %}
-                                <div class="form-text small text-warning"><i class="fas fa-lock"></i> {{ "HOD selection is locked after initial assignment. Contact admin to change."|t:current_lang }}</div>
-                                {% else %}
-                                <div class="form-text small">{{ "Select the HOD/Manager you work under."|t:current_lang }}</div>
-                                {% endif %}
-                            </div>
-
-                            <div class="d-grid gap-2 mt-4">
-                                {% if not user.is_frozen or user.is_edit_allowed or approved_edit_request %}
-                                <button type="submit" class="btn btn-primary fw-bold py-2">{{ "Save Profile Changes"|t:current_lang }}</button>
-                                {% endif %}
-
-                                {% if not user.is_frozen %}
-                                <a href="{% url 'freeze_profile' %}" class="btn btn-outline-warning fw-bold py-2"
-                                    onclick="return confirm('{{ 'Freeze your profile? You will need manager approval to edit it again.'|t:current_lang }}')">
-                                    {{ "Freeze Profile"|t:current_lang }}
-                                </a>
-                                {% elif not user.is_edit_allowed and not approved_edit_request %}
-                                <a href="{% url 'request_edit' %}" class="btn btn-outline-info fw-bold py-2">
-                                    {{ "Request Edit Permission"|t:current_lang }}
-                                </a>
-                                {% endif %}
-                            </div>
-                        </form>
-                    </div>
+                    {% endif %}
+                    {% if is_hod_or_manager %}
+                        <div class="mt-2">
+                            <small class="text-danger"><i class="bi bi-exclamation-circle"></i> {{ "HOD and Manager roles cannot change their HOD assignment"|t:current_lang }}</small>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="d-flex gap-2 mt-2 mt-md-0">
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#hodSelectionModal" {% if is_hod_or_manager %}disabled{% endif %}>
+                        <i class="bi bi-pencil-square"></i> {{ "Select / Change HOD"|t:current_lang }}
+                    </button>
                 </div>
             </div>
         </div>
+        {% endif %}
+
+        {# Modal removed: profile editing now handled on the dedicated profile page. #}
     {% endif %}
+
+    <!-- Office Details Modal -->
+    <div class="modal fade" id="officeDetailsModal" tabindex="-1" aria-labelledby="officeDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title" id="officeDetailsModalLabel">
+                        <i class="fas fa-building"></i> {{ "Office Details"|t:current_lang }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="officeDetailsForm">
+                        <div class="mb-3">
+                            <label for="office_code" class="form-label">{{ "Office Code"|t:current_lang }} <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="office_code" name="office_code" required placeholder="{{ 'Enter office code'|t:current_lang }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="office_name" class="form-label">{{ "Office Name"|t:current_lang }} <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="office_name" name="office_name" required placeholder="{{ 'Enter office name'|t:current_lang }}">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {{ "Cancel"|t:current_lang }}
+                    </button>
+                    <button type="button" class="btn btn-warning text-white" onclick="submitOfficeDetails()">
+                        <i class="fas fa-check"></i> {{ "Submit"|t:current_lang }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function submitOfficeDetails() {
+            const officeCode = document.getElementById('office_code').value.trim();
+            const officeName = document.getElementById('office_name').value.trim();
+            
+            if (!officeCode) {
+                alert('{{ "Please enter office code"|t:current_lang }}');
+                return;
+            }
+            if (!officeName) {
+                alert('{{ "Please enter office name"|t:current_lang }}');
+                return;
+            }
+            // Submit to server
+            const formData = new FormData();
+            formData.append('office_code', officeCode);
+            formData.append('office_name', officeName);
+
+            fetch('{% url "api_create_office" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': (function(){
+                        return document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+                    })()
+                },
+                body: formData
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    alert('{{ "Office Details Submitted"|t:current_lang }}\n\n{{ "Code"|t:current_lang }}: ' + data.code + '\n{{ "Name"|t:current_lang }}: ' + data.name);
+                    document.getElementById('officeDetailsForm').reset();
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('officeDetailsModal'));
+                    modal.hide();
+                    // reload to ensure new office appears in profile dropdowns
+                    setTimeout(() => { location.reload(); }, 500);
+                } else {
+                    alert(data.error || '{{ "Error saving office"|t:current_lang }}');
+                }
+            }).catch(err => {
+                console.error(err);
+                alert('{{ "Error saving office"|t:current_lang }}');
+            });
+        }
+
+        <!-- HOD Selection Modal -->
+        function openHodSelectionModal() {
+            document.getElementById('hodSelectionDropdown').focus();
+        }
+
+        function submitHodSelection() {
+            const hodDropdown = document.getElementById('hodSelectionDropdown');
+            const selectedHod = hodDropdown.value.trim();
+
+            if (!selectedHod) {
+                alert('{{ "Please select a HOD"|t:current_lang }}');
+                return;
+            }
+
+            const currentHod = '{{ current_hod }}';
+            if (selectedHod === currentHod) {
+                alert('{{ "You are already assigned to this HOD"|t:current_lang }}');
+                return;
+            }
+
+            // Show warning if changing HOD
+            if (currentHod) {
+                if (!confirm('{{ "You are about to change your HOD from"|t:current_lang }} "' + currentHod + '" {{ "to"|t:current_lang }} "' + selectedHod + '". {{ "This change will be effective immediately."|t:current_lang }}\n\n{{ "Continue?"|t:current_lang }}')) {
+                    return;
+                }
+            }
+
+            // Submit HOD change
+            fetch('{% url "api_user_change_hod" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': (function(){
+                        return document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+                    })()
+                },
+                body: JSON.stringify({
+                    hod_name: selectedHod
+                })
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    alert('{{ "HOD changed successfully!"|t:current_lang }}\n' + data.message);
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('hodSelectionModal'));
+                    modal.hide();
+                    // Reload page to reflect changes
+                    setTimeout(() => { location.reload(); }, 500);
+                } else {
+                    alert(data.error || '{{ "Error changing HOD"|t:current_lang }}');
+                }
+            }).catch(err => {
+                console.error(err);
+                alert('{{ "Error changing HOD"|t:current_lang }}');
+            });
+        }
+    </script>
+
+    <!-- HOD Selection Modal -->
+    <div class="modal fade" id="hodSelectionModal" tabindex="-1" aria-labelledby="hodSelectionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="hodSelectionModalLabel">
+                        <i class="bi bi-person-badge"></i> {{ "Select / Change HOD"|t:current_lang }}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="hodSelectionForm">
+                        <div class="mb-3">
+                            <label for="hodSelectionDropdown" class="form-label fw-bold">{{ "HOD Name"|t:current_lang }} <span class="text-danger">*</span></label>
+                            <select class="form-select" id="hodSelectionDropdown" name="hod_name" required>
+                                <option value="">-- {{ "Select a HOD"|t:current_lang }} --</option>
+                                {% for hod in available_hods %}
+                                    <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>{{ hod }}</option>
+                                {% endfor %}
+                            </select>
+                            {% if not available_hods %}
+                                <small class="text-danger">{{ "No HODs available for selection"|t:current_lang }}</small>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {{ "Cancel"|t:current_lang }}
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="submitHodSelection()" {% if not available_hods %}disabled{% endif %}>
+                        <i class="bi bi-check-circle"></i> {{ "Confirm Selection"|t:current_lang }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </div>
 {% endblock %}

@@ -210,7 +210,7 @@
                     <th>{{ "Office Code"|t:current_lang }}</th>
                     <th>{{ "Office Name"|t:current_lang }}</th>
                     <th>{{ "Profile"|t:current_lang }}</th>
-                    <th>{{ "QPR"|t:current_lang }}</th>
+                    <th>QPR ({{ current_quarter }} {{ current_year }})</th>
                     <th>{{ "Edit Request"|t:current_lang }}</th>
                     <th>{{ "Email"|t:current_lang }}</th>
                 </tr>
@@ -224,20 +224,18 @@
                     <td>{{ user.office_name|default:"Not Set" }}</td>
                     <td>
                         {% if user.profile_complete %}
-                        <span class="status-complete"><i class="fas fa-check-circle"></i> {{ "Complete"|t:current_lang
-                            }}</span>
+                        <span class="status-complete"><i class="fas fa-check-circle"></i> {{ "Complete"|t:current_lang }}</span>
                         {% else %}
-                        <span class="status-incomplete"><i class="fas fa-times-circle"></i> {{
-                            "Incomplete"|t:current_lang }}</span>
+                        <span class="status-incomplete"><i class="fas fa-times-circle"></i> {{ "Incomplete"|t:current_lang }}</span>
                         {% endif %}
                     </td>
                     <td>
-                        {% if user.qpr_complete %}
-                        <span class="status-complete"><i class="fas fa-check-circle"></i> {{ "Submitted"|t:current_lang
-                            }}</span>
+                        {% if user.qpr_record_id %}
+                            <a href="{% url 'qpr_report_detail' user.qpr_record_id %}" class="btn btn-sm btn-outline-primary">View</a>
+                        {% elif user.qpr_complete %}
+                            <span class="status-complete"><i class="fas fa-check-circle"></i> {{ "Submitted"|t:current_lang }}</span>
                         {% else %}
-                        <span class="status-incomplete"><i class="fas fa-times-circle"></i> {{ "Pending"|t:current_lang
-                            }}</span>
+                            <span class="status-incomplete"><i class="fas fa-times-circle"></i> {{ "Pending"|t:current_lang }}</span>
                         {% endif %}
                     </td>
                     <td>
@@ -275,36 +273,4 @@
     </div>
     {% endif %}
 </div>
-
-<button class="menu-toggle" id="menuToggle" title="Menu">
-    <i class="fas fa-bars"></i>
-</button>
-
-<div class="menu-items" id="menuItems">
-    <a href="{% url 'qpr_hod_dashboard' %}" class="menu-item">
-        <i class="fas fa-chart-pie"></i> {{ "Dashboard"|t:current_lang }}
-    </a>
-    <a href="{% url 'qpr_hod_detail_list' %}" class="menu-item">
-        <i class="fas fa-list"></i> {{ "Detail List"|t:current_lang }}
-    </a>
-    <a href="{% url 'logout' %}" class="menu-item" style="color: #dc3545;">
-        <i class="fas fa-sign-out-alt"></i> {{ "Logout"|t:current_lang }}
-    </a>
-</div>
-
-<script>
-    const menuToggle = document.getElementById('menuToggle');
-    const menuItems = document.getElementById('menuItems');
-
-    menuToggle.addEventListener('click', () => {
-        menuItems.classList.toggle('active');
-    });
-
-    // Close menu when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.menu-toggle') && !e.target.closest('.menu-items')) {
-            menuItems.classList.remove('active');
-        }
-    });
-</script>
 {% endblock %}

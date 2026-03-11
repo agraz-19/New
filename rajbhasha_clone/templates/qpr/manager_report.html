@@ -1,0 +1,505 @@
+{% extends "master.html" %}
+{% load static %}
+{% load translate_tags %}
+
+{% block title %}{{ "Manager Report"|t:current_lang }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-container {
+        margin-top: 30px;
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .report-heading {
+        color: #dc3545;
+        font-size: 1.8rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+        font-family: 'Arial', sans-serif;
+    }
+
+    .office-code-line {
+        color: #dc3545;
+        font-size: 1rem;
+        margin-bottom: 20px;
+    }
+
+    .office-code-label {
+        font-weight: normal;
+    }
+
+    .office-code-value {
+        font-weight: bold;
+    }
+
+    .instruction-text {
+        color: #dc3545;
+        font-size: 0.95rem;
+        line-height: 1.6;
+        margin-bottom: 25px;
+        background-color: #fff5f5;
+        padding: 15px;
+        border-left: 4px solid #dc3545;
+        border-radius: 4px;
+    }
+
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+
+    .report-table thead {
+        background-color: #0066cc;
+        color: white;
+        text-align: center;
+    }
+
+    .report-table th {
+        padding: 12px 8px;
+        border: 1px solid #0066cc;
+        font-weight: bold;
+        font-size: 0.95rem;
+    }
+
+    .report-table td {
+        padding: 12px 8px;
+        border: 1px solid #ddd;
+        text-align: left;
+    }
+
+    .report-table tbody tr {
+        background-color: #f9f9f9;
+    }
+
+    .report-table tbody tr:nth-child(even) {
+        background-color: #f1f1f1;
+    }
+
+    .report-table tbody tr:hover {
+        background-color: #f0f0f0;
+    }
+
+    .status-cell {
+        font-size: 0.9rem;
+        color: #333;
+    }
+
+    .action-link {
+        color: #0066cc;
+        text-decoration: none;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+    .action-link:hover {
+        color: #004499;
+        text-decoration: underline;
+    }
+
+    .edit-count {
+        color: #666;
+        font-weight: normal;
+    }
+
+    .back-button {
+        display: inline-block;
+        margin-bottom: 20px;
+        padding: 8px 15px;
+        background-color: #6c757d;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        transition: background-color 0.3s ease;
+    }
+
+    .back-button:hover {
+        background-color: #5a6268;
+        text-decoration: none;
+        color: white;
+    }
+
+    .no-data-message {
+        text-align: center;
+        color: #666;
+        padding: 30px;
+        font-size: 1rem;
+    }
+
+    .edit-btn {
+        background: none;
+        border: none;
+        color: #0066cc;
+        text-decoration: none;
+        cursor: pointer;
+        font-weight: 500;
+        padding: 0;
+    }
+
+    .edit-btn:hover {
+        color: #004499;
+        text-decoration: underline;
+    }
+
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal-overlay.show {
+        display: flex;
+    }
+
+    .modal-content {
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        max-width: 500px;
+        width: 90%;
+    }
+
+    .modal-header {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 15px;
+        color: #dc3545;
+    }
+
+    .modal-body {
+        margin-bottom: 20px;
+        line-height: 1.6;
+        color: #333;
+    }
+
+    .modal-footer {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+
+    .modal-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: background-color 0.3s ease;
+    }
+
+    .modal-btn-confirm {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .modal-btn-confirm:hover {
+        background-color: #218838;
+    }
+
+    .modal-btn-cancel {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .modal-btn-cancel:hover {
+        background-color: #5a6268;
+    }
+
+    .modal-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+
+    @media (max-width: 768px) {
+        .report-container {
+            padding: 15px;
+        }
+
+        .report-table {
+            font-size: 0.85rem;
+        }
+
+        .report-table th,
+        .report-table td {
+            padding: 8px 4px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container report-container">
+    
+    <a href="{% url 'manager_dashboard' %}" class="back-button">
+        <i class="fas fa-arrow-left"></i> {{ "Back"|t:current_lang }}
+    </a>
+
+    <!-- Heading Section -->
+    <div class="report-heading">{{ "Status of Last 4 Quarterly Progress Reports"|t:current_lang }}</div>
+    
+    <div class="office-code-line">
+        <span class="office-code-label">{{ "Office Code"|t:current_lang }} –</span> 
+        <span class="office-code-value">{{ office_code }}</span>
+    </div>
+
+    <!-- Instruction/Warning Section -->
+    <div class="instruction-text">
+        {{ "For the Financial Year 2025–2026, all quarterly reports can be edited up to two times after submission to the Official Language Department, till the 30th of the respective upload month."|t:current_lang }}
+    </div>
+
+    <!-- Table Section -->
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>{{ "Year"|t:current_lang }}</th>
+                <th>{{ "Quarter"|t:current_lang }}</th>
+                <th>{{ "Office Name"|t:current_lang }}</th>
+                <th>{{ "Status"|t:current_lang }}</th>
+                <th>{{ "View"|t:current_lang }}</th>
+                <th>{{ "Edit"|t:current_lang }}</th>
+                <th>{{ "Certificate"|t:current_lang }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for report in qpr_reports %}
+            <tr>
+                <td>{{ report.year }}</td>
+                <td>{{ report.quarter }}</td>
+                <td>{{ report.office_name }}</td>
+                <td class="status-cell">
+                    <strong>{{ report.status_title }}</strong><br>
+                    <small>{{ report.status_date }}</small>
+                </td>
+                <td>
+                    <a href="/manager/report/record/{{ report.id }}/" class="action-link" onclick="window.location.href=this.href;">
+                        {{ "View"|t:current_lang }}
+                    </a>
+                </td>
+                <td>
+                {% if report.edit_count >= 2 %}
+                    <button class="edit-btn" disabled style="color:#999; cursor:not-allowed;">
+                        {{ "Edit"|t:current_lang }} ({{ report.edit_count }}/2)
+                    </button>
+                {% else %}
+                    <button class="edit-btn" onclick="showUnlockModal({{ report.id }}, '{{ report.quarter }}', {{ report.edit_count }})">
+                        {{ "Edit"|t:current_lang }} ({{ report.edit_count }}/2)
+                    </button>
+                {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'certificate_form' report.id %}" class="action-link">
+                        {{ "Certificate"|t:current_lang }}
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="no-data-message">
+                    {{ "No quarterly reports found for this office."|t:current_lang }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+
+<!-- Unlock Confirmation Modal -->
+<div id="unlockModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">{{ "Confirm Edit Unlock"|t:current_lang }}</div>
+        <div class="modal-body">
+            <p>{{ "You are about to unlock all QPR forms for the following period:"|t:current_lang }}</p>
+            <p style="margin-top: 15px;">
+                <strong id="modalQuarter"></strong>
+            </p>
+            <p style="margin-top: 15px; font-size: 0.95rem; color: #666;">
+                {{ "All users will be able to edit their submitted forms for this period."|t:current_lang }}
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="modal-btn modal-btn-cancel" onclick="hideUnlockModal()">
+                {{ "Cancel"|t:current_lang }}
+            </button>
+            <button type="button" class="modal-btn modal-btn-confirm" id="confirmUnlockBtn" onclick="confirmUnlock()">
+                {{ "OK"|t:current_lang }}
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentRecordId = null;
+
+function showUnlockModal(recordId, quarter, editCount) {
+    if (editCount >= 2) {
+        alert('{{ "Maximum edit attempts (2) reached for this record."|t:current_lang }}');
+        return;
+    }
+    
+    currentRecordId = recordId;
+    document.getElementById('modalQuarter').textContent = quarter;
+    document.getElementById('unlockModal').classList.add('show');
+}
+
+function hideUnlockModal() {
+    currentRecordId = null;
+    document.getElementById('unlockModal').classList.remove('show');
+}
+
+function confirmUnlock() {
+    if (!currentRecordId) return;
+    
+    const confirmBtn = document.getElementById('confirmUnlockBtn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = '{{ "Processing..."|t:current_lang }}';
+    
+    // Get CSRF token
+    const csrfToken = getCookie('csrftoken');
+    console.log('CSRF Token retrieved:', !!csrfToken);
+    console.log('Record ID:', currentRecordId);
+    console.log('URL:', `/manager/report/edit/${currentRecordId}/`);
+    console.log('Method: POST');
+    
+    fetch(`/manager/report/edit/${currentRecordId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({})  // Send empty JSON body
+    })
+    .then(response => {
+        const contentType = response.headers.get('content-type');
+        console.log('Response received:', response.status, response.statusText);
+        console.log('Content-Type:', contentType);
+        
+        // Check if response is OK
+        if (!response.ok) {
+            console.error('HTTP Error:', response.status, response.statusText);
+            return response.text().then(text => {
+                console.log('Error Response Text:', text.substring(0, 200));
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            });
+        }
+        
+        // Check if response is JSON
+        if (!contentType || !contentType.includes('application/json')) {
+            console.error('Response is not JSON:', contentType);
+            return response.text().then(text => {
+                console.log('Response Text:', text.substring(0, 200));
+                throw new Error(`Expected JSON but got ${contentType}`);
+            });
+        }
+        
+        return response.json().then(data => {
+            console.log('JSON Response:', data);
+            return data;
+        });
+    })
+    .then(data => {
+        hideUnlockModal();
+        
+        if (data.success) {
+            // Show success notification
+            showNotification(data.message, 'success');
+            // Reload page after a short delay
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification(data.error || '{{ "An error occurred"|t:current_lang }}', 'error');
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = '{{ "OK"|t:current_lang }}';
+        }
+    })
+    .catch(error => {
+        console.error('Request Error:', error.message);
+        console.error('Error Stack:', error.stack);
+        hideUnlockModal();
+        showNotification(error.message || '{{ "Request failed"|t:current_lang }}', 'error');
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = '{{ "OK"|t:current_lang }}';
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    // Fallback: try to get from input field (in case it's there)
+    if (!cookieValue) {
+        const csrfInput = document.querySelector('[name="csrfmiddlewaretoken"]');
+        if (csrfInput) {
+            cookieValue = csrfInput.value;
+        }
+    }
+    console.log(`getCookie('${name}') = ${cookieValue ? cookieValue.substring(0, 10) + '...' : 'null'}`);
+    return cookieValue;
+}
+
+function showNotification(message, type) {
+    const notif = document.createElement('div');
+    notif.className = `notification notification-${type}`;
+    notif.textContent = message;
+    notif.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 4px;
+        background-color: ${type === 'success' ? '#28a745' : '#dc3545'};
+        color: white;
+        z-index: 2000;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        animation: slideIn 0.3s ease;
+    `;
+    document.body.appendChild(notif);
+    
+    setTimeout(() => notif.remove(), 4000);
+}
+
+// Close modal when clicking outside
+document.getElementById('unlockModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        hideUnlockModal();
+    }
+});
+
+// Style for animation
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}
