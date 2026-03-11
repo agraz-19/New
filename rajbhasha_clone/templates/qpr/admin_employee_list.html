@@ -130,7 +130,7 @@
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h3 class="mb-0"><i class="fas fa-sitemap"></i> {{ "Organization Structure"|t:current_lang }}</h3>
             <div>
-                <a href="{% url 'qpr_admin_dashboard' %}" class="btn btn-secondary btn-sm">
+                <a href="{% url 'qpr_admin_dashboard' %}" class="btn btn-outline-secondary btn-sm ms-2">
                     <i class="fas fa-arrow-left"></i> {{ "Back"|t:current_lang }}
                 </a>
             </div>
@@ -190,8 +190,7 @@
             <div>
                 <i class="fas fa-user-tie"></i>
                 {{ hod_group.hod_name }}
-                <span class="employee-count"><strong>{{ hod_group.user_count }}</strong> {{ "employees"|t:current_lang
-                    }}</span>
+                <span class="employee-count"><strong>{{ hod_group.user_count }}</strong> {{ "employees"|t:current_lang }}</span>
                 <div class="hod-info">
                     <i class="fas fa-envelope"></i> {{ hod_group.hod_email }}
                 </div>
@@ -228,12 +227,14 @@
                         {{ user.year|default:"N/A" }}
                     </td>
                     <td>
-                        {% if user.qpr_status == "Draft" %}
-                        <span class="status-badge status-draft">{{ "Draft"|t:current_lang }}</span>
+                        {% if user.qpr_record_id %}
+                            <a href="{% url 'qpr_report_detail' user.qpr_record_id %}" class="btn btn-sm btn-outline-primary">View</a>
+                        {% elif user.qpr_status == "Draft" %}
+                            <span class="status-badge status-draft">{{ "Draft"|t:current_lang }}</span>
                         {% elif user.qpr_status == "Submitted" %}
-                        <span class="status-badge status-submitted">{{ "Submitted"|t:current_lang }}</span>
+                            <span class="status-badge status-submitted">{{ "Submitted"|t:current_lang }}</span>
                         {% else %}
-                        <span class="status-badge status-draft">{{ "Not Submitted"|t:current_lang }}</span>
+                            <span class="status-badge status-draft">{{ "Not Submitted"|t:current_lang }}</span>
                         {% endif %}
                     </td>
                 </tr>
