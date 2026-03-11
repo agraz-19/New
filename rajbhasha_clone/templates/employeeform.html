@@ -23,29 +23,6 @@
 
 <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-4">
     <h4 class="text-primary mb-0">{{"Employee Entry Form"|t:current_lang }}</h4>
-    
-    <div class="custom-btn-group">
-        <button type="button" class="rect-slanted-btn" onclick="showSubmitted()">
-  <span class="btn-text">View</span>
-  <div class="btn-icon">
-    <img src="https://img.icons8.com/ios-filled/24/ffffff/document.png" alt="view">
-  </div>
-</button>
-
-<button type="button" class="rect-slanted-btn" onclick="downloadPDF()">
-  <span class="btn-text">PDF</span>
-  <div class="btn-icon">
-    <img src="https://img.icons8.com/ios-filled/24/ffffff/pdf.png" alt="pdf">
-  </div>
-</button>
-
-<button type="button" class="rect-slanted-btn" onclick="downloadExcel()">
-  <span class="btn-text">Excel</span>
-  <div class="btn-icon">
-    <img src="https://img.icons8.com/material-rounded/24/ffffff/ms-excel.png" alt="excel">
-  </div>
-</button>
-    </div>
 </div>
 
 <div id="lastUpdatedBox" class="text-muted small mb-2" style="display:none;">
@@ -59,24 +36,16 @@
 <div class="row g-3">
   <div class="col-md-6">
     <label>{{"Empcode"|t:current_lang }}</label>
-
-      {% if role == 'user' %}
-      <input type="text"
-            class="form-control"
-            value="{{ username }}"
-            readonly>
-      {% else %}
-      {{ form.empcode }}
-      {% endif %}
+    <input type="text" name="empcode" value="{{ form.empcode.value }}" class="form-control" readonly>
 
     <label class="mt-2">{{"Name in English"|t:current_lang }}</label>
-    {{ form.ename}}
+    <input type="text" name="ename" value="{{ form.ename.value }}" class="form-control" readonly>
 
     <label class="mt-2">{{"Name in Hindi"|t:current_lang }}</label>
     {{ form.hname }}
 
     <label class="mt-2">{{"Designation"|t:current_lang }} {% if role == 'manager' %}<span class="badge bg-info text-dark">Manager Only</span>{% endif %}</label>
-    <select id="designationSelect" class="form-select">
+    <select id="designationSelect" name="designation" class="form-select">
       <option value="">-- {{"Select"|t:current_lang }} --</option>
       <option value="Scientist-F">{{"Scientist-F"|t:current_lang }}</option>
       <option value="Scientist-G">{{"Scientist-G"|t:current_lang }}</option>
@@ -211,12 +180,12 @@
 <div class="d-flex justify-content-end align-items-center gap-3 mb-2">
   
   <button type="button" class="download-icon-btn" onclick="downloadExcel()" title="Download Excel">
-    <img src="https://img.icons8.com/ios-filled/24/4caf50/ms-excel.png" alt="Excel">
-</button>
+     <img src="https://img.icons8.com/ios-filled/24/4caf50/ms-excel.png" alt="Excel">
+  </button>
 
   <button type="button" class="download-icon-btn" onclick="downloadPDF()" title="Download PDF">
-  <img class="pdf-doc-icon" src="https://img.icons8.com/color/48/pdf.png?v=9999" alt="PDF">
-</button>
+    <img class="pdf-doc-icon" src="https://img.icons8.com/color/48/pdf.png?v=9999" alt="PDF">
+  </button>
   
 </div>
 <div class="table-responsive">
@@ -331,36 +300,54 @@ document.getElementById("employeeForm").addEventListener("submit", async e => {
 
       const result = await response.json();
 
+      // Handle existing record case (user tries to create but one already exists)
+      if (response.ok && result.id && result.message) {
+          alert(result.message);
+          
+          // Load existing record for editing
+          editingId = result.id;
+          const existingData = result.data;
+          
+          // Populate form fields with existing data
+          document.getElementById("id_empcode").value = existingData.empcode || "";
+          document.getElementById("id_ename").value = existingData.ename || "";
+          document.getElementById("id_hname").value = existingData.hname || "";
+          document.getElementById("id_super_annuation_date").value = existingData.super_annuation_date || "";
+          
+          if (existingData.designation) {
+              const desigSelect = document.getElementById("designationSelect");
+              if ([...desigSelect.options].map(o => o.value).includes(existingData.designation)) {
+                  desigSelect.value = existingData.designation;
+              } else {
+                  desigSelect.value = "OTHER";
+                  document.getElementById("otherDesignation").style.display = "block";
+                  document.getElementById("otherDesignation").value = existingData.designation;
+              }
+          }
+          
+          // Show last updated info
+          if (existingData.lastupdate) {
+              document.getElementById("lastUpdatedText").innerText = new Date(existingData.lastupdate).toLocaleString();
+              document.getElementById("lastUpdatedBox").style.display = "block";
+          }
+          
+          return;
+      }
+
       if (!response.ok) {
 
-          let message = "";
+          let message = "Error saving record:\n\n";
 
-          // Duplicate record case
-          if (result.detail && result.detail.includes("already")) {
-              message = result.detail + 
-              "\n\nPlease edit your saved draft instead of creating a new record.";
-              
-              // ✅ CLEAR FORM
-              form.reset();
-              editingId = null;
-              document.getElementById("designationSelect").value = "";
-              document.getElementById("otherDesignation").style.display = "none";
-              document.getElementById("lastUpdatedBox").style.display = "none";
+          if (result.detail) {
+              message += result.detail;
           }
           else {
-              message = "Error saving record:\n\n";
-
-              if (result.detail) {
-                  message += result.detail;
-              }
-              else {
-                  for (const [field, errors] of Object.entries(result)) {
-                      if (Array.isArray(errors)) {
-                          message += `• ${field}: ${errors.join(", ")}\n`;
-                      }
-                      else {
-                          message += `• ${field}: ${errors}\n`;
-                      }
+              for (const [field, errors] of Object.entries(result)) {
+                  if (Array.isArray(errors)) {
+                      message += `• ${field}: ${errors.join(", ")}\n`;
+                  }
+                  else {
+                      message += `• ${field}: ${errors}\n`;
                   }
               }
           }
@@ -369,7 +356,7 @@ document.getElementById("employeeForm").addEventListener("submit", async e => {
           return;
       }
 
-      // SUCCESS
+      // SUCCESS - new record created
       form.reset();
       editingId = null;
       document.getElementById("designationSelect").value = "";
@@ -464,13 +451,7 @@ async function showSubmitted() {
           </tr>`);
       }
 
-      // 🔥 ADD THIS PART FOR SCROLLING
-      const section = document.getElementById("submittedSection");
-      if (section) {
-          section.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-
-      // Auto-disable form if needed
+      //  AUTO-DISABLE FORM IF SUBMITTED RECORD EXISTS
       if (data.length > 0 && userRole !== 'manager') {
           disableForm();
       }
@@ -529,7 +510,7 @@ async function submitSelectedDrafts() {
   if (res.ok) {
       showSubmitted();
       showDrafts();
-      disableForm(); // 🔥 DISABLE FORM AFTER SUBMIT
+      disableForm(); //  DISABLE FORM AFTER SUBMIT
       alert("Submitted successfully! Form is now locked.");
   }
 }

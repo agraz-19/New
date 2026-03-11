@@ -69,17 +69,22 @@ function maskSensitiveData(value) {
     return valueStr.charAt(0) + '*'.repeat(valueStr.length - 2) + valueStr.charAt(valueStr.length - 1);
 }
 
-// Fields to mask when in draft mode
-const SENSITIVE_FIELDS = ['officeCode', 'phone', 'email'];
+// Fields to mask when in draft mode (don't mask officeCode anymore)
+const SENSITIVE_FIELDS = [];
 
 // --- 1. Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Check if user is authenticated
-    checkAuthentication();
+    // Always initialize UI helpers
     populateYearDropdown();
-    loadData();
     initHindiKeyboard();
     bindHindiFocusHandlers();
+
+    // Only run QPR data loading / masking on QPR pages where related elements exist
+    const isQPRPage = !!document.getElementById('qprForm');
+    if (isQPRPage) {
+        checkAuthentication();
+        loadData();
+    }
 });
 
 // Check if user is authenticated
@@ -304,7 +309,7 @@ async function saveData(status) {
     console.log("recordId input element:", idInput);
     console.log("recordId value:", id);
     
-    const mainFields = ['officeName', 'officeCode', 'region', 'quarter', 'recordId'];
+    const mainFields = ['officeName', 'officeCode', 'region', 'quarter', 'recordId', 'phone', 'email', 'year'];
     
     const payload = {
         id: id ? id : null,
@@ -313,6 +318,9 @@ async function saveData(status) {
         officeCode: document.getElementById('officeCode').value,
         region: document.getElementById('region').value,
         quarter: document.getElementById('quarter').value,
+        year: document.getElementById('year').value,
+        phone: document.getElementById('phone')?.value || '',
+        email: document.getElementById('email')?.value || '',
         details: {} 
     };
 
@@ -335,12 +343,26 @@ async function saveData(status) {
             body: JSON.stringify(payload)
         });
         
+        console.log("Response status:", res.status, "ok:", res.ok);
+        
         if (res.ok) {
             alert(status === 'Draft' ? "Draft Saved Successfully!" : "Report Submitted Successfully!");
-            clearForm();
-            loadData(); 
+            
+            console.log("Alert shown. Status is:", status);
+            
+            // If submitted, redirect to report list; if draft, reload form
+            if (status === 'Submitted') {
+                console.log("Redirecting to /qpr/reports/");
+                window.location.href = "/qpr/reports/";
+            } else {
+                console.log("Not submitted, reloading form");
+                clearForm();
+                loadData();
+            }
         } else {
-            alert("Server Error: " + res.statusText);
+            const errorData = await res.json().catch(() => ({}));
+            console.error("Response error:", errorData);
+            alert("Server Error: " + (errorData.error || res.statusText));
         }
     } catch (err) {
         console.error("Save Error:", err);
@@ -353,50 +375,36 @@ function editRecord(id) {
     // This finds the record because we updated 'records' in loadData()
     const record = records.find(r => r.id === id);
     
-    console.log("editRecord called with id:", id);
-    console.log("Available records:", records);
-    console.log("Found record:", record);
-    
     if (!record) {
         console.error("Record not found for ID:", id);
         return;
     }
 
     // Fill Main Fields - Apply masking to all records
-    console.log("Filling form with record:", record);
     document.getElementById('recordId').value = record.id;
     document.getElementById('officeName').value = record.officeName;
-    document.getElementById('officeCode').value = maskSensitiveData(record.officeCode);
+    // Do not mask office code — show the full code so it is saved unchanged
+    document.getElementById('officeCode').value = record.officeCode || '';
     document.getElementById('region').value = record.region;
     document.getElementById('quarter').value = record.quarter;
     
     // Handle phone field if it exists in details
-    if (record.details && record.details.phone) {
-        const phoneEl = document.getElementById('phone');
-        if (phoneEl) {
-            phoneEl.value = maskSensitiveData(record.details.phone);
+    const phoneEl = document.getElementById('phone');
+    if (phoneEl) {
+        phoneEl.value = record.phone || '';
         }
-    }
     
     // Handle email field if it exists in details
-    if (record.details && record.details.email) {
-        const emailEl = document.getElementById('email');
-        if (emailEl) {
-            emailEl.value = maskSensitiveData(record.details.email);
+    const emailEl = document.getElementById('email');
+    if (emailEl) {
+        emailEl.value = record.email || '';
         }
-    }
-
     // Fill Details - Apply masking to all records
     if (record.details) {
-        for (const [key, value] of Object.entries(record.details)) {
-            const el = document.getElementById(key);
-            if (el) {
-                if (SENSITIVE_FIELDS.includes(key)) {
-                    el.value = maskSensitiveData(value);
-                } else {
-                    el.value = value;
-                }
-                console.log("Set field", key, "to", el.value);
+    for (const [key, value] of Object.entries(record.details)) {
+        const el = document.getElementById(key);
+        if (el) {
+            el.value = value;
             }
         }
     }

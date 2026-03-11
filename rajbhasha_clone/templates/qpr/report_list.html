@@ -35,6 +35,7 @@
                             <th>{{ "Code"|t:current_lang }}</th>
                             <th>{{ "Region"|t:current_lang }}</th>
                             <th>{{ "Quarter"|t:current_lang }}</th>
+                            <th>{{"Year"|t:current_lang }}</th>
                             <th>{{ "Status"|t:current_lang }}</th>
                             <th>{{ "Action"|t:current_lang }}</th>
                         </tr>
@@ -48,7 +49,7 @@
 </div>
 
 <script>
-    const API_URL = "{% url 'qpr_api_records' %}";
+    const LIST_API_URL = "{% url 'qpr_api_records' %}";
 
     // Function to mask sensitive fields
     function maskSensitiveData(value) {
@@ -60,7 +61,7 @@
 
     async function loadList() {
         try {
-            const res = await fetch(API_URL);
+            const res = await fetch(LIST_API_URL);
             const data = await res.json();
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
@@ -86,19 +87,37 @@
                 } else {
                     actionButtons = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${r.id})">{{ "Request to Edit"|t:current_lang }}</button>`;
                 }
+                let typingButton = '';
 
-                const maskedCode = maskSensitiveData(r.officeCode);
+                if (r.s7_total && Number(r.s7_total) > 0) {
+                    typingButton = `
+                        <button class="btn btn-sm btn-outline-success ms-1"
+                        onclick="event.stopPropagation(); typingUsageReport(${r.id})">
+                        {{ "Typing Usage Report"|t:current_lang }}
+                        </button>
+                    `;
+                } else {
+                    typingButton = `
+                        <button class="btn btn-sm btn-outline-secondary ms-1" disabled
+                        title="No notings entered for this report">
+                        {{ "Typing Usage Report"|t:current_lang }}
+                        </button>
+                    `;
+                }
+
+                const rawCode = r.officeCode || '-';
 
                 tr.innerHTML = `
                 <td>${r.officeName || '-'}</td>
-                <td>${maskedCode}</td>
+                <td>${rawCode}</td>
                 <td>${r.region || '-'}</td>
                 <td>${r.quarter || '-'}</td>
+                <td>${r.year || '-'}</td>
                 <td>${status}</td>
                 <td>
                     ${actionButtons}
                     <button class="btn btn-sm btn-outline-primary ms-1" onclick="view(${r.id})">{{ "View"|t:current_lang }}</button>
-                    <button class="btn btn-sm btn-outline-success ms-1" onclick="event.stopPropagation(); typingUsageReport(${r.id})">{{ "Typing Usage Report"|t:current_lang }}</button>
+                    ${typingButton}
                 </td>
             `;
 
