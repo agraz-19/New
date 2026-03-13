@@ -824,127 +824,166 @@ def unarchive_user(request, archive_id):
 
 @login_required
 def profile_view(request):
-    """Unified profile view - displaying QPR office details"""
+    """Unified profile view - displaying QPR office details + Employee form"""
+
     lang = request.session.get('lang', 'en')
     user = request.user
     profile = user.profile if hasattr(user, 'profile') else None
-    
+
+    from .models import Employee, Office
+    from .employeeform import EmployeeForm
+
+    # Fetch employee using employee code
+    employee = None
+    if profile and profile.employee_code:
+        employee = Employee.objects.filter(empcode=profile.employee_code).first()
+
+    # Initialize EmployeeForm
+    form = EmployeeForm(instance=employee)
+
     # Fetch QPR details
     latest_qpr = QPRRecord.objects.filter(user=user).order_by('-updated_at').first()
+
     qpr_office_name = ""
     qpr_office_code = ""
     qpr_phone = ""
     qpr_email = ""
-    
+
     if latest_qpr:
         qpr_office_name = latest_qpr.officeName
         qpr_office_code = latest_qpr.officeCode
         qpr_phone = latest_qpr.phone or ""
         qpr_email = latest_qpr.email or ""
-    
-    if request.method == 'POST':
-        new_email = request.POST.get('email', '').lower().strip()
-        # hod_name removed from user-editable form (admin-managed)
-        employee_code = request.POST.get('employee_code', '').strip()
-        phone = request.POST.get('phone', '').strip()
-        office_code_post = request.POST.get('office_code', '').strip()
-        office_name_post = request.POST.get('office_name', '').strip()
-        
-        # Check if user can edit - either not frozen, edit_allowed, or has approved request
-        approved_request = EditRequest.objects.filter(
-            user=user,
-            request_type='profile',
-            status='approved'
-        ).first()
-        
-        can_edit = (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None)
-        
-        if user.is_frozen and not can_edit:
-            messages.error(request, translate_text("Profile is frozen. Request edit permission.", lang), extra_tags='danger')
-            return redirect('dashboard')
-        
-        # Basic validation (HOD is admin-managed; users need not supply it)
-        if not new_email:
-            messages.error(request, translate_text("Email is required.", lang), extra_tags='danger')
-        else:
-            # prevent duplicate email across users
-            email_hash = hashlib.sha256(new_email.encode()).hexdigest()
-            if CustomUser.objects.filter(email_hash=email_hash).exclude(pk=user.pk).exists():
-                messages.error(request, translate_text("Email already in use.", lang), extra_tags='danger')
-            else:
-                # Update encrypted email on user (keeps auth flow)
-                user.set_email(new_email)
-                if user.is_edit_allowed:
-                    user.is_edit_allowed = False
-                user.save()
 
-                # Update UserProfile fields from submitted form (do not overwrite hod_name)
-                if profile:
-                    if employee_code:
-                        profile.employee_code = employee_code
-                    profile.phone = phone or profile.phone
-                    profile.office_code = office_code_post or profile.office_code
-                    profile.office_name = office_name_post or profile.office_name
-                    profile.email = new_email
-                    profile.save()
-
-                # Mark approved request as used
-                if approved_request:
-                    approved_request.status = 'used'
-                    approved_request.save()
-
-                send_system_email(user, request, 'update')
-                messages.success(request, translate_text("Profile updated successfully!", lang))
-                return redirect('dashboard')
-    
-    # Get list of available HODs
-    available_hods = get_active_hods(profile.office_code) if profile else []
-    current_hod = profile.hod_name if profile else None
-    
-    # Check for approved request
+    # Approved edit request
     approved_request = EditRequest.objects.filter(
         user=user,
         request_type='profile',
         status='approved'
     ).first()
-    
-    # Check for pending/rejected requests
+
+    can_edit = (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None)
+
+    if request.method == 'POST':
+
+        new_email = request.POST.get('email', '').lower().strip()
+        employee_code = request.POST.get('employee_code', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        office_code_post = request.POST.get('office_code', '').strip()
+        office_name_post = request.POST.get('office_name', '').strip()
+
+        if user.is_frozen and not can_edit:
+            messages.error(
+                request,
+                translate_text("Profile is frozen. Request edit permission.", lang),
+                extra_tags='danger'
+            )
+            return redirect('dashboard')
+
+        if not new_email:
+            messages.error(
+                request,
+                translate_text("Email is required.", lang),
+                extra_tags='danger'
+            )
+        else:
+
+            email_hash = hashlib.sha256(new_email.encode()).hexdigest()
+
+            if CustomUser.objects.filter(email_hash=email_hash).exclude(pk=user.pk).exists():
+
+                messages.error(
+                    request,
+                    translate_text("Email already in use.", lang),
+                    extra_tags='danger'
+                )
+
+            else:
+
+                # Update user email
+                user.set_email(new_email)
+
+                if user.is_edit_allowed:
+                    user.is_edit_allowed = False
+
+                user.save()
+
+                # Update profile
+                if profile:
+
+                    if employee_code:
+                        profile.employee_code = employee_code
+
+                    profile.phone = phone or profile.phone
+                    profile.office_code = office_code_post or profile.office_code
+                    profile.office_name = office_name_post or profile.office_name
+                    profile.email = new_email
+
+                    profile.save()
+
+                # ===== SAVE EMPLOYEE FORM =====
+
+                form = EmployeeForm(request.POST, instance=employee)
+
+                if form.is_valid():
+                    form.save()
+
+                # ===============================
+
+                if approved_request:
+                    approved_request.status = 'used'
+                    approved_request.save()
+
+                send_system_email(user, request, 'update')
+
+                messages.success(
+                    request,
+                    translate_text("Profile updated successfully!", lang)
+                )
+
+                return redirect('dashboard')
+
+    # Other edit requests
     pending_edit_request = EditRequest.objects.filter(
         user=user,
         request_type='profile',
         status='pending'
     ).first()
-    
+
     rejected_edit_request = EditRequest.objects.filter(
         user=user,
         request_type='profile',
         status='rejected'
     ).order_by('-created_at').first()
-    
+
+    # Available HODs
+    available_hods = get_active_hods(profile.office_code) if profile else []
+    current_hod = profile.hod_name if profile else None
+
+    offices = Office.objects.all()
+
     context = {
         'profile': profile,
+        'employee': employee,
+        'form': form,
+
         'available_hods': available_hods,
         'current_hod': current_hod,
+
         'approved_edit_request': approved_request,
         'pending_edit_request': pending_edit_request,
         'rejected_edit_request': rejected_edit_request,
-        'can_edit': (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None),
+
+        'can_edit': can_edit,
+
         'qpr_office_name': qpr_office_name,
         'qpr_office_code': qpr_office_code,
         'qpr_phone': qpr_phone,
         'qpr_email': qpr_email,
-    }
-    # Include office list for dropdowns in the profile template
-    try:
-        from .models import Office
-        offices = Office.objects.all()
-    except Exception:
-        offices = []
 
-    context.update({
         'offices': offices,
         'profile_updated': profile.profile_updated if profile else False,
-    })
+    }
 
     return render(request, 'profile.html', context)
 

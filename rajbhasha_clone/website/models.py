@@ -127,23 +127,43 @@ class Employee(models.Model):
     
     ename = models.CharField(null=True, blank=True) 
     hname = models.CharField(max_length=255)
+    DESIGNATION_CHOICES = [
+        ("Scientist-F", "Scientist-F"),
+        ("Scientist-G", "Scientist-G"),
+        ("Scientist-E", "Scientist-E"),
+        ("Scientist-D", "Scientist-D"),
+        ("Scientist-C", "Scientist-C"),
+        ("Scientist-B", "Scientist-B"),
+        ("Section Officer", "Section Officer"),
+        ("Senior Secretariate Assistant", "Senior Secretariate Assistant"),
+        ("Scientific/Technical Assistant-A", "Scientific/Technical Assistant-A"),
+        ("Scientific/Technical Assistant-B", "Scientific/Technical Assistant-B"),
+        ("Scientific Officer/Engineer-SB", "Scientific Officer/Engineer-SB"),
+    ]
 
-    designation = models.CharField(max_length=100, blank=True, null=True)
+    designation = models.CharField(
+        max_length=100,
+        choices=DESIGNATION_CHOICES,
+        blank=True,
+        null=True
+    )
     GAZET_CHOICES = [
         ("Gazetted", "Gazetted"),
         ("Non-Gazetted", "Non-Gazetted"),
     ]
     gazet = models.CharField(max_length=50, choices=GAZET_CHOICES)
 
-    EXAM_STATUS = [
-        ("Passed", "Passed"),
-        ("Failed", "Failed"),
-        ("Did not Appear", "Did not Appear"),
-    ]
-    prabodh = models.CharField(max_length=20, choices=EXAM_STATUS, blank=True)
-    praveen = models.CharField(max_length=20, choices=EXAM_STATUS, blank=True)
-    pragya = models.CharField(max_length=20, choices=EXAM_STATUS, blank=True)
-    parangat = models.CharField(max_length=20, choices=EXAM_STATUS, blank=True)
+    highest_exam = models.CharField(
+        max_length=20,
+        choices=[
+            ("Prabodh", "Prabodh"),
+            ("Praveen", "Praveen"),
+            ("Pragya", "Pragya"),
+            ("Parangat", "Parangat")
+        ],
+        blank=True,
+        null=True
+    )
 
     TYPING_CHOICES = [
         ("Hindi", "Hindi"),
@@ -152,15 +172,15 @@ class Employee(models.Model):
     ]
     typing = models.CharField(max_length=30, choices=TYPING_CHOICES)
 
-    HINDI_PROFICIENCY_CHOICES = [
-        ("Good", "Good"),
-        ("Average", "Average"),
-        ("Basic", "Basic"),
-    ]
     hindiproficiency = models.CharField(
-        max_length=30, choices=HINDI_PROFICIENCY_CHOICES
+        max_length=5,
+        choices=[
+            ("Yes", "Yes"),
+            ("No", "No")
+        ],
+        blank=True,
+        null=True
     )
-
     status = models.CharField(
         max_length=10,
         choices=[("draft", "Draft"), ("submitted", "Submitted")],
