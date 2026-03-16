@@ -55,6 +55,66 @@ from .templatetags.translate_tags import translate_text
 from .minio_service import get_all_events
 FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
 pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
+from django.contrib.admin.views.decorators import staff_member_required
+from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.contrib import messages
+
+from .minio_service import get_all_events, upload_event, delete_event
+from .minio_service import upload_event, upload_images_to_existing_event, delete_event
+
+
+@staff_member_required
+def admin_events_dashboard(request):
+
+    events = get_all_events()
+
+    return render(request, "admin_events_dashboard.html", {
+        "events": events
+    })
+
+
+@staff_member_required
+
+def admin_upload_event(request):
+
+    folder = request.GET.get("folder")
+
+    if request.method == "POST":
+
+        event_date = request.POST.get("event_date")
+        event_name = request.POST.get("event_name")
+        images = request.FILES.getlist("images")
+
+        try:
+
+            if folder:
+                upload_images_to_existing_event(folder, images)
+
+            else:
+                upload_event(event_date, event_name, images)
+
+            return JsonResponse({"status": "success"})
+
+        except Exception as e:
+
+            return JsonResponse({
+                "status": "error",
+                "message": str(e)
+            })
+
+    return render(request,"admin_upload_event.html",{
+        "folder":folder
+    })
+
+@staff_member_required
+def admin_delete_event(request, folder):
+
+    delete_event(folder)
+
+    messages.success(request, "Event deleted successfully")
+
+    return redirect("admin_events_dashboard")
 
 import logging
 logger = logging.getLogger(__name__)

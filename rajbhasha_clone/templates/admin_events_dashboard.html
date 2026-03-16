@@ -1,0 +1,59 @@
+{% extends "master.html" %}
+
+{% block content %}
+
+<div class="container mt-5">
+
+<h3>Event Manager</h3>
+
+<a href="{% url 'admin_upload_event' %}" class="btn btn-primary mb-4">Add Event</a>
+
+<table class="table table-bordered">
+
+<thead>
+<tr>
+<th>Thumbnail</th>
+<th>Title</th>
+<th>Date</th>
+<th>Add Images</th>
+<th>Delete</th>
+</tr>
+</thead>
+
+<tbody>
+
+{% for event in events %}
+
+<tr>
+
+<td>
+<img src="{{ event.thumbnail }}" width="120">
+</td>
+
+<td>{{ event.title }}</td>
+
+<td>{{ event.date }}</td>
+
+<td>
+
+<a href="{% url 'admin_upload_event' %}?folder={{ event.folder }}"class="btn btn-info btn-sm">Add Images</a>
+
+</td>
+
+<td>
+
+<a href="{% url 'admin_delete_event' event.folder %}"class="btn btn-danger btn-sm">Delete</a>
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+{% endblock %}
