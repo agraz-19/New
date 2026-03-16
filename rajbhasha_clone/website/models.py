@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager
 from cryptography.fernet import Fernet
 from django.conf import settings
 import hashlib
@@ -9,7 +11,26 @@ from django.contrib.auth.models import BaseUserManager
 
 cipher_suite = Fernet(settings.ENCRYPTION_KEY)
 
-class CustomUserManager(BaseUserManager):
+class Role(models.Model):
+    """Role model for multi-role support"""
+    ROLE_CHOICES = [
+        ('user', 'User'),
+        ('manager', 'Manager'),
+        ('hod', 'HOD'),
+        ('admin', 'Admin'),
+        ('backup_user', 'Backup User'),
+    ]
+    name = models.CharField(max_length=20, unique=True, choices=ROLE_CHOICES)
+    description = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        ordering = ['name']
+
+class CustomUserManager(UserManager["CustomUser"]):
     def create_user(self, username, email=None, password=None, **extra_fields):
         if not email:
             raise ValueError('The Email field must be set')
@@ -18,26 +39,25 @@ class CustomUserManager(BaseUserManager):
         # Use your custom encryption method
         user.set_email(email) 
         user.save(using=self._db)
+        # Assign 'user' role by default
+        user_role = Role.objects.get_or_create(name='user')[0]
+        user.roles.add(user_role)
         return user
 
     def create_superuser(self, username, email=None, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('role', 'admin')
-        return self.create_user(username, email, password, **extra_fields)
+        user = self.create_user(username, email, password, **extra_fields)
+        # Assign 'admin' role
+        admin_role = Role.objects.get_or_create(name='admin')[0]
+        user.roles.add(admin_role)
+        return user
 
 class CustomUser(AbstractUser):
-    ROLE_CHOICES = [
-        ('user', 'User'),
-        ('manager', 'Manager'),
-        ('hod', 'HOD'),
-        ('admin', 'Admin'),
-        ('backup_user', 'Backup User'),
-    ]
     email_hash = models.CharField(max_length=64, unique=True, null=True, blank=True)
     encrypted_email_data = models.BinaryField(null=True, blank=True)
     email = models.EmailField(unique=False, null=True, blank=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
+    roles = models.ManyToManyField(Role, related_name='users', blank=True)
     otp = models.CharField(max_length=6, blank=True, null=True)
     otp_created_at = models.DateTimeField(blank=True, null=True)
     consent_given_at = models.DateTimeField(null=True, blank=True)
@@ -62,6 +82,17 @@ class CustomUser(AbstractUser):
         if self.encrypted_email_data:
             return cipher_suite.decrypt(self.encrypted_email_data).decode()
         return None
+    @property
+    def role(self):
+        """Return primary role string for template compatibility (admin > manager > hod > user > backup_user)."""
+        try:
+            priority_roles = ['admin', 'manager', 'hod', 'user', 'backup_user']
+            for r in priority_roles:
+                if self.roles.filter(name=r).exists():
+                    return r
+        except Exception:
+            return None
+        return None
 class DataAccessLog(models.Model):
     accessed_by = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='audit_actions')
     target_user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='access_history')
@@ -81,28 +112,58 @@ class ArchivedUser(models.Model):
     original_user_id = models.IntegerField()
 
 
+class Office(models.Model):
+    """Office lookup table created by admin via Quick Actions"""
+    code = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
 class Employee(models.Model):
     empcode = models.IntegerField(unique=True)
     
     ename = models.CharField(null=True, blank=True) 
     hname = models.CharField(max_length=255)
+    DESIGNATION_CHOICES = [
+        ("Scientist-F", "Scientist-F"),
+        ("Scientist-G", "Scientist-G"),
+        ("Scientist-E", "Scientist-E"),
+        ("Scientist-D", "Scientist-D"),
+        ("Scientist-C", "Scientist-C"),
+        ("Scientist-B", "Scientist-B"),
+        ("Section Officer", "Section Officer"),
+        ("Senior Secretariate Assistant", "Senior Secretariate Assistant"),
+        ("Scientific/Technical Assistant-A", "Scientific/Technical Assistant-A"),
+        ("Scientific/Technical Assistant-B", "Scientific/Technical Assistant-B"),
+        ("Scientific Officer/Engineer-SB", "Scientific Officer/Engineer-SB"),
+    ]
 
-    designation = models.CharField(max_length=100, blank=True, null=True)
+    designation = models.CharField(
+        max_length=100,
+        choices=DESIGNATION_CHOICES,
+        blank=True,
+        null=True
+    )
     GAZET_CHOICES = [
         ("Gazetted", "Gazetted"),
         ("Non-Gazetted", "Non-Gazetted"),
     ]
     gazet = models.CharField(max_length=50, choices=GAZET_CHOICES)
 
-    EXAM_STATUS = [
-        ("Passed", "Passed"),
-        ("Failed", "Failed"),
-        ("Did not Appear", "Did not Appear"),
-    ]
-    prabodh = models.CharField(max_length=20, choices=EXAM_STATUS, blank=True)
-    praveen = models.CharField(max_length=20, choices=EXAM_STATUS, blank=True)
-    pragya = models.CharField(max_length=20, choices=EXAM_STATUS, blank=True)
-    parangat = models.CharField(max_length=20, choices=EXAM_STATUS, blank=True)
+    highest_exam = models.CharField(
+        max_length=20,
+        choices=[
+            ("Prabodh", "Prabodh"),
+            ("Praveen", "Praveen"),
+            ("Pragya", "Pragya"),
+            ("Parangat", "Parangat")
+        ],
+        blank=True,
+        null=True
+    )
 
     TYPING_CHOICES = [
         ("Hindi", "Hindi"),
@@ -111,15 +172,15 @@ class Employee(models.Model):
     ]
     typing = models.CharField(max_length=30, choices=TYPING_CHOICES)
 
-    HINDI_PROFICIENCY_CHOICES = [
-        ("Good", "Good"),
-        ("Average", "Average"),
-        ("Basic", "Basic"),
-    ]
     hindiproficiency = models.CharField(
-        max_length=30, choices=HINDI_PROFICIENCY_CHOICES
+        max_length=5,
+        choices=[
+            ("Yes", "Yes"),
+            ("No", "No")
+        ],
+        blank=True,
+        null=True
     )
-
     status = models.CharField(
         max_length=10,
         choices=[("draft", "Draft"), ("submitted", "Submitted")],
@@ -165,20 +226,14 @@ class TranslationCache(models.Model):
 
 class UserProfile(models.Model):
     """Extended user profile for storing additional information"""
-    ROLE_CHOICES = [
-        ('user', 'User'),
-        ('manager', 'Manager'),
-        ('hod', 'HOD'),
-        ('admin', 'Admin'),
-        ('backup_user', 'Backup User'),
-    ]
     
     user = models.OneToOneField(settings.AUTH_USER_MODEL,on_delete=models.CASCADE,related_name='profile')
     employee_code = models.CharField(max_length=50, unique=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
+    roles = models.ManyToManyField(Role, related_name='user_profiles', blank=True)
     hod_name = models.CharField(max_length=50, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
     office_name = models.CharField(max_length=255, blank=True, null=True)
     office_code = models.CharField(max_length=50, blank=True, null=True)
     profile_updated = models.BooleanField(default=False)
@@ -186,7 +241,8 @@ class UserProfile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"{self.employee_code} - {self.role}"
+        roles_str = ', '.join(self.roles.values_list('name', flat=True))
+        return f"{self.employee_code} - {roles_str or 'user'}"
     
     class Meta:
         ordering = ['-id']
@@ -282,6 +338,11 @@ class QPRRecord(models.Model):
     phone = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     is_submitted = models.BooleanField(default=False)
+    is_editing_allowed = models.BooleanField(default=False, help_text='Allow editing of submitted form after unlock')
+    cert_edit_count = models.IntegerField(default=0, help_text='Track certificate edits (max 2)')
+    cert_office_code = models.CharField(max_length=50, blank=True, null=True, help_text='Override office code for certificate')
+    cert_quarter = models.CharField(max_length=50, blank=True, null=True, help_text='Override quarter for certificate')
+    cert_year = models.CharField(max_length=20, blank=True, null=True, help_text='Override year for certificate')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -412,6 +473,182 @@ class TypingUsageReport(models.Model):
 
     def __str__(self):
         return f"Typing Usage Report - {self.qpr_record.officeName}"
+    
+class CertificateData(models.Model):
+    """Store certificate data (year and quarter) selected by manager for each QPR submission"""
+    qpr_record = models.OneToOneField(QPRRecord, on_delete=models.CASCADE, related_name='certificate_data')
+    financial_year = models.CharField(max_length=20)
+    quarter_ending = models.CharField(max_length=50)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Certificate - {self.qpr_record.officeName} ({self.quarter_ending})"
 
     class Meta:
         ordering = ['-created_at']
+class QPRPartTwo(models.Model):
+    qpr_record = models.OneToOneField(
+        QPRRecord,
+        on_delete=models.CASCADE,
+        related_name='part2',
+        null=True,
+        blank=True,
+        help_text='Optional link to the main QPRRecord when created from manager UI'
+    )
+    
+    
+    financial_year = models.CharField(max_length=20, help_text="e.g., 2023-24") # [cite: 124]
+    
+    # --- Section 1: Rule 10(4) Notification ---
+    is_notified_rule_10_4 = models.BooleanField(
+        default=False, 
+        verbose_name="Notified under Rule 10(4)"
+    ) # [cite: 70, 71]
+    total_sub_offices = models.PositiveIntegerField(default=0) # [cite: 72, 73]
+    notified_sub_offices = models.PositiveIntegerField(default=0) # [cite: 73]
+
+    # --- Section 3: Computer Training ---
+    computer_training_total_staff = models.PositiveIntegerField(default=0) # [cite: 80, 81]
+    computer_training_trained = models.PositiveIntegerField(default=0) # [cite: 81]
+    computer_training_working = models.PositiveIntegerField(default=0) # [cite: 81]
+
+    # --- Section 4: Computers/Laptops ---
+    total_computers = models.PositiveIntegerField(default=0) # [cite: 82, 83]
+    hindi_enabled_computers = models.PositiveIntegerField(default=0) # [cite: 83]
+
+    # --- Section 6: Rule 8(4) Individual Orders ---
+    officials_issued_rule_8_4_orders = models.PositiveIntegerField(default=0) # [cite: 86]
+
+    # --- Section 7: Training Programme (For Training Institutes) ---
+    training_total_duration_hours = models.PositiveIntegerField(default=0) # [cite: 87, 88]
+    training_imparted_hindi = models.PositiveIntegerField(default=0) # [cite: 88]
+    training_imparted_english = models.PositiveIntegerField(default=0) # [cite: 88]
+    training_imparted_mixed = models.PositiveIntegerField(default=0) # [cite: 88]
+
+    # --- Section 8: Inspections ---
+    sec8_total_sections = models.PositiveIntegerField(default=0) # [cite: 89, 91]
+    sec8_inspected_sections = models.PositiveIntegerField(default=0) # [cite: 92]
+    sec8_total_sub_offices = models.PositiveIntegerField(default=0) # [cite: 93]
+    sec8_inspected_sub_offices = models.PositiveIntegerField(default=0) # [cite: 94]
+
+    # --- Section 9: Magazines Publication ---
+    magazines_total = models.PositiveIntegerField(default=0) # [cite: 95, 96]
+    magazines_hindi = models.PositiveIntegerField(default=0) # [cite: 96]
+    magazines_english = models.PositiveIntegerField(default=0) # [cite: 96]
+
+    # --- Section 10: Hindi Books Purchase ---
+    expenditure_total_books = models.DecimalField(max_digits=12, decimal_places=2, default=0.00) # [cite: 97, 98]
+    expenditure_hindi_books = models.DecimalField(max_digits=12, decimal_places=2, default=0.00) # [cite: 99]
+
+    # --- Section 15: Other Achievements ---
+    hindi_event_start_date = models.DateField(null=True, blank=True) # [cite: 111, 112]
+    hindi_event_end_date = models.DateField(null=True, blank=True) # [cite: 112, 114]
+    seminar_date = models.DateField(null=True, blank=True) # [cite: 113]
+    seminar_subject = models.CharField(max_length=255, blank=True) # [cite: 113]
+    other_activities_date = models.DateField(null=True, blank=True) # [cite: 115]
+    other_activities_subject = models.CharField(max_length=255, blank=True) # [cite: 115]
+
+    def __str__(self):
+        return f"QPR Part II - {self.financial_year}"
+    
+    # Submission tracking
+    is_submitted = models.BooleanField(default=False)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='submitted_part2')
+    
+    # --- Section 16: Certificate Contact Info ---
+    chairperson_name = models.CharField(max_length=255, blank=True, null=True)
+    chairperson_designation = models.CharField(max_length=255, blank=True, null=True)
+    chairperson_phone = models.CharField(max_length=50, blank=True, null=True)
+    chairperson_fax = models.CharField(max_length=50, blank=True, null=True)
+    chairperson_email = models.EmailField(blank=True, null=True)
+    
+class StaffHindiKnowledge(models.Model):
+    """Section 2(i): Officers/Employees possessing knowledge of Hindi""" # [cite: 74]
+    CATEGORY_CHOICES = [
+        ('proficient', 'Proficient'), # 
+        ('working_knowledge', 'Working Knowledge'), # 
+        ('being_trained', 'Being trained in Hindi'), # 
+        ('yet_to_be_trained', 'Yet to be trained in Hindi'), # 
+    ]
+    report = models.ForeignKey(QPRPartTwo, on_delete=models.CASCADE, related_name='staff_knowledge')
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
+    officers_count = models.PositiveIntegerField(default=0) # 
+    employees_count = models.PositiveIntegerField(default=0) # 
+    total_count = models.PositiveIntegerField(default=0)
+
+class TypingStenographyKnowledge(models.Model):
+    """Section 2(ii): Knowledge of Hindi Stenography/Typing""" # [cite: 76]
+    CATEGORY_CHOICES = [
+        ('stenographer', 'Stenographer'), # [cite: 77]
+        ('typist_clerk', 'Typists/Clerks/Assistant Section Officer'), # [cite: 77]
+        ('tax_postal', 'Tax/Postal Asstt. etc.') # [cite: 77]
+    ]
+    report = models.ForeignKey(QPRPartTwo, on_delete=models.CASCADE, related_name='typing_knowledge')
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
+    total_no = models.PositiveIntegerField(default=0) # [cite: 77]
+    trained_in_hindi = models.PositiveIntegerField(default=0) # [cite: 77]
+    work_in_hindi = models.PositiveIntegerField(default=0) # [cite: 77]
+    yet_to_be_trained = models.PositiveIntegerField(default=0) # [cite: 77]
+
+class TranslationKnowledge(models.Model):
+    """Section 2(iii): Knowledge of Translation""" # [cite: 78]
+    CATEGORY_CHOICES = [
+        ('engaged', 'Engaged in Translation Work'), # [cite: 79]
+        ('trained', 'Got training in Translation'), # [cite: 79]
+        ('yet_to_be_trained', 'Yet to be trained') # [cite: 79]
+    ]
+    report = models.ForeignKey(QPRPartTwo, on_delete=models.CASCADE, related_name='translation_knowledge')
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
+    officers_count = models.PositiveIntegerField(default=0) # [cite: 79]
+    employees_count = models.PositiveIntegerField(default=0) # [cite: 79]
+    total_count = models.PositiveIntegerField(default=0)
+
+class CodeManualStandardForms(models.Model):
+    """Section 5: Code, Manual, Standard Forms etc.""" # [cite: 84]
+    CATEGORY_CHOICES = [
+        ('acts_rules', 'Acts/Rules/Official codes/Manuals/Procedural literature etc.'), # [cite: 85]
+        ('standard_forms', 'Standard Forms') # [cite: 85]
+    ]
+    report = models.ForeignKey(QPRPartTwo, on_delete=models.CASCADE, related_name='codes_manuals')
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
+    total_no = models.PositiveIntegerField(default=0) # [cite: 85]
+    bilingual_no = models.PositiveIntegerField(default=0) # [cite: 85]
+
+class OfficersWorkInHindi(models.Model):
+    """Section 11 & 12: Work done by officers""" # [cite: 100, 102, 103]
+    LEVEL_CHOICES = [
+        ('ds_and_above', 'Deputy Secretary/Equivalent and above'), # [cite: 100]
+        ('below_ds', 'Below the level of Deputy Secretary/Equivalent') # [cite: 103]
+    ]
+    report = models.ForeignKey(QPRPartTwo, on_delete=models.CASCADE, related_name='officers_work')
+    level = models.CharField(max_length=50, choices=LEVEL_CHOICES)
+    total_officers = models.PositiveIntegerField(default=0) # [cite: 101, 104]
+    knowledge_of_hindi = models.PositiveIntegerField(default=0) # [cite: 101, 104]
+    not_doing = models.PositiveIntegerField(default=0) # [cite: 101, 104]
+    doing_upto_25 = models.PositiveIntegerField(default=0) # [cite: 101, 104]
+    doing_26_to_50 = models.PositiveIntegerField(default=0) # [cite: 101, 104]
+    doing_51_to_75 = models.PositiveIntegerField(default=0) # [cite: 101, 104]
+    doing_more_76 = models.PositiveIntegerField(default=0) # [cite: 101, 104]
+    doing_cent_percent = models.PositiveIntegerField(default=0) # [cite: 101, 104]
+
+class HindiPost(models.Model):
+    """Section 13: Hindi Posts""" # [cite: 105]
+    report = models.ForeignKey(QPRPartTwo, on_delete=models.CASCADE, related_name='hindi_posts')
+    designation = models.CharField(max_length=150) # [cite: 106]
+    sanctioned = models.PositiveIntegerField(default=0) # [cite: 106]
+    vacant = models.PositiveIntegerField(default=0) # [cite: 106]
+
+class WebsiteDetail(models.Model):
+    """Section 14: Website""" # [cite: 107]
+    STATUS_CHOICES = [
+        ('english_only', 'Only in English'), # [cite: 110]
+        ('partially_bilingual', 'Partially Bilingual'), # [cite: 110]
+        ('fully_bilingual', 'Fully Bilingual') # [cite: 110]
+    ]
+    report = models.ForeignKey(QPRPartTwo, on_delete=models.CASCADE, related_name='websites')
+    url = models.URLField(verbose_name="Address of Website") # [cite: 110]
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES) # [cite: 110]
+
+

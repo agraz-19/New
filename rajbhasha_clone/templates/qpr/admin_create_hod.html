@@ -51,6 +51,23 @@
         color: #0066cc;
         margin-right: 10px;
     }
+
+    .loading-spinner {
+        display: none;
+        margin-top: 10px;
+    }
+
+    .error-message {
+        color: #dc3545;
+        font-size: 14px;
+        margin-top: 5px;
+    }
+
+    .success-message {
+        color: #28a745;
+        font-size: 14px;
+        margin-top: 5px;
+    }
 </style>
 {% endblock %}
 
@@ -72,8 +89,7 @@
 
         <div class="info-box">
             <i class="fas fa-info-circle"></i>
-            <strong>{{ "Note"|t:current_lang }}:</strong> {{ "Default password is 123456. HOD can change it after
-            login."|t:current_lang }}
+            <strong>{{ "Note"|t:current_lang }}:</strong> {{ "Enter the employee code of a registered user. The name will be automatically populated."|t:current_lang }}
         </div>
 
         {% if messages %}
@@ -93,42 +109,26 @@
                 <label for="emp_code" class="form-label">{{ "Employee Code"|t:current_lang }} <span
                         style="color: red;">*</span></label>
                 <input type="text" class="form-control" id="emp_code" name="emp_code" required
-                    placeholder="{{ 'e.g., HOD001'|t:current_lang }}" value="{{ request.POST.emp_code|default:'' }}">
-                {% if form.emp_code.errors %}
-                <small class="text-danger">{{ form.emp_code.errors.0 }}</small>
-                {% endif %}
-            </div>
-
-            <div class="form-group mb-3">
-                <label for="first_name" class="form-label">{{ "HOD's Name"|t:current_lang }} <span
-                        style="color: red;">*</span></label>
-                <input type="text" class="form-control" id="first_name" name="first_name" required
-                    placeholder="{{ 'e.g., Department of Computer Science'|t:current_lang }}"
-                    value="{{ request.POST.first_name|default:'' }}">
-                {% if form.first_name.errors %}
-                <small class="text-danger">{{ form.first_name.errors.0 }}</small>
-                {% endif %}
-            </div>
-
-            <div class="form-group mb-3">
-                <label for="email" class="form-label">{{ "Email"|t:current_lang }} <span
-                        style="color: red;">*</span></label>
-                <input type="email" class="form-control" id="email" name="email" required
-                    placeholder="{{ 'hod@example.com'|t:current_lang }}" value="{{ request.POST.email|default:'' }}">
-                {% if form.email.errors %}
-                <small class="text-danger">{{ form.email.errors.0 }}</small>
-                {% endif %}
-            </div>
-
-            <div class="form-group mb-4">
-                <div class="alert alert-secondary" role="alert">
-                    <small><i class="fas fa-lock"></i> <strong>{{ "Password"|t:current_lang }}:</strong> 123456 ({{ "Can
-                        be changed after login"|t:current_lang }})</small>
+                    placeholder="{{ 'Enter the employee code here'|t:current_lang }}" value="{{ request.POST.emp_code|default:'' }}">
+                <div class="loading-spinner" id="loadingSpinner">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    {{ "Loading..."|t:current_lang }}
                 </div>
+                <div id="empCodeError" class="error-message"></div>
+                <div id="empCodeSuccess" class="success-message"></div>
             </div>
+
+            <div class="form-group mb-3">
+                <label for="hod_name" class="form-label">{{ "HOD's Name"|t:current_lang }} <span
+                        style="color: red;">*</span></label>
+                <input type="text" class="form-control" id="hod_name" readonly
+                    placeholder="{{ 'Name will appear here'|t:current_lang }}">
+            </div>
+
+            
 
             <div class="form-group">
-                <button type="submit" class="btn btn-custom">
+                <button type="submit" class="btn btn-custom" id="submitBtn" disabled>
                     <i class="fas fa-check"></i> {{ "Create HOD"|t:current_lang }}
                 </button>
                 <a href="{% url 'qpr_admin_dashboard' %}" class="btn btn-secondary ms-2">
@@ -138,4 +138,47 @@
         </form>
     </div>
 </div>
+
+<script>
+    const empCodeInput = document.getElementById('emp_code');
+    const hodNameInput = document.getElementById('hod_name');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const empCodeError = document.getElementById('empCodeError');
+    const empCodeSuccess = document.getElementById('empCodeSuccess');
+    const submitBtn = document.getElementById('submitBtn');
+
+    empCodeInput.addEventListener('change', async function() {
+        const empCode = this.value.trim();
+        
+        // Clear previous messages and reset button
+        empCodeError.textContent = '';
+        empCodeSuccess.textContent = '';
+        hodNameInput.value = '';
+        submitBtn.disabled = true;
+
+        if (!empCode) {
+            empCodeError.textContent = '{{ "Please enter an employee code"|t:current_lang }}';
+            return;
+        }
+
+        loadingSpinner.style.display = 'inline';
+
+        try {
+            const response = await fetch(`/qpr/admin/api/employee-details/?emp_code=${encodeURIComponent(empCode)}`);
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                hodNameInput.value = data.name;
+                empCodeSuccess.textContent = '{{ "Employee found!"|t:current_lang }}';
+                submitBtn.disabled = false;
+            } else {
+                empCodeError.textContent = data.error || '{{ "An error occurred"|t:current_lang }}';
+            }
+        } catch (error) {
+            empCodeError.textContent = '{{ "Error fetching employee details"|t:current_lang }}';
+        } finally {
+            loadingSpinner.style.display = 'none';
+        }
+    });
+</script>
 {% endblock %}

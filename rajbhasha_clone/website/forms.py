@@ -7,6 +7,8 @@ from django.urls import reverse
 from django.utils import timezone
 import hashlib
 from captcha.fields import CaptchaField
+from django.contrib.auth import authenticate
+from django.core.exceptions import ValidationError
 
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
@@ -117,7 +119,7 @@ class CustomLoginForm(AuthenticationForm):
         else:
             self.lang = 'en'    
         
-        self.fields["username"].label = translate_text("Username", self.lang)
+        self.fields["username"].label = translate_text("Employee Code", self.lang)
         self.fields["password"].label = translate_text("Password", self.lang)
         self.fields['role'].label = translate_text("Select Role", self.lang)
         self.fields['captcha'].label = translate_text("Enter the characters shown", self.lang)
@@ -147,6 +149,42 @@ class CustomLoginForm(AuthenticationForm):
             # Apply translated labels as placeholders
             field.widget.attrs['placeholder'] = field.label
 
+    def clean(self):
+        """Authenticate using employee code (stored in UserProfile.employee_code).
+        If no profile matches the entered code, fall back to treating the input as username.
+        """
+        # Use raw input because field cleaning hasn't occurred for username yet
+        emp_input = (self.data.get('username') or '').strip()
+        password = self.data.get('password') or ''
+        role_value = self.data.get('role', '').strip()
+
+        # Try to resolve employee code to a username
+        try:
+            from .models import UserProfile
+            profile = UserProfile.objects.filter(employee_code=emp_input).select_related('user').first()
+            lookup_username = profile.user.username if profile else emp_input
+        except Exception:
+            lookup_username = emp_input
+
+        user = authenticate(request=self.request, username=lookup_username, password=password)
+        if user is None:
+            raise ValidationError(self.error_messages['invalid_login'], code='invalid_login')
+
+        self.confirm_login_allowed(user)
+        self.user_cache = user
+
+        # Populate cleaned_data with validated fields
+        # role_value may be empty string, which is fine - form_valid will handle fallback
+        self.cleaned_data = {
+            'username': lookup_username,
+            'password': password,
+            'role': role_value if role_value else None,  # None will trigger fallback to primary role
+            'captcha_0': self.data.get(self.add_prefix('captcha_0')),
+            'captcha_1': self.data.get(self.add_prefix('captcha_1')),
+        }
+        return self.cleaned_data
+
+
 
 class TypingUsageReportForm(forms.Form):
     """Form for entering typing usage report data"""
@@ -174,3 +212,37 @@ class TypingUsageReportForm(forms.Form):
                     "Hindi words cannot be greater than total words."
                 )
         return cleaned_data
+
+class CertificateDataForm(forms.Form):
+    """Form for manager to select financial year and quarter ending"""
+    financial_year = forms.ChoiceField(
+        label="Financial Year",
+        required=True,
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        choices=[]  # Will be set in __init__
+    )
+    quarter_ending = forms.ChoiceField(
+        label="Quarter Ending",
+        required=True,
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        choices=[]  # Will be set in __init__
+    )
+
+    def __init__(self, *args, **kwargs):
+        # Extract years and quarters from kwargs
+        years = kwargs.pop('years', [])
+        quarters = kwargs.pop('quarters', [])
+        super().__init__(*args, **kwargs)
+        
+        # Set choices with empty option first
+        year_choices = [('', '--- Select Financial Year ---')]
+        for y in years:
+            year_choices.append((y, y))
+        
+        quarter_choices = [('', '--- Select Quarter Ending ---')]
+        for q in quarters:
+            if q:  # Only add non-empty quarters
+                quarter_choices.append((q, q))
+        
+        self.fields['financial_year'].choices = year_choices
+        self.fields['quarter_ending'].choices = quarter_choices

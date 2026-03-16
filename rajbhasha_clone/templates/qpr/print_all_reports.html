@@ -1,0 +1,98 @@
+{% extends "master.html" %}
+{% load static %}
+
+{% block title %}Print All Reports - {{ quarter }}{% endblock %}
+
+{% block content %}
+<style>
+    /* 1. Hide the batch controls during actual printing */
+    @media print {
+        .no-print { display: none !important; }
+        .page-break { page-break-after: always !important; }
+        body { overflow: visible !important; height: auto !important; }
+    }
+
+    /* 2. Aggressively hide duplicated master.html elements injected by the include loop */
+    .nested-report nav, 
+    .nested-report .navbar, 
+    .nested-report header, 
+    .nested-report footer,
+    .nested-report .sidebar,
+    .nested-report .no-print {
+        display: none !important;
+    }
+
+    /* 3. CRITICAL PRINT FIX: Force nested HTML/Body tags to behave like normal divs so pagination works */
+    .nested-report html,
+    .nested-report body,
+    .nested-report .wrapper,
+    .nested-report .main-content,
+    .nested-report .min-vh-100,
+    .nested-report .vh-100 {
+        display: block !important;
+        position: static !important;
+        height: auto !important;
+        min-height: auto !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: transparent !important;
+    }
+    
+    /* 4. Hide individual action buttons that belong to single views (Print, Back, etc) */
+    .nested-report .btn, 
+    .nested-report button,
+    .nested-report a.btn {
+        display: none !important;
+    }
+</style>
+
+<div class="container my-4 no-print text-center bg-light border rounded p-4 shadow-sm">
+    <h2 class="text-dark mb-3">Batch Print: {{ quarter }} / {{ year }}</h2>
+    <p class="text-muted fs-5">Office Code: <strong>{{ office_code }}</strong> | Total Employees: <strong>{{ reports|length }}</strong></p>
+    
+    <div class="d-flex justify-content-center gap-3 mt-4">
+        <a href="{% url 'manager_report_detail' year quarter %}" class="btn btn-secondary btn-lg">
+            ← Back to Dashboard
+        </a>
+        <button onclick="window.print()" class="btn btn-primary btn-lg px-5">
+            <i class="bi bi-printer"></i> Print Complete Batch
+        </button>
+    </div>
+</div>
+
+<div class="batch-print-container">
+    {% for item in reports %}
+        <div class="nested-report">
+            
+            <div class="no-print bg-white border border-primary p-2 mb-3 mt-5 text-center text-primary shadow-sm rounded">
+                <h5 class="mb-0">--- Starting Documents for: <strong>{{ item.employee_name }}</strong> (Emp Code: {{ item.emp_code }}) ---</h5>
+            </div>
+
+            {% with r=item.part1 %}
+                {% include 'qpr/print_report.html' %}
+            {% endwith %}
+            
+            <div class="page-break"></div>
+
+            {% if item.cert %}
+                {% with record=item.record cert_data=item.cert %}
+                    {% include 'qpr/certificate.html' %} 
+                {% endwith %}
+                <div class="page-break"></div>
+            {% endif %}
+
+            {% if item.part2 %}
+                {% with record=item.record part2=item.part2 part2_data=item.part2_data %}
+                    {% include 'qpr/certificate_part2.html' %}
+                {% endwith %}
+            {% endif %}
+            
+        </div>
+        
+        {% if not forloop.last %}
+            <div class="page-break"></div>
+        {% endif %}
+    {% endfor %}
+</div>
+{% endblock %}

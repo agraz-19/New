@@ -151,21 +151,17 @@ CACHES = {
 
 
 # CAPTCHA
-CAPTCHA_CHALLENGE_FUNCT = 'captcha.helpers.random_char_challenge'
-CAPTCHA_IMAGE_SIZE = (150, 50)
-CAPTCHA_FONT_SIZE = 30
-CAPTCHA_LENGTH = 6
-CAPTCHA_OUTPUT_FORMAT = (
-    '<img src="%(image_url)s" alt="captcha" class="captcha" /> '
-    '<a href="%(audio_url)s" class="captcha-audio-btn text-info ms-2">'
-    '<i class="bi bi-volume-up-fill" style="font-size: 1.5rem;"></i>'
-    '</a> '
-    '<button type="button" class="js-captcha-refresh btn btn-sm btn-outline-secondary ms-2">'
-    '<i class="bi bi-arrow-clockwise"></i>'
-    '</button>'
-    '<br>%(hidden_field)s %(text_field)s'
+CAPTCHA_IMAGE_SIZE = (160, 60)
+CAPTCHA_FONT_SIZE = 32
+CAPTCHA_FOREGROUND_COLOR = '#000000' # Black text
+CAPTCHA_LETTER_ROTATION = (-15, 15)
+CAPTCHA_LENGTH = 5
+CAPTCHA_NOISE_FUNCTIONS = (
+    'captcha.helpers.noise_arcs', # Adds those curved lines
+    'captcha.helpers.noise_dots', # Adds the grainy background
 )
-
+CAPTCHA_CHALLENGE_FUNCT = 'captcha.helpers.random_char_challenge'
+CAPTCHA_FLITE_PATH = os.path.join(BASE_DIR, 'espeak_wrapper.sh')
 
 # ENCRYPTION
 ENCRYPTION_KEY = 'EOxZWt1RC6O9GKhF8d30FUxyCyjGAz29smC5i8tWA0I='

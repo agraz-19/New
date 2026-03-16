@@ -8,14 +8,14 @@ from django.utils import timezone
 from .templatetags.translate_tags import translate_text
 
 def send_system_email(user, request, email_type, extra_context=None):
-    print(f"--- Attempting to send '{email_type}' email to {user.username} ---") # DEBUG 1
+    # Attempting to send system email
     
     if extra_context is None:
         extra_context = {}
 
     user_email = user.get_email()
     if not user_email: 
-        print("--- Error: No email found for user! ---") # DEBUG 2
+        # No email found for user
         return
 
     lang = request.session.get('lang', 'en') if request else 'en'
@@ -125,6 +125,6 @@ def send_system_email(user, request, email_type, extra_context=None):
         email = EmailMultiAlternatives(subject, plain_msg, settings.EMAIL_HOST_USER, [user_email])
         email.attach_alternative(html_msg, "text/html")    
         email.send(fail_silently=False)
-        print("--- Email sent successfully! ---") # DEBUG 3
+        # Email sent successfully
     except Exception as e:
         print(f"--- SMTP Error: {e} ---")
