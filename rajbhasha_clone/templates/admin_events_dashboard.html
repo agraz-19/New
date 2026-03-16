@@ -4,55 +4,59 @@
 
 <div class="container mt-5">
 
+<div class="d-flex justify-content-between align-items-center mb-4">
 <h3>Event Manager</h3>
 
-<a href="{% url 'admin_upload_event' %}" class="btn btn-primary mb-4">Add Event</a>
+<a href="{% url 'admin_upload_event' %}" class="btn btn-primary">
+Add Event
+</a>
+</div>
 
-<table class="table table-bordered">
-
-<thead>
-<tr>
-<th>Thumbnail</th>
-<th>Title</th>
-<th>Date</th>
-<th>Add Images</th>
-<th>Delete</th>
-</tr>
-</thead>
-
-<tbody>
+<div class="row">
 
 {% for event in events %}
 
-<tr>
+<div class="col-md-4 mb-4">
 
-<td>
-<img src="{{ event.thumbnail }}" width="120">
-</td>
+<div class="card shadow-sm h-100">
 
-<td>{{ event.title }}</td>
+<img src="{{ event.thumbnail }}"
+class="card-img-top"
+style="height:200px; object-fit:cover;">
 
-<td>{{ event.date }}</td>
+<div class="card-body">
 
-<td>
+<h5 class="card-title">
+{{ event.title }}
+</h5>
 
-<a href="{% url 'admin_upload_event' %}?folder={{ event.folder }}"class="btn btn-info btn-sm">Add Images</a>
+<p class="text-muted">
+{{ event.date }}
+</p>
 
-</td>
+<div class="d-flex justify-content-between">
 
-<td>
+<a href="{% url 'admin_upload_event' %}?folder={{ event.folder }}"
+class="btn btn-sm btn-info">
+Add Images
+</a>
 
-<a href="{% url 'admin_delete_event' event.folder %}"class="btn btn-danger btn-sm">Delete</a>
+<a href="{% url 'admin_delete_event' event.folder %}"
+class="btn btn-sm btn-danger">
+Delete
+</a>
 
-</td>
+</div>
 
-</tr>
+</div>
+
+</div>
+
+</div>
 
 {% endfor %}
 
-</tbody>
-
-</table>
+</div>
 
 </div>
 
