@@ -12,6 +12,7 @@ venv/
 .env
 
 # MinIO local storage
+data/
 minio.exe
 mc.exe
 
