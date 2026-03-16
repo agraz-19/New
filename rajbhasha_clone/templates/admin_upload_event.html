@@ -1,0 +1,130 @@
+{% extends "master.html" %}
+
+{% block content %}
+
+<div class="container mt-5">
+
+{% if folder %}
+<h3>Add Images to Event</h3>
+<p class="text-muted">Event Folder: <b>{{ folder }}</b></p>
+{% else %}
+<h3>Create Event</h3>
+{% endif %}
+
+<form id="uploadForm">
+
+{% csrf_token %}
+
+{% if not folder %}
+
+<div class="mb-3">
+
+<label>Event Date</label>
+
+<input type="date"
+name="event_date"
+class="form-control"
+required>
+
+</div>
+
+<div class="mb-3">
+
+<label>Event Name</label>
+
+<input type="text"
+name="event_name"
+class="form-control"
+required>
+
+</div>
+
+{% endif %}
+
+<div class="mb-3">
+
+<label>Upload Images</label>
+
+<input type="file"
+name="images"
+id="images"
+multiple
+class="form-control"
+required>
+
+</div>
+
+<div class="progress mb-3" style="height:20px">
+
+<div class="progress-bar progress-bar-striped progress-bar-animated"
+id="progressBar"
+style="width:0%">
+0%
+
+</div>
+
+</div>
+
+<button class="btn btn-success">
+
+{% if folder %}
+Upload Images
+{% else %}
+Create Event
+{% endif %}
+
+</button>
+
+</form>
+
+</div>
+
+
+<script>
+
+document.getElementById("uploadForm")
+.addEventListener("submit", function(e){
+
+e.preventDefault()
+
+const formData = new FormData(this)
+
+const xhr = new XMLHttpRequest()
+
+xhr.open("POST", "")
+
+xhr.upload.onprogress = function(e){
+
+if(e.lengthComputable){
+
+let percent = Math.round((e.loaded / e.total) * 100)
+
+const bar = document.getElementById("progressBar")
+
+bar.style.width = percent + "%"
+
+bar.innerText = percent + "%"
+
+}
+
+}
+
+xhr.onload = function(){
+
+if(xhr.status === 200){
+
+alert("Upload successful")
+
+window.location = "/events-admin/"
+
+}
+
+}
+
+xhr.send(formData)
+
+})
+
+</script>
+
+{% endblock %}

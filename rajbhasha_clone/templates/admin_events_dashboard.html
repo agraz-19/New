@@ -1,0 +1,63 @@
+{% extends "master.html" %}
+
+{% block content %}
+
+<div class="container mt-5">
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+<h3>Event Manager</h3>
+
+<a href="{% url 'admin_upload_event' %}" class="btn btn-primary">
+Add Event
+</a>
+</div>
+
+<div class="row">
+
+{% for event in events %}
+
+<div class="col-md-4 mb-4">
+
+<div class="card shadow-sm h-100">
+
+<img src="{{ event.thumbnail }}"
+class="card-img-top"
+style="height:200px; object-fit:cover;">
+
+<div class="card-body">
+
+<h5 class="card-title">
+{{ event.title }}
+</h5>
+
+<p class="text-muted">
+{{ event.date }}
+</p>
+
+<div class="d-flex justify-content-between">
+
+<a href="{% url 'admin_upload_event' %}?folder={{ event.folder }}"
+class="btn btn-sm btn-info">
+Add Images
+</a>
+
+<a href="{% url 'admin_delete_event' event.folder %}"
+class="btn btn-sm btn-danger">
+Delete
+</a>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+{% endfor %}
+
+</div>
+
+</div>
+
+{% endblock %}

@@ -90,3 +90,58 @@ def get_all_events():
     )
 
     return events
+
+def upload_event(event_date, event_name, files):
+
+    client = get_minio_client()
+    bucket = settings.MINIO_BUCKET_NAME
+
+    slug = event_name.lower().replace(" ", "-")
+    folder = f"{event_date}_{slug}"
+
+    for file in files:
+
+        if file.size > 5 * 1024 * 1024:
+            raise Exception("Image must be under 5MB")
+
+        object_name = f"{folder}/{file.name}"
+
+        client.put_object(
+            bucket,
+            object_name,
+            file,
+            length=-1,
+            part_size=10*1024*1024,
+            content_type=file.content_type
+        )
+
+    return folder
+
+
+
+def delete_event(folder):
+
+    client = get_minio_client()
+    bucket = settings.MINIO_BUCKET_NAME
+
+    objects = client.list_objects(bucket, prefix=folder, recursive=True)
+
+    for obj in objects:
+        client.remove_object(bucket, obj.object_name)
+def upload_images_to_existing_event(folder, files):
+
+    client = get_minio_client()
+    bucket = settings.MINIO_BUCKET_NAME
+
+    for file in files:
+
+        object_name = f"{folder}/{file.name}"
+
+        client.put_object(
+            bucket,
+            object_name,
+            file,
+            length=-1,
+            part_size=10*1024*1024,
+            content_type=file.content_type
+        )
