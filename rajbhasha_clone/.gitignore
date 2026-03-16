@@ -12,7 +12,9 @@ venv/
 .env
 
 # MinIO local storage
-minio/
+data/
+minio.exe
+mc.exe
 
 # OS files
 .DS_Store
