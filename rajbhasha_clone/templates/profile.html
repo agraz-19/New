@@ -26,6 +26,7 @@
                 <div class="card-body p-5">
                     <form method="post" id="employeeForm" class="needs-validation" novalidate onsubmit="disableForm()">
                         {% csrf_token %}
+
                         <h5 class="fw-bold text-primary mb-4 pb-2 border-bottom">
                             <i class="fas fa-id-card"></i> {{ "User Account Information"|t:current_lang }}
                         </h5>
@@ -97,7 +98,7 @@
                                 <select name="designation" class="form-select" {% if not can_edit %}disabled{% endif %}>
                                     <option value="">--Select--</option>
                                     {% for value,label in form.fields.designation.choices %}
-                                    <option value="{{ value }}" {% if employee.designation == value %}selected{% endif %}>{{ label }}</option>
+                                        <option value="{{ value }}" {% if employee.designation == value %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -109,7 +110,7 @@
                                 <select name="typing" class="form-select" {% if not can_edit %}disabled{% endif %}>
                                     <option value="">--Select--</option>
                                     {% for value,label in form.fields.typing.choices %}
-                                    <option value="{{ value }}" {% if employee.typing == value %}selected{% endif %}>{{ label }}</option>
+                                        <option value="{{ value }}" {% if employee.typing == value %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -118,7 +119,7 @@
                                 <select name="hindiproficiency" class="form-select" {% if not can_edit %}disabled{% endif %}>
                                     <option value="">--Select--</option>
                                     {% for value,label in form.fields.hindiproficiency.choices %}
-                                    <option value="{{ value }}" {% if employee.hindiproficiency == value %}selected{% endif %}>{{ label }}</option>
+                                        <option value="{{ value }}" {% if employee.hindiproficiency == value %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -127,7 +128,7 @@
                                 <select name="gazet" class="form-select" {% if not can_edit %}disabled{% endif %}>
                                     <option value="">--Select--</option>
                                     {% for value,label in form.fields.gazet.choices %}
-                                    <option value="{{ value }}" {% if employee.gazet == value %}selected{% endif %}>{{ label }}</option>
+                                        <option value="{{ value }}" {% if employee.gazet == value %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -139,7 +140,7 @@
                                 <select name="highest_hindi_exam_passed" class="form-select" {% if not can_edit %}disabled{% endif %}>
                                     <option value="">--Select--</option>
                                     {% for value,label in form.fields.highest_hindi_exam_passed.choices %}
-                                    <option value="{{ value }}" {% if employee.highest_hindi_exam_passed == value %}selected{% endif %}>{{ label }}</option>
+                                        <option value="{{ value }}" {% if employee.highest_hindi_exam_passed == value %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -181,47 +182,260 @@
 </div>
 
 <style>
-    body { background-color: #f8f9fa; }
-    .card { border-radius: 12px; }
-    .form-label { color: #2c5a86; margin-bottom: 0.5rem; }
-    .btn-primary { background: linear-gradient(135deg, #2c5a86 0%, #1f4788 100%); border: none; }
-    h5.text-primary { color: #2c5a86 !important; font-size: 1.1rem; }
-    .form-control:disabled, .form-select:disabled { background-color: #e9ecef; color: #6c757d; }
-    .border-bottom { border-bottom-color: #d4e2f0 !important; }
+    body {
+        background-color: #f8f9fa;
+    }
+
+    .card {
+        border-radius: 12px;
+    }
+
+    .form-label {
+        color: #2c5a86;
+        margin-bottom: 0.5rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #2c5a86 0%, #1f4788 100%);
+        border: none;
+    }
+
+    h5.text-primary {
+        color: #2c5a86 !important;
+        font-size: 1.1rem;
+    }
+
+    .form-control:disabled,
+    .form-select:disabled {
+        background-color: #e9ecef;
+        color: #6c757d;
+    }
+
+    .border-bottom {
+        border-bottom-color: #d4e2f0 !important;
+    }
+
+    form {
+        width: 100%;
+    }
+
+    input,
+    select {
+        min-height: 38px;
+    }
+
+    @media print {
+        #actionRow {
+            display: none !important;
+        }
+    }
 </style>
 
 <script>
     const currentLang = "{{ current_lang|default:'hi' }}";
 
-    // 1. UPDATED EXCEL FUNCTION: Captures the Form Card instead of a table
+    function getSelectedText(selectElement) {
+        if (!selectElement) return "";
+        return selectElement.options[selectElement.selectedIndex]
+            ? selectElement.options[selectElement.selectedIndex].text.trim()
+            : "";
+    }
+
     function downloadExcel() {
-        const element = document.getElementById('employeeForm');
-        // SheetJS can convert HTML structures. This captures inputs and labels.
-        const wb = XLSX.utils.table_to_book(element);
+        const data = [
+            [
+                "Employee Code",
+                "Username",
+                "Phone Number",
+                "Office Code",
+                "Office Name",
+                "Notification Email",
+                "Empcode",
+                "Name in English",
+                "Name in Hindi",
+                "Designation",
+                "Typing",
+                "Hindi Proficiency",
+                "Gazet",
+                "Highest Hindi Exam Passed",
+                "Superannuation Date"
+            ],
+            [
+                document.querySelector('[name="employee_code"]')?.value || "",
+                document.querySelector('[name="username"]')?.value || "",
+                document.querySelector('[name="phone"]')?.value || "",
+                document.querySelector('[name="office_code"]')?.value || "",
+                document.querySelector('[name="office_name"]')?.value || "",
+                document.querySelector('[name="email"]')?.value || "",
+                document.querySelector('[name="empcode"]')?.value || "",
+                document.querySelector('[name="ename"]')?.value || "",
+                document.querySelector('[name="hname"]')?.value || "",
+                getSelectedText(document.querySelector('[name="designation"]')),
+                getSelectedText(document.querySelector('[name="typing"]')),
+                getSelectedText(document.querySelector('[name="hindiproficiency"]')),
+                getSelectedText(document.querySelector('[name="gazet"]')),
+                getSelectedText(document.querySelector('[name="highest_hindi_exam_passed"]')),
+                document.querySelector('[name="super_annuation_date"]')?.value || ""
+            ]
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+
+        ws['!cols'] = [
+            { wch: 18 },
+            { wch: 18 },
+            { wch: 18 },
+            { wch: 15 },
+            { wch: 18 },
+            { wch: 28 },
+            { wch: 15 },
+            { wch: 18 },
+            { wch: 18 },
+            { wch: 18 },
+            { wch: 15 },
+            { wch: 18 },
+            { wch: 18 },
+            { wch: 25 },
+            { wch: 20 }
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Profile Details");
         XLSX.writeFile(wb, "Edit_Profile_Details.xlsx");
     }
 
-    // 2. UPDATED PDF FUNCTION: Captures the actual HTML view
     function downloadPDF() {
-        const element = document.getElementById('captureArea');
-        const actionRow = document.getElementById('actionRow');
-        
-        // Hide the buttons row temporarily for a clean document
-        actionRow.style.display = 'none';
+        const captureArea = document.getElementById('captureArea');
+        if (!captureArea) {
+            alert("Form area not found.");
+            return;
+        }
 
-        const opt = {
-            margin:       0.5,
-            filename:     'Edit_Profile_Details.pdf',
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2 },
-            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-        };
+        const clone = captureArea.cloneNode(true);
 
-        // Generate PDF
-        html2pdf().set(opt).from(element).save().then(() => {
-            // Restore the buttons row after capture
-            actionRow.style.display = 'flex';
-        });
+        const actionRow = clone.querySelector('#actionRow');
+        if (actionRow) {
+            actionRow.remove();
+        }
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            alert("Popup blocked. Please allow popups for this site.");
+            return;
+        }
+
+        printWindow.document.open();
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Edit Profile Details</title>
+                <meta charset="utf-8">
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+                <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+                <style>
+                    body {
+                        padding: 30px;
+                        background: #ffffff;
+                        font-family: Arial, sans-serif;
+                    }
+
+                    .container {
+                        max-width: 100% !important;
+                        width: 100% !important;
+                    }
+
+                    .card {
+                        border: 1px solid #ddd;
+                        border-radius: 12px;
+                        box-shadow: none !important;
+                    }
+
+                    .card-body {
+                        padding: 25px !important;
+                    }
+
+                    .form-label {
+                        font-weight: bold;
+                        color: #2c5a86;
+                        margin-bottom: 6px;
+                        display: block;
+                    }
+
+                    .form-control,
+                    .form-select {
+                        border: 1px solid #ced4da;
+                        border-radius: 6px;
+                        padding: 8px 12px;
+                        min-height: 40px;
+                        background: #fff !important;
+                        color: #000 !important;
+                        width: 100%;
+                    }
+
+                    h2, h5 {
+                        color: #2c5a86 !important;
+                    }
+
+                    .text-muted {
+                        color: #6c757d !important;
+                    }
+
+                    .border-bottom {
+                        border-bottom: 1px solid #d4e2f0 !important;
+                    }
+
+                    .btn,
+                    button,
+                    a.btn {
+                        display: none !important;
+                    }
+
+                    .row,
+                    .col-md-4,
+                    .col-md-6,
+                    .col-lg-10,
+                    .card,
+                    .card-body {
+                        break-inside: avoid;
+                        page-break-inside: avoid;
+                    }
+
+                    @media print {
+                        body {
+                            padding: 15px;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+
+                        .btn,
+                        button,
+                        a.btn {
+                            display: none !important;
+                        }
+
+                        .row,
+                        .col-md-4,
+                        .col-md-6,
+                        .col-lg-10,
+                        .card,
+                        .card-body {
+                            break-inside: avoid;
+                            page-break-inside: avoid;
+                        }
+                    }
+                </style>
+            </head>
+            <body>
+                ${clone.outerHTML}
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+
+        setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+        }, 700);
     }
 
     function disableForm() {
@@ -234,12 +448,14 @@
         const officeSelect = document.getElementById('office_code_select');
         const officeNameField = document.getElementById('office_name_field');
         if (!officeSelect) return;
+
         const map = {};
         for (let i = 0; i < officeSelect.options.length; i++) {
             const opt = officeSelect.options[i];
             if (!opt.value) continue;
             map[opt.value] = opt.dataset.name || '';
         }
+
         officeSelect.addEventListener('change', function() {
             officeNameField.value = map[this.value] || '';
         });
