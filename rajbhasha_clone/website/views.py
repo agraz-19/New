@@ -400,6 +400,7 @@ def event_detail(request, folder):
     return render(request, "event_detail.html", {"event": selected_event})
 
 def universal_error_view(request, exception=None, status_code=500):
+    from django.middleware.csrf import get_token
     lang = request.session.get('lang', 'en')
     error_map = {
         400: {'title': "Bad Request",'msg': "The server could not understand the request due to invalid syntax."},
@@ -408,7 +409,8 @@ def universal_error_view(request, exception=None, status_code=500):
         500: {'title': "Internal Server Error",'msg': "Something went wrong on our end. We're working on fixing it."}
     }
     config = error_map.get(status_code, error_map[500])
-    context = {'current_lang': lang, 'status_code': status_code, 'error_title': config['title'], 'error_message': config['msg']}
+    csrf_token = get_token(request)
+    context = {'current_lang': lang, 'status_code': status_code, 'error_title': config['title'], 'error_message': config['msg'], 'csrf_token': csrf_token}
     return render(request, 'error.html', context, status=status_code)
 
 def error_400(request, exception=None): return universal_error_view(request, exception, 400)
