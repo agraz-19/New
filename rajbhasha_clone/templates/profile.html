@@ -67,8 +67,8 @@
                         </h5>
 
                         <div class="row mb-4">
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">{{ "Office Code"|t:current_lang }}</label>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">{{ "Office Code"|t:current_lang }} <span class="text-danger">*</span></label>
                                 <select name="office_code" id="office_code_select" class="form-select" {% if not can_edit %}disabled{% endif %} required>
                                     <option value="">-- {{ "Select Office"|t:current_lang }} --</option>
                                         {% for o in offices %}
@@ -76,13 +76,99 @@
                                         {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Office Name"|t:current_lang }}</label>
                                 <input type="text" name="office_name" id="office_name_field" class="form-control" value="{{ profile.office_name|default:qpr_office_name|default:'' }}" readonly>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">{{ "Notification Email"|t:current_lang }}</label>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">{{ "Notification Email"|t:current_lang }} <span class="text-danger">*</span></label>
                                 <input type="email" name="email" class="form-control" value="{{ profile.email|default:user.get_email|default:'' }}" required {% if not can_edit %}disabled{% endif %}>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">{{ "Select HOD"|t:current_lang }} <span class="text-danger">*</span></label>
+                                <select name="hod_name" class="form-select" {% if not can_edit %}disabled{% endif %} required>
+                                    <option value="">-- {{ "Select HOD"|t:current_lang }} --</option>
+                                    {% for hod in available_hods %}
+                                        <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>{{ hod }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <h5 class="fw-bold text-primary mb-4 pb-2 border-bottom">
+                            <i class="fas fa-user-tie"></i> {{ "Employee Information"|t:current_lang }}
+                        </h5>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Empcode</label>
+                                <input type="text" name="empcode" class="form-control" value="{{ employee.empcode|default:profile.employee_code }}" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Name in English <span class="text-danger">*</span></label>
+                                <input type="text" name="ename" class="form-control" value="{{ employee.ename|default:'' }}" {% if not can_edit %}disabled{% else %}required{% endif %}>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Name in Hindi <span class="text-danger">*</span></label>
+                                <input type="text" name="hname" class="form-control" value="{{ employee.hname|default:'' }}" {% if not can_edit %}disabled{% else %}required{% endif %}>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Designation <span class="text-danger">*</span></label>
+                                <select name="designation" class="form-select" {% if not can_edit %}disabled{% else %}required{% endif %}>
+                                    <option value="">--Select--</option>
+                                    {% for value,label in form.fields.designation.choices %}
+                                        <option value="{{ value }}" {% if employee.designation == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Typing <span class="text-danger">*</span></label>
+                                <select name="typing" class="form-select" {% if not can_edit %}disabled{% else %}required{% endif %}>
+                                    <option value="">--Select--</option>
+                                    {% for value,label in form.fields.typing.choices %}
+                                        <option value="{{ value }}" {% if employee.typing == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Hindi Proficiency <span class="text-danger">*</span></label>
+                                <select name="hindiproficiency" class="form-select" {% if not can_edit %}disabled{% else %}required{% endif %}>
+                                    <option value="">--Select--</option>
+                                    {% for value,label in form.fields.hindiproficiency.choices %}
+                                        <option value="{{ value }}" {% if employee.hindiproficiency == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Gazet <span class="text-danger">*</span></label>
+                                <select name="gazet" class="form-select" {% if not can_edit %}disabled{% else %}required{% endif %}>
+                                    <option value="">--Select--</option>
+                                    {% for value,label in form.fields.gazet.choices %}
+                                        <option value="{{ value }}" {% if employee.gazet == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Highest Hindi Exam Passed</label>
+                                <select name="highest_exam" class="form-select" {% if not can_edit %}disabled{% endif %}>
+                                    <option value="">--Select--</option>
+                                    {% for value,label in form.fields.highest_exam.choices %}
+                                        <option value="{{ value }}" {% if employee.highest_exam == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Superannuation Date <span class="text-danger">*</span></label>
+                                <input type="date" name="super_annuation_date" class="form-control" value="{{ employee.super_annuation_date|date:'Y-m-d' }}" {% if not can_edit %}disabled{% else %}required{% endif %}>
                             </div>
                         </div>
 

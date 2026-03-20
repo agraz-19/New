@@ -55,6 +55,65 @@ from .templatetags.translate_tags import translate_text
 from .minio_service import get_all_events
 FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
 pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
+from django.contrib.admin.views.decorators import staff_member_required
+from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.contrib import messages
+from .minio_service import get_all_events, upload_event, delete_event
+from .minio_service import upload_event, upload_images_to_existing_event, delete_event
+
+
+@staff_member_required
+def admin_events_dashboard(request):
+
+    events = get_all_events()
+
+    return render(request, "admin_events_dashboard.html", {
+        "events": events
+    })
+
+
+@staff_member_required
+
+def admin_upload_event(request):
+
+    folder = request.GET.get("folder")
+
+    if request.method == "POST":
+
+        event_date = request.POST.get("event_date")
+        event_name = request.POST.get("event_name")
+        images = request.FILES.getlist("images")
+
+        try:
+
+            if folder:
+                upload_images_to_existing_event(folder, images)
+
+            else:
+                upload_event(event_date, event_name, images)
+
+            return JsonResponse({"status": "success"})
+
+        except Exception as e:
+
+            return JsonResponse({
+                "status": "error",
+                "message": str(e)
+            })
+
+    return render(request,"admin_upload_event.html",{
+        "folder":folder
+    })
+
+@staff_member_required
+def admin_delete_event(request, folder):
+
+    delete_event(folder)
+
+    messages.success(request, "Event deleted successfully")
+
+    return redirect("admin_events_dashboard")
 
 import logging
 logger = logging.getLogger(__name__)
@@ -121,13 +180,19 @@ def can_access_manager_site(user):
     """Manager site accessible to users with 'manager' role"""
     return user.is_authenticated and user_has_role(user, 'manager')
 
-def get_active_hods(office_code):
+def get_active_hods(office_code=None):
     """Get list of all active HODs for registration/selection dropdowns"""
-    # Get HODs (users with hod role)
-    hod_names = list(UserProfile.objects.filter( roles__name='hod', office_code=office_code ).values_list('hod_name', flat=True).distinct())
+    # Base queries
+    hod_query = UserProfile.objects.filter(roles__name='hod')
+    unassigned_query = UserProfile.objects.filter(roles__name='user').exclude(hod_name__isnull=False)
     
-    # Also add users with hod_name=None as their own HODs (using their name)
-    unassigned_hod_names = list(UserProfile.objects.filter( roles__name='user', office_code=office_code ).exclude( hod_name__isnull=False ).values_list('name', flat=True).distinct())
+    # Only filter by office if an office_code was explicitly provided
+    if office_code:
+        hod_query = hod_query.filter(office_code=office_code)
+        unassigned_query = unassigned_query.filter(office_code=office_code)
+        
+    hod_names = list(hod_query.values_list('hod_name', flat=True).distinct())
+    unassigned_hod_names = list(unassigned_query.values_list('name', flat=True).distinct())
     
     # Combine and sort
     all_hod_names = sorted(set([h for h in hod_names if h] + [u for u in unassigned_hod_names if u]))
@@ -362,6 +427,7 @@ def dashboard(request):
     """Central Dashboard Router - Routes each role to their dedicated dashboard"""
     user = request.user
     role = request.session.get('active_role', user_role(user))
+    profile = getattr(user, 'profile', None)
     
     # Dashboard routing uses session active_role (set at login) or falls back to user's primary role
     
@@ -369,7 +435,13 @@ def dashboard(request):
         'current_lang': request.session.get('lang', 'en'),
         'role': role
     }
-
+    if role == 'user' and profile:
+        if profile.approval_status == 'pending':
+            messages.warning(request, "Your registration is pending HOD approval. You may edit your details while you wait.")
+            return redirect('qpr_user_profile') # Locks them into the profile edit page
+        elif profile.approval_status == 'rejected':
+            messages.error(request, "Your registration was rejected. Please verify your details and update them, or contact admin.")
+            return redirect('qpr_user_profile')
     # 1. ADMIN - System administration, HOD management, archive/unarchive, typing reports
     if role == 'admin':
         return redirect('qpr_admin_dashboard')
@@ -546,11 +618,9 @@ class VerifyOTPView(View):
                             user=user,
                             defaults={"employee_code": user.username}
                         )
-                        # New users should fill profile after signup; mark as not submitted
+                        profile.approval_status = 'pending'
                         profile.profile_updated = False
                         profile.save()
-                        # Do not auto-create an Employee record here; user should fill employee form manually.
-                        # Pre-fill values will be available from UserProfile and User fields.
                         auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
                         request.session['lang'] = lang
                         request.session['active_role'] = 'user'
@@ -821,134 +891,100 @@ def unarchive_user(request, archive_id):
         # Fallback if the original user was actually deleted
         messages.error(request, "Original user record not found. Cannot restore.")
         return redirect('dashboard')
-
+    
 @login_required
 def profile_view(request):
-    """Unified profile view - displaying QPR office details"""
+    """Unified & Strict profile view - Forces Employee Form & HOD Selection"""
     lang = request.session.get('lang', 'en')
     user = request.user
-    profile = user.profile if hasattr(user, 'profile') else None
+    profile = getattr(user, 'profile', None)
+
+    from .models import Employee, Office, EditRequest
+    from .employeeform import EmployeeForm
+
+    employee = Employee.objects.filter(empcode=profile.employee_code).first() if (profile and profile.employee_code) else None
     
-    # Fetch QPR details
-    latest_qpr = QPRRecord.objects.filter(user=user).order_by('-updated_at').first()
-    qpr_office_name = ""
-    qpr_office_code = ""
-    qpr_phone = ""
-    qpr_email = ""
-    
-    if latest_qpr:
-        qpr_office_name = latest_qpr.officeName
-        qpr_office_code = latest_qpr.officeCode
-        qpr_phone = latest_qpr.phone or ""
-        qpr_email = latest_qpr.email or ""
-    
+    # Check permissions (Only allow edits if profile isn't done, or if admin approved an edit)
+    approved_request = EditRequest.objects.filter(user=user, request_type='profile', status='approved').first()
+    can_edit = (not profile.profile_updated) or user.is_edit_allowed or (approved_request is not None)
+
     if request.method == 'POST':
+        if not can_edit:
+            messages.error(request, translate_text("Your profile is locked. Request edit permission.", lang))
+            return redirect('dashboard')
+
+        # --- FIX: ALWAYS INITIALIZE THE FORM ON POST ---
+        form = EmployeeForm(request.POST, instance=employee)
+        # -----------------------------------------------
+
         new_email = request.POST.get('email', '').lower().strip()
-        # hod_name removed from user-editable form (admin-managed)
         employee_code = request.POST.get('employee_code', '').strip()
         phone = request.POST.get('phone', '').strip()
         office_code_post = request.POST.get('office_code', '').strip()
         office_name_post = request.POST.get('office_name', '').strip()
-        
-        # Check if user can edit - either not frozen, edit_allowed, or has approved request
-        approved_request = EditRequest.objects.filter(
-            user=user,
-            request_type='profile',
-            status='approved'
-        ).first()
-        
-        can_edit = (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None)
-        
-        if user.is_frozen and not can_edit:
-            messages.error(request, translate_text("Profile is frozen. Request edit permission.", lang), extra_tags='danger')
-            return redirect('dashboard')
-        
-        # Basic validation (HOD is admin-managed; users need not supply it)
-        if not new_email:
-            messages.error(request, translate_text("Email is required.", lang), extra_tags='danger')
+        hod_name_post = request.POST.get('hod_name', '').strip()
+
+        if not new_email or not hod_name_post:
+            messages.error(request, translate_text("Email and HOD selection are required.", lang))
         else:
-            # prevent duplicate email across users
             email_hash = hashlib.sha256(new_email.encode()).hexdigest()
             if CustomUser.objects.filter(email_hash=email_hash).exclude(pk=user.pk).exists():
-                messages.error(request, translate_text("Email already in use.", lang), extra_tags='danger')
+                messages.error(request, translate_text("Email already in use.", lang))
             else:
-                # Update encrypted email on user (keeps auth flow)
-                user.set_email(new_email)
-                if user.is_edit_allowed:
+                # Validate the form we initialized above
+                if form.is_valid():
+                    # Save User
+                    user.set_email(new_email)
                     user.is_edit_allowed = False
-                user.save()
+                    user.save()
 
-                # Update UserProfile fields from submitted form (do not overwrite hod_name)
-                if profile:
-                    if employee_code:
-                        profile.employee_code = employee_code
-                    profile.phone = phone or profile.phone
-                    profile.office_code = office_code_post or profile.office_code
-                    profile.office_name = office_name_post or profile.office_name
-                    profile.email = new_email
-                    profile.save()
+                    # Save Profile
+                    if profile:
+                        if employee_code: profile.employee_code = employee_code
+                        profile.phone = phone
+                        profile.office_code = office_code_post
+                        profile.office_name = office_name_post
+                        profile.email = new_email
+                        profile.hod_name = hod_name_post
+                        profile.profile_updated = True 
+                        profile.save()
 
-                # Mark approved request as used
-                if approved_request:
-                    approved_request.status = 'used'
-                    approved_request.save()
+                    # Save Employee Form
+                    emp_instance = form.save(commit=False)
+                    emp_instance.empcode = employee_code or profile.employee_code
+                    emp_instance.save()
 
-                send_system_email(user, request, 'update')
-                messages.success(request, translate_text("Profile updated successfully!", lang))
-                return redirect('dashboard')
-    
-    # Get list of available HODs
-    available_hods = get_active_hods(profile.office_code) if profile else []
-    current_hod = profile.hod_name if profile else None
-    
-    # Check for approved request
-    approved_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
-        status='approved'
-    ).first()
-    
-    # Check for pending/rejected requests
-    pending_edit_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
-        status='pending'
-    ).first()
-    
-    rejected_edit_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
-        status='rejected'
-    ).order_by('-created_at').first()
-    
+                    # Clean up
+                    if approved_request:
+                        approved_request.status = 'used'
+                        approved_request.save()
+
+                    send_system_email(user, request, 'update')
+                    messages.success(request, translate_text("Profile and Employee details updated successfully! Awaiting HOD review.", lang))
+                    return redirect('dashboard')
+                else:
+                    messages.error(request, translate_text("Please fill out all required fields in the Employee Information section.", lang))
+    else:
+        # Initialize an empty form for GET requests
+        form = EmployeeForm(instance=employee)
+
     context = {
         'profile': profile,
-        'available_hods': available_hods,
-        'current_hod': current_hod,
-        'approved_edit_request': approved_request,
-        'pending_edit_request': pending_edit_request,
-        'rejected_edit_request': rejected_edit_request,
-        'can_edit': (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None),
-        'qpr_office_name': qpr_office_name,
-        'qpr_office_code': qpr_office_code,
-        'qpr_phone': qpr_phone,
-        'qpr_email': qpr_email,
-    }
-    # Include office list for dropdowns in the profile template
-    try:
-        from .models import Office
-        offices = Office.objects.all()
-    except Exception:
-        offices = []
-
-    context.update({
-        'offices': offices,
+        'employee': employee,
+        'form': form, # Now 'form' is guaranteed to exist!
+        'available_hods': get_active_hods(),
+        'current_hod': profile.hod_name if profile else None,
+        'can_edit': can_edit,
+        'offices': Office.objects.all(),
         'profile_updated': profile.profile_updated if profile else False,
-    })
-
+        'qpr_office_name': profile.office_name if profile else '',
+        'approved_edit_request': approved_request,
+        'pending_edit_request': EditRequest.objects.filter(user=user, request_type='profile', status='pending').first(),
+        'rejected_edit_request': EditRequest.objects.filter(user=user, request_type='profile', status='rejected').order_by('-created_at').first(),
+    }
     return render(request, 'profile.html', context)
 
-@login_required
+'''@login_required
 def user_profile(request):
     """QPR specific profile with office details"""
     lang = request.session.get('lang', 'en')
@@ -1058,7 +1094,7 @@ def user_profile(request):
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
-    return response
+    return response'''
 
 @login_required
 def freeze_profile(request):
@@ -1194,41 +1230,33 @@ def qpr_hod_dashboard(request):
     current_year = get_current_year_label()
 
     hod_profile = UserProfile.objects.select_related('user').get(user=request.user)
-    # Use hod_name to find employees - this is what they selected from dropdown
     hod_name = hod_profile.hod_name or hod_profile.name
     hod_name = hod_name.strip() if hod_name else None
     
-    # Query users assigned to this HOD and include the HOD themselves
     from django.db.models import Q
     
     if hod_name:
-        # Query: users assigned this HOD (consider 'user' role on both profile and CustomUser)
         user_role_q = Q(roles__name='user') | Q(user__roles__name='user')
         users_under_hod = UserProfile.objects.filter(
             (user_role_q & Q(hod_name__iexact=hod_name)) | Q(user=request.user)
         ).distinct()
     else:
-        # If no hod_name, just include the HOD themselves
         users_under_hod = UserProfile.objects.filter(user=request.user).distinct()
 
-    # Compute summary counts only; detailed listing moved to `hod_detail_list` quick action
     total_users = users_under_hod.count()
     qpr_submitted_count = 0
     profile_updated_count = users_under_hod.filter(profile_updated=True).count()
 
-    # Count submitted QPRs for users under HOD
     for up in users_under_hod:
 
         current_qpr = up.user.qpr_records.filter(
         quarter=current_quarter,
         year=current_year
         ).first()
-
     if current_qpr and current_qpr.is_submitted:
         qpr_submitted_count += 1
-
     qpr_pending = total_users - qpr_submitted_count
-
+    pending_approvals = users_under_hod.filter(approval_status='pending')
     context = {
         'role': 'hod',
         'total_users': total_users,
@@ -1239,6 +1267,7 @@ def qpr_hod_dashboard(request):
         'current_lang': lang,
         'current_quarter': current_quarter,
         'current_year': current_year,
+        'pending_approvals': pending_approvals,
     }
     response = render(request, 'qpr/hod_dashboard.html', context)
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -1722,6 +1751,9 @@ def manage_user_action(request, user_id, action):
 def qpr_form(request):
     # Prefill QPR form with user's profile values when present (read-only in form)
     profile = getattr(request.user, 'profile', None)
+    if not profile or profile.approval_status != 'approved':
+        messages.error(request, "Access Denied: Your account must be approved by your HOD before you can submit a QPR.")
+        return redirect('dashboard')
     profile_office_name = profile.office_name if profile and profile.office_name else ''
     profile_office_code = profile.office_code if profile and profile.office_code else ''
     profile_phone = profile.phone if profile and profile.phone else ''
@@ -3697,3 +3729,27 @@ def debug_whoami(request):
         return JsonResponse({'success': True, 'whoami': data})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+    
+@login_required
+def process_user_approval(request, profile_id, action):
+    if not user_has_role(request.user, ['hod', 'admin']):
+        messages.error(request, "Unauthorized action.")
+        return redirect('dashboard')
+
+    target_profile = get_object_or_404(UserProfile, id=profile_id)
+    
+    if action == 'approve':
+        target_profile.approval_status = 'approved'
+        target_profile.save()
+        # Send Email: "Approved! Verify login & go to QPR Form"
+        send_system_email(target_profile.user, request, 'accepted_alert') 
+        messages.success(request, f"User {target_profile.employee_code} approved.")
+        
+    elif action == 'reject':
+        target_profile.approval_status = 'rejected'
+        target_profile.save()
+        # Send Email: "Rejected. Please update details or register again."
+        send_system_email(target_profile.user, request, 'rejected_alert') # You'll need to add this template to utils.py
+        messages.warning(request, f"User {target_profile.employee_code} rejected.")
+
+    return redirect('qpr_hod_dashboard')

@@ -45,14 +45,14 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
     path('qpr/certificate/<int:record_id>/form/', views.certificate_form_view, name='certificate_form'),
     path('qpr/certificate/<int:record_id>/display/', views.certificate_display_view, name='certificate_display'),
     path('qpr/certificate/<int:record_id>/part2/', views.certificate_part2_view, name='certificate_part2'),
-        path('qpr/certificate/<int:record_id>/part2/print/', views.certificate_part2_print_view, name='certificate_part2_print'),
+    path('qpr/certificate/<int:record_id>/part2/print/', views.certificate_part2_print_view, name='certificate_part2_print'),
         # Debug
-        path('debug/whoami/', views.debug_whoami, name='debug_whoami'),
+    path('debug/whoami/', views.debug_whoami, name='debug_whoami'),
     path('qpr/hod/dashboard/', views.qpr_hod_dashboard, name='qpr_hod_dashboard'),
     path('qpr/user/dashboard/', views.user_dashboard, name='qpr_user_dashboard'),
 
     # --- USER QPR WORKFLOW ---
-    path('qpr/profile/update/', views.user_profile, name='qpr_user_profile'),
+    path('qpr/profile/update/', views.profile_view, name='qpr_user_profile'),
     path('qpr/profile/request-edit/', views.request_profile_edit, name='request_profile_edit'),
     path('qpr/office/', views.user_office_form, name='qpr_user_office'),
     path('qpr/form/', views.qpr_form, name='qpr_form'),
@@ -98,5 +98,10 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
 
     path('manager/report/<str:year>/<path:quarter>/print-all/', views.print_all_qpr_reports, name='print_all_qpr_reports'),
     path('manager/report/<str:year>/<path:quarter>/', views.manager_report_detail, name='manager_report_detail'),
+    
     path("event/<str:folder>/", views.event_detail, name="event_detail"),
+    path("events-admin/", views.admin_events_dashboard, name="admin_events_dashboard"),
+    path("events-admin/upload/", views.admin_upload_event, name="admin_upload_event"),
+    path("events-admin/delete/<str:folder>/", views.admin_delete_event, name="admin_delete_event"),
+    path('approval/<int:profile_id>/<str:action>/', views.process_user_approval, name='process_user_approval')
 ]

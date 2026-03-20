@@ -7,15 +7,12 @@ from django.urls import reverse
 from django.utils import timezone
 from .templatetags.translate_tags import translate_text
 
-def send_system_email(user, request, email_type, extra_context=None):
-    # Attempting to send system email
-    
+def send_system_email(user, request, email_type, extra_context=None):    
     if extra_context is None:
         extra_context = {}
 
     user_email = user.get_email()
     if not user_email: 
-        # No email found for user
         return
 
     lang = request.session.get('lang', 'en') if request else 'en'
@@ -72,6 +69,22 @@ def send_system_email(user, request, email_type, extra_context=None):
             'body': "This is a reminder from your HOD. Please log in to complete your Profile and submit your Quarterly Progress Report (QPR) at the earliest.",
             'action_text': "Login Now",
             'action_url': f"{domain}{reverse('login')}"
+        },
+        'rejected_alert': {
+            'subject': "Registration Status: Action Required",
+            'headline': "Registration Rejected",
+            'body': "Your recent registration request was rejected by your HOD. Please log in to update your personal details and employee information, or contact your administrator.",
+            'action_text': "Update Profile",
+            'action_url': f"{domain}{reverse('login')}",
+            'is_alert': True
+        },
+        'accepted_alert': {
+            'subject': "Registration Status: Action Required",
+            'headline': "Registration Accepted",
+            'body': "Your recent registration request has been accepted by your HOD. Please log in to update your personal details and employee information.",
+            'action_text': "Update Profile",
+            'action_url': f"{domain}{reverse('login')}",
+            'is_alert': True
         },
         'manager_alert': {
             'subject': "Action Required: User Edit Request",

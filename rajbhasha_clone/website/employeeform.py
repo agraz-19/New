@@ -1,55 +1,83 @@
 from django import forms
 from .models import Employee
-PROFICIENCY_CHOICES = [
-        ('', '---------'), 
-        ('Passed', 'Passed'),
-        ('Did not Appear', 'Did not Appear'),
-    ]
 
 
 class EmployeeForm(forms.ModelForm):
-   
+
     super_annuation_date = forms.DateField(
         label="Superannuation Date",
         required=False,
-        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"})
+        widget=forms.DateInput(
+            attrs={
+                "class": "form-control",
+                "type": "date"
+            }
+        )
     )
 
     class Meta:
         model = Employee
-        exclude = ["status", "encrypted_super_annuation_date"]
+
+        exclude = [
+            "status",
+            "encrypted_super_annuation_date"
+        ]
 
         labels = {
             "empcode": "Empcode",
             "ename": "Name in English",
             "hname": "Name in Hindi",
             "designation": "Designation",
-            "gazet": "Gazet",
-            "prabodh": "Prabodh",
-            "praveen": "Praveen",
-            "pragya": "Pragya",
-            "parangat": "Parangat",
             "typing": "Typing",
             "hindiproficiency": "Hindi Proficiency",
+            "gazet": "Gazet",
+            "highest_hindi_exam_passed": "Highest Hindi Exam Passed",
         }
 
         widgets = {
-            "empcode": forms.TextInput(attrs={"class": "form-control"}),
-            "ename": forms.TextInput(attrs={"class": "form-control"}),
-            "hname": forms.TextInput(attrs={"class": "form-control"}),
-            "designation": forms.TextInput(attrs={"class": "form-control"}),
-            "gazet": forms.Select(attrs={"class": "form-select"}),
-            "prabodh": forms.Select(attrs={"class": "form-select"}, choices=PROFICIENCY_CHOICES),
-            "praveen": forms.Select(attrs={"class": "form-select"}, choices=PROFICIENCY_CHOICES),
-            "pragya": forms.Select(attrs={"class": "form-select"}, choices=PROFICIENCY_CHOICES),
-            "parangat": forms.Select(attrs={"class": "form-select"}, choices=PROFICIENCY_CHOICES),
-            "typing": forms.TextInput(attrs={"class": "form-control"}),
-            "hindiproficiency": forms.TextInput(attrs={"class": "form-control"}),
+
+            "empcode": forms.TextInput(
+                attrs={"class": "form-control"}
+            ),
+
+            "ename": forms.TextInput(
+                attrs={"class": "form-control"}
+            ),
+
+            "hname": forms.TextInput(
+                attrs={"class": "form-control"}
+            ),
+
+            # Dropdowns (choices come automatically from model)
+            "designation": forms.Select(
+                attrs={"class": "form-select"}
+            ),
+
+            "typing": forms.Select(
+                attrs={"class": "form-select"}
+            ),
+
+            "hindiproficiency": forms.Select(
+                attrs={"class": "form-select"}
+            ),
+
+            "gazet": forms.Select(
+                attrs={"class": "form-select"}
+            ),
+
+            "highest_hindi_exam_passed": forms.Select(
+                attrs={"class": "form-select"}
+            ),
         }
 
     def __init__(self, *args, **kwargs):
+
         super().__init__(*args, **kwargs)
+
+        # decrypt superannuation date
         if self.instance and self.instance.pk:
+
             decrypted_date = self.instance.get_super_annuation_date()
+
             if decrypted_date:
-                self.fields['super_annuation_date'].initial = decrypted_date
+                self.fields["super_annuation_date"].initial = decrypted_date

@@ -127,23 +127,43 @@ class Employee(models.Model):
     
     ename = models.CharField(null=True, blank=True) 
     hname = models.CharField(max_length=255)
+    DESIGNATION_CHOICES = [
+        ("Scientist-F", "Scientist-F"),
+        ("Scientist-G", "Scientist-G"),
+        ("Scientist-E", "Scientist-E"),
+        ("Scientist-D", "Scientist-D"),
+        ("Scientist-C", "Scientist-C"),
+        ("Scientist-B", "Scientist-B"),
+        ("Section Officer", "Section Officer"),
+        ("Senior Secretariate Assistant", "Senior Secretariate Assistant"),
+        ("Scientific/Technical Assistant-A", "Scientific/Technical Assistant-A"),
+        ("Scientific/Technical Assistant-B", "Scientific/Technical Assistant-B"),
+        ("Scientific Officer/Engineer-SB", "Scientific Officer/Engineer-SB"),
+    ]
 
-    designation = models.CharField(max_length=100, blank=True, null=True)
+    designation = models.CharField(
+        max_length=100,
+        choices=DESIGNATION_CHOICES,
+        blank=True,
+        null=True
+    )
     GAZET_CHOICES = [
         ("Gazetted", "Gazetted"),
         ("Non-Gazetted", "Non-Gazetted"),
     ]
     gazet = models.CharField(max_length=50, choices=GAZET_CHOICES)
 
-    EXAM_STATUS = [
-        ("Passed", "Passed"),
-        ("Failed", "Failed"),
-        ("Did not Appear", "Did not Appear"),
-    ]
-    prabodh = models.CharField(max_length=20, choices=EXAM_STATUS, blank=True)
-    praveen = models.CharField(max_length=20, choices=EXAM_STATUS, blank=True)
-    pragya = models.CharField(max_length=20, choices=EXAM_STATUS, blank=True)
-    parangat = models.CharField(max_length=20, choices=EXAM_STATUS, blank=True)
+    highest_exam = models.CharField(
+        max_length=20,
+        choices=[
+            ("Prabodh", "Prabodh"),
+            ("Praveen", "Praveen"),
+            ("Pragya", "Pragya"),
+            ("Parangat", "Parangat")
+        ],
+        blank=True,
+        null=True
+    )
 
     TYPING_CHOICES = [
         ("Hindi", "Hindi"),
@@ -152,15 +172,15 @@ class Employee(models.Model):
     ]
     typing = models.CharField(max_length=30, choices=TYPING_CHOICES)
 
-    HINDI_PROFICIENCY_CHOICES = [
-        ("Good", "Good"),
-        ("Average", "Average"),
-        ("Basic", "Basic"),
-    ]
     hindiproficiency = models.CharField(
-        max_length=30, choices=HINDI_PROFICIENCY_CHOICES
+        max_length=5,
+        choices=[
+            ("Yes", "Yes"),
+            ("No", "No")
+        ],
+        blank=True,
+        null=True
     )
-
     status = models.CharField(
         max_length=10,
         choices=[("draft", "Draft"), ("submitted", "Submitted")],
@@ -212,13 +232,48 @@ class UserProfile(models.Model):
     roles = models.ManyToManyField(Role, related_name='user_profiles', blank=True)
     hod_name = models.CharField(max_length=50, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True, null=True)
-    email = models.EmailField(blank=True, null=True)
-    phone = models.CharField(max_length=20, blank=True, null=True)
+    encrypted_email = models.BinaryField(blank=True, null=True)
+    encrypted_phone = models.BinaryField(blank=True, null=True)
     office_name = models.CharField(max_length=255, blank=True, null=True)
     office_code = models.CharField(max_length=50, blank=True, null=True)
     profile_updated = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    APPROVAL_STATUS_CHOICES = [
+        ('pending', 'Pending Approval'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    approval_status = models.CharField(
+        max_length=20, 
+        choices=APPROVAL_STATUS_CHOICES, 
+        default='approved' 
+    )
+    @property
+    def email(self):
+        if self.encrypted_email:
+            return cipher_suite.decrypt(self.encrypted_email).decode()
+        return ""
+
+    @email.setter
+    def email(self, value):
+        if value:
+            self.encrypted_email = cipher_suite.encrypt(value.encode())
+        else:
+            self.encrypted_email = None
+
+    @property
+    def phone(self):
+        if self.encrypted_phone:
+            return cipher_suite.decrypt(self.encrypted_phone).decode()
+        return ""
+
+    @phone.setter
+    def phone(self, value):
+        if value:
+            self.encrypted_phone = cipher_suite.encrypt(value.encode())
+        else:
+            self.encrypted_phone = None
     
     def __str__(self):
         roles_str = ', '.join(self.roles.values_list('name', flat=True))

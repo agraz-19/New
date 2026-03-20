@@ -159,7 +159,53 @@
             </div>
         </div>
     </div>
-
+{% if pending_approvals %}
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card shadow mb-4 border-warning">
+                <div class="card-header py-3 bg-warning text-dark d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold"><i class="fas fa-user-clock me-2"></i> {{ "Pending User Registrations"|t:current_lang }}</h6>
+                    <span class="badge bg-dark text-white rounded-pill">{{ pending_approvals.count }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{{ "Emp Code"|t:current_lang }}</th>
+                                    <th>{{ "Name"|t:current_lang }}</th>
+                                    <th>{{ "Email"|t:current_lang }}</th>
+                                    <th>{{ "Office"|t:current_lang }}</th>
+                                    <th>{{ "Actions"|t:current_lang }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in pending_approvals %}
+                                <tr>
+                                    <td class="fw-bold">{{ p.employee_code }}</td>
+                                    <td>{{ p.name|default:p.user.username }}</td>
+                                    <td>{{ p.email|default:p.user.email }}</td>
+                                    <td>{{ p.office_name|default:"Not Set" }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'process_user_approval' p.id 'approve' %}" class="btn btn-success" onclick="return confirm('{{ "Approve this user?"|t:current_lang }}');">
+                                                <i class="fas fa-check"></i> {{ "Approve"|t:current_lang }}
+                                            </a>
+                                            <a href="{% url 'process_user_approval' p.id 'reject' %}" class="btn btn-danger" onclick="return confirm('{{ "Reject this user?"|t:current_lang }}');">
+                                                <i class="fas fa-times"></i> {{ "Reject"|t:current_lang }}
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     <!-- Employee List -->
     {% if user_list %}
     <div class="row mt-4">
