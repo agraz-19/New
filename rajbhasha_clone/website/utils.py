@@ -139,7 +139,7 @@ def load_employee_data():
 
     for _, row in df.iterrows():
         empcode = str(int(row["Empcode"])).strip()
-        print(empcode)
+        
 
         # clean name
         name = str(row["Name"]).strip()
