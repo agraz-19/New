@@ -103,4 +103,5 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
     path("events-admin/", views.admin_events_dashboard, name="admin_events_dashboard"),
     path("events-admin/upload/", views.admin_upload_event, name="admin_upload_event"),
     path("events-admin/delete/<str:folder>/", views.admin_delete_event, name="admin_delete_event"),
+    path('get-employee/', views.get_employee_details, name='get_employee'),
 ]

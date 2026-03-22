@@ -35,18 +35,18 @@
                         <div class="row mb-4">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Employee Code"|t:current_lang }}</label>
-                                <input type="text" name="employee_code" class="form-control" value="{{ profile.employee_code|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
+                                <input type="text" name="employee_code" id="empcode" class="form-control" value="{{ profile.employee_code|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Username"|t:current_lang }}</label>
-                                <input type="text" name="username" class="form-control" value="{{ user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
+                                <input type="text" name="username" id="username" class="form-control" value="{{ user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
                             </div>
                         </div>
 
                         <div class="row mb-4">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Phone Number"|t:current_lang }}</label>
-                                <input type="text" name="phone" class="form-control" value="{{ profile.phone|default:'' }}" {% if not can_edit %}disabled{% endif %}>
+                                <input type="text" name="phone" id="phone" class="form-control" value="{{ profile.phone|default:'' }}" {% if not can_edit %}disabled{% endif %}>
                             </div>
                         </div>
 
@@ -492,5 +492,35 @@
             officeNameField.value = map[this.value] || '';
         });
     })();
+    // ✅ AUTO-FILL BASED ON EMPCODE
+document.getElementById("empcode")?.addEventListener("blur", function(){
+
+    let empcode = this.value.trim();
+
+    if(empcode.length === 0) return;
+
+    fetch(`/get-employee/?empcode=${empcode}`)
+    .then(res => res.json())
+    .then(data => {
+
+        if(data.status === "success"){
+            document.getElementById("username").value = data.name;
+            document.getElementById("phone").value = data.mobile;
+
+            // 🔒 lock fields to prevent editing
+            document.getElementById("username").readOnly = true;
+            document.getElementById("phone").readOnly = true;
+
+        } else {
+            alert("Invalid Employee Code");
+        }
+
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Error fetching employee details");
+    });
+
+});
 </script>
 {% endblock %}

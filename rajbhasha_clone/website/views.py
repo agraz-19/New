@@ -1,4 +1,5 @@
 import os,io,csv,random,hashlib,json
+from .utils import load_employee_data
 from datetime import datetime
 from urllib import request
 from django.utils.timezone import now
@@ -62,8 +63,25 @@ from django.contrib import messages
 
 from .minio_service import get_all_events, upload_event, delete_event
 from .minio_service import upload_event, upload_images_to_existing_event, delete_event
+from .utils import load_employee_data
 
+def get_employee_details(request):
+    empcode = request.GET.get("empcode", "").strip()
 
+    EMPLOYEE_DATA = load_employee_data()
+
+    if empcode in EMPLOYEE_DATA:
+        data = EMPLOYEE_DATA[empcode]
+        return JsonResponse({
+            "status": "success",
+            "name": data["name"],
+            "mobile": data["mobile"]
+        })
+
+    return JsonResponse({
+        "status": "error",
+        "message": "Employee not found"
+    })
 @staff_member_required
 def admin_events_dashboard(request):
 
@@ -925,6 +943,28 @@ def profile_view(request):
     can_edit = (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None)
 
     if request.method == 'POST':
+        EMPLOYEE_DATA = load_employee_data()
+
+        empcode = request.POST.get('empcode', '').strip()
+        username = request.POST.get('username', '').strip().upper()
+        phone = request.POST.get('phone', '').strip()
+
+        # ❌ Check if empcode exists
+        if empcode not in EMPLOYEE_DATA:
+            messages.error(request, "Invalid Employee Code")
+            return redirect('profile')
+
+        employee_data = EMPLOYEE_DATA[empcode]
+
+        # ❌ Validate name
+        if username != employee_data["name"]:
+            messages.error(request, "Name does not match official records")
+            return redirect('profile')
+
+        # ❌ Validate phone
+        if phone != employee_data["mobile"]:
+            messages.error(request, "Mobile number does not match official records")
+            return redirect('profile')
 
         new_email = request.POST.get('email', '').lower().strip()
         employee_code = request.POST.get('employee_code', '').strip()

@@ -6,7 +6,9 @@ from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
 from .templatetags.translate_tags import translate_text
-
+import pandas as pd
+import os
+from django.conf import settings
 def send_system_email(user, request, email_type, extra_context=None):
     # Attempting to send system email
     
@@ -128,3 +130,26 @@ def send_system_email(user, request, email_type, extra_context=None):
         # Email sent successfully
     except Exception as e:
         print(f"--- SMTP Error: {e} ---")
+EXCEL_PATH = os.path.join(settings.MEDIA_ROOT, "data", "tg_hod_officers_employee_report.xlsx")
+
+def load_employee_data():
+    df = pd.read_excel(EXCEL_PATH)
+
+    employee_dict = {}
+
+    for _, row in df.iterrows():
+        empcode = str(int(row["Empcode"])).strip()
+        print(empcode)
+
+        # clean name
+        name = str(row["Name"]).strip()
+        name = name.replace("Shri", "").replace("Ms.", "").replace("Ms", "").strip().upper()
+
+        mobile = str(row["Mobile"]).strip()
+
+        employee_dict[empcode] = {
+            "name": name,
+            "mobile": mobile
+        }
+
+    return employee_dict
