@@ -92,10 +92,10 @@
 
                         <div class="row mb-4">
 
-                            <div class="col-md-6">
+                            <!-- <div class="col-md-6">
                                 <label class="form-label fw-bold">Empcode</label>
                                 <input type="text" name="empcode" class="form-control"value="{{ employee.empcode }}"readonly>
-                            </div>
+                            </div> -->
 
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Name in English</label>
@@ -219,7 +219,7 @@
 
                         <option value="">--Select--</option>
 
-                        {% for value,label in form.fields.highest_hindi_exam_passed.choices %}
+                        {% for value,label in form.fields.highest_exam.choices %}
                         <option value="{{ value }}"
                         {% if employee.highest_hindi_exam_passed == value %}selected{% endif %}>
                         {{ label }}
@@ -228,6 +228,24 @@
 
                         </select>
 
+                        </div>
+                        <div class="col-md-6">
+                        <label class="form-label fw-bold">OLIC Affiliate</label>
+
+                        <select name="olic_affiliate"
+                        class="form-select"
+                        {% if not can_edit %}disabled{% endif %}>
+
+                        <option value="">--Select--</option>
+
+                        {% for value,label in form.fields.olic_affiliate.choices %}
+                            <option value="{{ value }}"
+                            {% if employee.olic_affiliate == value %}selected{% endif %}>
+                            {{ label }}
+                            </option>
+                        {% endfor %}
+
+                        </select>
                         </div>
 
                         <div class="col-md-6">
