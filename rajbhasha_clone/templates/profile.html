@@ -105,12 +105,6 @@
                             value="{{ employee.ename }}"
                             readonly>
                         </div>
-
-                        </div>
-
-
-                        <div class="row mb-4">
-
                         <div class="col-md-6">
                         <label class="form-label fw-bold">Name in Hindi</label>
                         <input type="text"
@@ -119,6 +113,12 @@
                         value="{{ employee.hname }}"
                         {% if not can_edit %}disabled{% endif %}>
                         </div>
+
+                        </div>
+
+
+                        <div class="row mb-4">
+
 
                         <div class="col-md-6">
                         <label class="form-label fw-bold">Designation</label>
@@ -132,6 +132,25 @@
                         {% for value,label in form.fields.designation.choices %}
                         <option value="{{ value }}"
                         {% if employee.designation == value %}selected{% endif %}>
+                        {{ label }}
+                        </option>
+                        {% endfor %}
+
+                        </select>
+
+                        </div>
+                                                <div class="col-md-6">
+                        <label class="form-label fw-bold">Highest Hindi Exam Passed</label>
+
+                        <select name="highest_hindi_exam_passed"
+                        class="form-select"
+                        {% if not can_edit %}disabled{% endif %}>
+
+                        <option value="">--Select--</option>
+
+                        {% for value,label in form.fields.highest_exam.choices %}
+                        <option value="{{ value }}"
+                        {% if employee.highest_hindi_exam_passed == value %}selected{% endif %}>
                         {{ label }}
                         </option>
                         {% endfor %}
@@ -210,25 +229,7 @@
 
                         <div class="row mb-4">
 
-                        <div class="col-md-6">
-                        <label class="form-label fw-bold">Highest Hindi Exam Passed</label>
 
-                        <select name="highest_hindi_exam_passed"
-                        class="form-select"
-                        {% if not can_edit %}disabled{% endif %}>
-
-                        <option value="">--Select--</option>
-
-                        {% for value,label in form.fields.highest_exam.choices %}
-                        <option value="{{ value }}"
-                        {% if employee.highest_hindi_exam_passed == value %}selected{% endif %}>
-                        {{ label }}
-                        </option>
-                        {% endfor %}
-
-                        </select>
-
-                        </div>
                         <div class="col-md-6">
                         <label class="form-label fw-bold">OLIC Affiliate</label>
 
