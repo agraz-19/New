@@ -65,22 +65,40 @@ from .minio_service import get_all_events, upload_event, delete_event
 from .minio_service import upload_event, upload_images_to_existing_event, delete_event
 from .utils import load_employee_data
 
-def get_employee_details(request):
-    empcode = request.GET.get("empcode", "").strip()
 
-    EMPLOYEE_DATA = load_employee_data()
+from .utils import load_employee_data
+from django.http import JsonResponse
 
-    if empcode in EMPLOYEE_DATA:
-        data = EMPLOYEE_DATA[empcode]
+def api_get_employee_details(request):
+    emp_code = request.GET.get('empcode', '').strip()
+
+    if not emp_code:
         return JsonResponse({
-            "status": "success",
-            "name": data["name"],
-            "mobile": data["mobile"]
+            "status": "error",
+            "message": "Empcode required"
         })
 
+    # 🔥 LOAD EXCEL DATA
+    EMPLOYEE_DATA = load_employee_data()
+
+    # # 🔥 DEBUG (temporary)
+    # print("Searching emp_code:", emp_code)
+    # print("Available keys sample:", list(EMPLOYEE_DATA.keys())[:10])
+
+    if emp_code not in EMPLOYEE_DATA:
+        return JsonResponse({
+            "status": "error",
+            "message": "Invalid Employee Code"
+        })
+
+    data = EMPLOYEE_DATA[emp_code]
+
     return JsonResponse({
-        "status": "error",
-        "message": "Employee not found"
+        "status": "success",
+        "name": data.get("name"),
+        "hindi_name": data.get("hindi_name"),
+        "mobile": data.get("mobile"),
+        "designation": data.get("designation")
     })
 @staff_member_required
 def admin_events_dashboard(request):
@@ -913,9 +931,7 @@ def profile_view(request):
 
     # Fetch employee using employee code
     employee = None
-    # if profile and profile.employee_code:
-    #     employee = Employee.objects.filter(empcode=profile.employee_code).first()
-
+    
     # Initialize EmployeeForm
     form = EmployeeForm(instance=employee)
 
@@ -1615,28 +1631,28 @@ def admin_create_manager(request):
                 messages.error(request, 'User has not registered or entered employee code is incorrect')
     return render(request, 'qpr/admin_create_manager.html')
 
-def api_get_employee_details(request):
-    """API endpoint to fetch employee details by employee code"""
-    emp_code = request.GET.get('emp_code', '').strip()
+# def api_get_employee_details(request):
+#     """API endpoint to fetch employee details by employee code"""
+#     emp_code = request.GET.get('emp_code', '').strip()
     
-    if not emp_code:
-        return JsonResponse({'error': 'Employee code is required'}, status=400)
+#     if not emp_code:
+#         return JsonResponse({'error': 'Employee code is required'}, status=400)
     
-    try:
-        profile = UserProfile.objects.get(employee_code=emp_code)
-        # Return profile display name and existing roles so admin UI can decide actions.
-        roles = list(profile.roles.values_list('name', flat=True))
-        display_name = profile.name or profile.user.get_full_name() or profile.user.username
-        return JsonResponse({
-            'success': True,
-            'name': display_name,
-            'employee_code': profile.employee_code,
-            'roles': roles or ['user']
-        })
-    except UserProfile.DoesNotExist:
-        return JsonResponse({
-            'error': 'User has not registered or entered employee code is incorrect'
-        }, status=404)
+#     try:
+#         profile = UserProfile.objects.get(employee_code=emp_code)
+#         # Return profile display name and existing roles so admin UI can decide actions.
+#         roles = list(profile.roles.values_list('name', flat=True))
+#         display_name = profile.name or profile.user.get_full_name() or profile.user.username
+#         return JsonResponse({
+#             'success': True,
+#             'name': display_name,
+#             'employee_code': profile.employee_code,
+#             'roles': roles or ['user']
+#         })
+#     except UserProfile.DoesNotExist:
+#         return JsonResponse({
+#             'error': 'User has not registered or entered employee code is incorrect'
+#         }, status=404)
 
 
 @login_required

@@ -139,6 +139,7 @@ def load_employee_data():
 
     for _, row in df.iterrows():
         empcode = str(int(row["Empcode"])).strip()
+        empcode = empcode.replace(".0", "").strip()
         
 
         # clean name
@@ -147,8 +148,14 @@ def load_employee_data():
 
         mobile = str(row["Mobile"]).strip()
 
+        hindi_name = str(row["Name in Hindi"]).strip()
+        designation = str(row["Designation"]).strip()
+        
+
         employee_dict[empcode] = {
             "name": name,
+            "hindi_name": hindi_name,
+            "designation": designation,
             "mobile": mobile
         }
 
