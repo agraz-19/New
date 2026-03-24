@@ -35,7 +35,8 @@
                         <div class="row mb-4">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Employee Code"|t:current_lang }}</label>
-                                <input type="text" name="employee_code" id="empcode" class="form-control" value="{{ profile.employee_code|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
+                                <input type="text" name="employee_code" id="empcode" class="form-control" value="" {% if not can_edit %}disabled{% endif %} required>
+                                <div id="empcodeFeedback" style="margin-top:5px; font-size:14px;"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Username"|t:current_lang }}</label>
@@ -522,5 +523,57 @@ document.getElementById("empcode")?.addEventListener("blur", function(){
     });
 
 });
+const empcodeField = document.getElementById("empcode");
+const feedback = document.getElementById("empcodeFeedback");
+
+function fetchEmployeeData(){
+    let empcode = empcodeField.value.trim();
+
+    if(!empcode){
+        feedback.innerHTML = "";
+        return;
+    }
+
+    fetch(`/get-employee/?empcode=${empcode}`)
+    .then(res => res.json())
+    .then(data => {
+
+        if(data.status === "success"){
+            document.getElementById("username").value = data.name;
+            document.getElementById("phone").value = data.mobile;
+
+            // 🟢 GREEN VERIFIED
+            feedback.innerHTML = "✔ Verified";
+            feedback.style.color = "green";
+
+            // optional lock
+            document.getElementById("username").readOnly = true;
+            document.getElementById("phone").readOnly = true;
+
+        } else {
+            // 🔴 INVALID
+            feedback.innerHTML = "✖ Invalid Employee Code";
+            feedback.style.color = "red";
+
+            document.getElementById("username").value = "";
+            document.getElementById("phone").value = "";
+        }
+    })
+    .catch(() => {
+        feedback.innerHTML = "Error fetching data";
+        feedback.style.color = "red";
+    });
+}
+
+// 🚫 prevent Enter submit
+empcodeField.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){
+        e.preventDefault();
+        fetchEmployeeData();
+    }
+});
+
+// also trigger on blur
+empcodeField.addEventListener("blur", fetchEmployeeData);
 </script>
 {% endblock %}

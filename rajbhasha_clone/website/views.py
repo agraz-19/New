@@ -913,8 +913,8 @@ def profile_view(request):
 
     # Fetch employee using employee code
     employee = None
-    if profile and profile.employee_code:
-        employee = Employee.objects.filter(empcode=profile.employee_code).first()
+    # if profile and profile.employee_code:
+    #     employee = Employee.objects.filter(empcode=profile.employee_code).first()
 
     # Initialize EmployeeForm
     form = EmployeeForm(instance=employee)
@@ -955,6 +955,7 @@ def profile_view(request):
             return redirect('profile')
 
         employee_data = EMPLOYEE_DATA[empcode]
+        employee = Employee.objects.filter(empcode=empcode).first()
 
         # ❌ Validate name
         if username != employee_data["name"]:
@@ -967,7 +968,8 @@ def profile_view(request):
             return redirect('profile')
 
         new_email = request.POST.get('email', '').lower().strip()
-        employee_code = request.POST.get('employee_code', '').strip()
+        # employee_code = request.POST.get('employee_code', '').strip()
+        employee_code = empcode
         phone = request.POST.get('phone', '').strip()
         office_code_post = request.POST.get('office_code', '').strip()
         office_name_post = request.POST.get('office_name', '').strip()
@@ -1393,25 +1395,22 @@ def manager_dashboard(request):
     
     manager_office = getattr(request.user.profile, 'office_code', None)
 
-    users = CustomUser.objects.select_related('profile').filter( profile__office_code=manager_office ).order_by('-date_joined')
+    users = CustomUser.objects.select_related('profile').filter(profile__office_code=manager_office).order_by('-date_joined')
 
-    manager_office = getattr(request.user.profile, 'office_code', None)
+    # Get employee codes from users in this office
+    office_employee_codes = CustomUser.objects.filter(profile__office_code=manager_office).values_list('profile__employee_code', flat=True)
+    office_employee_codes = [str(code).zfill(3) if code else None for code in office_employee_codes if code]
 
-    # Get usernames of users in this office
-    office_usernames = CustomUser.objects.filter( profile__office_code=manager_office ).values_list('username', flat=True)
-
-# Fetch employee records whose name matches those users
-    raw_employees = Employee.objects.filter( ename__in=office_usernames ).order_by('-lastupdate')
+    # Fetch employee records directly by empcode (which matches username/employee_code)
+    raw_employees = Employee.objects.filter(empcode__in=office_employee_codes).order_by('-lastupdate')
     
     employee_data = []
     
     for emp in raw_employees:
-        # --- 1. ROBUST USER LOOKUP ---
-        # Try matching by username (which is often the employee name)
-        # --- USER LOOKUP USING EMPCODE ---
-        user = CustomUser.objects.filter( profile__employee_code=str(emp.empcode).zfill(3)).first()
+        # Get the user by employee_code (which is the empcode)
+        user = CustomUser.objects.filter(profile__employee_code=emp.empcode).first()
 
-        # --- 2. QPR DATA ---
+        # --- QPR DATA ---
         qpr_status_text = "Not Started"
         qpr_is_submitted = False
         latest_qpr_id = None
@@ -1433,7 +1432,7 @@ def manager_dashboard(request):
             'name': emp.ename,
             'designation': emp.designation,
             'hname': emp.hname,
-            'user_id': linked_user_id, # This enables the buttons
+            'user_id': linked_user_id,
             'status': emp.status,
             'lastupdate': emp.lastupdate,
             'qpr_status': qpr_status_text,
@@ -1487,7 +1486,6 @@ def manager_dashboard(request):
         'pending_qpr_edits': pending_qpr_edits,
     }
     return render(request, 'manager_dashboard.html', context)
-
 @login_required
 def admin_dashboard(request):
     if user_role(request.user) != 'admin': return redirect('/')

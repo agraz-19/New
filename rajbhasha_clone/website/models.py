@@ -128,8 +128,8 @@ class Employee(models.Model):
     ename = models.CharField(null=True, blank=True) 
     hname = models.CharField(max_length=255)
     DESIGNATION_CHOICES = [
-        ("Scientist-F", "Scientist-F"),
         ("Scientist-G", "Scientist-G"),
+        ("Scientist-F", "Scientist-F"),
         ("Scientist-E", "Scientist-E"),
         ("Scientist-D", "Scientist-D"),
         ("Scientist-C", "Scientist-C"),
