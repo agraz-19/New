@@ -128,8 +128,8 @@ class Employee(models.Model):
     ename = models.CharField(null=True, blank=True) 
     hname = models.CharField(max_length=255)
     DESIGNATION_CHOICES = [
-        ("Scientist-F", "Scientist-F"),
         ("Scientist-G", "Scientist-G"),
+        ("Scientist-F", "Scientist-F"),
         ("Scientist-E", "Scientist-E"),
         ("Scientist-D", "Scientist-D"),
         ("Scientist-C", "Scientist-C"),
@@ -152,18 +152,15 @@ class Employee(models.Model):
         ("Non-Gazetted", "Non-Gazetted"),
     ]
     gazet = models.CharField(max_length=50, choices=GAZET_CHOICES)
-
-    highest_exam = models.CharField(
-        max_length=20,
-        choices=[
+    Hindiexam_choices=[
             ("Prabodh", "Prabodh"),
             ("Praveen", "Praveen"),
             ("Pragya", "Pragya"),
             ("Parangat", "Parangat")
-        ],
-        blank=True,
-        null=True
-    )
+        ]
+
+    highest_exam = models.CharField(
+        max_length=100,choices=Hindiexam_choices,blank=True,null=True)
 
     TYPING_CHOICES = [
         ("Hindi", "Hindi"),
@@ -172,12 +169,25 @@ class Employee(models.Model):
     ]
     typing = models.CharField(max_length=30, choices=TYPING_CHOICES)
 
+
     hindiproficiency = models.CharField(
         max_length=5,
         choices=[
             ("Yes", "Yes"),
             ("No", "No")
         ],
+        blank=True,
+        null=True)
+    OLIC_AFFILIATE_CHOICES = [
+        ('President', 'President'),
+        ('Member Secretary', 'Member Secretary'),
+        ('Member', 'Member'),
+        ('Not Applicable', 'Not Applicable'),
+    ]
+
+    olic_affiliate = models.CharField(
+        max_length=50,
+        choices=OLIC_AFFILIATE_CHOICES,
         blank=True,
         null=True
     )

@@ -1,4 +1,5 @@
 import os,io,csv,random,hashlib,json
+from .utils import load_employee_data
 from datetime import datetime
 from urllib import request
 from django.utils.timezone import now
@@ -62,8 +63,43 @@ from django.contrib import messages
 
 from .minio_service import get_all_events, upload_event, delete_event
 from .minio_service import upload_event, upload_images_to_existing_event, delete_event
+from .utils import load_employee_data
 
 
+from .utils import load_employee_data
+from django.http import JsonResponse
+
+def api_get_employee_details(request):
+    emp_code = request.GET.get('empcode', '').strip()
+
+    if not emp_code:
+        return JsonResponse({
+            "status": "error",
+            "message": "Empcode required"
+        })
+
+    # 🔥 LOAD EXCEL DATA
+    EMPLOYEE_DATA = load_employee_data()
+
+    # # 🔥 DEBUG (temporary)
+    # print("Searching emp_code:", emp_code)
+    # print("Available keys sample:", list(EMPLOYEE_DATA.keys())[:10])
+
+    if emp_code not in EMPLOYEE_DATA:
+        return JsonResponse({
+            "status": "error",
+            "message": "Invalid Employee Code"
+        })
+
+    data = EMPLOYEE_DATA[emp_code]
+
+    return JsonResponse({
+        "status": "success",
+        "name": data.get("name"),
+        "hindi_name": data.get("hindi_name"),
+        "mobile": data.get("mobile"),
+        "designation": data.get("designation")
+    })
 @staff_member_required
 def admin_events_dashboard(request):
 
@@ -895,9 +931,7 @@ def profile_view(request):
 
     # Fetch employee using employee code
     employee = None
-    if profile and profile.employee_code:
-        employee = Employee.objects.filter(empcode=profile.employee_code).first()
-
+    
     # Initialize EmployeeForm
     form = EmployeeForm(instance=employee)
 
@@ -925,9 +959,33 @@ def profile_view(request):
     can_edit = (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None)
 
     if request.method == 'POST':
+        EMPLOYEE_DATA = load_employee_data()
+
+        empcode = request.POST.get('empcode', '').strip()
+        username = request.POST.get('username', '').strip().upper()
+        phone = request.POST.get('phone', '').strip()
+
+        # ❌ Check if empcode exists
+        if empcode not in EMPLOYEE_DATA:
+            messages.error(request, "Invalid Employee Code")
+            return redirect('profile')
+
+        employee_data = EMPLOYEE_DATA[empcode]
+        employee = Employee.objects.filter(empcode=empcode).first()
+
+        # ❌ Validate name
+        if username != employee_data["name"]:
+            messages.error(request, "Name does not match official records")
+            return redirect('profile')
+
+        # ❌ Validate phone
+        if phone != employee_data["mobile"]:
+            messages.error(request, "Mobile number does not match official records")
+            return redirect('profile')
 
         new_email = request.POST.get('email', '').lower().strip()
-        employee_code = request.POST.get('employee_code', '').strip()
+        # employee_code = request.POST.get('employee_code', '').strip()
+        employee_code = empcode
         phone = request.POST.get('phone', '').strip()
         office_code_post = request.POST.get('office_code', '').strip()
         office_name_post = request.POST.get('office_name', '').strip()
@@ -986,6 +1044,8 @@ def profile_view(request):
                 form = EmployeeForm(request.POST, instance=employee)
 
                 if form.is_valid():
+                    exams = request.POST.getlist("hindi_exam")
+                    employee.highest_exam = ",".join(exams)
                     form.save()
 
                 # ===============================
@@ -1353,25 +1413,22 @@ def manager_dashboard(request):
     
     manager_office = getattr(request.user.profile, 'office_code', None)
 
-    users = CustomUser.objects.select_related('profile').filter( profile__office_code=manager_office ).order_by('-date_joined')
+    users = CustomUser.objects.select_related('profile').filter(profile__office_code=manager_office).order_by('-date_joined')
 
-    manager_office = getattr(request.user.profile, 'office_code', None)
+    # Get employee codes from users in this office
+    office_employee_codes = CustomUser.objects.filter(profile__office_code=manager_office).values_list('profile__employee_code', flat=True)
+    office_employee_codes = [str(code).zfill(3) if code else None for code in office_employee_codes if code]
 
-    # Get usernames of users in this office
-    office_usernames = CustomUser.objects.filter( profile__office_code=manager_office ).values_list('username', flat=True)
-
-# Fetch employee records whose name matches those users
-    raw_employees = Employee.objects.filter( ename__in=office_usernames ).order_by('-lastupdate')
+    # Fetch employee records directly by empcode (which matches username/employee_code)
+    raw_employees = Employee.objects.filter(empcode__in=office_employee_codes).order_by('-lastupdate')
     
     employee_data = []
     
     for emp in raw_employees:
-        # --- 1. ROBUST USER LOOKUP ---
-        # Try matching by username (which is often the employee name)
-        # --- USER LOOKUP USING EMPCODE ---
-        user = CustomUser.objects.filter( profile__employee_code=str(emp.empcode).zfill(3)).first()
+        # Get the user by employee_code (which is the empcode)
+        user = CustomUser.objects.filter(profile__employee_code=emp.empcode).first()
 
-        # --- 2. QPR DATA ---
+        # --- QPR DATA ---
         qpr_status_text = "Not Started"
         qpr_is_submitted = False
         latest_qpr_id = None
@@ -1393,7 +1450,7 @@ def manager_dashboard(request):
             'name': emp.ename,
             'designation': emp.designation,
             'hname': emp.hname,
-            'user_id': linked_user_id, # This enables the buttons
+            'user_id': linked_user_id,
             'status': emp.status,
             'lastupdate': emp.lastupdate,
             'qpr_status': qpr_status_text,
@@ -1447,7 +1504,6 @@ def manager_dashboard(request):
         'pending_qpr_edits': pending_qpr_edits,
     }
     return render(request, 'manager_dashboard.html', context)
-
 @login_required
 def admin_dashboard(request):
     if user_role(request.user) != 'admin': return redirect('/')
@@ -1577,28 +1633,28 @@ def admin_create_manager(request):
                 messages.error(request, 'User has not registered or entered employee code is incorrect')
     return render(request, 'qpr/admin_create_manager.html')
 
-def api_get_employee_details(request):
-    """API endpoint to fetch employee details by employee code"""
-    emp_code = request.GET.get('emp_code', '').strip()
+# def api_get_employee_details(request):
+#     """API endpoint to fetch employee details by employee code"""
+#     emp_code = request.GET.get('emp_code', '').strip()
     
-    if not emp_code:
-        return JsonResponse({'error': 'Employee code is required'}, status=400)
+#     if not emp_code:
+#         return JsonResponse({'error': 'Employee code is required'}, status=400)
     
-    try:
-        profile = UserProfile.objects.get(employee_code=emp_code)
-        # Return profile display name and existing roles so admin UI can decide actions.
-        roles = list(profile.roles.values_list('name', flat=True))
-        display_name = profile.name or profile.user.get_full_name() or profile.user.username
-        return JsonResponse({
-            'success': True,
-            'name': display_name,
-            'employee_code': profile.employee_code,
-            'roles': roles or ['user']
-        })
-    except UserProfile.DoesNotExist:
-        return JsonResponse({
-            'error': 'User has not registered or entered employee code is incorrect'
-        }, status=404)
+#     try:
+#         profile = UserProfile.objects.get(employee_code=emp_code)
+#         # Return profile display name and existing roles so admin UI can decide actions.
+#         roles = list(profile.roles.values_list('name', flat=True))
+#         display_name = profile.name or profile.user.get_full_name() or profile.user.username
+#         return JsonResponse({
+#             'success': True,
+#             'name': display_name,
+#             'employee_code': profile.employee_code,
+#             'roles': roles or ['user']
+#         })
+#     except UserProfile.DoesNotExist:
+#         return JsonResponse({
+#             'error': 'User has not registered or entered employee code is incorrect'
+#         }, status=404)
 
 
 @login_required

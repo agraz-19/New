@@ -1,3 +1,5 @@
+from urllib import response
+
 from bs4 import BeautifulSoup, Comment
 from deep_translator import GoogleTranslator
 from django.utils.deprecation import MiddlewareMixin
@@ -36,9 +38,12 @@ class DynamicTranslationMiddleware(MiddlewareMixin):
     }
 
     def process_response(self, request, response):
+        if request.method != "GET":
+             
+             return response
         target_lang = request.GET.get('lang')
         
-        if target_lang and target_lang != 'en' and "text/html" in response.get('Content-Type', ''):
+        if request.method == "GET" and target_lang and target_lang != 'en' and "text/html" in response.get('Content-Type', ''):
             try:
                 content = response.content.decode('utf-8')
                 soup = BeautifulSoup(content, 'html.parser')
