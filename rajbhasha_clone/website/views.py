@@ -1044,6 +1044,8 @@ def profile_view(request):
                 form = EmployeeForm(request.POST, instance=employee)
 
                 if form.is_valid():
+                    exams = request.POST.getlist("hindi_exam")
+                    employee.highest_exam = ",".join(exams)
                     form.save()
 
                 # ===============================

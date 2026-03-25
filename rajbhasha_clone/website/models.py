@@ -160,7 +160,7 @@ class Employee(models.Model):
         ]
 
     highest_exam = models.CharField(
-        max_length=20,choices=Hindiexam_choices,blank=True,null=True)
+        max_length=100,choices=Hindiexam_choices,blank=True,null=True)
 
     TYPING_CHOICES = [
         ("Hindi", "Hindi"),
@@ -182,6 +182,7 @@ class Employee(models.Model):
         ('President', 'President'),
         ('Member Secretary', 'Member Secretary'),
         ('Member', 'Member'),
+        ('Not Applicable', 'Not Applicable'),
     ]
 
     olic_affiliate = models.CharField(

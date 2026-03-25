@@ -131,26 +131,28 @@
                         </select>
 
                         </div>
-                                                <div class="col-md-6">
-                        <label class="form-label fw-bold">Highest Hindi Exam Passed</label>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Highest Hindi Exam Passed</label>
 
-                        <select name="highest_hindi_exam_passed"
-                        class="form-select"
-                        {% if not can_edit %}disabled{% endif %}>
+                            <div class="d-flex flex-wrap gap-2">
 
-                        <option value="">--Select--</option>
+                                <input type="checkbox" class="btn-check" id="prabodh" name="hindi_exam" value="Prabodh"
+                                {% if employee.highest_exam and "Prabodh" in employee.highest_exam %}checked{% endif %}>
+                                <label class="btn btn-outline-primary" for="prabodh">Prabodh</label>
 
-                        {% for value,label in form.fields.highest_exam.choices %}
-                        <option value="{{ value }}"
-                        {% if employee.highest_hindi_exam_passed == value %}selected{% endif %}>
-                        {{ label }}
-                        </option>
-                        {% endfor %}
+                                <input type="checkbox" class="btn-check" id="praveen" name="hindi_exam" value="Praveen"
+                                {% if employee.highest_exam and "Praveen" in employee.highest_exam %}checked{% endif %}>
+                                <label class="btn btn-outline-primary" for="praveen">Praveen</label>
 
-                        </select>
+                                <input type="checkbox" class="btn-check" id="pragya" name="hindi_exam" value="Pragya"
+                                {% if employee.highest_exam and "Pragya" in employee.highest_exam %}checked{% endif %}>
+                                <label class="btn btn-outline-primary" for="pragya">Pragya</label>
 
-                        </div>
+                                <input type="checkbox" class="btn-check" id="parangat" name="hindi_exam" value="Parangat"
+                                {% if employee.highest_exam and "Parangat" in employee.highest_exam %}checked{% endif %}>
+                                <label class="btn btn-outline-primary" for="parangat">Parangat</label>
 
+                            </div>
                         </div>
 
 
@@ -319,7 +321,7 @@
 
     h5.text-primary {
         color: #2c5a86 !important;
-        font-size: 1.1rem;
+        font-size: 1.3rem;
     }
 
     .form-control:disabled,
@@ -500,7 +502,24 @@
 
 const empcodeField = document.getElementById("empcode");
 const feedback = document.getElementById("empcodeFeedback");
+function setGazetFromDesignation() {
+    let designationField = document.getElementById("designation");
+    let gazetField = document.querySelector("select[name='gazet']");
 
+    let designation = designationField.options[designationField.selectedIndex].text.trim();
+
+    let nonGazettedList = [
+        "Senior Secretariate Assistant",
+        "Scientific/Technical Assistant-A",
+        "Scientific/Technical Assistant-B"
+    ];
+
+    if(nonGazettedList.includes(designation)){
+        gazetField.value = "Non-Gazetted";
+    } else if(designation){
+        gazetField.value = "Gazetted";
+    }
+}
 function fetchEmployeeData(){
     let empcode = empcodeField.value.trim();
 
@@ -509,34 +528,53 @@ function fetchEmployeeData(){
         return;
     }
 
-    fetch(`/get-employee/?empcode=${empcode}`)  // ✅ FIXED PARAM NAME
+    fetch(`/get-employee/?empcode=${empcode}`)
     .then(res => res.json())
     .then(data => {
 
         if(data.status === "success"){
 
-            // Autofill all fields
-            document.getElementById("username").value = data.name;
-            document.getElementById("phone").value = data.mobile;
-            document.getElementById("name_english").value = data.name;
-            document.getElementById("name_hindi").value = data.hindi_name;
+            // ✅ Autofill fields
+            document.getElementById("username").value = data.name || "";
+            document.getElementById("phone").value = data.mobile || "";
+            document.getElementById("name_english").value = data.name || "";
+            document.getElementById("name_hindi").value = data.hindi_name || "";
 
-            // designation match
+            // ✅ Safe designation match
             let designationField = document.getElementById("designation");
-            for (let option of designationField.options) {
-                if (option.text.trim() === data.designation.trim()) {
-                    designationField.value = option.value;
-                    break;
+
+            if(data.designation){
+                for (let option of designationField.options) {
+                    if (option.text.trim() === data.designation.trim()) {
+                        designationField.value = option.value;
+                        break;
+                    }
                 }
+            } else {
+                designationField.value = "";
+            }
+            // ✅ AUTO GAZET LOGIC
+            let gazetField = document.querySelector("select[name='gazet']");
+            let designationText = data.designation || "";
+
+            let nonGazettedList = [
+                "Senior Secretariate Assistant",
+                "Scientific/Technical Assistant-A",
+                "Scientific/Technical Assistant-B"
+            ];
+
+            if(nonGazettedList.includes(designationText.trim())){
+                gazetField.value = "Non-Gazetted";
+            } else {
+                gazetField.value = "Gazetted";
             }
 
             // ✅ GREEN VERIFIED
             feedback.innerHTML = "✔ Verified";
             feedback.style.color = "green";
 
-            // 🔒 lock fields
-            document.getElementById("username").readOnly = true;
-            document.getElementById("phone").readOnly = true;
+            // ❌ REMOVE LOCK (important change)
+            // username should remain editable
 
         } else {
 
@@ -544,10 +582,12 @@ function fetchEmployeeData(){
             feedback.innerHTML = "✖ Invalid Employee Code";
             feedback.style.color = "red";
 
+            // clear all fields
             document.getElementById("username").value = "";
             document.getElementById("phone").value = "";
             document.getElementById("name_english").value = "";
             document.getElementById("name_hindi").value = "";
+            document.getElementById("designation").value = "";
         }
     })
     .catch(() => {
@@ -556,7 +596,7 @@ function fetchEmployeeData(){
     });
 }
 
-// 🚫 Prevent Enter form submit
+// 🚫 Prevent Enter submit
 empcodeField.addEventListener("keydown", function(e){
     if(e.key === "Enter"){
         e.preventDefault();
@@ -566,5 +606,42 @@ empcodeField.addEventListener("keydown", function(e){
 
 // trigger on blur
 empcodeField.addEventListener("blur", fetchEmployeeData);
+
+const examCheckboxes = document.querySelectorAll("input[name='hindi_exam']");
+const typingField = document.querySelector("select[name='typing']");
+const proficiencyField = document.querySelector("select[name='hindiproficiency']");
+
+// Only these trigger auto
+const triggerExams = ["Prabodh", "Praveen", "Pragya"];
+
+const originalTyping = typingField.value;
+const originalProficiency = proficiencyField.value;
+
+examCheckboxes.forEach(cb => {
+    cb.addEventListener("change", function(){
+
+        let selected = Array.from(examCheckboxes)
+            .filter(c => c.checked)
+            .map(c => c.value);
+
+        let shouldAuto = selected.some(val => triggerExams.includes(val));
+
+        if(shouldAuto){
+            typingField.value = "Both";
+            proficiencyField.value = "Yes";
+        } else {
+            typingField.value = originalTyping;
+            proficiencyField.value = originalProficiency;
+        }
+    });
+});
+// ✅ FIX: update Gazet when designation changes manually
+document.getElementById("designation").addEventListener("change", function(){
+    setGazetFromDesignation();
+});
+// Run everything on load
+document.addEventListener("DOMContentLoaded", function(){
+    setGazetFromDesignation();
+});
 </script>
 {% endblock %}
