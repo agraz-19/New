@@ -2,12 +2,13 @@
 {% load translate_tags %}
 
 {% block content %}
-<!-- Profile page -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <div class="container mt-5 mb-5">
     <div class="row justify-content-center">
-        <div class="col-lg-10">
-            <!-- Page Title -->
+        <div id="captureArea" class="col-lg-10">
             <div class="mb-4">
                 <h2 class="fw-bold text-primary mb-2">
                     <i class="fas fa-user-circle"></i> {{ "Edit Profile Details"|t:current_lang }}
@@ -15,7 +16,6 @@
                 <p class="text-muted">{{ "Manage your profile and office information"|t:current_lang }}</p>
             </div>
 
-            <!-- Status Messages -->
             {% if pending_edit_request %}
             <div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
                 <i class="fas fa-info-circle"></i> {{ "Edit request is pending approval. You cannot edit until it is approved."|t:current_lang }}
@@ -23,19 +23,11 @@
             </div>
             {% endif %}
 
-            {% if rejected_edit_request %}
-            <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
-                <i class="fas fa-exclamation-circle"></i> {{ "Your last edit request was rejected."|t:current_lang }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-            {% endif %}
-
-            <!-- Main Form Card -->
             <div class="card shadow-lg border-0">
                 <div class="card-body p-5">
-                    <form method="post" class="needs-validation" novalidate>
+                    <form method="post" id="employeeForm" class="needs-validation" novalidate onsubmit="disableForm()">
                         {% csrf_token %}
-                        <!-- Section 1: User Account Information (Employee Code + Phone) -->
+
                         <h5 class="fw-bold text-primary mb-4 pb-2 border-bottom">
                             <i class="fas fa-id-card"></i> {{ "User Account Information"|t:current_lang }}
                         </h5>
@@ -43,72 +35,75 @@
                         <div class="row mb-4">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Employee Code"|t:current_lang }}</label>
-                                <input type="text" name="employee_code" class="form-control" value="{{ profile.employee_code|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
-                                <small class="text-muted d-block mt-1">{{ "Editable (unless profile is frozen)"|t:current_lang }}</small>
+                                <input type="text" name="employee_code" id="empcode" class="form-control" value="{{ profile.employee_code|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
+                                <div id="empcodeFeedback" style="margin-top:5px; font-size:14px;"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Username"|t:current_lang }}</label>
-                                <input type="text" name="username" class="form-control" value="{{ user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
-                                <small class="text-muted d-block mt-1">{{ "Your login username"|t:current_lang }}</small>
+                                <input type="text" name="username" id="username" class="form-control" value="{{ user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
                             </div>
                         </div>
 
                         <div class="row mb-4">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Phone Number"|t:current_lang }}</label>
-                                <input type="text" name="phone" class="form-control" value="{{ profile.phone|default:'' }}" {% if not can_edit %}disabled{% endif %}>
-                                <small class="text-muted d-block mt-1">{{ "Primary contact number"|t:current_lang }}</small>
+                                <input type="text" name="phone" id="phone" class="form-control" value="{{ profile.phone|default:'' }}" {% if not can_edit %}disabled{% endif %}>
                             </div>
                         </div>
 
-                        <!-- Section 2: Office Information (editable in profile; QPR copies remain read-only elsewhere) -->
                         <h5 class="fw-bold text-primary mb-4 pb-2 border-bottom">
                             <i class="fas fa-building"></i> {{ "Office Information"|t:current_lang }}
                         </h5>
 
                         <div class="row mb-4">
                             <div class="col-md-3">
-                                <label class="form-label fw-bold">{{ "Office Code"|t:current_lang }} <span class="text-danger">*</span></label>
+                                <label class="form-label fw-bold">{{ "Office Code"|t:current_lang }}</label>
                                 <select name="office_code" id="office_code_select" class="form-select" {% if not can_edit %}disabled{% endif %} required>
                                     <option value="">-- {{ "Select Office"|t:current_lang }} --</option>
-                                        {% for o in offices %}
-                                            <option value="{{ o.code }}" data-name="{{ o.name }}" {% if o.code == profile.office_code %}selected{% endif %}>{{ o.code }}</option>
-                                        {% endfor %}
+                                    {% for o in offices %}
+                                        <option value="{{ o.code }}" data-name="{{ o.name }}" {% if o.code == profile.office_code %}selected{% endif %}>{{ o.code }}</option>
+                                    {% endfor %}
                                 </select>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Office Name"|t:current_lang }}</label>
-                                <input type="text" name="office_name" id="office_name_field" class="form-control" value="{{ profile.office_name|default:qpr_office_name|default:'' }}" readonly>
+                                <input type="text" name="office_name" id="office_name_field" class="form-control" value="{{ profile.office_name|default:'' }}" readonly>
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label fw-bold">{{ "Notification Email"|t:current_lang }} <span class="text-danger">*</span></label>
-                                <input type="email" name="email" class="form-control" value="{{ profile.email|default:user.get_email|default:'' }}" required {% if not can_edit %}disabled{% endif %}>
+                                <label class="form-label fw-bold">{{ "Notification Email"|t:current_lang }}</label>
+                                <input type="email" name="email" class="form-control" value="{{ profile.email|default:'' }}" required {% if not can_edit %}disabled{% endif %}>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Language Region"|t:current_lang }}</label>
                                 <select name="language_region" class="form-select" {% if not can_edit %}disabled{% endif %}>
                                     <option value="">-- Select Region --</option>
-                                    <option value="भाषा क्षेत्र 'क' / Region A" {% if profile.language_region == "भाषा क्षेत्र 'क' / Region A" %}selected{% endif %}>भाषा क्षेत्र 'क' / Region A</option>
-                                    <option value="भाषा क्षेत्र 'ख' / Region B" {% if profile.language_region == "भाषा क्षेत्र 'ख' / Region B" %}selected{% endif %}>भाषा क्षेत्र 'ख' / Region B</option>
-                                    <option value="भाषा क्षेत्र 'ग' / Region C" {% if profile.language_region == "भाषा क्षेत्र 'ग' / Region C" %}selected{% endif %}>भाषा क्षेत्र 'ग' / Region C</option>
+
+                                    {% for value,label in region_choices %}
+                                        <option value="{{ value }}"
+                                        {% if profile.region == value %}selected{% endif %}>
+                                        {{ label }}
+                                        </option>
+                                    {% endfor %}
+
                                 </select>
                             </div>
+
                             <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Select HOD"|t:current_lang }} <span class="text-danger">*</span></label>
                                 <select name="hod_name" class="form-select" {% if not can_edit %}disabled{% endif %} required>
+
                                     <option value="">-- Select Approver --</option>
 
-                                    <!-- Existing HODs -->
                                     {% for hod in available_hods %}
                                         <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>
                                             {{ hod }}
                                         </option>
                                     {% endfor %}
 
-                                    <!-- NEW OPTION -->
                                     <option value="ADMIN" {% if current_hod == "ADMIN" %}selected{% endif %}>
                                         Request via Admin
                                     </option>
+
                                 </select>
                             </div>
                         </div>
@@ -118,76 +113,175 @@
                         </h5>
 
                         <div class="row mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Empcode</label>
-                                <input type="text" name="empcode" class="form-control" value="{{ employee.empcode|default:profile.employee_code }}" readonly>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Name in English <span class="text-danger">*</span></label>
-                                <input type="text" name="ename" class="form-control" value="{{ employee.ename|default:'' }}" {% if not can_edit %}disabled{% else %}required{% endif %}>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Name in English</label>
+                            <input type="text"
+                            name="ename"
+                            id="name_english"
+                            class="form-control"
+                            value="{{ employee.ename }}"
+                            {% if not can_edit %}disabled{% endif %}>
+                        </div>
+                        <div class="col-md-6">
+                        <label class="form-label fw-bold">Name in Hindi</label>
+                        <input type="text"
+                        name="hname"
+                        id="name_hindi"
+                        class="form-control"
+                        value="{{ employee.hname }}"
+                        {% if not can_edit %}disabled{% endif %}>
+                        </div>
+
+                        </div>
+
+
+                        <div class="row mb-4">
+
+
+                        <div class="col-md-6">
+                        <label class="form-label fw-bold">Designation</label>
+
+                        <select name="designation"
+                        id="designation"
+                        class="form-select"
+                        {% if not can_edit %}disabled{% endif %}>
+
+                        <option value="">--Select--</option>
+
+                        {% for value,label in form.fields.designation.choices %}
+                        <option value="{{ value }}"
+                        {% if employee.designation == value %}selected{% endif %}>
+                        {{ label }}
+                        </option>
+                        {% endfor %}
+
+                        </select>
+
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Highest Hindi Exam Passed</label>
+
+                            <div class="d-flex flex-wrap gap-2">
+
+                                <input type="checkbox" class="btn-check" id="prabodh" name="hindi_exam" value="Prabodh"
+                                {% if employee.highest_exam and "Prabodh" in employee.highest_exam %}checked{% endif %}>
+                                <label class="btn btn-outline-primary" for="prabodh">Prabodh</label>
+
+                                <input type="checkbox" class="btn-check" id="praveen" name="hindi_exam" value="Praveen"
+                                {% if employee.highest_exam and "Praveen" in employee.highest_exam %}checked{% endif %}>
+                                <label class="btn btn-outline-primary" for="praveen">Praveen</label>
+
+                                <input type="checkbox" class="btn-check" id="pragya" name="hindi_exam" value="Pragya"
+                                {% if employee.highest_exam and "Pragya" in employee.highest_exam %}checked{% endif %}>
+                                <label class="btn btn-outline-primary" for="pragya">Pragya</label>
+
+                                <input type="checkbox" class="btn-check" id="parangat" name="hindi_exam" value="Parangat"
+                                {% if employee.highest_exam and "Parangat" in employee.highest_exam %}checked{% endif %}>
+                                <label class="btn btn-outline-primary" for="parangat">Parangat</label>
+
                             </div>
                         </div>
 
-                        <div class="row mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Name in Hindi <span class="text-danger">*</span></label>
-                                <input type="text" name="hname" class="form-control" value="{{ employee.hname|default:'' }}" {% if not can_edit %}disabled{% else %}required{% endif %}>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Designation <span class="text-danger">*</span></label>
-                                <select name="designation" class="form-select" {% if not can_edit %}disabled{% else %}required{% endif %}>
-                                    <option value="">--Select--</option>
-                                    {% for value,label in form.fields.designation.choices %}
-                                        <option value="{{ value }}" {% if employee.designation == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
 
                         <div class="row mb-4">
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">Typing <span class="text-danger">*</span></label>
-                                <select name="typing" class="form-select" {% if not can_edit %}disabled{% else %}required{% endif %}>
-                                    <option value="">--Select--</option>
-                                    {% for value,label in form.fields.typing.choices %}
-                                        <option value="{{ value }}" {% if employee.typing == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">Hindi Proficiency <span class="text-danger">*</span></label>
-                                <select name="hindiproficiency" class="form-select" {% if not can_edit %}disabled{% else %}required{% endif %}>
-                                    <option value="">--Select--</option>
-                                    {% for value,label in form.fields.hindiproficiency.choices %}
-                                        <option value="{{ value }}" {% if employee.hindiproficiency == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">Gazet <span class="text-danger">*</span></label>
-                                <select name="gazet" class="form-select" {% if not can_edit %}disabled{% else %}required{% endif %}>
-                                    <option value="">--Select--</option>
-                                    {% for value,label in form.fields.gazet.choices %}
-                                        <option value="{{ value }}" {% if employee.gazet == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
+
+                        <div class="col-md-4">
+                        <label class="form-label fw-bold">Typing</label>
+
+                        <select name="typing"
+                        class="form-select"
+                        {% if not can_edit %}disabled{% endif %}>
+
+                        <option value="">--Select--</option>
+
+                        {% for value,label in form.fields.typing.choices %}
+                        <option value="{{ value }}"
+                        {% if employee.typing == value %}selected{% endif %}>
+                        {{ label }}
+                        </option>
+                        {% endfor %}
+
+                        </select>
+
                         </div>
 
+                        <div class="col-md-4">
+                        <label class="form-label fw-bold">Hindi Proficiency</label>
+
+                        <select name="hindiproficiency"
+                        class="form-select"
+                        {% if not can_edit %}disabled{% endif %}>
+
+                        <option value="">--Select--</option>
+
+                        {% for value,label in form.fields.hindiproficiency.choices %}
+                        <option value="{{ value }}"
+                        {% if employee.hindiproficiency == value %}selected{% endif %}>
+                        {{ label }}
+                        </option>
+                        {% endfor %}
+
+                        </select>
+
+                        </div>
+
+                        <div class="col-md-4">
+                        <label class="form-label fw-bold">Gazet</label>
+
+                        <select name="gazet"
+                        class="form-select"
+                        {% if not can_edit %}disabled{% endif %}>
+
+                        <option value="">--Select--</option>
+
+                        {% for value,label in form.fields.gazet.choices %}
+                        <option value="{{ value }}"
+                        {% if employee.gazet == value %}selected{% endif %}>
+                        {{ label }}
+                        </option>
+                        {% endfor %}
+
+                        </select>
+
+                        </div>
+
+                        </div>
+
+
                         <div class="row mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Highest Hindi Exam Passed</label>
-                                <select name="highest_exam" class="form-select" {% if not can_edit %}disabled{% endif %}>
-                                    <option value="">--Select--</option>
-                                    {% for value,label in form.fields.highest_exam.choices %}
-                                        <option value="{{ value }}" {% if employee.highest_exam == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Superannuation Date <span class="text-danger">*</span></label>
-                                <input type="date" name="super_annuation_date" class="form-control" value="{{ employee.super_annuation_date|date:'Y-m-d' }}" {% if not can_edit %}disabled{% else %}required{% endif %}>
-                            </div>
+
+
+                        <div class="col-md-6">
+                        <label class="form-label fw-bold">OLIC Affiliate</label>
+
+                        <select name="olic_affiliate"
+                        class="form-select"
+                        {% if not can_edit %}disabled{% endif %}>
+
+                        <option value="">--Select--</option>
+
+                        {% for value,label in form.fields.olic_affiliate.choices %}
+                            <option value="{{ value }}"
+                            {% if employee.olic_affiliate == value %}selected{% endif %}>
+                            {{ label }}
+                            </option>
+                        {% endfor %}
+
+                        </select>
+                        </div>
+
+                        <div class="col-md-6">
+                        <label class="form-label fw-bold">Superannuation Date</label>
+
+                        <input type="date"
+                        name="super_annuation_date"
+                        class="form-control"
+                        value="{{ employee.super_annuation_date|date:'Y-m-d' }}"
+                        {% if not can_edit %}disabled{% endif %}>
+
+                        </div>
+
                         </div>
 
                         <!-- HOD display removed as per design: HOD assigned by admin and not editable here -->
@@ -203,28 +297,33 @@
 
                         <!-- Action Buttons -->
                         <div class="d-flex gap-3 pt-3">
-                            <button type="submit" class="btn btn-primary btn-lg" {% if not can_edit %}disabled{% endif %}>
-                                <i class="fas fa-save"></i> {{ "Save Changes"|t:current_lang }}
-                            </button>
-                            <a href="{% url 'qpr_user_dashboard' %}" class="btn btn-outline-secondary btn-lg">
-                                <i class="fas fa-times"></i> {{ "Cancel"|t:current_lang }}
-                            </a>
-                            {% if not user.is_frozen %}
-                                <a href="{% url 'freeze_profile' %}" class="btn btn-outline-warning btn-lg"
-                                   onclick="return confirm('{{ 'Freeze your profile? You will need manager approval to edit it again.'|t:current_lang }}')">
-                                    <i class="fas fa-snowflake"></i> {{ "Freeze Profile"|t:current_lang }}
+                            <div class="d-flex gap-3">
+                                <button type="submit" id="submitBtn" class="btn btn-primary btn-lg" {% if not can_edit %}disabled{% endif %}>
+                                    <i class="fas fa-save"></i> {{ "Save Changes"|t:current_lang }}
+                                </button>
+                                <a href="{% url 'qpr_user_dashboard' %}" class="btn btn-outline-secondary btn-lg">
+                                    <i class="fas fa-times"></i> {{ "Cancel"|t:current_lang }}
                                 </a>
-                            {% elif not user.is_edit_allowed and not approved_edit_request %}
-                                <a href="{% url 'request_edit' %}" class="btn btn-outline-info btn-lg">
-                                    <i class="fas fa-key"></i> {{ "Request Edit Permission"|t:current_lang }}
+                                {% if not user.is_frozen %}
+                                    <a href="{% url 'freeze_profile' %}" class="btn btn-outline-warning btn-lg">
+                                        <i class="fas fa-snowflake"></i> {{ "Freeze Profile"|t:current_lang }}
+                                    </a>
+                                {% endif %}
+                            </div>
+
+                            <div class="d-flex gap-3">
+                                <a href="javascript:void(0)" onclick="downloadExcel()" title="Download Excel">
+                                    <img src="https://cdn-icons-png.flaticon.com/512/732/732220.png" alt="Excel" style="width: 35px; height: 35px;">
+
                                 </a>
-                            {% endif %}
+                                <a href="javascript:void(0)" onclick="downloadPDF()" title="Download PDF">
+                                    <img src="https://cdn-icons-png.flaticon.com/512/337/337946.png" alt="PDF" style="width: 35px; height: 35px;">
+                                </a>
+                            </div>
                         </div>
                     </form>
                 </div>
             </div>
-
-            {# Additional account info removed per request #}
         </div>
     </div>
 </div>
@@ -233,59 +332,348 @@
     body {
         background-color: #f8f9fa;
     }
+
     .card {
         border-radius: 12px;
     }
+
     .form-label {
         color: #2c5a86;
         margin-bottom: 0.5rem;
     }
+
     .btn-primary {
         background: linear-gradient(135deg, #2c5a86 0%, #1f4788 100%);
         border: none;
     }
-    .btn-primary:hover {
-        background: linear-gradient(135deg, #1f4788 0%, #0d2236 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(44, 90, 134, 0.3);
-    }
-    .alert-light {
-        background-color: #f0f7ff;
-    }
+
     h5.text-primary {
         color: #2c5a86 !important;
-        font-size: 1.1rem;
+        font-size: 1.3rem;
     }
-    .form-control:disabled, .form-select:disabled {
+
+    .form-control:disabled,
+    .form-select:disabled {
         background-color: #e9ecef;
         color: #6c757d;
     }
+
     .border-bottom {
         border-bottom-color: #d4e2f0 !important;
     }
+
+    form {
+        width: 100%;
+    }
+
+    input,
+    select {
+        min-height: 38px;
+    }
 </style>
-    <script>
-        (function() {
-            const officeSelect = document.getElementById('office_code_select');
-            const officeNameField = document.getElementById('office_name_field');
-            if (!officeSelect) return;
 
-            // Build a client-side map from the select options using data-name
-            const map = {};
-            for (let i = 0; i < officeSelect.options.length; i++) {
-                const opt = officeSelect.options[i];
-                if (!opt.value) continue;
-                map[opt.value] = opt.dataset.name || '';
-            }
+<script>
+    const currentLang = "{{ current_lang|default:'hi' }}";
 
-            officeSelect.addEventListener('change', function() {
-                const code = this.value;
-                officeNameField.value = map[code] || '';
+    function getSelectedText(selectElement) {
+        if (!selectElement) return "";
+        return selectElement.options[selectElement.selectedIndex]
+            ? selectElement.options[selectElement.selectedIndex].text.trim()
+            : "";
+    }
+
+    function downloadExcel() {
+        const data = [
+            [
+                "Employee Code",
+                "Username",
+                "Phone Number",
+                "Office Code",
+                "Office Name",
+                "language_region",
+                "HOD Name",
+                "Notification Email",
+                "Empcode",
+                "Name in English",
+                "Name in Hindi",
+                "Designation",
+                "Typing",
+                "Hindi Proficiency",
+                "Gazet",
+                "Highest Hindi Exam Passed",
+                "Superannuation Date"
+            ],
+            [
+                document.querySelector('[name="employee_code"]')?.value || "",
+                document.querySelector('[name="username"]')?.value || "",
+                document.querySelector('[name="phone"]')?.value || "",
+                document.querySelector('[name="office_code"]')?.value || "",
+                document.querySelector('[name="office_name"]')?.value || "",
+                getSelectedText(document.querySelector('[name="language_region"]')),
+                getSelectedText(document.querySelector('[name="hod_name"]')),
+                document.querySelector('[name="email"]')?.value || "",
+                document.querySelector('[name="empcode"]')?.value || "",
+                document.querySelector('[name="ename"]')?.value || "",
+                document.querySelector('[name="hname"]')?.value || "",
+                getSelectedText(document.querySelector('[name="designation"]')),
+                getSelectedText(document.querySelector('[name="typing"]')),
+                getSelectedText(document.querySelector('[name="hindiproficiency"]')),
+                getSelectedText(document.querySelector('[name="gazet"]')),
+                getSelectedText(document.querySelector('[name="hindi_exam"]')),
+                document.querySelector('[name="super_annuation_date"]')?.value || ""
+            ]
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+
+        ws['!cols'] = [
+            { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 18 },
+            { wch: 28 }, { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 18 },
+            { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 25 }, { wch: 20 }
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Profile Details");
+        XLSX.writeFile(wb, "Edit_Profile_Details.xlsx");
+    }
+
+    function downloadPDF() {
+        const element = document.getElementById('captureArea');
+        if (!element) {
+            alert("Form not found.");
+            return;
+        }
+
+        const clone = element.cloneNode(true);
+
+        const actionRow = clone.querySelector('#actionRow');
+        if (actionRow) {
+            actionRow.remove();
+        }
+
+        clone.style.width = "1200px";
+        clone.style.maxWidth = "1200px";
+        clone.style.background = "#ffffff";
+        clone.style.padding = "20px";
+        clone.style.boxSizing = "border-box";
+
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'fixed';
+        wrapper.style.left = '-99999px';
+        wrapper.style.top = '0';
+        wrapper.style.width = '1200px';
+        wrapper.style.background = '#ffffff';
+        wrapper.style.zIndex = '-1';
+        wrapper.appendChild(clone);
+        document.body.appendChild(wrapper);
+
+        setTimeout(() => {
+            html2canvas(clone, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: "#ffffff",
+                scrollX: 0,
+                scrollY: 0,
+                windowWidth: clone.scrollWidth,
+                windowHeight: clone.scrollHeight
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+
+                const pageWidth = 210;
+                const pageHeight = 297;
+
+                let imgWidth = pageWidth;
+                let imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                if (imgHeight > pageHeight) {
+                    imgHeight = pageHeight;
+                    imgWidth = (canvas.width * imgHeight) / canvas.height;
+                }
+
+                const x = (pageWidth - imgWidth) / 2;
+                const y = 0;
+
+                pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight);
+                pdf.save('Edit_Profile_Details.pdf');
+
+                document.body.removeChild(wrapper);
+            }).catch(error => {
+                document.body.removeChild(wrapper);
+                console.error(error);
+                alert("PDF generation failed.");
             });
-            // Initialize office name on load if a code is already selected
-            if (officeSelect.value) {
-                officeNameField.value = map[officeSelect.value] || officeNameField.value || '';
+        }, 300);
+    }
+
+    // function disableForm() {
+    //     const form = document.getElementById("employeeForm");
+    //     form.querySelectorAll("input, select, textarea, button[type='submit']")
+    //         .forEach(el => el.disabled = true);
+    // }
+
+    (function() {
+        const officeSelect = document.getElementById('office_code_select');
+        const officeNameField = document.getElementById('office_name_field');
+        if (!officeSelect) return;
+
+        const map = {};
+        for (let i = 0; i < officeSelect.options.length; i++) {
+            const opt = officeSelect.options[i];
+            if (!opt.value) continue;
+            map[opt.value] = opt.dataset.name || '';
+        }
+
+        officeSelect.addEventListener('change', function() {
+            officeNameField.value = map[this.value] || '';
+        });
+    })();
+    // ✅ AUTO-FILL BASED ON EMPCODE
+
+const empcodeField = document.getElementById("empcode");
+const feedback = document.getElementById("empcodeFeedback");
+function setGazetFromDesignation() {
+    let designationField = document.getElementById("designation");
+    let gazetField = document.querySelector("select[name='gazet']");
+
+    let designation = designationField.options[designationField.selectedIndex].text.trim();
+
+    let nonGazettedList = [
+        "Senior Secretariate Assistant",
+        "Scientific/Technical Assistant-A",
+        "Scientific/Technical Assistant-B"
+    ];
+
+    if(nonGazettedList.includes(designation)){
+        gazetField.value = "Non-Gazetted";
+    } else if(designation){
+        gazetField.value = "Gazetted";
+    }
+}
+function fetchEmployeeData(){
+    let empcode = empcodeField.value.trim();
+
+    if(!empcode){
+        feedback.innerHTML = "";
+        return;
+    }
+
+    fetch(`/get-employee/?empcode=${empcode}`)
+    .then(res => res.json())
+    .then(data => {
+
+        if(data.status === "success"){
+
+            // ✅ Autofill fields
+            document.getElementById("username").value = data.name || "";
+            document.getElementById("phone").value = data.mobile || "";
+            document.getElementById("name_english").value = data.name || "";
+            document.getElementById("name_hindi").value = data.hindi_name || "";
+
+            // ✅ Safe designation match
+            let designationField = document.getElementById("designation");
+
+            if(data.designation){
+                for (let option of designationField.options) {
+                    if (option.text.trim() === data.designation.trim()) {
+                        designationField.value = option.value;
+                        break;
+                    }
+                }
+            } else {
+                designationField.value = "";
             }
-        })();
-    </script>
+            // ✅ AUTO GAZET LOGIC
+            let gazetField = document.querySelector("select[name='gazet']");
+            let designationText = data.designation || "";
+
+            let nonGazettedList = [
+                "Senior Secretariate Assistant",
+                "Scientific/Technical Assistant-A",
+                "Scientific/Technical Assistant-B"
+            ];
+
+            if(nonGazettedList.includes(designationText.trim())){
+                gazetField.value = "Non-Gazetted";
+            } else {
+                gazetField.value = "Gazetted";
+            }
+
+            // ✅ GREEN VERIFIED
+            feedback.innerHTML = "✔ Verified";
+            feedback.style.color = "green";
+
+            // ❌ REMOVE LOCK (important change)
+            // username should remain editable
+
+        } else {
+
+            // 🔴 INVALID
+            feedback.innerHTML = "✖ Invalid Employee Code";
+            feedback.style.color = "red";
+
+            // clear all fields
+            document.getElementById("username").value = "";
+            document.getElementById("phone").value = "";
+            document.getElementById("name_english").value = "";
+            document.getElementById("name_hindi").value = "";
+            document.getElementById("designation").value = "";
+        }
+    })
+    .catch(() => {
+        feedback.innerHTML = "Error fetching data";
+        feedback.style.color = "red";
+    });
+}
+
+// 🚫 Prevent Enter submit
+empcodeField.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){
+        e.preventDefault();
+        fetchEmployeeData();
+    }
+});
+
+// trigger on blur
+empcodeField.addEventListener("blur", fetchEmployeeData);
+
+const examCheckboxes = document.querySelectorAll("input[name='hindi_exam']");
+const typingField = document.querySelector("select[name='typing']");
+const proficiencyField = document.querySelector("select[name='hindiproficiency']");
+
+// Only these trigger auto
+const triggerExams = ["Prabodh", "Praveen", "Pragya"];
+
+const originalTyping = typingField.value;
+const originalProficiency = proficiencyField.value;
+
+examCheckboxes.forEach(cb => {
+    cb.addEventListener("change", function(){
+
+        let selected = Array.from(examCheckboxes)
+            .filter(c => c.checked)
+            .map(c => c.value);
+
+        let shouldAuto = selected.some(val => triggerExams.includes(val));
+
+        if(shouldAuto){
+            typingField.value = "Both";
+            proficiencyField.value = "Yes";
+        } else {
+            typingField.value = originalTyping;
+            proficiencyField.value = originalProficiency;
+        }
+    });
+});
+// ✅ FIX: update Gazet when designation changes manually
+document.getElementById("designation").addEventListener("change", function(){
+    setGazetFromDesignation();
+});
+// Run everything on load
+document.addEventListener("DOMContentLoaded", function(){
+    setGazetFromDesignation();
+});
+</script>
 {% endblock %}
