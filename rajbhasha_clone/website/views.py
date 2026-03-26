@@ -1086,6 +1086,7 @@ def profile_view(request):
         'profile': profile,
         'employee': employee,
         'form': form,
+        'region_choices': QPRRecord.region_choices,
 
         'available_hods': available_hods,
         'current_hod': current_hod,

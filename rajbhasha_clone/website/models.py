@@ -341,7 +341,11 @@ class QPRRecord(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.CASCADE,related_name='qpr_records',null=True,blank=True)
     officeName = models.CharField(max_length=255)
     officeCode = models.CharField(max_length=50)
-    region = models.CharField(max_length=100)
+    region_choices = [
+    ("Region A", "भाषा क्षेत्र 'क' / Region A"),
+    ("Region B", "भाषा क्षेत्र 'ख' / Region B"),
+    ("Region C", "भाषा क्षेत्र 'ग' / Region C"),]
+    region = models.CharField(max_length=50,choices=region_choices,blank=True,null=True)
     quarter = models.CharField(max_length=50)
     year = models.CharField(max_length=20, default='2025-2026', null=True, blank=True)
     status = models.CharField(max_length=50, default='Draft')
