@@ -150,39 +150,41 @@ class CustomLoginForm(AuthenticationForm):
             field.widget.attrs['placeholder'] = field.label
 
     def clean(self):
-        """Authenticate using employee code (stored in UserProfile.employee_code).
-        If no profile matches the entered code, fall back to treating the input as username.
-        """
-        # Use raw input because field cleaning hasn't occurred for username yet
-        emp_input = (self.data.get('username') or '').strip()
-        password = self.data.get('password') or ''
-        role_value = self.data.get('role', '').strip()
+        """Authenticate using ONLY employee code"""
+        
+        cleaned_data = super().clean()
 
-        # Try to resolve employee code to a username
+        emp_code = cleaned_data.get('username')
+        password = cleaned_data.get('password')
+
+        if not emp_code or not password:
+            return cleaned_data
+
+        from .models import UserProfile
+
         try:
-            from .models import UserProfile
-            profile = UserProfile.objects.filter(employee_code=emp_input).select_related('user').first()
-            lookup_username = profile.user.username if profile else emp_input
-        except Exception:
-            lookup_username = emp_input
+            profile = UserProfile.objects.select_related('user').get(
+                employee_code=emp_code
+            )
+        except UserProfile.DoesNotExist:
+            raise ValidationError("Invalid Employee Code")
 
-        user = authenticate(request=self.request, username=lookup_username, password=password)
+        if profile.approval_status != 'approved':
+            raise ValidationError("Your account is not approved yet.")
+
+        user = authenticate(
+            request=self.request,
+            username=profile.user.username,
+            password=password
+        )
+
         if user is None:
             raise ValidationError(self.error_messages['invalid_login'], code='invalid_login')
 
         self.confirm_login_allowed(user)
         self.user_cache = user
 
-        # Populate cleaned_data with validated fields
-        # role_value may be empty string, which is fine - form_valid will handle fallback
-        self.cleaned_data = {
-            'username': lookup_username,
-            'password': password,
-            'role': role_value if role_value else None,  # None will trigger fallback to primary role
-            'captcha_0': self.data.get(self.add_prefix('captcha_0')),
-            'captcha_1': self.data.get(self.add_prefix('captcha_1')),
-        }
-        return self.cleaned_data
+        return cleaned_data
 
 
 

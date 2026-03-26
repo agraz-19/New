@@ -136,6 +136,7 @@ const recordId = pathParts[pathParts.length - 2];
 
 const params = new URLSearchParams(window.location.search);
 const backTo = params.get("back_to");
+const viewAs = params.get("view_as");  // detect if viewing as weekly/monthly/quarterly
 
 if (backTo === "manager_report") {
     document.getElementById("backBtn").href = "/manager/report/";
@@ -163,8 +164,30 @@ async function loadReport() {
             return;
         }
 
+        // Helper to pick cumulative value for non-daily records, otherwise use record's value
+        function valFor(key) {
+            try {
+                // If viewing as weekly/monthly/quarterly, force that frequency's cumulative
+                let period = viewAs ? viewAs.toLowerCase() : (r.frequency || 'daily').toLowerCase();
+                const cumPeriod = (r.cumulative && r.cumulative[period]);
+                // Prefer cumulative for non-daily frequencies when available.
+                // Treat missing/null values as 0 for numeric fields.
+                let v;
+                let src;
+                if (period !== 'daily' && cumPeriod) {
+                    v = (typeof cumPeriod[key] !== 'undefined' && cumPeriod[key] !== null) ? cumPeriod[key] : 0;
+                    src = 'cum';
+                } else {
+                    v = (typeof r[key] !== 'undefined' && r[key] !== null && r[key] !== '') ? r[key] : 0;
+                    src = 'rec';
+                }
+                return `<div class="dv">${v}<div style="font-size:8px;color:#999">(${src})</div></div>`;
+            } catch (e) { return cell(r[key]); }
+        }
+
         const html = `
-<div class="qpr-page">
+    <div class="qpr-page">
+
 
     <!-- HEADER -->
     <div class="qpr-header">
@@ -196,84 +219,86 @@ async function loadReport() {
         </tr>
     </table>
 
+    <!-- Cumulative summary removed -->
+
     <!-- SECTIONS GRID -->
     <div class="sections-wrap">
 
         <!-- S1 -->
         <div class="sec">
             <div class="sec-hd">1. माननीय मंत्री जी को भेजी गयी फाइलों का ब्यौरा <span class="en">(Files Sent To The Minister)</span></div>
-            <div class="dr"><div class="dl"><span class="hi">तिमाही में मंत्री जी को कितनी फाइल भेजी गयीं</span><span class="en">Total Files Sent To Minister During Quarter</span></div>${cell(r.s1_total)}</div>
-            <div class="dr"><div class="dl"><span class="hi">इनमें से कितनी फाइलें हिंदी में भेजी गयीं</span><span class="en">No. of files sent in Hindi</span></div>${cell(r.s1_hindi)}</div>
+            <div class="dr"><div class="dl"><span class="hi">तिमाही में मंत्री जी को कितनी फाइल भेजी गयीं</span><span class="en">Total Files Sent To Minister During Quarter</span></div>${valFor('s1_total')}</div>
+            <div class="dr"><div class="dl"><span class="hi">इनमें से कितनी फाइलें हिंदी में भेजी गयीं</span><span class="en">No. of files sent in Hindi</span></div>${valFor('s1_hindi')}</div>
         </div>
 
         <!-- S2 -->
         <div class="sec">
             <div class="sec-hd">2. सचिव/समकक्ष स्तर पर बैठकों/फाइलों का ब्यौरा <span class="en">(Meetings/Files at Secretary Level)</span></div>
-            <div class="dr"><div class="dl"><span class="hi">कितनी बैठकें आयोजित की गयीं</span><span class="en">Meetings held at Secretary level</span></div>${cell(r.s2_meetings)}</div>
-            <div class="dr"><div class="dl"><span class="hi">कार्यवृत्त हिंदी में जारी</span><span class="en">Minutes issued in Hindi</span></div>${cell(r.s2_minutes)}</div>
-            <div class="dr"><div class="dl"><span class="hi">सचिव स्तर से कुल जारी कागजात</span><span class="en">Total papers issued</span></div>${cell(r.s2_papers_total)}</div>
-            <div class="dr"><div class="dl"><span class="hi">हिंदी में जारी कागजात</span><span class="en">Papers issued in Hindi</span></div>${cell(r.s2_papers_hindi)}</div>
+            <div class="dr"><div class="dl"><span class="hi">कितनी बैठकें आयोजित की गयीं</span><span class="en">Meetings held at Secretary level</span></div>${valFor('s2_meetings')}</div>
+            <div class="dr"><div class="dl"><span class="hi">कार्यवृत्त हिंदी में जारी</span><span class="en">Minutes issued in Hindi</span></div>${valFor('s2_minutes')}</div>
+            <div class="dr"><div class="dl"><span class="hi">सचिव स्तर से कुल जारी कागजात</span><span class="en">Total papers issued</span></div>${valFor('s2_papers_total')}</div>
+            <div class="dr"><div class="dl"><span class="hi">हिंदी में जारी कागजात</span><span class="en">Papers issued in Hindi</span></div>${valFor('s2_papers_hindi')}</div>
         </div>
 
         <!-- S3 -->
         <div class="sec">
             <div class="sec-hd">3. धारा 3(3) के अंतर्गत जारी कागजात <span class="en">(Documents under Section 3(3), OL Act 1963)</span></div>
-            <div class="dr"><div class="dl"><span class="hi">जारी कागजात की कुल संख्या</span><span class="en">Total documents issued</span></div>${cell(r.s3_total)}</div>
-            <div class="dr"><div class="dl"><span class="hi">द्विभाषी रूप में जारी</span><span class="en">Issued bilingually</span></div>${cell(r.s3_bilingual)}</div>
-            <div class="dr"><div class="dl"><span class="hi">केवल अंग्रेजी में जारी</span><span class="en">Issued only in English</span></div>${cell(r.s3_english)}</div>
-            <div class="dr"><div class="dl"><span class="hi">केवल हिन्दी में जारी</span><span class="en">Issued only in Hindi</span></div>${cell(r.s3_hindi_only)}</div>
+            <div class="dr"><div class="dl"><span class="hi">जारी कागजात की कुल संख्या</span><span class="en">Total documents issued</span></div>${valFor('s3_total')}</div>
+            <div class="dr"><div class="dl"><span class="hi">द्विभाषी रूप में जारी</span><span class="en">Issued bilingually</span></div>${valFor('s3_bilingual')}</div>
+            <div class="dr"><div class="dl"><span class="hi">केवल अंग्रेजी में जारी</span><span class="en">Issued only in English</span></div>${valFor('s3_english')}</div>
+            <div class="dr"><div class="dl"><span class="hi">केवल हिन्दी में जारी</span><span class="en">Issued only in Hindi</span></div>${valFor('s3_hindi_only')}</div>
         </div>
 
         <!-- S4 -->
         <div class="sec">
             <div class="sec-hd">4. हिंदी में प्राप्त पत्र (राजभाषा नियम-5) <span class="en">(Letters received in Hindi)</span></div>
-            <div class="dr"><div class="dl"><span class="hi">हिंदी में प्राप्त कुल पत्रों की संख्या</span><span class="en">Total letters received in Hindi</span></div>${cell(r.s4_total)}</div>
-            <div class="dr"><div class="dl"><span class="hi">उत्तर अपेक्षित नहीं थे</span><span class="en">Letters not to be replied</span></div>${cell(r.s4_no_reply)}</div>
-            <div class="dr"><div class="dl"><span class="hi">उत्तर हिंदी/द्विभाषी में</span><span class="en">Replied in Hindi/Bilingual</span></div>${cell(r.s4_replied_hindi)}</div>
-            <div class="dr"><div class="dl"><span class="hi">उत्तर अंग्रेजी में</span><span class="en">Replied in English</span></div>${cell(r.s4_replied_eng)}</div>
+            <div class="dr"><div class="dl"><span class="hi">हिंदी में प्राप्त कुल पत्रों की संख्या</span><span class="en">Total letters received in Hindi</span></div>${valFor('s4_total')}</div>
+            <div class="dr"><div class="dl"><span class="hi">उत्तर अपेक्षित नहीं थे</span><span class="en">Letters not to be replied</span></div>${valFor('s4_no_reply')}</div>
+            <div class="dr"><div class="dl"><span class="hi">उत्तर हिंदी/द्विभाषी में</span><span class="en">Replied in Hindi/Bilingual</span></div>${valFor('s4_replied_hindi')}</div>
+            <div class="dr"><div class="dl"><span class="hi">उत्तर अंग्रेजी में</span><span class="en">Replied in English</span></div>${valFor('s4_replied_eng')}</div>
         </div>
 
         <!-- S5 -->
         <div class="sec">
             <div class="sec-hd">5. अंग्रेजी पत्रों के उत्तर हिंदी में — 'क' क्षेत्र <span class="en">(English letters replied in Hindi — Region A)</span></div>
-            <div class="dr"><div class="dl"><span class="hi">अंग्रेजी में प्राप्त पत्रों की संख्या</span><span class="en">Letters received in English</span></div>${cell(r.s5_total)}</div>
-            <div class="dr"><div class="dl"><span class="hi">उत्तर हिंदी में दिए गए</span><span class="en">Replied in Hindi</span></div>${cell(r.s5_hindi)}</div>
-            <div class="dr"><div class="dl"><span class="hi">उत्तर अंग्रेजी में दिए गए</span><span class="en">Replied in English</span></div>${cell(r.s5_english)}</div>
-            <div class="dr"><div class="dl"><span class="hi">उत्तर अपेक्षित नहीं</span><span class="en">No reply expected</span></div>${cell(r.s5_noreply)}</div>
+            <div class="dr"><div class="dl"><span class="hi">अंग्रेजी में प्राप्त पत्रों की संख्या</span><span class="en">Letters received in English</span></div>${valFor('s5_total')}</div>
+            <div class="dr"><div class="dl"><span class="hi">उत्तर हिंदी में दिए गए</span><span class="en">Replied in Hindi</span></div>${valFor('s5_hindi')}</div>
+            <div class="dr"><div class="dl"><span class="hi">उत्तर अंग्रेजी में दिए गए</span><span class="en">Replied in English</span></div>${valFor('s5_english')}</div>
+            <div class="dr"><div class="dl"><span class="hi">उत्तर अपेक्षित नहीं</span><span class="en">No reply expected</span></div>${valFor('s5_noreply')}</div>
         </div>
 
         <!-- S6 -->
         <div class="sec">
             <div class="sec-hd">6. भेजे गये मूल पत्रों का ब्यौरा <span class="en">(Details of total letters issued by region)</span></div>
             <div class="sh">'क' क्षेत्र / Region A</div>
-            <div class="dr"><div class="dl"><span class="hi">हिंदी/द्विभाषी में</span><span class="en">Hindi/Bilingual</span></div>${cell(r.s6_a_hindi)}</div>
-            <div class="dr"><div class="dl"><span class="hi">केवल अंग्रेजी में</span><span class="en">English only</span></div>${cell(r.s6_a_eng)}</div>
-            <div class="dr"><div class="dl"><span class="hi">कुल पत्र</span><span class="en">Total letters</span></div>${cell(r.s6_a_total)}</div>
+            <div class="dr"><div class="dl"><span class="hi">हिंदी/द्विभाषी में</span><span class="en">Hindi/Bilingual</span></div>${valFor('s6_a_hindi')}</div>
+            <div class="dr"><div class="dl"><span class="hi">केवल अंग्रेजी में</span><span class="en">English only</span></div>${valFor('s6_a_eng')}</div>
+            <div class="dr"><div class="dl"><span class="hi">कुल पत्र</span><span class="en">Total letters</span></div>${valFor('s6_a_total')}</div>
             <div class="sh">'ख' क्षेत्र / Region B</div>
-            <div class="dr"><div class="dl"><span class="hi">हिंदी/द्विभाषी में</span><span class="en">Hindi/Bilingual</span></div>${cell(r.s6_b_hindi)}</div>
-            <div class="dr"><div class="dl"><span class="hi">केवल अंग्रेजी में</span><span class="en">English only</span></div>${cell(r.s6_b_eng)}</div>
-            <div class="dr"><div class="dl"><span class="hi">कुल पत्र</span><span class="en">Total letters</span></div>${cell(r.s6_b_total)}</div>
+            <div class="dr"><div class="dl"><span class="hi">हिंदी/द्विभाषी में</span><span class="en">Hindi/Bilingual</span></div>${valFor('s6_b_hindi')}</div>
+            <div class="dr"><div class="dl"><span class="hi">केवल अंग्रेजी में</span><span class="en">English only</span></div>${valFor('s6_b_eng')}</div>
+            <div class="dr"><div class="dl"><span class="hi">कुल पत्र</span><span class="en">Total letters</span></div>${valFor('s6_b_total')}</div>
             <div class="sh">'ग' क्षेत्र / Region C</div>
-            <div class="dr"><div class="dl"><span class="hi">हिंदी/द्विभाषी में</span><span class="en">Hindi/Bilingual</span></div>${cell(r.s6_c_hindi)}</div>
-            <div class="dr"><div class="dl"><span class="hi">केवल अंग्रेजी में</span><span class="en">English only</span></div>${cell(r.s6_c_eng)}</div>
-            <div class="dr"><div class="dl"><span class="hi">कुल पत्र</span><span class="en">Total letters</span></div>${cell(r.s6_c_total)}</div>
+            <div class="dr"><div class="dl"><span class="hi">हिंदी/द्विभाषी में</span><span class="en">Hindi/Bilingual</span></div>${valFor('s6_c_hindi')}</div>
+            <div class="dr"><div class="dl"><span class="hi">केवल अंग्रेजी में</span><span class="en">English only</span></div>${valFor('s6_c_eng')}</div>
+            <div class="dr"><div class="dl"><span class="hi">कुल पत्र</span><span class="en">Total letters</span></div>${valFor('s6_c_total')}</div>
         </div>
 
         <!-- S7 -->
         <div class="sec">
             <div class="sec-hd">7. फाइलों पर लिखी गई टिप्पणियों का ब्यौरा <span class="en">(Notings on files/documents)</span></div>
-            <div class="dr"><div class="dl"><span class="hi">हिन्दी में टिप्पणियों के पृष्ठ</span><span class="en">Pages with notings in Hindi</span></div>${cell(r.s7_hindi)}</div>
-            <div class="dr"><div class="dl"><span class="hi">अंग्रेजी में टिप्पणियों के पृष्ठ</span><span class="en">Pages with notings in English</span></div>${cell(r.s7_eng)}</div>
-            <div class="dr"><div class="dl"><span class="hi">कुल टिप्पणियों के पृष्ठ</span><span class="en">Total pages of notings</span></div>${cell(r.s7_total)}</div>
-            <div class="dr"><div class="dl"><span class="hi">ई-ऑफिस के माध्यम से भेजी गई टिप्पणियां</span><span class="en">Notings sent via e-Office</span></div>${cell(r.s7_eoffice)}</div>
+            <div class="dr"><div class="dl"><span class="hi">हिन्दी में टिप्पणियों के पृष्ठ</span><span class="en">Pages with notings in Hindi</span></div>${valFor('s7_hindi')}</div>
+            <div class="dr"><div class="dl"><span class="hi">अंग्रेजी में टिप्पणियों के पृष्ठ</span><span class="en">Pages with notings in English</span></div>${valFor('s7_eng')}</div>
+            <div class="dr"><div class="dl"><span class="hi">कुल टिप्पणियों के पृष्ठ</span><span class="en">Total pages of notings</span></div>${valFor('s7_total')}</div>
+            <div class="dr"><div class="dl"><span class="hi">ई-ऑफिस के माध्यम से भेजी गई टिप्पणियां</span><span class="en">Notings sent via e-Office</span></div>${valFor('s7_eoffice')}</div>
         </div>
 
         <!-- S8 -->
         <div class="sec">
             <div class="sec-hd">8. हिंदी कार्यशालाएं <span class="en">(Hindi Workshops this Quarter)</span></div>
-            <div class="dr"><div class="dl"><span class="hi">पूर्ण दिवसीय कार्यशालाओं की संख्या</span><span class="en">Full day workshops conducted</span></div>${cell(r.s8_workshops)}</div>
-            <div class="dr"><div class="dl"><span class="hi">प्रशिक्षित अधिकारियों की संख्या</span><span class="en">Officers trained</span></div>${cell(r.s8_officers)}</div>
-            <div class="dr"><div class="dl"><span class="hi">प्रशिक्षित कर्मचारियों की संख्या</span><span class="en">Employees trained</span></div>${cell(r.s8_employees)}</div>
+            <div class="dr"><div class="dl"><span class="hi">पूर्ण दिवसीय कार्यशालाओं की संख्या</span><span class="en">Full day workshops conducted</span></div>${valFor('s8_workshops')}</div>
+            <div class="dr"><div class="dl"><span class="hi">प्रशिक्षित अधिकारियों की संख्या</span><span class="en">Officers trained</span></div>${valFor('s8_officers')}</div>
+            <div class="dr"><div class="dl"><span class="hi">प्रशिक्षित कर्मचारियों की संख्या</span><span class="en">Employees trained</span></div>${valFor('s8_employees')}</div>
         </div>
 
         <!-- S9 -->
@@ -324,6 +349,7 @@ async function loadReport() {
 `;
 
         document.getElementById('reportContainer').innerHTML = html;
+        // Debug JSON and cumulative summary removed from UI
     } catch (err) {
         document.getElementById('reportContainer').innerHTML =
             `<div class="text-danger p-4">Error: ${err.message}</div>`;
