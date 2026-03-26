@@ -35,18 +35,19 @@
                         <div class="row mb-4">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Employee Code"|t:current_lang }}</label>
-                                <input type="text" name="employee_code" class="form-control" value="{{ profile.employee_code|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
+                                <input type="text" name="employee_code" id="empcode" class="form-control" value="" {% if not can_edit %}disabled{% endif %} required>
+                                <div id="empcodeFeedback" style="margin-top:5px; font-size:14px;"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Username"|t:current_lang }}</label>
-                                <input type="text" name="username" class="form-control" value="{{ user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
+                                <input type="text" name="username" id="username" class="form-control" value="{{ user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
                             </div>
                         </div>
 
                         <div class="row mb-4">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Phone Number"|t:current_lang }}</label>
-                                <input type="text" name="phone" class="form-control" value="{{ profile.phone|default:'' }}" {% if not can_edit %}disabled{% endif %}>
+                                <input type="text" name="phone" id="phone" class="form-control" value="{{ profile.phone|default:'' }}" {% if not can_edit %}disabled{% endif %}>
                             </div>
                         </div>
 
@@ -79,79 +80,195 @@
                         </h5>
 
                         <div class="row mb-4">
-                            <div class="col-md-6">
+
+                            <!-- <div class="col-md-6">
                                 <label class="form-label fw-bold">Empcode</label>
-                                <input type="text" name="empcode" class="form-control" value="{{ employee.empcode }}" readonly>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Name in English</label>
-                                <input type="text" name="ename" class="form-control" value="{{ employee.ename }}" readonly>
-                            </div>
+                                <input type="text" name="empcode" class="form-control"value="{{ employee.empcode }}"readonly>
+                            </div> -->
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Name in English</label>
+                            <input type="text"
+                            name="ename"
+                            id="name_english"
+                            class="form-control"
+                            value="{{ employee.ename }}"
+                            {% if not can_edit %}disabled{% endif %}>
                         </div>
+                        <div class="col-md-6">
+                        <label class="form-label fw-bold">Name in Hindi</label>
+                        <input type="text"
+                        name="hname"
+                        id="name_hindi"
+                        class="form-control"
+                        value="{{ employee.hname }}"
+                        {% if not can_edit %}disabled{% endif %}>
+                        </div>
+
+                        </div>
+
 
                         <div class="row mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Name in Hindi</label>
-                                <input type="text" name="hname" class="form-control" value="{{ employee.hname }}" {% if not can_edit %}disabled{% endif %}>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Designation</label>
-                                <select name="designation" class="form-select" {% if not can_edit %}disabled{% endif %}>
-                                    <option value="">--Select--</option>
-                                    {% for value,label in form.fields.designation.choices %}
-                                        <option value="{{ value }}" {% if employee.designation == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
+
+
+                        <div class="col-md-6">
+                        <label class="form-label fw-bold">Designation</label>
+
+                        <select name="designation"
+                        id="designation"
+                        class="form-select"
+                        {% if not can_edit %}disabled{% endif %}>
+
+                        <option value="">--Select--</option>
+
+                        {% for value,label in form.fields.designation.choices %}
+                        <option value="{{ value }}"
+                        {% if employee.designation == value %}selected{% endif %}>
+                        {{ label }}
+                        </option>
+                        {% endfor %}
+
+                        </select>
+
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Highest Hindi Exam Passed</label>
+
+                            <div class="d-flex flex-wrap gap-2">
+
+                                <input type="checkbox" class="btn-check" id="prabodh" name="hindi_exam" value="Prabodh"
+                                {% if employee.highest_exam and "Prabodh" in employee.highest_exam %}checked{% endif %}>
+                                <label class="btn btn-outline-primary" for="prabodh">Prabodh</label>
+
+                                <input type="checkbox" class="btn-check" id="praveen" name="hindi_exam" value="Praveen"
+                                {% if employee.highest_exam and "Praveen" in employee.highest_exam %}checked{% endif %}>
+                                <label class="btn btn-outline-primary" for="praveen">Praveen</label>
+
+                                <input type="checkbox" class="btn-check" id="pragya" name="hindi_exam" value="Pragya"
+                                {% if employee.highest_exam and "Pragya" in employee.highest_exam %}checked{% endif %}>
+                                <label class="btn btn-outline-primary" for="pragya">Pragya</label>
+
+                                <input type="checkbox" class="btn-check" id="parangat" name="hindi_exam" value="Parangat"
+                                {% if employee.highest_exam and "Parangat" in employee.highest_exam %}checked{% endif %}>
+                                <label class="btn btn-outline-primary" for="parangat">Parangat</label>
+
                             </div>
                         </div>
+
 
                         <div class="row mb-4">
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">Typing</label>
-                                <select name="typing" class="form-select" {% if not can_edit %}disabled{% endif %}>
-                                    <option value="">--Select--</option>
-                                    {% for value,label in form.fields.typing.choices %}
-                                        <option value="{{ value }}" {% if employee.typing == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">Hindi Proficiency</label>
-                                <select name="hindiproficiency" class="form-select" {% if not can_edit %}disabled{% endif %}>
-                                    <option value="">--Select--</option>
-                                    {% for value,label in form.fields.hindiproficiency.choices %}
-                                        <option value="{{ value }}" {% if employee.hindiproficiency == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">Gazet</label>
-                                <select name="gazet" class="form-select" {% if not can_edit %}disabled{% endif %}>
-                                    <option value="">--Select--</option>
-                                    {% for value,label in form.fields.gazet.choices %}
-                                        <option value="{{ value }}" {% if employee.gazet == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
+
+                        <div class="col-md-4">
+                        <label class="form-label fw-bold">Typing</label>
+
+                        <select name="typing"
+                        class="form-select"
+                        {% if not can_edit %}disabled{% endif %}>
+
+                        <option value="">--Select--</option>
+
+                        {% for value,label in form.fields.typing.choices %}
+                        <option value="{{ value }}"
+                        {% if employee.typing == value %}selected{% endif %}>
+                        {{ label }}
+                        </option>
+                        {% endfor %}
+
+                        </select>
+
                         </div>
+
+                        <div class="col-md-4">
+                        <label class="form-label fw-bold">Hindi Proficiency</label>
+
+                        <select name="hindiproficiency"
+                        class="form-select"
+                        {% if not can_edit %}disabled{% endif %}>
+
+                        <option value="">--Select--</option>
+
+                        {% for value,label in form.fields.hindiproficiency.choices %}
+                        <option value="{{ value }}"
+                        {% if employee.hindiproficiency == value %}selected{% endif %}>
+                        {{ label }}
+                        </option>
+                        {% endfor %}
+
+                        </select>
+
+                        </div>
+
+                        <div class="col-md-4">
+                        <label class="form-label fw-bold">Gazet</label>
+
+                        <select name="gazet"
+                        class="form-select"
+                        {% if not can_edit %}disabled{% endif %}>
+
+                        <option value="">--Select--</option>
+
+                        {% for value,label in form.fields.gazet.choices %}
+                        <option value="{{ value }}"
+                        {% if employee.gazet == value %}selected{% endif %}>
+                        {{ label }}
+                        </option>
+                        {% endfor %}
+
+                        </select>
+
+                        </div>
+
+                        </div>
+
 
                         <div class="row mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Highest Hindi Exam Passed</label>
-                                <select name="highest_hindi_exam_passed" class="form-select" {% if not can_edit %}disabled{% endif %}>
-                                    <option value="">--Select--</option>
-                                    {% for value,label in form.fields.highest_hindi_exam_passed.choices %}
-                                        <option value="{{ value }}" {% if employee.highest_hindi_exam_passed == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Superannuation Date</label>
-                                <input type="date" name="super_annuation_date" class="form-control" value="{{ employee.super_annuation_date|date:'Y-m-d' }}" {% if not can_edit %}disabled{% endif %}>
-                            </div>
+
+
+                        <div class="col-md-6">
+                        <label class="form-label fw-bold">OLIC Affiliate</label>
+
+                        <select name="olic_affiliate"
+                        class="form-select"
+                        {% if not can_edit %}disabled{% endif %}>
+
+                        <option value="">--Select--</option>
+
+                        {% for value,label in form.fields.olic_affiliate.choices %}
+                            <option value="{{ value }}"
+                            {% if employee.olic_affiliate == value %}selected{% endif %}>
+                            {{ label }}
+                            </option>
+                        {% endfor %}
+
+                        </select>
                         </div>
 
-                        <div id="actionRow" class="d-flex justify-content-between align-items-center pt-3">
+                        <div class="col-md-6">
+                        <label class="form-label fw-bold">Superannuation Date</label>
+
+                        <input type="date"
+                        name="super_annuation_date"
+                        class="form-control"
+                        value="{{ employee.super_annuation_date|date:'Y-m-d' }}"
+                        {% if not can_edit %}disabled{% endif %}>
+
+                        </div>
+
+                        </div>
+
+                        <!-- HOD display removed as per design: HOD assigned by admin and not editable here -->
+
+                        {# Profile status removed per design request #}
+
+                        <!-- Edit Restriction Warning -->
+                        {% if not can_edit %}
+                        <div class="alert alert-warning mb-4">
+                            <i class="fas fa-lock"></i> {{ "Your profile is locked. Request edit permission from admin."|t:current_lang }}
+                        </div>
+                        {% endif %}
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex gap-3 pt-3">
                             <div class="d-flex gap-3">
                                 <button type="submit" id="submitBtn" class="btn btn-primary btn-lg" {% if not can_edit %}disabled{% endif %}>
                                     <i class="fas fa-save"></i> {{ "Save Changes"|t:current_lang }}
@@ -169,6 +286,7 @@
                             <div class="d-flex gap-3">
                                 <a href="javascript:void(0)" onclick="downloadExcel()" title="Download Excel">
                                     <img src="https://cdn-icons-png.flaticon.com/512/732/732220.png" alt="Excel" style="width: 35px; height: 35px;">
+
                                 </a>
                                 <a href="javascript:void(0)" onclick="downloadPDF()" title="Download PDF">
                                     <img src="https://cdn-icons-png.flaticon.com/512/337/337946.png" alt="PDF" style="width: 35px; height: 35px;">
@@ -203,7 +321,7 @@
 
     h5.text-primary {
         color: #2c5a86 !important;
-        font-size: 1.1rem;
+        font-size: 1.3rem;
     }
 
     .form-control:disabled,
@@ -237,55 +355,140 @@
     }
 
     function downloadExcel() {
-        const data = [
-            [
-                "Employee Code",
-                "Username",
-                "Phone Number",
-                "Office Code",
-                "Office Name",
-                "Notification Email",
-                "Empcode",
-                "Name in English",
-                "Name in Hindi",
-                "Designation",
-                "Typing",
-                "Hindi Proficiency",
-                "Gazet",
-                "Highest Hindi Exam Passed",
-                "Superannuation Date"
-            ],
-            [
-                document.querySelector('[name="employee_code"]')?.value || "",
-                document.querySelector('[name="username"]')?.value || "",
-                document.querySelector('[name="phone"]')?.value || "",
-                document.querySelector('[name="office_code"]')?.value || "",
-                document.querySelector('[name="office_name"]')?.value || "",
-                document.querySelector('[name="email"]')?.value || "",
-                document.querySelector('[name="empcode"]')?.value || "",
-                document.querySelector('[name="ename"]')?.value || "",
-                document.querySelector('[name="hname"]')?.value || "",
-                getSelectedText(document.querySelector('[name="designation"]')),
-                getSelectedText(document.querySelector('[name="typing"]')),
-                getSelectedText(document.querySelector('[name="hindiproficiency"]')),
-                getSelectedText(document.querySelector('[name="gazet"]')),
-                getSelectedText(document.querySelector('[name="highest_hindi_exam_passed"]')),
-                document.querySelector('[name="super_annuation_date"]')?.value || ""
-            ]
-        ];
+    const isHindi = currentLang === 'hi';
 
-        const ws = XLSX.utils.aoa_to_sheet(data);
+    const headers = isHindi ? [
+        "कर्मचारी कोड",
+        "उपयोगकर्ता नाम",
+        "फोन नंबर",
+        "कार्यालय कोड",
+        "कार्यालय का नाम",
+        "अधिसूचना ईमेल",
+        "एम्पकोड",
+        "अंग्रेजी में नाम",
+        "हिंदी में नाम",
+        "पदनाम",
+        "टाइपिंग",
+        "हिंदी दक्षता",
+        "राजपत्र",
+        "उच्चतम हिंदी परीक्षा",
+        "सेवानिवृत्ति तिथि"
+    ] : [
+        "Employee Code",
+        "Username",
+        "Phone Number",
+        "Office Code",
+        "Office Name",
+        "Notification Email",
+        "Empcode",
+        "Name in English",
+        "Name in Hindi",
+        "Designation",
+        "Typing",
+        "Hindi Proficiency",
+        "Gazet",
+        "Highest Hindi Exam Passed",
+        "Superannuation Date"
+    ];
 
-        ws['!cols'] = [
-            { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 18 },
-            { wch: 28 }, { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 18 },
-            { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 25 }, { wch: 20 }
-        ];
-
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Profile Details");
-        XLSX.writeFile(wb, "Edit_Profile_Details.xlsx");
+    // ✅ Translate dropdown values to Hindi when in Hindi mode
+    function getTranslatedValue(selectEl) {
+        if (!selectEl) return "";
+        const text = selectEl.options[selectEl.selectedIndex]?.text?.trim() || "";
+        if (!isHindi) return text;
+        const hindiMap = {
+            "Gazetted": "राजपत्रित",
+            "Non-Gazetted": "अराजपत्रित",
+            "Both": "दोनों",
+            "Hindi": "हिंदी",
+            "English": "अंग्रेजी",
+            "Yes": "हाँ",
+            "No": "नहीं",
+            "Good": "अच्छा",
+            "Average": "औसत",
+            "Basic": "बुनियादी",
+            "Scientist-F": "वैज्ञानिक-एफ",
+            "Scientist-G": "वैज्ञानिक-जी",
+            "Scientist-E": "वैज्ञानिक-ई",
+            "Scientist-D": "वैज्ञानिक-डी",
+            "Scientist-C": "वैज्ञानिक-सी",
+            "Scientist-B": "वैज्ञानिक-बी",
+            "Section Officer": "अनुभाग अधिकारी",
+            "Senior Secretariate Assistant": "वरिष्ठ सचिवालय सहायक",
+            "Scientific/Technical Assistant-A": "वैज्ञानिक/तकनीकी सहायक-ए",
+            "Scientific/Technical Assistant-B": "वैज्ञानिक/तकनीकी सहायक-बी",
+            "Scientific Officer/Engineer-SB": "वैज्ञानिक अधिकारी/इंजीनियर-एसबी",
+        };
+        return hindiMap[text] || text;
     }
+
+    const data = [
+        headers,
+        [
+            document.querySelector('[name="employee_code"]')?.value || "",
+            document.querySelector('[name="username"]')?.value || "",
+            document.querySelector('[name="phone"]')?.value || "",
+            document.querySelector('[name="office_code"]')?.value || "",
+            document.querySelector('[name="office_name"]')?.value || "",
+            document.querySelector('[name="email"]')?.value || "",
+            document.querySelector('[name="empcode"]')?.value || "",
+            document.querySelector('[name="ename"]')?.value || "",
+            document.querySelector('[name="hname"]')?.value || "",
+            getTranslatedValue(document.querySelector('[name="designation"]')),
+            getTranslatedValue(document.querySelector('[name="typing"]')),
+            getTranslatedValue(document.querySelector('[name="hindiproficiency"]')),
+            getTranslatedValue(document.querySelector('[name="gazet"]')),
+            getTranslatedValue(document.querySelector('[name="highest_hindi_exam_passed"]')),
+            document.querySelector('[name="super_annuation_date"]')?.value || ""
+        ]
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+
+    ws['!cols'] = [
+        { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 18 },
+        { wch: 28 }, { wch: 15 }, { wch: 18 }, { wch: 20 }, { wch: 18 },
+        { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 25 }, { wch: 20 }
+    ];
+
+    const range = XLSX.utils.decode_range(ws['!ref']);
+
+    for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_col(col) + "1";
+        if (!ws[cellAddress]) continue;
+        ws[cellAddress].s = {
+            font: { bold: true, color: { rgb: "FFFFFF" }, name: "Arial", sz: 11 },
+            fill: { patternType: "solid", fgColor: { rgb: "366092" } },
+            alignment: { horizontal: "center", vertical: "center", wrapText: true },
+            border: {
+                left: { style: "thin" }, right: { style: "thin" },
+                top: { style: "thin" }, bottom: { style: "thin" }
+            }
+        };
+    }
+
+    for (let row = 1; row <= range.e.r; row++) {
+        for (let col = range.s.c; col <= range.e.c; col++) {
+            const cellAddress = XLSX.utils.encode_col(col) + (row + 1);
+            if (!ws[cellAddress]) continue;
+            ws[cellAddress].s = {
+                font: { name: "Arial", sz: 11, color: { rgb: "000000" } },
+                alignment: { horizontal: "left", vertical: "top", wrapText: true },
+                border: {
+                    left: { style: "thin" }, right: { style: "thin" },
+                    top: { style: "thin" }, bottom: { style: "thin" }
+                }
+            };
+        }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, isHindi ? "प्रोफाइल विवरण" : "Profile Details");
+
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const empCode = document.querySelector('[name="empcode"]')?.value || "Employee";
+    XLSX.writeFile(wb, `Profile_${empCode}_${timestamp}.xlsx`);
+}
 
     function downloadPDF() {
         const element = document.getElementById('captureArea');
@@ -380,5 +583,149 @@
             officeNameField.value = map[this.value] || '';
         });
     })();
+
+const empcodeField = document.getElementById("empcode");
+const feedback = document.getElementById("empcodeFeedback");
+function setGazetFromDesignation() {
+    let designationField = document.getElementById("designation");
+    let gazetField = document.querySelector("select[name='gazet']");
+
+    let designation = designationField.options[designationField.selectedIndex].text.trim();
+
+    let nonGazettedList = [
+        "Senior Secretariate Assistant",
+        "Scientific/Technical Assistant-A",
+        "Scientific/Technical Assistant-B"
+    ];
+
+    if(nonGazettedList.includes(designation)){
+        gazetField.value = "Non-Gazetted";
+    } else if(designation){
+        gazetField.value = "Gazetted";
+    }
+}
+function fetchEmployeeData(){
+    let empcode = empcodeField.value.trim();
+
+    if(!empcode){
+        feedback.innerHTML = "";
+        return;
+    }
+
+    fetch(`/get-employee/?empcode=${empcode}`)
+    .then(res => res.json())
+    .then(data => {
+
+        if(data.status === "success"){
+
+            // ✅ Autofill fields
+            document.getElementById("username").value = data.name || "";
+            document.getElementById("phone").value = data.mobile || "";
+            document.getElementById("name_english").value = data.name || "";
+            document.getElementById("name_hindi").value = data.hindi_name || "";
+
+            // ✅ Safe designation match
+            let designationField = document.getElementById("designation");
+
+            if(data.designation){
+                for (let option of designationField.options) {
+                    if (option.text.trim() === data.designation.trim()) {
+                        designationField.value = option.value;
+                        break;
+                    }
+                }
+            } else {
+                designationField.value = "";
+            }
+            // ✅ AUTO GAZET LOGIC
+            let gazetField = document.querySelector("select[name='gazet']");
+            let designationText = data.designation || "";
+
+            let nonGazettedList = [
+                "Senior Secretariate Assistant",
+                "Scientific/Technical Assistant-A",
+                "Scientific/Technical Assistant-B"
+            ];
+
+            if(nonGazettedList.includes(designationText.trim())){
+                gazetField.value = "Non-Gazetted";
+            } else {
+                gazetField.value = "Gazetted";
+            }
+
+            // ✅ GREEN VERIFIED
+            feedback.innerHTML = "✔ Verified";
+            feedback.style.color = "green";
+
+            // ❌ REMOVE LOCK (important change)
+            // username should remain editable
+
+        } else {
+
+            // 🔴 INVALID
+            feedback.innerHTML = "✖ Invalid Employee Code";
+            feedback.style.color = "red";
+
+            // clear all fields
+            document.getElementById("username").value = "";
+            document.getElementById("phone").value = "";
+            document.getElementById("name_english").value = "";
+            document.getElementById("name_hindi").value = "";
+            document.getElementById("designation").value = "";
+        }
+    })
+    .catch(() => {
+        feedback.innerHTML = "Error fetching data";
+        feedback.style.color = "red";
+    });
+}
+
+// 🚫 Prevent Enter submit
+empcodeField.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){
+        e.preventDefault();
+        fetchEmployeeData();
+    }
+});
+
+// trigger on blur
+empcodeField.addEventListener("blur", fetchEmployeeData);
+
+const examCheckboxes = document.querySelectorAll("input[name='hindi_exam']");
+const typingField = document.querySelector("select[name='typing']");
+const proficiencyField = document.querySelector("select[name='hindiproficiency']");
+
+// Only these trigger auto
+const triggerExams = ["Prabodh", "Praveen", "Pragya"];
+
+const originalTyping = typingField.value;
+const originalProficiency = proficiencyField.value;
+
+examCheckboxes.forEach(cb => {
+    cb.addEventListener("change", function(){
+
+        let selected = Array.from(examCheckboxes)
+            .filter(c => c.checked)
+            .map(c => c.value);
+
+        let shouldAuto = selected.some(val => triggerExams.includes(val));
+
+        if(shouldAuto){
+            typingField.value = "Both";
+            proficiencyField.value = "Yes";
+        } else {
+            typingField.value = originalTyping;
+            proficiencyField.value = originalProficiency;
+        }
+    });
+});
+// ✅ FIX: update Gazet when designation changes manually
+document.getElementById("designation").addEventListener("change", function(){
+    setGazetFromDesignation();
+});
+// Run everything on load
+document.addEventListener("DOMContentLoaded", function(){
+    setGazetFromDesignation();
+});
 </script>
 {% endblock %}

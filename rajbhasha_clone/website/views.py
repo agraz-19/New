@@ -898,7 +898,11 @@ def profile_view(request):
     # Fetch employee using employee code
     employee = None
     if profile and profile.employee_code:
-        employee = Employee.objects.filter(empcode=profile.employee_code).first()
+        try:
+          emp_int = int(profile.employee_code)
+          employee = Employee.objects.filter(empcode=emp_int).first()
+        except (ValueError, TypeError):
+          employee = Employee.objects.filter(empcode=profile.employee_code).first()
 
     # Initialize EmployeeForm
     form = EmployeeForm(instance=employee)
