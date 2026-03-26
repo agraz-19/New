@@ -9,145 +9,387 @@
     /* Add specific styles if needed */
 </style>
 {% endblock %}
-
 {% block content %}
-<div class="container my-4">
+    <div class="container py-3">
+        <h3>Quarterly Progress Reports</h3>
 
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4>{{ "Report List"|t:current_lang }}</h4>
-        <div>
-            <a href="{% url 'qpr_form' %}" class="btn btn-outline-secondary me-2">
-                {{ "Fill New Report"|t:current_lang }}
-            </a>
-            <a href="{% url 'qpr_user_dashboard' %}" class="btn btn-outline-primary">
-                <i class="fas fa-arrow-left"></i> {{ "Back to Dashboard"|t:current_lang }}
-            </a>
+        <!-- Frequency selector: controls which summary source the backend should provide -->
+        <div class="mb-2">
+            <label for="frequencySelect"><strong>View Frequency:</strong></label>
+            <select id="frequencySelect" class="form-select form-select-sm" style="width:200px;display:inline-block;margin-left:8px;">
+                <option value="daily" selected>Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+            </select>
         </div>
-    </div>
 
-    <div class="card shadow-sm">
-        <div class="card-body">
+        <!-- Note: Page intentionally simplified to only show Daily/Weekly/Monthly/Quarterly tables -->
+
+        <!-- Daily entries -->
+        <div class="mb-2">
+            <strong>Daily Entries</strong>
             <div class="table-responsive">
-                <table class="table table-bordered table-striped">
-                    <thead class="table-light">
-                        <tr>
-                            <th>{{ "Office Name"|t:current_lang }}</th>
-                            <th>{{ "Code"|t:current_lang }}</th>
-                            <th>{{ "Region"|t:current_lang }}</th>
-                            <th>{{ "Quarter"|t:current_lang }}</th>
-                            <th>{{"Year"|t:current_lang }}</th>
-                            <th>{{ "Status"|t:current_lang }}</th>
-                            <th>{{ "Action"|t:current_lang }}</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody"></tbody>
+                <table class="table table-sm table-bordered" id="dailyTable">
+                    <thead class="table-light"><tr>
+                        <th>Period</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr></thead>
+                    <tbody id="dailyBody"><tr><td colspan="3" class="text-center text-muted">Loading...</td></tr></tbody>
                 </table>
             </div>
         </div>
-    </div>
 
-</div>
+        <!-- Weekly entries -->
+        <div class="mb-2">
+            <strong>Weekly Entries</strong>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered" id="weeklyTable">
+                    <thead class="table-light"><tr>
+                        <th>Period</th>
+                        <th>Action</th>
+                    </tr></thead>
+                    <tbody id="weeklyBody"><tr><td colspan="2" class="text-center text-muted">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Monthly entries -->
+        <div class="mb-2">
+            <strong>Monthly Entries</strong>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered" id="monthlyTable">
+                    <thead class="table-light"><tr>
+                        <th>Period</th>
+                        <th>Action</th>
+                    </tr></thead>
+                    <tbody id="monthlyBody"><tr><td colspan="2" class="text-center text-muted">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Quarterly entries -->
+        <div class="mb-2">
+            <strong>Quarterly Entries</strong>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered" id="quarterlyTable">
+                    <thead class="table-light"><tr>
+                        <th>Quarter</th>
+                        <th>Year</th>
+                        <th>Action</th>
+                    </tr></thead>
+                    <tbody id="quarterlyBody"><tr><td colspan="3" class="text-center text-muted">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
 
 <script>
     const LIST_API_URL = "{% url 'qpr_api_records' %}";
 
-    // Function to mask sensitive fields
-    function maskSensitiveData(value) {
-        if (!value || value === '-') return '-';
-        const valueStr = String(value);
-        if (valueStr.length <= 2) return valueStr;
-        return valueStr.charAt(0) + '*'.repeat(valueStr.length - 2) + valueStr.charAt(valueStr.length - 1);
+    // Helper to safely read multiple possible property names from API records
+    function getProp(obj, ...keys) {
+        if (!obj) return '-';
+        for (let k of keys) {
+            if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k];
+        }
+        return '-';
     }
 
     async function loadList() {
         try {
             const res = await fetch(LIST_API_URL);
             const data = await res.json();
-            const tbody = document.getElementById('tableBody');
-            tbody.innerHTML = '';
+            const records = Array.isArray(data) ? data : [];
+            // debug logging removed
 
-            if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">{{ "No records found"|t:current_lang }}</td></tr>';
-                return;
+            // Fetch period summary for the current quarter using the selected frequency.
+            // Per specs, use exactly one fetch and pass ?frequency=<selectedFrequency>.
+            const SUMMARY_API_URL = "{% url 'qpr_api_period_summary' %}";
+            let summary = null;
+            const freqEl = document.getElementById('frequencySelect');
+            const selectedFrequency = (freqEl && freqEl.value) ? freqEl.value : 'daily';
+            try {
+                const sres = await fetch(`${SUMMARY_API_URL}?frequency=${selectedFrequency}`);
+                if (sres.ok) summary = await sres.json();
+                else console.warn('SUMMARY fetch returned', sres.status, sres.statusText);
+            } catch (e) {
+                console.warn('Failed to fetch period summary', e);
+            }
+            
+            const dailyBody = document.getElementById('dailyBody');
+            const weeklyBody = document.getElementById('weeklyBody');
+            const monthlyBody = document.getElementById('monthlyBody');
+            const quarterlyBody = document.getElementById('quarterlyBody');
+
+            // Clear bodies
+            if (dailyBody) dailyBody.innerHTML = '';
+            if (weeklyBody) weeklyBody.innerHTML = '';
+            if (monthlyBody) monthlyBody.innerHTML = '';
+            if (quarterlyBody) quarterlyBody.innerHTML = '';
+
+            // Infer frequency when missing and group by frequency and period_start (or period range)
+            function inferFrequency(r) {
+                if (!r) return 'quarterly';
+                if (r.frequency) return String(r.frequency).toLowerCase();
+                const ps = r.period_start;
+                const pe = r.period_end || r.period_start;
+                if (ps && pe) {
+                    try {
+                        const s = new Date(ps);
+                        const e = new Date(pe);
+                        const diff = (e - s) / (1000*60*60*24);
+                        if (diff === 0) return 'daily';
+                        if (diff <= 6) return 'weekly';
+                        // month check: same month & year
+                        if (s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth()) return 'monthly';
+                        return 'quarterly';
+                    } catch (err) {
+                        return 'quarterly';
+                    }
+                }
+                return 'quarterly';
             }
 
-            data.forEach(r => {
-                const tr = document.createElement('tr');
-
-                const status = r.status === 'Draft'
-                    ? '<span class="badge bg-primary">{{ "Draft"|t:current_lang }}</span>'
-                    : '<span class="badge bg-success">{{ "Submitted"|t:current_lang }}</span>';
-
-                let actionButtons = '';
-
-                if (r.status === 'Draft') {
-                    actionButtons = `<button class="btn btn-sm btn-outline-warning" onclick="event.stopPropagation(); edit(${r.id})">{{ "Edit"|t:current_lang }}</button>`;
-                } else if (r.edit_approved) {
-                    actionButtons = `<button class="btn btn-sm btn-outline-warning" onclick="event.stopPropagation(); edit(${r.id})">{{ "Edit"|t:current_lang }}</button>`;
-                } else {
-                    actionButtons = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${r.id})">{{ "Request to Edit"|t:current_lang }}</button>`;
-                }
-                let typingButton = '';
-
-                if (r.s7_total && Number(r.s7_total) > 0) {
-                    typingButton = `
-                        <button class="btn btn-sm btn-outline-success ms-1"
-                        onclick="event.stopPropagation(); typingUsageReport(${r.id})">
-                        {{ "Typing Usage Report"|t:current_lang }}
-                        </button>
-                    `;
-                } else {
-                    typingButton = `
-                        <button class="btn btn-sm btn-outline-secondary ms-1" disabled
-                        title="No notings entered for this report">
-                        {{ "Typing Usage Report"|t:current_lang }}
-                        </button>
-                    `;
-                }
-
-                const rawCode = r.officeCode || '-';
-
-                tr.innerHTML = `
-                <td>${r.officeName || '-'}</td>
-                <td>${rawCode}</td>
-                <td>${r.region || '-'}</td>
-                <td>${r.quarter || '-'}</td>
-                <td>${r.year || '-'}</td>
-                <td>${status}</td>
-                <td>
-                    ${actionButtons}
-                    <button class="btn btn-sm btn-outline-primary ms-1" onclick="view(${r.id})">{{ "View"|t:current_lang }}</button>
-                    ${typingButton}
-                </td>
-            `;
-
-                tr.addEventListener('click', () => {
-                    if (r.status === 'Submitted') view(r.id);
-                });
-
-                tbody.appendChild(tr);
+            const grouped = { daily: [], weekly: [], monthly: [], quarterly: [] };
+            records.forEach(r => {
+                const f = inferFrequency(r);
+                if (!grouped[f]) grouped[f] = [];
+                grouped[f].push(r);
             });
 
+            const daily = grouped.daily;
+            const weekly = grouped.weekly;
+            const monthly = grouped.monthly;
+            const quarterly = grouped.quarterly;
+
+            // Populate helper
+            function makeActions(rec) {
+                if (!rec) return '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
+                let actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${rec.id})">Request to Edit</button>`;
+                // Use a real anchor href so clicks open the correct report without relying on JS view()
+                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="/qpr/reports/${rec.id}/">View</a>`;
+                return actions;
+            }
+
+            // Render rows
+            const renderRow = (body, rec, cols) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = cols.map(c => `<td>${c}</td>`).join('');
+                body.appendChild(tr);
+            };
+
+            if (dailyBody) {
+                // Prefer rendering periods from the summary so we show missing days even when no record exists
+                if (summary && Array.isArray(summary.daily)) {
+                    summary.daily.forEach(d => {
+                        const ps = d.period_start;
+                        function normalizeDate(s) {
+                            if (!s) return '';
+                            const d = new Date(s);
+                            return isNaN(d) ? String(s).slice(0,10) : d.toISOString().slice(0,10);
+                        }
+
+                        const rec = records.find(r => 
+                            normalizeDate(r.period_start) === normalizeDate(ps)
+                        ) || null;
+                        const periodLabel = ps || (d.period_label || '-');
+                        // Determine status: submitted daily, covered by weekly/monthly/quarterly, or missing
+                        let status = '';
+                        if (d.has_daily) status = '<span class="badge bg-success">Submitted</span>';
+                        else if (d.covered_by) status = `<span class="badge bg-secondary">Filled via ${d.covered_by}</span>`;
+                        else status = '<span class="text-muted">Missing</span>';
+                        const actions = rec ? makeActions(rec) : '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
+                        renderRow(dailyBody, rec, [periodLabel, status, actions]);
+                    });
+                } else {
+                    if (daily.length === 0) dailyBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No daily entries</td></tr>';
+                    else daily.forEach(rec => {
+                        const period = getProp(rec, 'period_start') || getProp(rec, 'period') || '-';
+                        renderRow(dailyBody, rec, [period, (rec.status==='Draft'||rec.status==='draft')?'<span class="badge bg-primary">Draft</span>':'<span class="badge bg-success">Submitted</span>', makeActions(rec)]);
+                    });
+                }
+            }
+
+            if (weeklyBody) {
+                if (summary && Array.isArray(summary.weekly)) {
+                    summary.weekly.forEach(w => {
+                            const ps = w.period_start;
+                            const pe = w.period_end;
+                            // Normalize date strings to YYYY-MM-DD for robust comparisons
+                            function normDate(s) {
+                                if (!s) return '';
+                                try {
+                                    const d = new Date(s);
+                                    if (isNaN(d)) return String(s).slice(0,10);
+                                    return d.toISOString().slice(0,10);
+                                } catch (e) { return String(s).slice(0,10); }
+                            }
+                            // Find candidate records that cover the same period (normalize both sides)
+                            // Accept records that match on start OR match on end OR whose period_start falls within the week
+                            const candidates = records.filter(r => {
+                                const rs = normDate(r.period_start);
+                                const re = normDate(r.period_end || r.period_start);
+                                const matchStart = rs && rs === normDate(ps);
+                                const matchEnd = pe && re === normDate(pe);
+                                const inRange = rs && ps && pe && (rs >= normDate(ps) && rs <= normDate(pe));
+                                return matchStart || matchEnd || inRange;
+                            });
+                            // Prefer an actual weekly-frequency record among candidates.
+                            let rec = null;
+                            let dataSourceRec = null;  // office info source
+                            if (candidates.length > 0) {
+                                rec = candidates.find(r => String(r.frequency || '').toLowerCase() === 'weekly') || null;
+                                // If no weekly record, use first daily candidate for office info (so row is visible)
+                                if (!rec) {
+                                    dataSourceRec = candidates[0];  // get office from a daily record
+                                }
+                            }
+                            const periodLabel = (ps || '-') + (pe ? ' → ' + pe : '');
+                        // If no weekly record but have daily candidates (dataSourceRec), show View + Request to Edit using first daily candidate
+                        let actions = '';
+                        if (rec) {
+                            actions = makeActions(rec);
+                        } else if (dataSourceRec) {
+                            // Show View + Request to Edit for the daily candidate (will display cumulative weekly data)
+                            actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${dataSourceRec.id})">Request to Edit</button>`;
+                            actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="/qpr/reports/${dataSourceRec.id}/?view_as=weekly">View</a>`;
+                        } else {
+                            actions = '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
+                        }
+
+                        // Render row: show period and actions (no totals column)
+                        renderRow(weeklyBody, rec, [periodLabel, actions]);
+                    });
+                } else {
+                    if (weekly.length === 0) weeklyBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">No weekly entries</td></tr>';
+                    else weekly.forEach(rec => {
+                        const ps = getProp(rec, 'period_start') || getProp(rec, 'period') || '-';
+                        const pe = getProp(rec, 'period_end') || '';
+                        const period = pe ? `${ps} → ${pe}` : ps;
+                        renderRow(weeklyBody, rec, [period, makeActions(rec)]);
+                    });
+                }
+            }
+
+            if (monthlyBody) {
+                if (summary && Array.isArray(summary.monthly)) {
+                    summary.monthly.forEach(m => {
+                        const ps = m.period_start;
+                        const pe = m.period_end;
+                        // Normalize date strings to YYYY-MM-DD for robust comparisons
+                        function normDate(s) {
+                            if (!s) return '';
+                            try {
+                                const d = new Date(s);
+                                if (isNaN(d)) return String(s).slice(0,10);
+                                return d.toISOString().slice(0,10);
+                            } catch (e) { return String(s).slice(0,10); }
+                        }
+                        // Find candidate records that cover the same period
+                        const candidates = records.filter(r => {
+                            const rs = normDate(r.period_start);
+                            const re = normDate(r.period_end || r.period_start);
+                            const matchStart = rs && rs === normDate(ps);
+                            const matchEnd = pe && re === normDate(pe);
+                            const inRange = rs && ps && pe && (rs >= normDate(ps) && rs <= normDate(pe));
+                            return matchStart || matchEnd || inRange;
+                        });
+                        // Prefer a monthly-frequency record; otherwise use first candidate for office info
+                        let rec = null;
+                        let dataSourceRec = null;
+                        if (candidates.length > 0) {
+                            rec = candidates.find(r => String(r.frequency || '').toLowerCase() === 'monthly') || null;
+                            if (!rec) dataSourceRec = candidates[0];
+                        }
+                        const periodLabel = (ps || '-') + (pe ? ' → ' + pe : '');
+                        let actions = '';
+                        if (rec) {
+                            actions = makeActions(rec);
+                        } else if (dataSourceRec) {
+                            actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${dataSourceRec.id})">Request to Edit</button>`;
+                            actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="/qpr/reports/${dataSourceRec.id}/?view_as=monthly">View</a>`;
+                        } else {
+                            actions = '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
+                        }
+                        renderRow(monthlyBody, rec, [periodLabel, actions]);
+                    });
+                } else {
+                    if (monthly.length === 0) monthlyBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">No monthly entries</td></tr>';
+                    else monthly.forEach(rec => {
+                        const ps = getProp(rec, 'period_start') || getProp(rec, 'period') || '-';
+                        const pe = getProp(rec, 'period_end') || '';
+                        const period = pe ? `${ps} → ${pe}` : ps;
+                        renderRow(monthlyBody, rec, [period, makeActions(rec)]);
+                    });
+                }
+            }
+
+            if (quarterlyBody) {
+                // Render from backend summary (summary.quarterly) per contract.
+                if (summary && summary.quarterly) {
+                    const q = summary.quarterly;
+                    const ps = q.period_start;
+                    const pe = q.period_end;
+                    const periodLabel = summary.quarter_label || (ps ? `${ps} → ${pe}` : '-');
+
+                    // helper to normalize date strings
+                    function normDateQ(s) {
+                        if (!s) return '';
+                        try {
+                            const d = new Date(s);
+                            if (isNaN(d)) return String(s).slice(0,10);
+                            return d.toISOString().slice(0,10);
+                        } catch (e) { return String(s).slice(0,10); }
+                    }
+
+                    // Find candidate records inside quarter range for actions
+                    const candidates = records.filter(r => {
+                        const rs = normDateQ(r.period_start);
+                        const re = normDateQ(r.period_end || r.period_start);
+                        const matchStart = rs && rs === normDateQ(ps);
+                        const matchEnd = pe && re === normDateQ(pe);
+                        const inRange = rs && ps && pe && (rs >= normDateQ(ps) && rs <= normDateQ(pe));
+                        return matchStart || matchEnd || inRange;
+                    });
+
+                    let rec = null;
+                    let dataSourceRec = null;
+                    if (candidates.length > 0) {
+                        rec = candidates.find(r => String(r.frequency || '').toLowerCase() === 'quarterly') || null;
+                        if (!rec) dataSourceRec = candidates[0];
+                    }
+
+                    let actions = '';
+                    if (rec) {
+                        actions = makeActions(rec);
+                    } else if (dataSourceRec) {
+                        actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${dataSourceRec.id})">Request to Edit</button>`;
+                        actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="/qpr/reports/${dataSourceRec.id}/?view_as=quarterly">View</a>`;
+                    } else {
+                        actions = '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
+                    }
+
+                    renderRow(quarterlyBody, null, [periodLabel, summary.year_label || '-', actions]);
+                } else {
+                    quarterlyBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No quarterly entries</td></tr>';
+                }
+            }
+
         } catch (err) {
-            console.error(err);
+            console.error('Failed to load records:', err);
+            const bodies = ['dailyBody','weeklyBody','monthlyBody','quarterlyBody'];
+            bodies.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = '<tr><td colspan="99" class="text-center text-muted">Failed to load</td></tr>';
+            });
         }
     }
 
     function view(id) {
-        fetch(`/qpr/api/records/${id}/`)
-            .then(res => res.json())
-            .then(record => {
-                if (record.can_edit) {
-                    localStorage.setItem('editRecordId', String(id));
-                    window.location.href = "{% url 'qpr_form' %}";
-                } else {
-                    window.location.href = `/qpr/reports/${id}/`;
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                window.location.href = `/qpr/reports/${id}/`;
-            });
+        window.location.href = `/qpr/reports/${id}/`;
     }
 
     function edit(id) {
@@ -157,44 +399,19 @@
 
     function requestEdit(id) {
         const reason = prompt("{{ 'Please enter the reason for requesting to edit this report:'|t:current_lang }}");
-        if (reason === null) return;
-
-        if (!reason.trim()) {
-            alert("{{ 'Please provide a reason for your request'|t:current_lang }}");
-            return;
-        }
-
+        if (!reason) return;
         fetch(`/qpr/api/request-edit/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                request_type: 'qpr',
-                record_id: id,
-                reason: reason
-            })
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    alert("{{ 'Request sent successfully!'|t:current_lang }}");
-                    loadList();
-                } else {
-                    alert("Error: " + (data.error || "Failed"));
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                alert("{{ 'Failed to send request'|t:current_lang }}");
-            });
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({request_type:'qpr', record_id:id, reason:reason})
+        }).then(r=>r.json()).then(d=>{ if (d.success) { alert("{{ 'Request sent successfully!'|t:current_lang }}"); loadList(); } else alert(d.error||'Failed'); }).catch(e=>{console.error(e); alert('Failed');});
     }
 
-    function typingUsageReport(id) {
-        window.location.href = `/qpr/reports/${id}/typing-usage-report/`;
-    }
-
-    window.addEventListener('DOMContentLoaded', loadList);
+    window.addEventListener('DOMContentLoaded', () => {
+        loadList();
+        const freqEl = document.getElementById('frequencySelect');
+        if (freqEl) freqEl.addEventListener('change', () => { loadList(); });
+    });
 
 </script>
+
 {% endblock %}

@@ -2,8 +2,6 @@
 {% load translate_tags %}
 {% load static %}
 
-{# prefer session 'role' via `role` context, fallback to user's primary role inline #}
-
 {% block title %}
     {% if role|default:user.role == 'admin' %} {{ "Admin Dashboard"|t:current_lang }}
     {% elif role|default:user.role == 'manager' %} {{ "Manager Dashboard"|t:current_lang }}

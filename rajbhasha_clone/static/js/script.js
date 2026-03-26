@@ -58,6 +58,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
 });
 /*qpr-specific code*/
+// Ensure server globals are available before any QPR logic
+document.addEventListener('DOMContentLoaded', function () {
+    try { console.log("SERVER:", window.SERVER_MONTH, window.SERVER_YEAR); } catch(e) {}
+    try { if (typeof populateYearDropdown === 'function') populateYearDropdown(); } catch(e) {}
+    try { if (typeof populateQuarterDropdown === 'function') populateQuarterDropdown(); } catch(e) {}
+    try { if (typeof populateMonthDropdown === 'function') populateMonthDropdown(); } catch(e) {}
+});
+
+function populateYearDropdown() {
+    // Year options are server-rendered; this function is a safe hook for future logic.
+    const yearEl = document.getElementById('year');
+    if (!yearEl) return;
+}
+
+function populateMonthDropdown() {
+    // placeholder for month-level dropdown if required by UI
+    return;
+}
+
 const API_URL = "/qpr/api/records/";
 let records = []; // Store data globally
 
@@ -74,17 +93,116 @@ const SENSITIVE_FIELDS = [];
 
 // --- 1. Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Always initialize UI helpers
-    populateYearDropdown();
-    initHindiKeyboard();
-    bindHindiFocusHandlers();
-
-    // Only run QPR data loading / masking on QPR pages where related elements exist
+    // Initialize only on QPR form/page to avoid errors on other pages
     const isQPRPage = !!document.getElementById('qprForm');
     if (isQPRPage) {
+        initHindiKeyboard();
+        bindHindiFocusHandlers();
         checkAuthentication();
         loadData();
+
+        // Prefill quarter/year from server (exposed as window globals in template)
+        try {
+            const serverQuarter = window.QPR_SERVER_QUARTER || '';
+            const serverYear = window.QPR_SERVER_YEAR || '';
+            const quarterEl = document.getElementById('quarter');
+            const yearEl = document.getElementById('year');
+            if (quarterEl && serverQuarter) quarterEl.value = serverQuarter;
+
+            // Populate quarter options based on selected year and today's date
+            try { populateQuarterDropdown(); } catch(e) { console.error(e); }
+            try { updateQuarterAvailability(); } catch(e) { console.error(e); }
+
+            // Recompute quarter options & availability when year changes
+            if (yearEl) yearEl.addEventListener('change', () => {
+                try { populateQuarterDropdown(); } catch(e) { console.error(e); }
+                try { updateQuarterAvailability(); } catch(e) { console.error(e); }
+            });
+
+            // Selected date behavior: default to today, set min/max and query availability
+            const selectedDateEl = document.getElementById('selectedDate');
+            const frequencyEl = document.getElementById('frequency');
+            
+            // Ensure frequency defaults to 'daily' (should not be empty)
+            if (frequencyEl && (!frequencyEl.value || frequencyEl.value === '')) {
+                frequencyEl.value = 'daily';
+            }
+            
+            const availabilityBoxId = 'qprAvailabilityBox';
+            function showAvailabilityBox(html) {
+                let box = document.getElementById(availabilityBoxId);
+                if (!box) {
+                    box = document.createElement('div');
+                    box.id = availabilityBoxId;
+                    box.className = 'mt-2';
+                    const form = document.getElementById('qprForm');
+                    form.parentNode.insertBefore(box, form.nextSibling);
+                }
+                box.innerHTML = html;
+            }
+
+            async function fetchAvailability(dateStr) {
+                try {
+                    const res = await fetch('/qpr/api/availability/?date=' + encodeURIComponent(dateStr));
+                    if (!res.ok) return;
+                    const j = await res.json();
+                    // set min/max/default
+                    if (selectedDateEl) {
+                        selectedDateEl.min = j.min_date;
+                        selectedDateEl.max = j.max_date;
+                        if (!selectedDateEl.value) selectedDateEl.value = j.default_date;
+                    }
+                    // enable/disable frequency options
+                    if (frequencyEl) {
+                        Array.from(frequencyEl.options).forEach(opt => {
+                            if (opt.value === '') return; // keep placeholder
+                            opt.disabled = !j.allowed.includes(opt.value);
+                        });
+                        // default to daily if current selection is invalid
+                        if (!j.allowed.includes(frequencyEl.value)) frequencyEl.value = 'daily';
+                    }
+                    // show missing days summary
+                    const missing = [];
+                    if (j.missing_week && j.missing_week.length) missing.push('<strong>Missing (week):</strong> ' + j.missing_week.join(', '));
+                    if (j.missing_month && j.missing_month.length) missing.push('<strong>Missing (month):</strong> ' + j.missing_month.length + ' days');
+                    if (j.missing_quarter && j.missing_quarter.length) missing.push('<strong>Missing (quarter):</strong> ' + j.missing_quarter.length + ' days');
+                    showAvailabilityBox(missing.length ? '<div class="alert alert-info">' + missing.join('<br>') + '</div>' : '<div class="text-muted small">No missing days for selected date</div>');
+                } catch (e) { console.error('availability fetch error', e); }
+            }
+
+            if (selectedDateEl) {
+                // initialize and fetch
+                if (!selectedDateEl.value) selectedDateEl.value = (new Date()).toISOString().slice(0,10);
+                fetchAvailability(selectedDateEl.value);
+                selectedDateEl.addEventListener('change', (e) => {
+                    fetchAvailability(e.target.value);
+                });
+            }
+
+            if (frequencyEl) {
+                frequencyEl.addEventListener('change', () => {
+                    // if non-daily selected, disable date input (weekly/monthly/quarterly)
+                    if (frequencyEl.value && frequencyEl.value !== 'daily') {
+                        if (selectedDateEl) selectedDateEl.disabled = true;
+                    } else {
+                        if (selectedDateEl) selectedDateEl.disabled = false;
+                    }
+                });
+            }
+
+            // Also recompute when recordId is set by edit action
+            const rid = document.getElementById('recordId');
+            if (rid) {
+                const observer = new MutationObserver(() => updateQuarterAvailability());
+                observer.observe(rid, { attributes: true, childList: true, subtree: false });
+            }
+        } catch (e) { console.error(e); }
+
+        return;
     }
+
+    // For non-QPR pages, still bind lightweight helpers
+    bindHindiFocusHandlers();
 });
 
 // Check if user is authenticated
@@ -177,39 +295,86 @@ function initHindiKeyboard() {
     });
 }
 
-// Function to populate year dropdown with fiscal years
-function populateYearDropdown() {
+// Populate quarter dropdown based on selected year and current date
+function populateQuarterDropdown() {
+    const quarterSelect = document.getElementById("quarter");
+    const yearEl = document.getElementById("year");
+    if (!quarterSelect || !yearEl) return;
+
+    const yearValue = yearEl.value;
+    if (!yearValue) return;
+
+    const selectedYearStart = parseInt(yearValue.split("-")[0], 10);
+    if (isNaN(selectedYearStart)) return;
+
+    const currentMonth = window.SERVER_MONTH || (new Date()).getMonth() + 1;
+    const currentYear = window.SERVER_YEAR || (new Date()).getFullYear();
+
+    let currentQuarter;
+    if (currentMonth <= 3) currentQuarter = 4;
+    else if (currentMonth <= 6) currentQuarter = 1;
+    else if (currentMonth <= 9) currentQuarter = 2;
+    else currentQuarter = 3;
+
+    quarterSelect.innerHTML = "";
+
+    const quarters = [
+        { value: "Q1", label: "Apr-Jun", backendLabel: "30 जून / Jun 30" },
+        { value: "Q2", label: "Jul-Sep", backendLabel: "30 सितंबर / Sep 30" },
+        { value: "Q3", label: "Oct-Dec", backendLabel: "31 दिसंबर / Dec 31" },
+        { value: "Q4", label: "Jan-Mar", backendLabel: "31 मार्च / Mar 31" }
+    ];
+
+    quarters.forEach((q, idx) => {
+        const quarterNumber = idx + 1;
+        const opt = document.createElement('option');
+        // Keep option.value as backend-friendly label so server validation continues to work
+        opt.value = q.backendLabel;
+        opt.textContent = `${q.value} (${q.label})`;
+
+        if (selectedYearStart < currentYear) {
+            opt.disabled = false;
+        } else if (selectedYearStart === currentYear) {
+            opt.disabled = quarterNumber > currentQuarter;
+        } else {
+            opt.disabled = true;
+        }
+
+        quarterSelect.appendChild(opt);
+    });
+
+    // Preserve server-provided selection when present
+    try {
+        const serverQuarter = window.QPR_SERVER_QUARTER || '';
+        if (serverQuarter) {
+            const found = Array.from(quarterSelect.options).some(o => o.value === serverQuarter);
+            if (found) quarterSelect.value = serverQuarter;
+        }
+    } catch (e) { /* ignore */ }
+}
+
+// Disable quarter options that already have a report for the selected year
+function updateQuarterAvailability() {
     const yearSelect = document.getElementById('year');
-    
-    if (!yearSelect) {
-        console.error('Year select element not found');
-        return;
-    }
-    
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth();
-    const currentYear = currentDate.getFullYear();
-    
-    // Fiscal year in India runs from April to March
-    // If current month is March or earlier, fiscal year starts from previous year
-    let fiscalYearStart = currentMonth < 3 ? currentYear - 1 : currentYear;
-    let fiscalYearEnd = fiscalYearStart + 1;
-    
-    yearSelect.innerHTML = ''; // Clear existing options
-    
-    const startYear = 2000;
-    const endYear = new Date().getFullYear() + 50; // Current year + 50 years ahead
-    
-    for (let year = startYear; year <= endYear; year++) {
-        const option = document.createElement('option');
-        option.value = `${year}-${year + 1}`;
-        option.textContent = `${year}-${year + 1}`;
-        yearSelect.appendChild(option);
-    }
-    
-    // Set the current fiscal year as selected
-    yearSelect.value = `${fiscalYearStart}-${fiscalYearEnd}`;
-    console.log('Year dropdown populated with current fiscal year:', `${fiscalYearStart}-${fiscalYearEnd}`);
+    const quarterSelect = document.getElementById('quarter');
+    if (!yearSelect || !quarterSelect) return;
+
+    const selectedYear = yearSelect.value;
+    // Build a set of quarters used in this selected year (excluding the currently editing record)
+    const editingId = document.getElementById('recordId') ? document.getElementById('recordId').value : '';
+    const usedQuarters = window.QPR_USED_QUARTERS || [];
+    const usedForYear = new Set(usedQuarters.filter(u => (u.year||u.year_string||'') === selectedYear && String(u.record_id || u.recordId || u.id || '') !== String(editingId)).map(u => (u.quarter || '').trim()));
+
+    Array.from(quarterSelect.options).forEach(opt => {
+        const txt = opt.textContent.trim();
+        if (usedForYear.has(txt)) {
+            opt.disabled = true;
+            opt.title = 'A report for this quarter already exists';
+        } else {
+            opt.disabled = false;
+            opt.title = '';
+        }
+    });
 }
 
 // --- 2. Load Data (GET) ---
@@ -319,10 +484,19 @@ async function saveData(status) {
         region: document.getElementById('region').value,
         quarter: document.getElementById('quarter').value,
         year: document.getElementById('year').value,
+        frequency: document.getElementById('frequency') ? document.getElementById('frequency').value : '',
+        selected_date: document.getElementById('selectedDate') ? document.getElementById('selectedDate').value : '',
+        // frequency is determined by server; do not send from client
         phone: document.getElementById('phone')?.value || '',
         email: document.getElementById('email')?.value || '',
         details: {} 
     };
+
+    // Safety check: ensure frequency is not empty before submission
+    if (!payload.frequency || payload.frequency === '') {
+        payload.frequency = 'daily';
+        document.getElementById('frequency').value = 'daily';
+    }
 
     console.log("Payload being sent:", payload);
 
@@ -407,6 +581,11 @@ function editRecord(id) {
             el.value = value;
             }
         }
+    }
+    // frequency is server-determined; ensure it defaults to 'daily' if empty
+    const freqEl = document.getElementById('frequency');
+    if (freqEl && (!freqEl.value || freqEl.value === '')) {
+        freqEl.value = record.frequency || 'daily';
     }
     
     // Disable/Enable form based on edit permission

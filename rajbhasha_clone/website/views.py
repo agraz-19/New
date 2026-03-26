@@ -1,9 +1,10 @@
 import os,io,csv,random,hashlib,json
 from datetime import datetime
+from datetime import timedelta
 from urllib import request
 from django.utils.timezone import now
 from django.utils import timezone
-from django.db.models import Count
+from django.db.models import Count, Min
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import login as auth_login, logout, get_user_model
@@ -48,7 +49,7 @@ from .models import (
 from .forms import CustomLoginForm, CustomUserCreationForm, TypingUsageReportForm, CertificateDataForm
 from .employeeform import EmployeeForm
 from .serializers import EmployeeSerializer
-from .utils import send_system_email
+from .utils import send_system_email, get_allowed_quarters
 from typing import cast
 from datetime import date
 from .templatetags.translate_tags import translate_text
@@ -61,6 +62,41 @@ from django.http import JsonResponse
 from django.contrib import messages
 from .minio_service import get_all_events, upload_event, delete_event
 from .minio_service import upload_event, upload_images_to_existing_event, delete_event
+from .utils import ensure_current_financial_year
+from .models import FinancialYear
+
+
+# Helper functions to safely access a user's roles for type-checkers
+def user_has_role(user, role_name):
+    """Check if user has a specific role
+    Can accept either a single role string or a list of role strings"""
+    if user is None or not user.is_authenticated:
+        return False
+    
+    profile = getattr(user, 'profile', None)
+    if isinstance(role_name, list):
+        user_has = user.roles.filter(name__in=role_name).exists()
+        profile_has = profile.roles.filter(name__in=role_name).exists() if profile else False
+        return user_has or profile_has
+    else:
+        user_has = user.roles.filter(name=role_name).exists()
+        profile_has = profile.roles.filter(name=role_name).exists() if profile else False
+        return user_has or profile_has
+
+def user_role(user):
+    """Return user's primary role (for backward compatibility)
+    Returns the first role from: admin > manager > hod > user > None"""
+    if user is None or not user.is_authenticated:
+        return None
+    
+    priority_roles = ['admin', 'manager', 'hod', 'user', 'backup_user']
+    profile = getattr(user, 'profile', None)
+    for role in priority_roles:
+        if user.roles.filter(name=role).exists():
+            return role
+        if profile and profile.roles.filter(name=role).exists():
+            return role
+    return None
 
 
 @staff_member_required
@@ -106,54 +142,15 @@ def admin_upload_event(request):
         "folder":folder
     })
 
+
 @staff_member_required
 def admin_delete_event(request, folder):
-
-    delete_event(folder)
-
-    messages.success(request, "Event deleted successfully")
-
+    try:
+        delete_event(folder)
+        messages.success(request, "Event deleted successfully")
+    except Exception as e:
+        messages.error(request, f"Failed to delete event: {e}")
     return redirect("admin_events_dashboard")
-
-import logging
-logger = logging.getLogger(__name__)
-User = get_user_model()
-
-# Helper functions to safely access a user's roles for type-checkers
-def user_has_role(user, role_name):
-    """Check if user has a specific role
-    Can accept either a single role string or a list of role strings"""
-    if user is None or not user.is_authenticated:
-        return False
-    
-    # Handle both single role (string) and multiple roles (list)
-    # Check both `CustomUser.roles` and `UserProfile.roles` to handle legacy/sync cases
-    profile = getattr(user, 'profile', None)
-    if isinstance(role_name, list):
-        user_has = user.roles.filter(name__in=role_name).exists()
-        profile_has = profile.roles.filter(name__in=role_name).exists() if profile else False
-        return user_has or profile_has
-    else:
-        user_has = user.roles.filter(name=role_name).exists()
-        profile_has = profile.roles.filter(name=role_name).exists() if profile else False
-        return user_has or profile_has
-
-def user_role(user):
-    """Return user's primary role (for backward compatibility)
-    Returns the first role from: admin > manager > hod > user > None
-    This is for views that expect a single role string"""
-    if user is None or not user.is_authenticated:
-        return None
-    
-    # Check roles in priority order. Consider both user.roles and profile.roles to handle unsynced data.
-    priority_roles = ['admin', 'manager', 'hod', 'user', 'backup_user']
-    profile = getattr(user, 'profile', None)
-    for role in priority_roles:
-        if user.roles.filter(name=role).exists():
-            return role
-        if profile and profile.roles.filter(name=role).exists():
-            return role
-    return None
 
 def user_get_all_roles(user):
     """Get all role names as a list"""
@@ -181,22 +178,19 @@ def can_access_manager_site(user):
     return user.is_authenticated and user_has_role(user, 'manager')
 
 def get_active_hods(office_code=None):
-    """Get list of all active HODs for registration/selection dropdowns"""
-    # Base queries
-    hod_query = UserProfile.objects.filter(roles__name='hod')
-    unassigned_query = UserProfile.objects.filter(roles__name='user').exclude(hod_name__isnull=False)
+    """Get list of valid HODs only"""
     
-    # Only filter by office if an office_code was explicitly provided
+    hod_query = UserProfile.objects.filter(
+        roles__name='hod',
+        approval_status='approved'
+    )
+
     if office_code:
         hod_query = hod_query.filter(office_code=office_code)
-        unassigned_query = unassigned_query.filter(office_code=office_code)
-        
-    hod_names = list(hod_query.values_list('hod_name', flat=True).distinct())
-    unassigned_hod_names = list(unassigned_query.values_list('name', flat=True).distinct())
-    
-    # Combine and sort
-    all_hod_names = sorted(set([h for h in hod_names if h] + [u for u in unassigned_hod_names if u]))
-    return all_hod_names
+
+    return list(
+        hod_query.values_list('hod_name', flat=True).distinct()
+    )
 
 def _convert_to_int(value):
     if value == '' or value is None: return None
@@ -224,8 +218,42 @@ def get_current_quarter():
 
 
 def get_current_year_label():
-    y = date.today().year
-    return f"{y}-{y+1}"
+    today = date.today()
+    # Financial year runs from Apr 1 -> Mar 31. If current month is April or later,
+    # the fiscal year starts this calendar year; otherwise it started last calendar year.
+    if today.month >= 4:
+        start = today.year
+    else:
+        start = today.year - 1
+    return f"{start}-{start+1}"
+
+
+def get_quarter_end_dates():
+    """
+    Returns a dictionary with quarter end dates for current and upcoming quarters.
+    {
+        'current': date of quarterend for current quarter,
+        'next': date of quarter end for next quarter
+    }
+    """
+    today = date.today()
+    month = today.month
+    year = today.year
+    
+    if month <= 3:
+        current_end = date(year, 3, 31)
+        next_end = date(year, 6, 30)
+    elif month <= 6:
+        current_end = date(year, 6, 30)
+        next_end = date(year, 9, 30)
+    elif month <= 9:
+        current_end = date(year, 9, 30)
+        next_end = date(year, 12, 31)
+    else:
+        current_end = date(year, 12, 31)
+        next_end = date(year + 1, 3, 31)
+    
+    return {'current': current_end, 'next': next_end}
 
 
 def get_base_year(year_label):
@@ -308,6 +336,465 @@ def _save_section_data(record, details):
     s11.hindi_medium_works = details.get('s12_3', '')
     s11.save()
 
+def _quarter_label_to_daterange(quarter_label, year_label):
+    """Return (start_date, end_date) for given quarter label and fiscal year label like '2025-2026'"""
+    try:
+        base = get_base_year(year_label)
+    except Exception:
+        base = date.today().year
+    q = (quarter_label or '').strip()
+    # Apr-Jun
+    if 'Jun' in q or 'जून' in q:
+        start = date(base, 4, 1)
+        end = date(base, 6, 30)
+    # Jul-Sep
+    elif 'Sep' in q or 'सितंबर' in q or 'सित' in q:
+        start = date(base, 7, 1)
+        end = date(base, 9, 30)
+    # Oct-Dec
+    elif 'Dec' in q or 'दिसंबर' in q or 'दिस' in q:
+        start = date(base, 10, 1)
+        end = date(base, 12, 31)
+    # Jan-Mar
+    else:
+        # This quarter belongs to next calendar year
+        start = date(base+1, 1, 1)
+        end = date(base+1, 3, 31)
+    return (start, end)
+
+NUMERIC_KEYS = [
+    's1_total','s1_hindi','s2_meetings','s2_minutes','s2_papers_total','s2_papers_hindi',
+    's3_total','s3_bilingual','s3_english','s3_hindi_only',
+    's4_total','s4_no_reply','s4_replied_hindi','s4_replied_eng',
+    's5_total','s5_hindi','s5_english','s5_noreply',
+    's6_a_hindi','s6_a_eng','s6_a_total','s6_b_hindi','s6_b_eng','s6_b_total','s6_c_hindi','s6_c_eng','s6_c_total',
+    's7_hindi','s7_eng','s7_total','s7_eoffice',
+    's8_workshops','s8_officers','s8_employees'
+]
+
+def _aggregate_records_for_range(user, start_dt, end_dt, source_frequency='daily'):
+    """Sum numeric fields of submitted records for a user whose period overlaps [start_dt,end_dt].
+
+    Only records matching `source_frequency` are considered. Records without explicit
+    period_start/period_end are ignored (no fallback to quarter) to avoid accidental
+    full-quarter overlaps.
+    """
+    total = {k: 0 for k in NUMERIC_KEYS}
+    if not start_dt or not end_dt:
+        return total
+
+    # Base queryset: filter by user, submission state and frequency only.
+    # We intentionally avoid requiring explicit period_start/period_end here so
+    # older records that may miss one of those fields are still considered.
+    qs = QPRRecord.objects.filter(
+        user=user,
+        is_submitted=True,
+        frequency__iexact=(source_frequency or '')
+    )
+
+    for r in qs:
+        # Determine effective start/end for the record with safe fallbacks.
+        try:
+            r_start = getattr(r, 'period_start', None)
+            r_end = getattr(r, 'period_end', None)
+
+            # If one of the explicit bounds is missing, try to infer sensibly
+            # without modifying the DB. These heuristics keep behaviour non-destructive.
+            if r_start and not r_end:
+                freq = (getattr(r, 'frequency', '') or '').lower()
+                if freq == 'daily':
+                    r_end = r_start
+                elif freq == 'weekly':
+                    r_end = r_start + timedelta(days=5)
+                elif freq == 'monthly':
+                    # last day of month for r_start
+                    y, m = r_start.year, r_start.month
+                    if m == 12:
+                        r_end = date(y, 12, 31)
+                    else:
+                        r_end = date(y, m + 1, 1) - timedelta(days=1)
+                elif freq == 'quarterly':
+                    try:
+                        q_s, q_e = _quarter_label_to_daterange(getattr(r, 'quarter', None), getattr(r, 'year', None))
+                        r_start = r_start or q_s
+                        r_end = r_end or q_e
+                    except Exception:
+                        r_end = r_start
+                else:
+                    r_end = r_start
+
+            if not r_start and r_end:
+                r_start = r_end
+
+            # As a last resort use created_at date if neither bound exists
+            if not r_start and not r_end:
+                created = getattr(r, 'created_at', None)
+                if created:
+                    r_start = created.date()
+                    r_end = r_start
+                else:
+                    # Skip records with no usable date info
+                    continue
+
+            # Now check overlap with requested range
+            if r_start <= end_dt and r_end >= start_dt:
+                try:
+                    data = serialize_qpr_record(r)
+                except Exception:
+                    continue
+
+                for k in NUMERIC_KEYS:
+                    v = data.get(k)
+                    if v is None or v == '':
+                        continue
+                    try:
+                        total[k] += int(v)
+                    except Exception:
+                        continue
+        except Exception:
+            continue
+
+    return total
+
+
+def _get_quarter_range_for_date(dt):
+    m = dt.month
+    y = dt.year
+    if m in (4,5,6):
+        return (date(y,4,1), date(y,6,30))
+    if m in (7,8,9):
+        return (date(y,7,1), date(y,9,30))
+    if m in (10,11,12):
+        return (date(y,10,1), date(y,12,31))
+    # Jan-Mar
+    return (date(y,1,1), date(y,3,31))
+
+
+def determine_submission_frequency(user, submission_date=None, is_submitted=True):
+    """Enforce submission rules and return (frequency, period_start, period_end).
+
+    Rules implemented:
+    - Normal operation: `daily` submissions allowed on each working day (Mon-Sat).
+    - If a user has at least one `daily` in the current week but has missed earlier working day(s) up to today,
+      the server will require a single `weekly` submission for that week (Mon-Sat). After a weekly is created,
+      further `daily` submissions for that week are blocked.
+    - If a user has zero `daily` submissions for the entire current week, they are blocked from daily/weekly
+      submissions until month end; on month end they may submit a single `monthly` for that month.
+    - If a user has zero `daily` submissions for the entire month, they are blocked from daily/weekly/monthly
+      until quarter end; on quarter end they may submit a single `quarterly` for that quarter.
+
+    If `is_submitted` is False (saving as Draft), this function will return `daily` for drafts and not enforce blocks.
+    Raises ValueError with a descriptive message when submission is not allowed at this time.
+    """
+    if submission_date is None:
+        submission_date = date.today()
+
+    # Week (Mon-Sat) starting Monday
+    week_start = submission_date - timedelta(days=submission_date.weekday())
+    week_end = week_start + timedelta(days=5)  # Mon-Sat (Saturday is week end)
+
+    # Month range
+    month_start = date(submission_date.year, submission_date.month, 1)
+    if submission_date.month == 12:
+        month_end = date(submission_date.year, 12, 31)
+    else:
+        month_end = date(submission_date.year, submission_date.month + 1, 1) - timedelta(days=1)
+
+    # Quarter range
+    q_start, q_end = _get_quarter_range_for_date(submission_date)
+
+    def _last_working_before(d):
+        while d.weekday() > 5:  # Sunday (6)
+            d = d - timedelta(days=1)
+        return d
+
+    month_last_working = _last_working_before(month_end)
+    quarter_last_working = _last_working_before(q_end)
+
+    # Drafts are given a neutral daily default without enforcement
+    if not is_submitted:
+        return ('daily', submission_date, submission_date)
+
+
+def compute_period(frequency, selected_date=None, quarter=None, year=None):
+    """Compute (period_start, period_end) for given frequency.
+
+    - frequency: 'daily'|'weekly'|'monthly'|'quarterly'
+    - selected_date: datetime.date used for daily/weekly/monthly
+    - quarter, year: used for quarterly
+    """
+    if selected_date is None:
+        selected_date = timezone.localdate()
+
+    if frequency == 'daily':
+        return (selected_date, selected_date)
+
+    if frequency == 'weekly':
+        # Week is Mon-Sat (server convention)
+        start = selected_date - timedelta(days=selected_date.weekday())
+        end = start + timedelta(days=5)
+        # Clamp within quarter boundaries to avoid crossing into adjacent quarters
+        try:
+            q_start, q_end = _get_quarter_range_for_date(selected_date)
+            if start < q_start: start = q_start
+            if end > q_end: end = q_end
+        except Exception:
+            pass
+        return (start, end)
+
+    if frequency == 'monthly':
+        start = date(selected_date.year, selected_date.month, 1)
+        if selected_date.month == 12:
+            end = date(selected_date.year, 12, 31)
+        else:
+            end = date(selected_date.year, selected_date.month + 1, 1) - timedelta(days=1)
+        # Clamp within quarter boundaries to avoid spanning adjacent quarters
+        try:
+            q_start, q_end = _get_quarter_range_for_date(selected_date)
+            if start < q_start: start = q_start
+            if end > q_end: end = q_end
+        except Exception:
+            pass
+        return (start, end)
+
+    if frequency == 'quarterly':
+        # Use existing helper to map quarter label + fiscal year to range
+        if quarter and year:
+            try:
+                return _quarter_label_to_daterange(quarter, year)
+            except Exception:
+                pass
+        # fallback: compute quarter containing selected_date
+        return _get_quarter_range_for_date(selected_date)
+
+    # default fallback
+    return (selected_date, selected_date)
+
+
+def is_period_overlapping(user, start, end, exclude_id=None):
+    """Return True if any submitted QPRRecord for user overlaps [start,end]."""
+    if not start or not end:
+        return False
+    qs = QPRRecord.objects.filter(user=user, is_submitted=True)
+    if exclude_id:
+        qs = qs.exclude(pk=exclude_id)
+    return qs.filter(period_start__lte=end, period_end__gte=start).exists()
+
+
+def _allowed_frequencies_for_date(user, selected_date):
+    """Return a dict with allowed frequencies and missing days for the selected_date.
+
+    Result example:
+    {
+      'allowed': ['daily','weekly'],
+      'missing_days_week': ['2026-03-23','2026-03-24'],
+      'missing_days_month': [...],
+      'min_date': '2025-04-01', 'max_date': '2026-04-25'
+    }
+    """
+    today = timezone.localdate()
+    # min_date: earliest submitted period_start for user or start of current financial year
+    earliest = QPRRecord.objects.filter(user=user).order_by('period_start').first()
+    if earliest and earliest.period_start:
+        min_date = earliest.period_start
+    else:
+        # fiscal year start: Apr 1 of current fiscal year
+        fy_start = today.year if today.month >= 4 else today.year - 1
+        min_date = date(fy_start, 4, 1)
+
+    # Max date: one month ahead from today (user can plan one month in advance)
+    try:
+        # Handle month overflow (e.g., Jan 31 -> Feb doesn't have 31 days)
+        if today.month == 12:
+            next_month_year, next_month_month = today.year + 1, 1
+        else:
+            next_month_year, next_month_month = today.year, today.month + 1
+        
+        # Try to create the same day in next month; fallback to last day of month if it doesn't exist
+        try:
+            max_date = date(next_month_year, next_month_month, today.day)
+        except ValueError:
+            # Day doesn't exist in target month (e.g., Jan 31 -> Feb 31 doesn't exist)
+            # Use last day of the month
+            if next_month_month == 2:
+                max_date = date(next_month_year, 2, 29 if next_month_year % 4 == 0 else 28)
+            elif next_month_month in [4, 6, 9, 11]:
+                max_date = date(next_month_year, next_month_month, 30)
+            else:
+                max_date = date(next_month_year, next_month_month, 31)
+    except Exception:
+        # Fallback to today + 30 days if anything fails
+        max_date = today + timedelta(days=30)
+
+    # Normalize selected_date within bounds
+    if selected_date < min_date:
+        selected_date = min_date
+    if selected_date > max_date:
+        selected_date = max_date
+
+    # Week (Mon-Sat)
+    week_start = selected_date - timedelta(days=selected_date.weekday())
+    week_end = week_start + timedelta(days=5)
+    week_days = [week_start + timedelta(days=i) for i in range(6) if (week_start + timedelta(days=i)).weekday() <= 5]
+
+    # Submitted daily dates in week
+    submitted_week = set(QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='daily', period_start__range=(week_start, week_end)).values_list('period_start', flat=True))
+    missing_week = [d for d in week_days if d not in submitted_week and d >= min_date and d <= max_date]
+
+    # Month
+    month_start = date(selected_date.year, selected_date.month, 1)
+    if selected_date.month == 12:
+        month_end = date(selected_date.year, 12, 31)
+    else:
+        month_end = date(selected_date.year, selected_date.month + 1, 1) - timedelta(days=1)
+    month_days = [month_start + timedelta(days=i) for i in range((month_end - month_start).days + 1) if (month_start + timedelta(days=i)).weekday() <= 5]
+    submitted_month = set(QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='daily', period_start__range=(month_start, month_end)).values_list('period_start', flat=True))
+    missing_month = [d for d in month_days if d not in submitted_month and d >= min_date and d <= max_date]
+
+    # Quarter
+    q_start, q_end = _get_quarter_range_for_date(selected_date)
+    quarter_days = [q_start + timedelta(days=i) for i in range((q_end - q_start).days + 1) if (q_start + timedelta(days=i)).weekday() <= 5]
+    submitted_quarter = set(QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='daily', period_start__range=(q_start, q_end)).values_list('period_start', flat=True))
+    missing_quarter = [d for d in quarter_days if d not in submitted_quarter and d >= min_date and d <= max_date]
+
+    allowed = ['daily']
+    
+    # Helper to find last working day before a date
+    def _last_working_before(d):
+        while d.weekday() > 5:  # Sunday is 6
+            d = d - timedelta(days=1)
+        return d
+    
+    month_last = _last_working_before(month_end)
+    quarter_last = _last_working_before(q_end)
+    
+    # weekly allowed if there are missing working days in the week
+    if len(missing_week) > 0:
+        allowed.append('weekly')
+    # monthly allowed only at month end if there are missing working days in the month
+    if len(missing_month) > 0 and selected_date >= month_last:
+        allowed.append('monthly')
+    # quarterly allowed only at quarter end if there are missing working days in the quarter
+    if len(missing_quarter) > 0 and selected_date >= quarter_last:
+        allowed.append('quarterly')
+
+    return {
+        'allowed': allowed,
+        'missing_week': [d.isoformat() for d in missing_week],
+        'missing_month': [d.isoformat() for d in missing_month],
+        'missing_quarter': [d.isoformat() for d in missing_quarter],
+        'min_date': min_date.isoformat(),
+        'max_date': max_date.isoformat(),
+        'default_date': timezone.localdate().isoformat()
+    }
+
+
+@login_required
+def api_qpr_availability(request):
+    """Return allowed frequencies and missing days for a given date."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Invalid method'}, status=400)
+    d = request.GET.get('date')
+    try:
+        sel = datetime.strptime(d, '%Y-%m-%d').date() if d else timezone.localdate()
+    except Exception:
+        return JsonResponse({'error': 'Invalid date param'}, status=400)
+    data = _allowed_frequencies_for_date(request.user, sel)
+    return JsonResponse(data)
+
+
+def compute_cumulative_for_record(record):
+    """Return dict with daily/weekly/monthly/quarterly aggregates for the given record."""
+    user = record.user
+    # determine quarter range first (always parse from record's quarter/year)
+    q_start, q_end = None, None
+    try:
+        q_start, q_end = _quarter_label_to_daterange(record.quarter, record.year or '')
+    except Exception:
+        # fallback to today's month
+        today = date.today()
+        q_start = date(today.year, today.month, 1)
+        if today.month == 12:
+            q_end = date(today.year, 12, 31)
+        else:
+            q_end = date(today.year, today.month + 1, 1) - timedelta(days=1)
+    
+    # determine base date for daily aggregation
+    base = None
+    if getattr(record, 'period_start', None):
+        base = record.period_start
+    elif getattr(record, 'period_end', None):
+        base = record.period_end
+    else:
+        # If period is missing, try to infer from record.frequency and created_at
+        freq = (getattr(record, 'frequency', '') or '').lower()
+        created = getattr(record, 'created_at', None)
+        if freq == 'weekly' and created:
+            base = created.date()
+        elif freq == 'monthly' and created:
+            base = created.date()
+        elif freq == 'daily' and created:
+            base = created.date()
+        else:
+            # use quarter end as fallback base for daily/weekly/monthly when no specific period
+            base = q_end
+    
+    # daily
+    day_start = base
+    day_end = base
+    # weekly (Mon-Sat week used elsewhere; keep to Mon-Sat)
+    week_start = day_start - timedelta(days=day_start.weekday())
+    week_end = week_start + timedelta(days=5)
+    # monthly
+    month_start = date(day_start.year, day_start.month, 1)
+    # compute month end
+    if day_start.month == 12:
+        month_end = date(day_start.year, 12, 31)
+    else:
+        month_end = date(day_start.year, day_start.month + 1, 1) - timedelta(days=1)
+
+    # Helper to try preferred source then fall back to lower-frequency sources
+    def _aggregate_with_fallback(user, start_dt, end_dt, preferred):
+        order = []
+        pref = (preferred or '').lower()
+        if pref == 'daily':
+            order = ['daily']
+        elif pref == 'weekly':
+            order = ['weekly', 'daily']
+        elif pref == 'monthly':
+            order = ['monthly', 'weekly', 'daily']
+        else:
+            # quarterly or unknown: try monthly -> weekly -> daily
+            order = ['monthly', 'weekly', 'daily']
+
+        last_totals = None
+        for src in order:
+            try:
+                totals = _aggregate_records_for_range(user, start_dt, end_dt, source_frequency=src)
+            except Exception:
+                totals = {k: 0 for k in NUMERIC_KEYS}
+            last_totals = totals
+            # if any numeric key is non-zero, accept these totals
+            if any((totals.get(k, 0) or 0) != 0 for k in NUMERIC_KEYS):
+                return totals
+        # if all zero, return the last computed (likely zeros)
+        return last_totals or {k: 0 for k in NUMERIC_KEYS}
+
+    try:
+        daily_tot = _aggregate_with_fallback(user, day_start, day_end, 'daily')
+        weekly_tot = _aggregate_with_fallback(user, week_start, week_end, 'weekly')
+        monthly_tot = _aggregate_with_fallback(user, month_start, month_end, 'monthly')
+        quarterly_tot = _aggregate_with_fallback(user, q_start, q_end, 'quarterly')
+        return {
+            'daily': daily_tot,
+            'weekly': weekly_tot,
+            'monthly': monthly_tot,
+            'quarterly': quarterly_tot,
+        }
+    except Exception:
+        zeros = {k: 0 for k in NUMERIC_KEYS}
+        return {'daily': zeros.copy(), 'weekly': zeros.copy(), 'monthly': zeros.copy(), 'quarterly': zeros.copy()}
+
 def serialize_qpr_record(record):
     """Serialize a QPRRecord with all related sections."""
     data = {
@@ -376,6 +863,18 @@ def serialize_qpr_record(record):
         's12_3': getattr(record.section11, 'hindi_medium_works', '') if hasattr(record, 'section11') else '',
         'details': {}
     }
+    # Include submission frequency and explicit period when available
+    data['frequency'] = getattr(record, 'frequency', 'quarterly') if record else 'quarterly'
+    data['period_start'] = getattr(record, 'period_start', None)
+    data['period_end'] = getattr(record, 'period_end', None)
+    data['is_quarterly_frozen'] = getattr(record, 'is_quarterly_frozen', False)
+    # Normalize numeric keys: convert None/empty to 0 so cumulative sums include them
+    try:
+        for k in NUMERIC_KEYS:
+            if data.get(k) is None or data.get(k) == '':
+                data[k] = 0
+    except Exception:
+        pass
     return data
 
 def send_otp_email(user, lang):
@@ -437,7 +936,10 @@ def dashboard(request):
     }
     if role == 'user' and profile:
         if profile.approval_status == 'pending':
-            messages.warning(request, "Your registration is pending HOD approval. You may edit your details while you wait.")
+            if profile.hod_name =="ADMIN":
+                messages.warning(request, "Your registration is pending Admin approval.")
+            else:    
+                messages.warning(request, "Your registration is pending HOD approval. You may edit your details while you wait.")
             return redirect('qpr_user_profile') # Locks them into the profile edit page
         elif profile.approval_status == 'rejected':
             messages.error(request, "Your registration was rejected. Please verify your details and update them, or contact admin.")
@@ -922,10 +1424,11 @@ def profile_view(request):
         phone = request.POST.get('phone', '').strip()
         office_code_post = request.POST.get('office_code', '').strip()
         office_name_post = request.POST.get('office_name', '').strip()
+        language_region_post = request.POST.get('language_region', '').strip()
         hod_name_post = request.POST.get('hod_name', '').strip()
 
         if not new_email or not hod_name_post:
-            messages.error(request, translate_text("Email and HOD selection are required.", lang))
+            messages.error(request, translate_text("Email and HOD/approver selection are required.", lang))
         else:
             email_hash = hashlib.sha256(new_email.encode()).hexdigest()
             if CustomUser.objects.filter(email_hash=email_hash).exclude(pk=user.pk).exists():
@@ -944,9 +1447,15 @@ def profile_view(request):
                         profile.phone = phone
                         profile.office_code = office_code_post
                         profile.office_name = office_name_post
+                        # Save language region selection
+                        profile.language_region = language_region_post
                         profile.email = new_email
                         profile.hod_name = hod_name_post
                         profile.profile_updated = True 
+                        if hod_name_post == "ADMIN":
+                            profile.approval_status = "pending_admin"   # admin will approve
+                        else:
+                            profile.approval_status = "pending"   # HOD will approve
                         profile.save()
 
                     # Save Employee Form
@@ -1023,7 +1532,7 @@ def user_profile(request):
         request_type='profile',
         status='rejected'
     ).order_by('-created_at').first()
-
+profile_update
     if request.method == 'POST':
         # Collect posted values
         username = request.POST.get('username', '').strip()
@@ -1283,25 +1792,22 @@ def manager_dashboard(request):
     
     manager_office = getattr(request.user.profile, 'office_code', None)
 
-    users = CustomUser.objects.select_related('profile').filter( profile__office_code=manager_office ).order_by('-date_joined')
+    users = CustomUser.objects.select_related('profile').filter(profile__office_code=manager_office).order_by('-date_joined')
 
-    manager_office = getattr(request.user.profile, 'office_code', None)
+    # Get employee codes from users in this office
+    office_employee_codes = CustomUser.objects.filter(profile__office_code=manager_office).values_list('profile__employee_code', flat=True)
+    office_employee_codes = [str(code).zfill(3) if code else None for code in office_employee_codes if code]
 
-    # Get usernames of users in this office
-    office_usernames = CustomUser.objects.filter( profile__office_code=manager_office ).values_list('username', flat=True)
-
-# Fetch employee records whose name matches those users
-    raw_employees = Employee.objects.filter( ename__in=office_usernames ).order_by('-lastupdate')
+    # Fetch employee records directly by empcode (which matches username/employee_code)
+    raw_employees = Employee.objects.filter(empcode__in=office_employee_codes).order_by('-lastupdate')
     
     employee_data = []
     
     for emp in raw_employees:
-        # --- 1. ROBUST USER LOOKUP ---
-        # Try matching by username (which is often the employee name)
-        # --- USER LOOKUP USING EMPCODE ---
-        user = CustomUser.objects.filter( profile__employee_code=str(emp.empcode).zfill(3)).first()
+        # Get the user by employee_code (which is the empcode)
+        user = CustomUser.objects.filter(profile__employee_code=emp.empcode).first()
 
-        # --- 2. QPR DATA ---
+        # --- QPR DATA ---
         qpr_status_text = "Not Started"
         qpr_is_submitted = False
         latest_qpr_id = None
@@ -1323,7 +1829,7 @@ def manager_dashboard(request):
             'name': emp.ename,
             'designation': emp.designation,
             'hname': emp.hname,
-            'user_id': linked_user_id, # This enables the buttons
+            'user_id': linked_user_id,
             'status': emp.status,
             'lastupdate': emp.lastupdate,
             'qpr_status': qpr_status_text,
@@ -1442,7 +1948,6 @@ def admin_dashboard(request):
 
 @login_required
 def admin_create_hod(request):
-    print("ADMIN DASHBOARD VIEW HIT")
     if not user_has_role(request.user, 'admin'): return redirect('/')
     if request.method == 'POST':
         emp_code = request.POST.get('emp_code', '').strip()
@@ -1460,6 +1965,7 @@ def admin_create_hod(request):
                     hod_role = Role.objects.get(name='hod')
                     user_role_obj = Role.objects.get(name='user')
                     profile.roles.add(hod_role, user_role_obj)
+                    profile.approval_status = 'approved'
                     # Ensure CustomUser.roles is in sync
                     try:
                         profile.user.roles.add(hod_role, user_role_obj)
@@ -1494,6 +2000,7 @@ def admin_create_manager(request):
                     manager_role = Role.objects.get(name='manager')
                     user_role_obj = Role.objects.get(name='user')
                     profile.roles.add(manager_role, user_role_obj)
+                    profile.approval_status = 'approved'
                     try:
                         profile.user.roles.add(manager_role, user_role_obj)
                         profile.user.save()
@@ -1754,6 +2261,10 @@ def qpr_form(request):
     if not profile or profile.approval_status != 'approved':
         messages.error(request, "Access Denied: Your account must be approved by your HOD before you can submit a QPR.")
         return redirect('dashboard')
+    
+    # Auto-create current financial year if it doesn't exist
+    ensure_current_financial_year()
+    
     profile_office_name = profile.office_name if profile and profile.office_name else ''
     profile_office_code = profile.office_code if profile and profile.office_code else ''
     profile_phone = profile.phone if profile and profile.phone else ''
@@ -1763,6 +2274,8 @@ def qpr_form(request):
     used = []
     for r in QPRRecord.objects.filter(user=request.user):
         used.append({'quarter': r.quarter, 'year': r.year or '', 'record_id': r.pk})
+
+    
 
     context = {
         'profile_office_name': profile_office_name,
@@ -1775,6 +2288,44 @@ def qpr_form(request):
         'profile_email_filled': bool(profile_email),
         'used_quarters_json': json.dumps(used),
     }
+
+    # Determine current quarter for preselection using server local date (respects TIME_ZONE)
+    today = timezone.localdate()
+    month = today.month
+    
+    # Quarter mapping (Indian FY Apr-Mar): Apr-Jun -> Jun 30, Jul-Sep -> Sep 30, Oct-Dec -> Dec 31, Jan-Mar -> Mar 31
+    if 4 <= month <= 6:
+        current_quarter = '30 जून / Jun 30'
+    elif 7 <= month <= 9:
+        current_quarter = '30 सितंबर / Sep 30'
+    elif 10 <= month <= 12:
+        current_quarter = '31 दिसंबर / Dec 31'
+    else:
+        current_quarter = '31 मार्च / Mar 31'
+
+    # Compute current financial year string (e.g. "2025-2026") where fiscal year runs Apr-Mar
+    fiscal_year_start = today.year - 1 if month < 4 else today.year
+    current_financial_year = f"{fiscal_year_start}-{fiscal_year_start + 1}"
+
+    # Build financial_years list from FinancialYear table's earliest recorded start
+    # up to the current fiscal year. If none exist, start from current fiscal year.
+    fy_qs = FinancialYear.objects.filter(is_active=True)
+    min_start = fy_qs.aggregate(Min('start_year'))['start_year__min']
+    if min_start is None:
+        min_start = fiscal_year_start
+    financial_years = []
+    for s in range(min_start, fiscal_year_start + 1):
+        financial_years.append({'start_year': s, 'end_year': s + 1})
+
+    context.update({
+        'current_quarter': current_quarter,
+        'current_year': current_financial_year,
+        'financial_years': financial_years,
+        'user_role': getattr(request.user, 'role', None),
+        'server_month': today.month,
+        'server_year': today.year,
+        'profile_language_region': profile.language_region if profile else '',
+    })
     return render(request, 'qpr/qpr_form.html', context)
 
 @login_required
@@ -1931,11 +2482,14 @@ def hod_detail_list(request):
 
         has_pending = ManagerRequest.objects.filter(hod=user, request_type='qpr', status='pending').exists()
         current_qpr = qpr_records.filter( quarter=current_quarter, year=current_year ).first()
+        is_quarterly_frozen = current_qpr.is_quarterly_frozen if current_qpr else False
         users_data.append({
             'profile': user_profile, 'user': user, 'employee_code': user_profile.employee_code,
             'name': display_name, 'office_code': office_code_val or 'Not Set', 'office_name': office_name_val or 'Not Set',
             'profile_complete': user_profile.profile_updated, 'qpr_complete': current_qpr.is_submitted if current_qpr else False,
-            'has_pending_edit_request': has_pending
+            'qpr_record_id': current_qpr.id if current_qpr else None,
+            'has_pending_edit_request': has_pending,
+            'is_quarterly_frozen': is_quarterly_frozen
         })
     context = {'users_data': users_data, 'hod_name': hod_name, 'current_quarter': current_quarter, 'current_year': current_year}
     response = render(request, 'qpr/hod_detail_list.html', context)
@@ -1943,6 +2497,54 @@ def hod_detail_list(request):
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
     return response
+
+@login_required
+def toggle_freeze_qpr(request, qpr_record_id):
+    """HOD can freeze/unfreeze quarterly QPR reports"""
+    if not user_has_role(request.user, 'hod'):
+        return redirect('/')
+    
+    if request.method != 'POST':
+        return redirect('qpr_hod_detail_list')
+    
+    try:
+        qpr_record = QPRRecord.objects.get(id=qpr_record_id, frequency='quarterly')
+    except QPRRecord.DoesNotExist:
+        return JsonResponse({'error': 'Quarterly record not found'}, status=404)
+    
+    # Check if HOD is authorized (record belongs to user in their department)
+    hod_profile = getattr(request.user, 'profile', None)
+    hod_name = (hod_profile.hod_name or hod_profile.name) if hod_profile else None
+    
+    if hod_name:
+        user_profile = getattr(qpr_record.user, 'profile', None)
+        record_hod_name = (user_profile.hod_name or user_profile.name) if user_profile else None
+        if record_hod_name != hod_name.strip():
+            return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    # Check if we're at quarter end (can only freeze at quarter end)
+    today = date.today()
+    quarter_end_dates = get_quarter_end_dates()  # You'll need to create this helper
+    
+    is_at_quarter_end = today >= quarter_end_dates['current']
+    
+    # Toggle freeze (can always unfreeze, but can only freeze at quarter-end)
+    if qpr_record.is_quarterly_frozen:
+        qpr_record.is_quarterly_frozen = False
+        message = 'Quarterly report unfrozen'
+    else:
+        if is_at_quarter_end:
+            qpr_record.is_quarterly_frozen = True
+            message = 'Quarterly report frozen'
+        else:
+            days_until_end = (quarter_end_dates['current'] - today).days
+            message = f'Can only freeze at quarter end (in {days_until_end} days)'
+            return JsonResponse({'error': message}, status=400)
+    
+    qpr_record.save()
+    
+    # Redirect back to HOD detail list
+    return redirect('qpr_hod_detail_list')
 
 # ==================== APIs ====================
 
@@ -1973,24 +2575,68 @@ def api_records(request):
                     ).exists()
             d['can_edit'] = not record.is_submitted or edit_approved
             d['edit_approved'] = edit_approved
+            # include cumulative aggregates (daily/weekly/monthly/quarterly) for convenience
+            try:
+                d['cumulative'] = compute_cumulative_for_record(record)
+            except Exception:
+                d['cumulative'] = {}
             data.append(d)
         return JsonResponse(data, safe=False)
     elif request.method == 'POST':
         try:
             data = json.loads(request.body)
+            year = data.get('year', '').strip()
+
+            today = timezone.localdate()
+            current_start = today.year if today.month >= 4 else today.year - 1
+
+            if year:
+                try:
+                    selected_start = int(year.split('-')[0])
+                except:
+                    return JsonResponse({'error': 'Invalid year format'}, status=400)
+
+                if selected_start > current_start:
+                    return JsonResponse({'error': 'Future financial year not allowed'}, status=400)
             record_id = data.get('id')
             details = data.get('details', {})
             if record_id:
                 record = QPRRecord.objects.get(pk=record_id, user=request.user)
                 record.officeName = data.get('officeName', '')
+                year = data.get('year', '').strip()
+                quarter = data.get('quarter', '').strip()
+
+                allowed_quarters = get_allowed_quarters(year)
+
+                if quarter and quarter not in allowed_quarters:
+                    return JsonResponse({'error': 'Invalid quarter selection'}, status=400)
                 # Remove mask characters from officeCode before saving
                 record.officeCode = (data.get('officeCode', '') or '').replace('*', '')
                 record.region = data.get('region', '')
                 record.quarter = data.get('quarter', '')
+                # frequency and explicit period
+                # Frequency & period are server-determined; ignore client-provided values
                 record.status = data.get('status', 'Draft')
                 record.phone = data.get('phone', '')
                 record.email = data.get('email', '')
                 record.is_submitted = (record.status == 'Submitted')
+
+                # Determine period for this record (prefer stored period, otherwise infer from quarter/year)
+                ps = getattr(record, 'period_start', None)
+                pe = getattr(record, 'period_end', None)
+                if not ps or not pe:
+                    try:
+                        ps, pe = _quarter_label_to_daterange(record.quarter, record.year or '')
+                    except Exception:
+                        ps, pe = (None, None)
+
+                # Check for overlaps excluding this record itself
+                if ps and pe and is_period_overlapping(request.user, ps, pe, exclude_id=record.pk):
+                    return JsonResponse({'error': 'This update overlaps with an existing report.'}, status=400)
+
+                record.period_start = ps
+                record.period_end = pe
+
                 record.save()
                 # If manager temporarily allowed edits, revoke after this save
                 if getattr(request.user, 'is_edit_allowed', False):
@@ -2010,22 +2656,75 @@ def api_records(request):
                         approved_edit_request.save()
                 _save_section_data(record, details)
             else:
-                # Enforce one record per user per quarter+year. If a record already
-                # exists for this user and quarter/year, disallow creating another
-                # and instruct the user to request edit instead.
+                is_submitted = (data.get('status', 'Draft') == 'Submitted')
+
+                # Use client-provided frequency + date to compute canonical period
+                frequency = (data.get('frequency') or '').strip()
+                selected_date_str = (data.get('selected_date') or '').strip()
+
+                if not frequency:
+                    return JsonResponse({'error': 'Frequency is required'}, status=400)
+
+                if frequency in ['daily', 'weekly', 'monthly'] and not selected_date_str:
+                    return JsonResponse({'error': 'Date is required for the selected frequency'}, status=400)
+
+                try:
+                    selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date() if selected_date_str else None
+                except Exception:
+                    return JsonResponse({'error': 'Invalid date'}, status=400)
+
+                # Validate provided frequency is allowed for this user on selected_date
+                availability = _allowed_frequencies_for_date(request.user, selected_date)
+                if frequency not in availability['allowed']:
+                    return JsonResponse({
+                        'error': f'Frequency "{frequency}" not allowed for this date. Allowed: {availability["allowed"]}',
+                        'allowed_frequencies': availability['allowed'],
+                        'missing_week': availability.get('missing_week', [])
+                    }, status=400)
+
+                # Compute canonical period for the supplied frequency/date/quarter/year
+                ps, pe = compute_period(
+                    frequency,
+                    selected_date=selected_date,
+                    quarter=data.get('quarter'),
+                    year=data.get('year')
+                )
+                # duplicate-check diagnostics removed
+
+                existing = QPRRecord.objects.filter(
+                    user=request.user,
+                    frequency__iexact=frequency
+                )
+
+                # existing period_start values logging removed
+                # Overlap check for the computed period
+                if ps and pe and is_period_overlapping(request.user, ps, pe):
+                    return JsonResponse({'error': 'This period overlaps with an already submitted report.'}, status=400)
+
+                # Ensure uniqueness for the computed period/frequency
+                exists = QPRRecord.objects.filter(user=request.user, frequency__iexact=frequency, period_start=ps, is_submitted=True)
+
+                # Defensive: if client provided quarter/year, validate and filter
                 quarter = data.get('quarter', '').strip()
                 year = data.get('year', '').strip() or None
+                allowed_quarters = get_allowed_quarters(year)
+                if quarter and quarter not in allowed_quarters:
+                    return JsonResponse({'error': f'Invalid quarter. Allowed: {allowed_quarters}'}, status=400)
+
                 if quarter:
-                    exists = QPRRecord.objects.filter(user=request.user, quarter=quarter)
+                    exists = exists.filter(quarter=quarter)
                     if year:
                         exists = exists.filter(year=year)
-                    if exists.exists():
-                        return JsonResponse({'error': 'A report for this quarter already exists. To change it, request edit permission.'}, status=400)
 
-                is_submitted = (data.get('status', 'Draft') == 'Submitted')
+                if exists.exists():
+                    return JsonResponse({'error': 'A report for this period already exists.'}, status=400)
+
                 record = QPRRecord.objects.create(
                     user=request.user, officeName=data.get('officeName', ''), officeCode=(data.get('officeCode', '') or '').replace('*',''),
                     region=data.get('region', ''), quarter=data.get('quarter', ''), year=data.get('year', ''), status=data.get('status', 'Draft'),
+                    frequency=frequency,
+                    period_start=ps,
+                    period_end=pe,
                     phone=data.get('phone', ''), email=data.get('email', ''), is_submitted=is_submitted
                 )
                 _save_section_data(record, details)
@@ -2099,6 +2798,12 @@ def api_record_detail(request, record_id):
     data['edit_approved'] = edit_approved
     data['has_pending_edit_request'] = has_pending_edit_request
     data['is_submitted'] = record.is_submitted
+    # include cumulative aggregates for the record (used by the detail view JS)
+    try:
+        data['cumulative'] = compute_cumulative_for_record(record)
+    except Exception:
+        data['cumulative'] = {}
+
     return JsonResponse(data, safe=False)
 
 
@@ -2120,6 +2825,169 @@ def print_qpr_report(request, record_id):
     data = serialize_qpr_record(record)
     # Render server-side template with the same fields used by report_detail
     return render(request, 'qpr/print_report.html', {'r': data})
+
+
+@login_required
+def api_period_summary(request):
+    """Return per-period aggregates (daily/weekly/monthly/quarterly) for the requested quarter/year.
+    Query params: quarter (label like '31 मार्च / Mar 31') and year (label like '2025-2026').
+    If not provided, uses current quarter/year.
+    """
+    user = request.user
+    quarter = request.GET.get('quarter') or get_current_quarter()
+    year = request.GET.get('year') or get_current_year_label()
+    # User-selected frequency controls aggregation source. One of: daily, weekly, monthly, quarterly
+    selected_frequency = (request.GET.get('frequency') or 'daily').lower()
+
+    # Determine default region from user's profile (Language Region)
+    default_region = ''
+    try:
+        profile = getattr(user, 'profile', None)
+        if profile and getattr(profile, 'language_region', None):
+            default_region = profile.language_region
+    except Exception:
+        default_region = ''
+
+    # Determine quarter date range
+    try:
+        q_start, q_end = _quarter_label_to_daterange(quarter, year)
+    except Exception:
+        return JsonResponse({'error': 'Invalid quarter/year'}, status=400)
+
+    # Build daily list for working days (Mon-Sat) within quarter
+    daily = []
+    cur = q_start
+    while cur <= q_end:
+        if cur.weekday() <= 5:  # Mon-Sat
+            # Determine totals according to selected frequency policy.
+            # If the user explicitly selected a higher-level frequency, use that source for aggregation;
+            # otherwise use the lower-level (daily) source for daily rows.
+            if selected_frequency == 'daily':
+                totals = _aggregate_records_for_range(user, cur, cur, source_frequency='daily')
+                # check if a daily record exists for that exact date
+                rec_daily = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='daily', period_start=cur).first()
+                exists_daily = bool(rec_daily)
+                covered_by = None
+                region = getattr(rec_daily, 'region', None) if rec_daily else ''
+            else:
+                # use the selected_frequency as the source for this date
+                src = selected_frequency
+                totals = _aggregate_records_for_range(user, cur, cur, source_frequency=src)
+                # check if a source-frequency record covers this date
+                rec_src = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact=src, period_start__lte=cur, period_end__gte=cur).first()
+                exists_daily = False
+                covered_by = src if rec_src else None
+                region = getattr(rec_src, 'region', None) if rec_src else ''
+
+            daily.append({
+                'period_start': cur.isoformat(),
+                'period_end': cur.isoformat(),
+                'totals': totals,
+                'has_daily': exists_daily,
+                'covered_by': covered_by,
+                'region': region or default_region or ''
+            })
+        cur = cur + timedelta(days=1)
+
+    # Build weekly list (Mon-Sat weeks) covering quarter
+    weekly = []
+    # start from Monday of the week containing quarter start (may be before q_start)
+    w_start = q_start - timedelta(days=q_start.weekday())
+    while w_start <= q_end:
+        w_end = w_start + timedelta(days=5)  # Mon -> Sat
+        # determine the actual overlap range within the quarter for counts/totals
+        actual_start = w_start if w_start >= q_start else q_start
+        actual_end = w_end if w_end <= q_end else q_end
+        # Weekly totals: if the user selected weekly view use weekly records, otherwise sum daily records
+        if selected_frequency == 'weekly':
+            totals = _aggregate_records_for_range(user, actual_start, actual_end, source_frequency='weekly')
+        else:
+            totals = _aggregate_records_for_range(user, actual_start, actual_end, source_frequency='daily')
+        # count daily submitted in this week's in-quarter range
+        daily_count = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='daily', period_start__range=(actual_start, actual_end)).count()
+        expected_days = 0
+        for d in range((actual_end - actual_start).days + 1):
+            dt = actual_start + timedelta(days=d)
+            if dt.weekday() <= 5 and q_start <= dt <= q_end:
+                expected_days += 1
+        missing_days = max(0, expected_days - daily_count)
+        weekly_submitted = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='weekly', period_start=w_start, period_end=w_end).exists()
+        # determine region for week: prefer weekly record, else any daily within
+        weekly_rec = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='weekly', period_start=w_start, period_end=w_end).first()
+        region_week = getattr(weekly_rec, 'region', '') if weekly_rec else ''
+        if not region_week:
+            cand = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='daily', period_start__range=(actual_start, actual_end)).first()
+            region_week = getattr(cand, 'region', '') if cand else ''
+        weekly.append({
+            'period_start': w_start.isoformat(),
+            'period_end': w_end.isoformat(),
+            'totals': totals,
+            'daily_count': daily_count,
+            'expected_days': expected_days,
+            'missing_days': missing_days,
+            'weekly_submitted': weekly_submitted,
+            'region': region_week or default_region or ''
+        })
+        # move to next week's Monday
+        w_start = w_start + timedelta(days=7)
+
+    # Monthly list for months inside quarter
+    monthly = []
+    m = q_start
+    while m <= q_end:
+        month_start = date(m.year, m.month, 1)
+        if m.month == 12:
+            month_end = date(m.year, 12, 31)
+        else:
+            month_end = date(m.year, m.month + 1, 1) - timedelta(days=1)
+        if month_end > q_end:
+            month_end = q_end
+        if month_start < q_start:
+            month_start = q_start
+        # Monthly totals: if the user selected monthly use monthly records, otherwise sum weekly records
+        if selected_frequency == 'monthly':
+            totals = _aggregate_records_for_range(user, month_start, month_end, source_frequency='monthly')
+        else:
+            totals = _aggregate_records_for_range(user, month_start, month_end, source_frequency='weekly')
+        daily_count = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='daily', period_start__range=(month_start, month_end)).count()
+        monthly_submitted = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='monthly', period_start=month_start, period_end=month_end).exists()
+        monthly_rec = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='monthly', period_start=month_start, period_end=month_end).first()
+        region_month = getattr(monthly_rec, 'region', '') if monthly_rec else ''
+        if not region_month:
+            cand = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='daily', period_start__range=(month_start, month_end)).first()
+            region_month = getattr(cand, 'region', '') if cand else ''
+        monthly.append({
+            'period_start': month_start.isoformat(),
+            'period_end': month_end.isoformat(),
+            'totals': totals,
+            'daily_count': daily_count,
+            'monthly_submitted': monthly_submitted,
+            'region': region_month or default_region or ''
+        })
+        # move to first of next month
+        if m.month == 12:
+            m = date(m.year + 1, 1, 1)
+        else:
+            m = date(m.year, m.month + 1, 1)
+
+    # Quarterly totals
+    # Quarterly totals: if the user selected quarterly use quarterly records, otherwise sum monthly records
+    if selected_frequency == 'quarterly':
+        quarterly_totals = _aggregate_records_for_range(user, q_start, q_end, source_frequency='quarterly')
+    else:
+        quarterly_totals = _aggregate_records_for_range(user, q_start, q_end, source_frequency='monthly')
+    quarterly_submitted = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='quarterly', period_start=q_start, period_end=q_end).exists()
+
+    return JsonResponse({
+        'quarter_label': quarter,
+        'year_label': year,
+        'quarter_start': q_start.isoformat(),
+        'quarter_end': q_end.isoformat(),
+        'daily': daily,
+        'weekly': weekly,
+        'monthly': monthly,
+        'quarterly': {'period_start': q_start.isoformat(), 'period_end': q_end.isoformat(), 'totals': quarterly_totals, 'submitted': quarterly_submitted}
+    }, safe=False)
 
 @login_required
 @csrf_exempt
@@ -2179,8 +3047,9 @@ def request_edit_api(request):
                             'manager_alert',
                             extra_context={'body_text': msg, 'subject': 'QPR Edit Request'}
                         )
-                    except Exception as e:
-                        print(f"Error sending email to manager: {e}")
+                    except Exception:
+                        # on email failure, continue without raising
+                        pass
                 
                 return JsonResponse({'success': True, 'message': 'Edit request submitted to manager'})
             
@@ -2421,6 +3290,11 @@ def request_qpr_edit(request, record_id):
     except QPRRecord.DoesNotExist:
         messages.error(request, translate_text("QPR record not found.", lang))
         return redirect('qpr_report_list')
+    
+    # Check if quarterly is frozen
+    if qpr_record.frequency == 'quarterly' and qpr_record.is_quarterly_frozen:
+        messages.error(request, translate_text("This quarterly report is frozen and cannot be edited.", lang))
+        return redirect('qpr_report_detail', record_id=record_id)
     
     if request.method == 'POST':
         try:
@@ -2769,7 +3643,6 @@ def api_update_hod(request):
             })
         
         except Exception as e:
-            print(f"ERROR updating HOD: {e}")
             return JsonResponse({
                 'success': False,
                 'error': f'Server error: {str(e)}'
@@ -3533,9 +4406,6 @@ def manager_report_edit_view(request, record_id):
         })
 
     except Exception as e:
-        import traceback
-        print(traceback.format_exc())
-
         return JsonResponse({
             'success': False,
             'error': str(e)
@@ -3577,7 +4447,7 @@ def print_all_qpr_reports(request, year, quarter):
         is_submitted=True
     ).select_related('user', 'part2', 'certificate_data').order_by('user__username')
 
-    print("Submitted QPRs found:", submitted_qprs.count())
+    # Submitted QPRs count: suppressed debug output
 
     all_reports_data = []
     
@@ -3643,7 +4513,6 @@ def print_all_qpr_reports(request, year, quarter):
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
         HTML( string=html_string, base_url=request.build_absolute_uri("/")).write_pdf(tmp.name)
         reader = PdfReader(tmp.name)
-        print("Generated PDF pages:", len(reader.pages))   # DEBUG LINE
         for page in reader.pages:
             writer.add_page(page)
         temp_files.append(tmp.name)
@@ -3668,7 +4537,6 @@ def print_all_qpr_reports(request, year, quarter):
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
         HTML( string=html_string, base_url=request.build_absolute_uri("/")).write_pdf(tmp.name)
         reader = PdfReader(tmp.name)
-        print("Generated PDF pages:", len(reader.pages))   # DEBUG LINE
         for page in reader.pages:
             writer.add_page(page)
         temp_files.append(tmp.name)
@@ -3690,7 +4558,6 @@ def print_all_qpr_reports(request, year, quarter):
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
         HTML( string=html_string, base_url=request.build_absolute_uri("/")).write_pdf(tmp.name)
         reader = PdfReader(tmp.name)
-        print("Generated PDF pages:", len(reader.pages))   # DEBUG LINE
         for page in reader.pages:
             writer.add_page(page)
         temp_files.append(tmp.name)

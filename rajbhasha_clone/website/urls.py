@@ -65,6 +65,7 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
 
     # --- HOD WORKFLOW ---
     path('qpr/hod/details/', views.hod_detail_list, name='qpr_hod_detail_list'),
+    path('qpr/hod/freeze/<int:qpr_record_id>/', views.toggle_freeze_qpr, name='toggle_freeze_qpr'),
     path('qpr/hod/send-reminder/<int:user_id>/', views.send_reminder_email, name='send_reminder_email'),
     path('qpr/admin/employees/', views.admin_employee_list, name='qpr_admin_employee_list'),
     path('qpr/admin/create-hod/', views.admin_create_hod, name='qpr_admin_create_hod'),
@@ -82,6 +83,8 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
 
     path('qpr/api/records/', views.api_records, name='qpr_api_records'), 
     path('qpr/api/records/<int:record_id>/', views.api_record_detail, name='api_record_detail'),
+    path('qpr/api/availability/', views.api_qpr_availability, name='qpr_api_availability'),
+    path('qpr/api/period-summary/', views.api_period_summary, name='qpr_api_period_summary'),
     path('qpr/api/request-edit/', views.request_edit_api, name='request_edit_api'),
     path('qpr/api/update-hod/', views.api_update_hod, name='api_update_hod'),
     path('qpr/api/user-change-hod/', views.api_user_change_hod, name='api_user_change_hod'),

@@ -85,12 +85,30 @@
                                 <input type="email" name="email" class="form-control" value="{{ profile.email|default:user.get_email|default:'' }}" required {% if not can_edit %}disabled{% endif %}>
                             </div>
                             <div class="col-md-3">
+                                <label class="form-label fw-bold">{{ "Language Region"|t:current_lang }}</label>
+                                <select name="language_region" class="form-select" {% if not can_edit %}disabled{% endif %}>
+                                    <option value="">-- Select Region --</option>
+                                    <option value="भाषा क्षेत्र 'क' / Region A" {% if profile.language_region == "भाषा क्षेत्र 'क' / Region A" %}selected{% endif %}>भाषा क्षेत्र 'क' / Region A</option>
+                                    <option value="भाषा क्षेत्र 'ख' / Region B" {% if profile.language_region == "भाषा क्षेत्र 'ख' / Region B" %}selected{% endif %}>भाषा क्षेत्र 'ख' / Region B</option>
+                                    <option value="भाषा क्षेत्र 'ग' / Region C" {% if profile.language_region == "भाषा क्षेत्र 'ग' / Region C" %}selected{% endif %}>भाषा क्षेत्र 'ग' / Region C</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Select HOD"|t:current_lang }} <span class="text-danger">*</span></label>
                                 <select name="hod_name" class="form-select" {% if not can_edit %}disabled{% endif %} required>
-                                    <option value="">-- {{ "Select HOD"|t:current_lang }} --</option>
+                                    <option value="">-- Select Approver --</option>
+
+                                    <!-- Existing HODs -->
                                     {% for hod in available_hods %}
-                                        <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>{{ hod }}</option>
+                                        <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>
+                                            {{ hod }}
+                                        </option>
                                     {% endfor %}
+
+                                    <!-- NEW OPTION -->
+                                    <option value="ADMIN" {% if current_hod == "ADMIN" %}selected{% endif %}>
+                                        Request via Admin
+                                    </option>
                                 </select>
                             </div>
                         </div>
