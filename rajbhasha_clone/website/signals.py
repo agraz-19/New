@@ -34,26 +34,37 @@ def create_user_profile(sender, instance, created, **kwargs):
 # 🔹 Always ensure profile exists and sync roles
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
-    profile, created = UserProfile.objects.get_or_create(
-        user=instance,
-        defaults={
-            "employee_code": instance.username,
-        }
-    )
+    # 1. Prevent this signal from running when we are just updating the OTP
+    update_fields = kwargs.get('update_fields')
+    if update_fields and 'otp' in update_fields:
+        return
 
-    # Sync user roles with profile roles
-    if instance.is_superuser:
-        # Superuser should have admin role
-        admin_role = Role.objects.get_or_create(name='admin')[0]
-        if not instance.roles.filter(name='admin').exists():
-            instance.roles.add(admin_role)
-        if not profile.roles.filter(name='admin').exists():
-            profile.roles.add(admin_role)
-    elif not instance.roles.exists():
-        # Ensure user has at least 'user' role
-        user_role = Role.objects.get_or_create(name='user')[0]
-        instance.roles.add(user_role)
-        profile.roles.add(user_role)
+    try:
+        profile, created = UserProfile.objects.get_or_create(
+            user=instance,
+            defaults={
+                "employee_code": instance.username,
+            }
+        )
+
+        # Sync user roles with profile roles
+        if instance.is_superuser:
+            # Superuser should have admin role
+            admin_role = Role.objects.get_or_create(name='admin')[0]
+            if not instance.roles.filter(name='admin').exists():
+                instance.roles.add(admin_role)
+            if not profile.roles.filter(name='admin').exists():
+                profile.roles.add(admin_role)
+        elif not instance.roles.exists():
+            # Ensure user has at least 'user' role
+            user_role = Role.objects.get_or_create(name='user')[0]
+            instance.roles.add(user_role)
+            profile.roles.add(user_role)
+            
+    except Exception as e:
+        # Catch IntegrityErrors gracefully if a username overlaps with an existing employee_code
+        print(f"Profile auto-create skipped due to conflict: {e}")
+        pass
 
 
 # 🔹 Login signal
