@@ -6,16 +6,58 @@ from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
 from .templatetags.translate_tags import translate_text
-
-def send_system_email(user, request, email_type, extra_context=None):
-    # Attempting to send system email
+import pandas as pd
+import os
+from datetime import date
+from .models import FinancialYear
+from django.conf import settings
+# def send_system_email(user, request, email_type, extra_context=None):
+#     # Attempting to send system email
     
+
+QUARTERS = [
+    ("30 जून / Jun 30", 6),
+    ("30 सितंबर / Sep 30", 9),
+    ("31 दिसंबर / Dec 31", 12),
+    ("31 मार्च / Mar 31", 3),
+]
+
+def get_allowed_quarters(selected_year):
+    today = timezone.localdate()
+    current_start = today.year if today.month >= 4 else today.year - 1
+
+    if not selected_year:
+        selected_year = f"{current_start}-{current_start+1}"
+
+    try:
+        selected_start = int(selected_year.split('-')[0])
+    except:
+        return []
+
+    if selected_start < current_start:
+        return [q[0] for q in QUARTERS]
+
+    if selected_start > current_start:
+        return []
+
+    allowed = []
+    month = today.month
+
+    for name, end_month in QUARTERS:
+        if end_month == 3:
+            if month <= 3:
+                allowed.append(name)
+        elif month >= end_month:
+            allowed.append(name)
+
+    return allowed
+
+def send_system_email(user, request, email_type, extra_context=None):    
     if extra_context is None:
         extra_context = {}
 
     user_email = user.get_email()
     if not user_email: 
-        # No email found for user
         return
 
     lang = request.session.get('lang', 'en') if request else 'en'
@@ -73,6 +115,22 @@ def send_system_email(user, request, email_type, extra_context=None):
             'action_text': "Login Now",
             'action_url': f"{domain}{reverse('login')}"
         },
+        'rejected_alert': {
+            'subject': "Registration Status: Action Required",
+            'headline': "Registration Rejected",
+            'body': "Your recent registration request was rejected by your HOD. Please log in to update your personal details and employee information, or contact your administrator.",
+            'action_text': "Update Profile",
+            'action_url': f"{domain}{reverse('login')}",
+            'is_alert': True
+        },
+        'accepted_alert': {
+            'subject': "Registration Status: Action Required",
+            'headline': "Registration Accepted",
+            'body': "Your recent registration request has been accepted by your HOD. Please log in to update your personal details and employee information.",
+            'action_text': "Update Profile",
+            'action_url': f"{domain}{reverse('login')}",
+            'is_alert': True
+        },
         'manager_alert': {
             'subject': "Action Required: User Edit Request",
             'headline': "Edit Permission Requested",
@@ -128,3 +186,33 @@ def send_system_email(user, request, email_type, extra_context=None):
         # Email sent successfully
     except Exception as e:
         print(f"--- SMTP Error: {e} ---")
+EXCEL_PATH = os.path.join(settings.MEDIA_ROOT, "data", "tg_hod_officers_employee_report.xlsx")
+
+def load_employee_data():
+    df = pd.read_excel(EXCEL_PATH)
+
+    employee_dict = {}
+
+    for _, row in df.iterrows():
+        empcode = str(int(row["Empcode"])).strip()
+        empcode = empcode.replace(".0", "").strip()
+        
+
+        # clean name
+        name = str(row["Name"]).strip()
+        name = name.replace("Shri", "").replace("Ms.", "").replace("Ms", "").strip().upper()
+
+        mobile = str(row["Mobile"]).strip()
+
+        hindi_name = str(row["Name in Hindi"]).strip()
+        designation = str(row["Designation"]).strip()
+        
+
+        employee_dict[empcode] = {
+            "name": name,
+            "hindi_name": hindi_name,
+            "designation": designation,
+            "mobile": mobile
+        }
+
+    return employee_dict

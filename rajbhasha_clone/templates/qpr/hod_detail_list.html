@@ -211,7 +211,7 @@
                     <th>{{ "Office Name"|t:current_lang }}</th>
                     <th>{{ "Profile"|t:current_lang }}</th>
                     <th>QPR ({{ current_quarter }} {{ current_year }})</th>
-                    <th>{{ "Edit Request"|t:current_lang }}</th>
+                    <th>{{ "Freeze QPR"|t:current_lang }}</th>
                     <th>{{ "Email"|t:current_lang }}</th>
                 </tr>
             </thead>
@@ -239,11 +239,25 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if user.has_pending_edit_request %}
-                        <span class="badge bg-warning"
-                            title="{{ 'Employee has requested to edit this QPR'|t:current_lang }}">
-                            <i class="fas fa-pencil-alt"></i> {{ "Awaiting Review"|t:current_lang }}
-                        </span>
+                        {% if user.qpr_record_id %}
+                            {% if user.is_quarterly_frozen %}
+                            <form action="{% url 'toggle_freeze_qpr' user.qpr_record_id %}" method="POST" style="margin: 0; display: inline;">
+                                {% csrf_token %}
+                                <span class="badge bg-danger" title="{{ 'Quarterly report is frozen'|t:current_lang }}">
+                                    <i class="fas fa-lock"></i> {{ "Frozen"|t:current_lang }}
+                                </span>
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="{{ 'Unfreeze to allow editing'|t:current_lang }}" onclick="return confirm('{{ "Unfreeze this quarterly report?"|t:current_lang }}');">
+                                    <i class="fas fa-unlock"></i> {{ "Unfreeze"|t:current_lang }}
+                                </button>
+                            </form>
+                            {% else %}
+                            <form action="{% url 'toggle_freeze_qpr' user.qpr_record_id %}" method="POST" style="margin: 0; display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ 'Freeze this quarterly report'|t:current_lang }}" onclick="return confirm('{{ "Freeze this quarterly report? No edits will be allowed."|t:current_lang }}');">
+                                    <i class="fas fa-lock"></i> {{ "Freeze"|t:current_lang }}
+                                </button>
+                            </form>
+                            {% endif %}
                         {% else %}
                         <span class="text-muted">—</span>
                         {% endif %}
