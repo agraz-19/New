@@ -169,7 +169,6 @@ class Employee(models.Model):
     ]
     typing = models.CharField(max_length=30, choices=TYPING_CHOICES)
 
-
     hindiproficiency = models.CharField(
         max_length=5,
         choices=[
@@ -242,13 +241,51 @@ class UserProfile(models.Model):
     roles = models.ManyToManyField(Role, related_name='user_profiles', blank=True)
     hod_name = models.CharField(max_length=50, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True, null=True)
-    email = models.EmailField(blank=True, null=True)
-    phone = models.CharField(max_length=20, blank=True, null=True)
+    encrypted_email = models.BinaryField(blank=True, null=True)
+    encrypted_phone = models.BinaryField(blank=True, null=True)
     office_name = models.CharField(max_length=255, blank=True, null=True)
     office_code = models.CharField(max_length=50, blank=True, null=True)
+    # Language region selection used by QPR (e.g., "भाषा क्षेत्र 'क' / Region A")
+    language_region = models.CharField(max_length=100, blank=True, null=True)
     profile_updated = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    APPROVAL_STATUS_CHOICES = [
+        ('pending', 'Pending HOD Approval'),
+        ('pending_admin','Pending Admin Approval'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    approval_status = models.CharField(
+        max_length=20, 
+        choices=APPROVAL_STATUS_CHOICES, 
+        default='approved' 
+    )
+    @property
+    def email(self):
+        if self.encrypted_email:
+            return cipher_suite.decrypt(self.encrypted_email).decode()
+        return ""
+
+    @email.setter
+    def email(self, value):
+        if value:
+            self.encrypted_email = cipher_suite.encrypt(value.encode())
+        else:
+            self.encrypted_email = None
+
+    @property
+    def phone(self):
+        if self.encrypted_phone:
+            return cipher_suite.decrypt(self.encrypted_phone).decode()
+        return ""
+
+    @phone.setter
+    def phone(self, value):
+        if value:
+            self.encrypted_phone = cipher_suite.encrypt(value.encode())
+        else:
+            self.encrypted_phone = None
     
     def __str__(self):
         roles_str = ', '.join(self.roles.values_list('name', flat=True))
@@ -341,14 +378,30 @@ class QPRRecord(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.CASCADE,related_name='qpr_records',null=True,blank=True)
     officeName = models.CharField(max_length=255)
     officeCode = models.CharField(max_length=50)
-    region = models.CharField(max_length=100)
+    region_choices = [
+    ("Region A", "भाषा क्षेत्र 'क' / Region A"),
+    ("Region B", "भाषा क्षेत्र 'ख' / Region B"),
+    ("Region C", "भाषा क्षेत्र 'ग' / Region C"),]
+    region = models.CharField(max_length=50,choices=region_choices,blank=True,null=True)
     quarter = models.CharField(max_length=50)
     year = models.CharField(max_length=20, default='2025-2026', null=True, blank=True)
+    # Submission frequency: daily/weekly/monthly/quarterly
+    FREQUENCY_CHOICES = [
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('monthly', 'Monthly'),
+        ('quarterly', 'Quarterly'),
+    ]
+    frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES, default='quarterly')
+    # Optional explicit period (useful for daily/weekly/monthly submissions)
+    period_start = models.DateField(null=True, blank=True)
+    period_end = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=50, default='Draft')
     phone = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     is_submitted = models.BooleanField(default=False)
     is_editing_allowed = models.BooleanField(default=False, help_text='Allow editing of submitted form after unlock')
+    is_quarterly_frozen = models.BooleanField(default=False, help_text='Freeze quarterly report on quarter end (HOD can freeze only at quarter end)')
     cert_edit_count = models.IntegerField(default=0, help_text='Track certificate edits (max 2)')
     cert_office_code = models.CharField(max_length=50, blank=True, null=True, help_text='Override office code for certificate')
     cert_quarter = models.CharField(max_length=50, blank=True, null=True, help_text='Override quarter for certificate')
@@ -361,6 +414,18 @@ class QPRRecord(models.Model):
 
     class Meta:
         ordering = ['-id']
+
+class FinancialYear(models.Model):
+    start_year = models.IntegerField()
+    end_year = models.IntegerField()
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.start_year}-{self.end_year}"
+
+    class Meta:
+        ordering = ['start_year']
+        unique_together = ('start_year', 'end_year')
 
 
 # ---------- Sections ----------

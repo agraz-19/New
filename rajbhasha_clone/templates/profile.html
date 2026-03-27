@@ -35,12 +35,12 @@
                         <div class="row mb-4">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Employee Code"|t:current_lang }}</label>
-                                <input type="text" name="employee_code" id="empcode" class="form-control" value="" {% if not can_edit %}disabled{% endif %} required>
+                                <input type="text" name="empcode" id="empcode" class="form-control" value="{{ profile.employee_code|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
                                 <div id="empcodeFeedback" style="margin-top:5px; font-size:14px;"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Username"|t:current_lang }}</label>
-                                <input type="text" name="username" id="username" class="form-control" value="{{ user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
+                                <input type="text" name="username" id="username" class="form-control" value="{{ employee.ename|default:user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
                             </div>
                         </div>
 
@@ -56,7 +56,7 @@
                         </h5>
 
                         <div class="row mb-4">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Office Code"|t:current_lang }}</label>
                                 <select name="office_code" id="office_code_select" class="form-select" {% if not can_edit %}disabled{% endif %} required>
                                     <option value="">-- {{ "Select Office"|t:current_lang }} --</option>
@@ -65,13 +65,46 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Office Name"|t:current_lang }}</label>
                                 <input type="text" name="office_name" id="office_name_field" class="form-control" value="{{ profile.office_name|default:'' }}" readonly>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Notification Email"|t:current_lang }}</label>
                                 <input type="email" name="email" class="form-control" value="{{ profile.email|default:'' }}" required {% if not can_edit %}disabled{% endif %}>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">{{ "Language Region"|t:current_lang }}</label>
+                                <select name="language_region" class="form-select" {% if not can_edit %}disabled{% endif %}>
+                                    <option value="">-- Select Region --</option>
+
+                                    {% for value,label in region_choices %}
+                                        <option value="{{ value }}"
+                                        {% if profile.language_region == value %}selected{% endif %}>
+                                        {{ label }}
+                                        </option>
+                                    {% endfor %}
+
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">{{ "Select HOD"|t:current_lang }} <span class="text-danger">*</span></label>
+                                <select name="hod_name" class="form-select" {% if not can_edit %}disabled{% endif %} required>
+
+                                    <option value="">-- Select Approver --</option>
+
+                                    {% for hod in available_hods %}
+                                        <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>
+                                            {{ hod }}
+                                        </option>
+                                    {% endfor %}
+
+                                    <option value="ADMIN" {% if current_hod == "ADMIN" %}selected{% endif %}>
+                                        Request via Admin
+                                    </option>
+
+                                </select>
                             </div>
                         </div>
 
@@ -80,11 +113,6 @@
                         </h5>
 
                         <div class="row mb-4">
-
-                            <!-- <div class="col-md-6">
-                                <label class="form-label fw-bold">Empcode</label>
-                                <input type="text" name="empcode" class="form-control"value="{{ employee.empcode }}"readonly>
-                            </div> -->
 
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Name in English</label>
@@ -362,6 +390,8 @@
                 "Phone Number",
                 "Office Code",
                 "Office Name",
+                "language_region",
+                "HOD Name",
                 "Notification Email",
                 "Empcode",
                 "Name in English",
@@ -374,11 +404,13 @@
                 "Superannuation Date"
             ],
             [
-                document.querySelector('[name="employee_code"]')?.value || "",
+                document.querySelector('[name="empcode"]')?.value || "",
                 document.querySelector('[name="username"]')?.value || "",
                 document.querySelector('[name="phone"]')?.value || "",
                 document.querySelector('[name="office_code"]')?.value || "",
                 document.querySelector('[name="office_name"]')?.value || "",
+                getSelectedText(document.querySelector('[name="language_region"]')),
+                getSelectedText(document.querySelector('[name="hod_name"]')),
                 document.querySelector('[name="email"]')?.value || "",
                 document.querySelector('[name="empcode"]')?.value || "",
                 document.querySelector('[name="ename"]')?.value || "",
@@ -387,7 +419,7 @@
                 getSelectedText(document.querySelector('[name="typing"]')),
                 getSelectedText(document.querySelector('[name="hindiproficiency"]')),
                 getSelectedText(document.querySelector('[name="gazet"]')),
-                getSelectedText(document.querySelector('[name="highest_hindi_exam_passed"]')),
+                getSelectedText(document.querySelector('[name="hindi_exam"]')),
                 document.querySelector('[name="super_annuation_date"]')?.value || ""
             ]
         ];
@@ -476,11 +508,11 @@
         }, 300);
     }
 
-    function disableForm() {
-        const form = document.getElementById("employeeForm");
-        form.querySelectorAll("input, select, textarea, button[type='submit']")
-            .forEach(el => el.disabled = true);
-    }
+    // function disableForm() {
+    //     const form = document.getElementById("employeeForm");
+    //     form.querySelectorAll("input, select, textarea, button[type='submit']")
+    //         .forEach(el => el.disabled = true);
+    // }
 
     (function() {
         const officeSelect = document.getElementById('office_code_select');

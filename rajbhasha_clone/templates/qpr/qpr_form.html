@@ -79,14 +79,22 @@
                         <div class="row g-2 align-items-center mb-2">
                             <div class="col-md-3 text-end"><span class="lbl-hindi">समाप्त तिमाही</span><span class="lbl-eng">Quarter Ending</span></div>
                             <div class="col-md-3">
-                                <select class="form-select form-select-sm" id="quarter">
-                                    <option>31 दिसंबर / Dec 31</option>
-                                    <option>31 मार्च / Mar 31</option>
-                                    <option>30 जून / Jun 30</option>
-                                    <option>30 सितंबर / Sep 30</option>
+                                <select class="form-select form-select-sm" id="quarter"></select>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select form-select-sm" id="year" name="year"> {% for fy in financial_years %} <option value="{{ fy.start_year }}-{{ fy.end_year }}" {% if forloop.last %}selected{% endif %}> {{ fy.start_year }}-{{ fy.end_year }} </option> {% endfor %} </select>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="date" class="form-control form-control-sm" id="selectedDate">
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select form-select-sm" id="frequency">
+                                    <option value="daily" selected>Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="quarterly">Quarterly</option>
                                 </select>
                             </div>
-                            <div class="col-md-2"><select class="form-select form-select-sm" id="year"><option>Loading...</option></select></div>
                         </div>
                         <div class="row g-2 align-items-center mb-2">
                             <div class="col-md-3 text-end"><span class="lbl-hindi">कार्यालय का नाम</span><span class="lbl-eng">Name of Office</span></div>
@@ -103,10 +111,11 @@
                         <div class="row g-2 align-items-center mb-2">
                             <div class="col-md-3 text-end"><span class="lbl-hindi">भाषा क्षेत्र</span><span class="lbl-eng">Language Region</span></div>
                             <div class="col-md-5">
-                                <select class="form-select form-select-sm" id="region">
-                                    <option>भाषा क्षेत्र 'क' / Region A</option>
-                                    <option>भाषा क्षेत्र 'ख' / Region B</option>
-                                    <option>भाषा क्षेत्र 'ग' / Region C</option>
+                                <select class="form-select form-select-sm" id="region" disabled>
+                                    <option value="">-- Select Region --</option>
+                                    <option value="भाषा क्षेत्र 'क' / Region A" {% if profile_language_region == "भाषा क्षेत्र 'क' / Region A" %}selected{% endif %}>भाषा क्षेत्र 'क' / Region A</option>
+                                    <option value="भाषा क्षेत्र 'ख' / Region B" {% if profile_language_region == "भाषा क्षेत्र 'ख' / Region B" %}selected{% endif %}>भाषा क्षेत्र 'ख' / Region B</option>
+                                    <option value="भाषा क्षेत्र 'ग' / Region C" {% if profile_language_region == "भाषा क्षेत्र 'ग' / Region C" %}selected{% endif %}>भाषा क्षेत्र 'ग' / Region C</option>
                                 </select>
                             </div>
                         </div>
@@ -118,6 +127,7 @@
                     <hr>
 
                     <div class="row">
+                        {% if user_role == 'hod' %}
                         <div class="col-md-6 section-box">
                             <div class="section-title">1. माननीय मंत्री जी को भेजी गयी फाइलों का ब्यौरा <span class="d-block small text-muted">(Details Of Files Sent To The Minister)</span></div>
                             
@@ -130,6 +140,7 @@
                                 <div class="lbl-input"><input type="number" class="form-control form-control-sm" id="s1_hindi"></div>
                             </div>
                         </div>
+                        {% endif %}
 
                         <div class="col-md-6 section-box">
                             <div class="section-title">2. सचिव/समकक्ष स्तर पर बैठकों/फाइलों का ब्यौरा <span class="d-block small text-muted">(Details of meetings/files at Secretary/Equivalent level)</span></div>
@@ -154,6 +165,7 @@
                     </div>
 
                     <div class="row">
+                        {% if user_role == 'admin' %}
                         <div class="col-md-6 section-box">
                             <div class="section-title">3. राजभाषा अधिनियम 1963 की धारा 3(3) के अंतर्गत जारी कागजात <span class="d-block small text-muted">(Documents issued under Section 3(3) of the Official Languages Act, 1963)</span></div>
                             
@@ -174,6 +186,7 @@
                                 <div class="lbl-input"><input type="number" class="form-control form-control-sm" id="s3_hindi_only"></div>
                             </div>
                         </div>
+                        {% endif %}
 
                         <div class="col-md-6 section-box">
                             <div class="section-title">4. हिंदी में प्राप्त पत्र (राजभाषा नियम - 5) <span class="d-block small text-muted">(Letters received in Hindi (Official Language Rule- 5))</span></div>
@@ -227,7 +240,7 @@
                             </div>
                         </div>
 
-                        <div class="col-md-6 section-box">
+                                 <div class="col-md-6 section-box">
                             <div class="section-title">6. भेजे गये मूल पत्रों का ब्यौरा <span class="d-block small text-muted">(Details of total letters issued)</span></div>
                             
                             <div class="mb-3 border-bottom pb-2">
@@ -272,9 +285,10 @@
                                 <div class="lbl-text"><span class="lbl-hindi">(ई ऑफिस के माध्यम से भेजी गयी टिप्पणियों का ब्यौरा)</span><span class="lbl-eng">(Details of comments sent through e-office)</span></div>
                                 <div class="lbl-input"><input type="number" class="form-control form-control-sm" id="s7_eoffice"></div>
                             </div>
-                        </div>
+                                </div>
 
-                         <div class="col-md-6 section-box">
+                                {% if user_role == 'manager' %}
+                                 <div class="col-md-6 section-box">
                             <div class="section-title">8. तिमाही में आयोजित हिंदी कार्यशालाएं <span class="d-block small text-muted">(Hindi Workshops in this Quarter)</span></div>
                             <div class="lbl-row">
                                 <div class="lbl-text"><span class="lbl-hindi">तिमाही के दौरान पूर्ण दिवसीय आयोजित कार्यशालाओं की संख्या</span><span class="lbl-eng">(No. of full day workshops conducted during the quarter)</span></div>
@@ -290,6 +304,7 @@
                                 <div class="lbl-input"><input type="number" class="form-control form-control-sm" id="s8_employees"></div>
                             </div>
                         </div>
+                        {% endif %}
                     </div>
 
 
@@ -301,6 +316,7 @@
 
                 <div id="tab3" class="d-none">
 
+                    {% if user_role == 'manager' %}
                     <div class="row">
                         <div class="col-md-6 section-box">
                             <div class="section-title">9. विभागीय/संगठनीय राजभाषा कार्यान्वयन समिति की बैठक... <span class="d-block small text-muted">(Date of the meeting of the Departmental/Organizational Official Language Implementation Committee)</span></div>
@@ -336,7 +352,9 @@
                             </div>
                         </div>
                     </div>
+                    {% endif %}
 
+                    {% if user_role == 'manager' %}
                     <div class="section-box">
                         <div class="section-title">11. तिमाही के दौरान विशिष्ट उपलब्धियां (अधिकतम सीमा- 500 अक्षर) <span class="d-block small text-muted">(specific achievements during quarter)</span></div>
                         
@@ -350,6 +368,7 @@
                             <textarea class="form-control" id="s12_3" placeholder="3. हिंदी माध्यम में किए गए अन्य कार्य/Other works done in Hindi medium"></textarea>
                         </div>
                     </div>
+                    {% endif %}
 
                     <div class="d-flex justify-content-between mt-4 pt-3 border-top">
                         <button type="button" class="btn btn-secondary" onclick="showTab(2)">&larr;
@@ -378,78 +397,14 @@
 <div id="hindiKeyboard"></div>
 
 <script>
-    // Data from server: quarters already used by this user
-    var usedQuarters = {{ used_quarters_json|default:'[]'|safe }};
+    window.SERVER_MONTH = {{ server_month }};
+    window.SERVER_YEAR = {{ server_year }};
+</script>
 
-    // Immediately populate year dropdown on page load
-    function initYearDropdown() {
-        const yearSelect = document.getElementById('year');
-        if (!yearSelect) {
-            setTimeout(initYearDropdown, 100);
-            return;
-        }
-
-        const currentDate = new Date();
-        const currentMonth = currentDate.getMonth();
-        const currentYear = currentDate.getFullYear();
-
-        let fiscalYearStart = currentMonth < 3 ? currentYear - 1 : currentYear;
-        let fiscalYearEnd = fiscalYearStart + 1;
-
-        yearSelect.innerHTML = '';
-
-        const startYear = 2000;
-        const endYear = new Date().getFullYear() + 50; // Current year + 50 years ahead
-
-        for (let year = startYear; year <= endYear; year++) {
-            const option = document.createElement('option');
-            option.value = `${year}-${year + 1}`;
-            option.textContent = `${year}-${year + 1}`;
-            yearSelect.appendChild(option);
-        }
-
-        yearSelect.value = `${fiscalYearStart}-${fiscalYearEnd}`;
-        // After populating years, disable quarters that are already used for the selected year
-        try { updateQuarterAvailability(); } catch (e) { console.error(e); }
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initYearDropdown);
-    } else {
-        initYearDropdown();
-    }
-
-    // Disable quarter options that already have a report for the selected year
-    function updateQuarterAvailability() {
-        const yearSelect = document.getElementById('year');
-        const quarterSelect = document.getElementById('quarter');
-        if (!yearSelect || !quarterSelect) return;
-
-        const selectedYear = yearSelect.value;
-        // Build a set of quarters used in this selected year (excluding the currently editing record)
-        const editingId = document.getElementById('recordId') ? document.getElementById('recordId').value : '';
-        const usedForYear = new Set(usedQuarters.filter(u => (u.year||'') === selectedYear && String(u.record_id) !== String(editingId)).map(u => u.quarter.trim()));
-
-        Array.from(quarterSelect.options).forEach(opt => {
-            const txt = opt.textContent.trim();
-            if (usedForYear.has(txt)) {
-                opt.disabled = true;
-                opt.title = 'A report for this quarter already exists';
-            } else {
-                opt.disabled = false;
-                opt.title = '';
-            }
-        });
-    }
-
-    // Recompute quarter availability when year changes
-    document.addEventListener('DOMContentLoaded', function(){
-        const yearSelect = document.getElementById('year');
-        if (yearSelect) yearSelect.addEventListener('change', updateQuarterAvailability);
-        // Also recompute when recordId is set by edit action
-        const observer = new MutationObserver(() => updateQuarterAvailability());
-        const rid = document.getElementById('recordId');
-        if (rid) observer.observe(rid, { attributes: true, childList: true, subtree: false });
-    });
+<script>
+    // Expose server-provided data for the external script to use.
+    window.QPR_USED_QUARTERS = {{ used_quarters_json|default:'[]'|safe }};
+    window.QPR_SERVER_QUARTER = "{{ current_quarter|default:''|escapejs }}";
+    window.QPR_SERVER_YEAR = "{{ current_year|default:''|escapejs }}";
 </script>
 {% endblock %}

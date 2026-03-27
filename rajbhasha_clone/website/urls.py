@@ -45,14 +45,14 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
     path('qpr/certificate/<int:record_id>/form/', views.certificate_form_view, name='certificate_form'),
     path('qpr/certificate/<int:record_id>/display/', views.certificate_display_view, name='certificate_display'),
     path('qpr/certificate/<int:record_id>/part2/', views.certificate_part2_view, name='certificate_part2'),
-        path('qpr/certificate/<int:record_id>/part2/print/', views.certificate_part2_print_view, name='certificate_part2_print'),
+    path('qpr/certificate/<int:record_id>/part2/print/', views.certificate_part2_print_view, name='certificate_part2_print'),
         # Debug
-        path('debug/whoami/', views.debug_whoami, name='debug_whoami'),
+    path('debug/whoami/', views.debug_whoami, name='debug_whoami'),
     path('qpr/hod/dashboard/', views.qpr_hod_dashboard, name='qpr_hod_dashboard'),
     path('qpr/user/dashboard/', views.user_dashboard, name='qpr_user_dashboard'),
 
     # --- USER QPR WORKFLOW ---
-    path('qpr/profile/update/', views.user_profile, name='qpr_user_profile'),
+    path('qpr/profile/update/', views.profile_view, name='qpr_user_profile'),
     path('qpr/profile/request-edit/', views.request_profile_edit, name='request_profile_edit'),
     path('qpr/office/', views.user_office_form, name='qpr_user_office'),
     path('qpr/form/', views.qpr_form, name='qpr_form'),
@@ -65,6 +65,7 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
 
     # --- HOD WORKFLOW ---
     path('qpr/hod/details/', views.hod_detail_list, name='qpr_hod_detail_list'),
+    path('qpr/hod/freeze/<int:qpr_record_id>/', views.toggle_freeze_qpr, name='toggle_freeze_qpr'),
     path('qpr/hod/send-reminder/<int:user_id>/', views.send_reminder_email, name='send_reminder_email'),
     path('qpr/admin/employees/', views.admin_employee_list, name='qpr_admin_employee_list'),
     path('qpr/admin/create-hod/', views.admin_create_hod, name='qpr_admin_create_hod'),
@@ -82,6 +83,8 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
 
     path('qpr/api/records/', views.api_records, name='qpr_api_records'), 
     path('qpr/api/records/<int:record_id>/', views.api_record_detail, name='api_record_detail'),
+    path('qpr/api/availability/', views.api_qpr_availability, name='qpr_api_availability'),
+    path('qpr/api/period-summary/', views.api_period_summary, name='qpr_api_period_summary'),
     path('qpr/api/request-edit/', views.request_edit_api, name='request_edit_api'),
     path('qpr/api/update-hod/', views.api_update_hod, name='api_update_hod'),
     path('qpr/api/user-change-hod/', views.api_user_change_hod, name='api_user_change_hod'),
@@ -98,7 +101,6 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
 
     path('manager/report/<str:year>/<path:quarter>/print-all/', views.print_all_qpr_reports, name='print_all_qpr_reports'),
     path('manager/report/<str:year>/<path:quarter>/', views.manager_report_detail, name='manager_report_detail'),
-    
     path("event/<str:folder>/", views.event_detail, name="event_detail"),
     path("events-admin/", views.admin_events_dashboard, name="admin_events_dashboard"),
     path("events-admin/upload/", views.admin_upload_event, name="admin_upload_event"),
