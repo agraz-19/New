@@ -31,4 +31,5 @@ minio==7.2.7
 weasyprint==61.2
 bs4
 pypdf
-rest_framework
+pandas
+openpyxl

@@ -52,6 +52,23 @@ def get_allowed_quarters(selected_year):
 
     return allowed
 
+def get_current_financial_year():
+    today = date.today()
+    if today.month >= 4:
+        start= today.year
+    else:
+        start= today.year - 1
+    
+    return start, start + 1
+
+def ensure_current_financial_year():
+    start, end = get_current_financial_year()
+
+    FinancialYear.objects.get_or_create(
+        start_year=start,
+        end_year=end
+    )
+
 def send_system_email(user, request, email_type, extra_context=None):    
     if extra_context is None:
         extra_context = {}

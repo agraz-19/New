@@ -106,4 +106,5 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
     path("events-admin/upload/", views.admin_upload_event, name="admin_upload_event"),
     path("events-admin/delete/<str:folder>/", views.admin_delete_event, name="admin_delete_event"),
     path('get-employee/', views.api_get_employee_details, name='get_employee'),
+    path('approval/<int:profile_id>/<str:action>/', views.process_user_approval, name='process_user_approval'),
 ]
