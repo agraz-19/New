@@ -726,4 +726,3 @@ class WebsiteDetail(models.Model):
     url = models.URLField(verbose_name="Address of Website") # [cite: 110]
     status = models.CharField(max_length=50, choices=STATUS_CHOICES) # [cite: 110]
 
-
