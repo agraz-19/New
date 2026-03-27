@@ -383,59 +383,141 @@
     }
 
     function downloadExcel() {
-        const data = [
-            [
-                "Employee Code",
-                "Username",
-                "Phone Number",
-                "Office Code",
-                "Office Name",
-                "language_region",
-                "HOD Name",
-                "Notification Email",
-                "Empcode",
-                "Name in English",
-                "Name in Hindi",
-                "Designation",
-                "Typing",
-                "Hindi Proficiency",
-                "Gazet",
-                "Highest Hindi Exam Passed",
-                "Superannuation Date"
-            ],
-            [
-                document.querySelector('[name="empcode"]')?.value || "",
-                document.querySelector('[name="username"]')?.value || "",
-                document.querySelector('[name="phone"]')?.value || "",
-                document.querySelector('[name="office_code"]')?.value || "",
-                document.querySelector('[name="office_name"]')?.value || "",
-                getSelectedText(document.querySelector('[name="language_region"]')),
-                getSelectedText(document.querySelector('[name="hod_name"]')),
-                document.querySelector('[name="email"]')?.value || "",
-                document.querySelector('[name="empcode"]')?.value || "",
-                document.querySelector('[name="ename"]')?.value || "",
-                document.querySelector('[name="hname"]')?.value || "",
-                getSelectedText(document.querySelector('[name="designation"]')),
-                getSelectedText(document.querySelector('[name="typing"]')),
-                getSelectedText(document.querySelector('[name="hindiproficiency"]')),
-                getSelectedText(document.querySelector('[name="gazet"]')),
-                getSelectedText(document.querySelector('[name="hindi_exam"]')),
-                document.querySelector('[name="super_annuation_date"]')?.value || ""
-            ]
-        ];
+    const isHindi = currentLang === 'hi';
 
-        const ws = XLSX.utils.aoa_to_sheet(data);
+    const headers = isHindi ? [
+        "कर्मचारी कोड",
+        "उपयोगकर्ता नाम",
+        "फोन नंबर",
+        "कार्यालय कोड",
+        "कार्यालय का नाम",
+        "अधिसूचना ईमेल",
+        "एम्पकोड",
+        "अंग्रेजी में नाम",
+        "हिंदी में नाम",
+        "पदनाम",
+        "टाइपिंग",
+        "हिंदी दक्षता",
+        "राजपत्र",
+        "उच्चतम हिंदी परीक्षा",
+        "सेवानिवृत्ति तिथि"
+    ] : [
+        "Employee Code",
+        "Username",
+        "Phone Number",
+        "Office Code",
+        "Office Name",
+        "Notification Email",
+        "Empcode",
+        "Name in English",
+        "Name in Hindi",
+        "Designation",
+        "Typing",
+        "Hindi Proficiency",
+        "Gazet",
+        "Highest Hindi Exam Passed",
+        "Superannuation Date"
+    ];
 
-        ws['!cols'] = [
-            { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 18 },
-            { wch: 28 }, { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 18 },
-            { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 25 }, { wch: 20 }
-        ];
-
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Profile Details");
-        XLSX.writeFile(wb, "Edit_Profile_Details.xlsx");
+    // ✅ Translate dropdown values to Hindi when in Hindi mode
+    function getTranslatedValue(selectEl) {
+        if (!selectEl) return "";
+        const text = selectEl.options[selectEl.selectedIndex]?.text?.trim() || "";
+        if (!isHindi) return text;
+        const hindiMap = {
+            "Gazetted": "राजपत्रित",
+            "Non-Gazetted": "अराजपत्रित",
+            "Both": "दोनों",
+            "Hindi": "हिंदी",
+            "English": "अंग्रेजी",
+            "Yes": "हाँ",
+            "No": "नहीं",
+            "Good": "अच्छा",
+            "Average": "औसत",
+            "Basic": "बुनियादी",
+            "Scientist-F": "वैज्ञानिक-एफ",
+            "Scientist-G": "वैज्ञानिक-जी",
+            "Scientist-E": "वैज्ञानिक-ई",
+            "Scientist-D": "वैज्ञानिक-डी",
+            "Scientist-C": "वैज्ञानिक-सी",
+            "Scientist-B": "वैज्ञानिक-बी",
+            "Section Officer": "अनुभाग अधिकारी",
+            "Senior Secretariate Assistant": "वरिष्ठ सचिवालय सहायक",
+            "Scientific/Technical Assistant-A": "वैज्ञानिक/तकनीकी सहायक-ए",
+            "Scientific/Technical Assistant-B": "वैज्ञानिक/तकनीकी सहायक-बी",
+            "Scientific Officer/Engineer-SB": "वैज्ञानिक अधिकारी/इंजीनियर-एसबी",
+        };
+        return hindiMap[text] || text;
     }
+
+    const data = [
+        headers,
+        [
+            document.querySelector('[name="employee_code"]')?.value || "",
+            document.querySelector('[name="username"]')?.value || "",
+            document.querySelector('[name="phone"]')?.value || "",
+            document.querySelector('[name="office_code"]')?.value || "",
+            document.querySelector('[name="office_name"]')?.value || "",
+            document.querySelector('[name="email"]')?.value || "",
+            document.querySelector('[name="empcode"]')?.value || "",
+            document.querySelector('[name="ename"]')?.value || "",
+            document.querySelector('[name="hname"]')?.value || "",
+            getTranslatedValue(document.querySelector('[name="designation"]')),
+            getTranslatedValue(document.querySelector('[name="typing"]')),
+            getTranslatedValue(document.querySelector('[name="hindiproficiency"]')),
+            getTranslatedValue(document.querySelector('[name="gazet"]')),
+            getTranslatedValue(document.querySelector('[name="highest_hindi_exam_passed"]')),
+            document.querySelector('[name="super_annuation_date"]')?.value || ""
+        ]
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+
+    ws['!cols'] = [
+        { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 18 },
+        { wch: 28 }, { wch: 15 }, { wch: 18 }, { wch: 20 }, { wch: 18 },
+        { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 25 }, { wch: 20 }
+    ];
+
+    const range = XLSX.utils.decode_range(ws['!ref']);
+
+    for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_col(col) + "1";
+        if (!ws[cellAddress]) continue;
+        ws[cellAddress].s = {
+            font: { bold: true, color: { rgb: "FFFFFF" }, name: "Arial", sz: 11 },
+            fill: { patternType: "solid", fgColor: { rgb: "366092" } },
+            alignment: { horizontal: "center", vertical: "center", wrapText: true },
+            border: {
+                left: { style: "thin" }, right: { style: "thin" },
+                top: { style: "thin" }, bottom: { style: "thin" }
+            }
+        };
+    }
+
+    for (let row = 1; row <= range.e.r; row++) {
+        for (let col = range.s.c; col <= range.e.c; col++) {
+            const cellAddress = XLSX.utils.encode_col(col) + (row + 1);
+            if (!ws[cellAddress]) continue;
+            ws[cellAddress].s = {
+                font: { name: "Arial", sz: 11, color: { rgb: "000000" } },
+                alignment: { horizontal: "left", vertical: "top", wrapText: true },
+                border: {
+                    left: { style: "thin" }, right: { style: "thin" },
+                    top: { style: "thin" }, bottom: { style: "thin" }
+                }
+            };
+        }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, isHindi ? "प्रोफाइल विवरण" : "Profile Details");
+
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const empCode = document.querySelector('[name="empcode"]')?.value || "Employee";
+    XLSX.writeFile(wb, `Profile_${empCode}_${timestamp}.xlsx`);
+}
+
 
     function downloadPDF() {
         const element = document.getElementById('captureArea');
