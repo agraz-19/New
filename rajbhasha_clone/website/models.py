@@ -427,6 +427,7 @@ class FinancialYear(models.Model):
         ordering = ['start_year']
         unique_together = ('start_year', 'end_year')
 
+
 # ---------- Sections ----------
 
 class Section1FilesData(models.Model):

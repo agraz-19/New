@@ -102,4 +102,8 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
     path('manager/report/<str:year>/<path:quarter>/print-all/', views.print_all_qpr_reports, name='print_all_qpr_reports'),
     path('manager/report/<str:year>/<path:quarter>/', views.manager_report_detail, name='manager_report_detail'),
     path("event/<str:folder>/", views.event_detail, name="event_detail"),
+    path("events-admin/", views.admin_events_dashboard, name="admin_events_dashboard"),
+    path("events-admin/upload/", views.admin_upload_event, name="admin_upload_event"),
+    path("events-admin/delete/<str:folder>/", views.admin_delete_event, name="admin_delete_event"),
+    path('get-employee/', views.api_get_employee_details, name='get_employee'),
 ]

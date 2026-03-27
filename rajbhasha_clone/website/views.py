@@ -1,77 +1,80 @@
-import os,io,csv,random,hashlib,json
-from .utils import load_employee_data
-from datetime import datetime
-from datetime import timedelta
-from urllib import request
-from django.utils.timezone import now
-from django.utils import timezone
-from django.db.models import Count, Min
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.contrib.auth import login as auth_login, logout, get_user_model
-from django.http import FileResponse
-from django.contrib.auth.views import LoginView
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.views.decorators.csrf import csrf_exempt
-from django.views import View
-from django.core.cache import cache
-from weasyprint import HTML
-from pypdf import PdfWriter, PdfReader
-from django.template.loader import render_to_string
+import csv
+import hashlib
+import io
+import json
+import os
+import random
 import tempfile
-from django.urls import reverse
-from django.http import HttpResponse, FileResponse, Http404, JsonResponse
-from django.core.exceptions import PermissionDenied
+from datetime import date, datetime, timedelta
+from typing import cast
+from urllib import request
+
+# Third-party / Django Imports
+from captcha.models import CaptchaStore, logger
+from deep_translator import GoogleTranslator
 from django.conf import settings
-from django.db.models import Q
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from reportlab.pdfgen import canvas
+from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth import get_user_model, logout
+from django.contrib.auth import login as auth_login
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.views import LoginView
+from django.core.cache import cache
+from django.core.exceptions import PermissionDenied
+from django.db.models import Count, Min, Q
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.timezone import now
+from django.views import View
+from django.views.decorators.csrf import csrf_exempt
+from gtts import gTTS
+from pypdf import PdfReader, PdfWriter
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-import os
-from gtts import gTTS
-from captcha.models import CaptchaStore
-from deep_translator import GoogleTranslator
-from .models import (
-    Employee, CustomUser, Role, DataAccessLog, ArchivedUser, cipher_suite,
-    Office,
-    QPRRecord, Section1FilesData, Section2MeetingsData,
-    Section3OfficialLanguagesData, Section4HindiLettersData,
-    Section5EnglishRepliedHindiData, Section6IssuedLettersData,
-    Section7NotingsData, Section8WorkshopsData,
-    Section9ImplementationCommitteeData, Section10HindiAdvisoryData,
-    Section11SpecificAchievementsData, UserProfile, ManagerRequest, EditRequest,
-    TypingUsageReport, CertificateData
-    , QPRPartTwo, StaffHindiKnowledge, HindiPost
-)
-from .forms import CustomLoginForm, CustomUserCreationForm, TypingUsageReportForm, CertificateDataForm
+from reportlab.pdfgen import canvas
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from weasyprint import HTML
+
+# Local App Imports
 from .employeeform import EmployeeForm
+from .forms import (
+    CertificateDataForm, CustomLoginForm, 
+    CustomUserCreationForm, TypingUsageReportForm
+)
+from .minio_service import (
+    delete_event, get_all_events, 
+    upload_event, upload_images_to_existing_event
+)
+from .models import (
+    ArchivedUser, CertificateData, CustomUser, DataAccessLog, 
+    EditRequest, Employee, HindiPost, ManagerRequest, Office, 
+    QPRPartTwo, QPRRecord, Role, Section1FilesData, Section2MeetingsData, 
+    Section3OfficialLanguagesData, Section4HindiLettersData, 
+    Section5EnglishRepliedHindiData, Section6IssuedLettersData, 
+    Section7NotingsData, Section8WorkshopsData, 
+    Section9ImplementationCommitteeData, Section10HindiAdvisoryData, 
+    Section11SpecificAchievementsData, StaffHindiKnowledge, 
+    TypingUsageReport, UserProfile, cipher_suite
+)
 from .serializers import EmployeeSerializer
-from .utils import send_system_email, get_allowed_quarters
-from typing import cast
-from datetime import date
 from .templatetags.translate_tags import translate_text
-from .minio_service import get_all_events
+from .utils import get_allowed_quarters, load_employee_data, send_system_email
+from .signals import User
+
+
+# Font Registration
 FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
-pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
-from django.contrib.admin.views.decorators import staff_member_required
-from django.shortcuts import render, redirect
-from django.http import JsonResponse
-from django.contrib import messages
-
-from .minio_service import get_all_events, upload_event, delete_event
-from .minio_service import upload_event, upload_images_to_existing_event, delete_event
-from .utils import load_employee_data
-
-
-from .utils import load_employee_data
-from django.http import JsonResponse
+if os.path.exists(FONT_PATH):
+    pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
 
 def api_get_employee_details(request):
-    emp_code = request.GET.get('empcode', '').strip()
+    emp_code = str(request.GET.get('empcode', '').strip())
 
     if not emp_code:
         return JsonResponse({
@@ -82,9 +85,6 @@ def api_get_employee_details(request):
     # 🔥 LOAD EXCEL DATA
     EMPLOYEE_DATA = load_employee_data()
 
-    # # 🔥 DEBUG (temporary)
-    # print("Searching emp_code:", emp_code)
-    # print("Available keys sample:", list(EMPLOYEE_DATA.keys())[:10])
 
     if emp_code not in EMPLOYEE_DATA:
         return JsonResponse({
@@ -93,6 +93,7 @@ def api_get_employee_details(request):
         })
 
     data = EMPLOYEE_DATA[emp_code]
+
 
     return JsonResponse({
         "status": "success",
@@ -1493,27 +1494,7 @@ def profile_view(request):
     from .models import Employee, Office
     from .employeeform import EmployeeForm
 
-    # Fetch employee using employee code
-    employee = None
-    
-    # Initialize EmployeeForm
-    form = EmployeeForm(instance=employee)
-
-    # Fetch QPR details
-    latest_qpr = QPRRecord.objects.filter(user=user).order_by('-updated_at').first()
-
-    qpr_office_name = ""
-    qpr_office_code = ""
-    qpr_phone = ""
-    qpr_email = ""
-
-    if latest_qpr:
-        qpr_office_name = latest_qpr.officeName
-        qpr_office_code = latest_qpr.officeCode
-        qpr_phone = latest_qpr.phone or ""
-        qpr_email = latest_qpr.email or ""
-
-    # Approved edit request
+    # Approved edit request (needed for both GET and POST)
     approved_request = EditRequest.objects.filter(
         user=user,
         request_type='profile',
@@ -1525,30 +1506,32 @@ def profile_view(request):
     if request.method == 'POST':
         EMPLOYEE_DATA = load_employee_data()
 
+        # ✅ FIX: Read empcode correctly from POST
         empcode = request.POST.get('empcode', '').strip()
         username = request.POST.get('username', '').strip().upper()
         phone = request.POST.get('phone', '').strip()
 
-        # ❌ Check if empcode exists
+        # ✅ FIX: Validate empcode is not empty first
+        if not empcode:
+            messages.error(request, "Employee Code is required.")
+            return redirect('profile')
+
+        # ❌ Check if empcode exists in Excel data
         if empcode not in EMPLOYEE_DATA:
             messages.error(request, "Invalid Employee Code")
             return redirect('profile')
 
+        # ✅ FIX: Convert to int for Employee model (IntegerField)
+        try:
+            emp_int = int(empcode)
+        except (ValueError, TypeError):
+            messages.error(request, "Invalid Employee Code format")
+            return redirect('profile')
+
         employee_data = EMPLOYEE_DATA[empcode]
-        employee = Employee.objects.filter(empcode=empcode).first()
-
-        # ❌ Validate name
-        if username != employee_data["name"]:
-            messages.error(request, "Name does not match official records")
-            return redirect('profile')
-
-        # ❌ Validate phone
-        if phone != employee_data["mobile"]:
-            messages.error(request, "Mobile number does not match official records")
-            return redirect('profile')
+        employee, created = Employee.objects.get_or_create(empcode=emp_int)
 
         new_email = request.POST.get('email', '').lower().strip()
-        # employee_code = request.POST.get('employee_code', '').strip()
         employee_code = empcode
         phone = request.POST.get('phone', '').strip()
         office_code_post = request.POST.get('office_code', '').strip()
@@ -1568,64 +1551,111 @@ def profile_view(request):
                 translate_text("Email is required.", lang),
                 extra_tags='danger'
             )
+            return redirect('profile')
+
+        email_hash = hashlib.sha256(new_email.encode()).hexdigest()
+
+        if CustomUser.objects.filter(email_hash=email_hash).exclude(pk=user.pk).exists():
+            messages.error(
+                request,
+                translate_text("Email already in use.", lang),
+                extra_tags='danger'
+            )
+            return redirect('profile')
+
+        # Update user email
+        user.set_email(new_email)
+
+        if user.is_edit_allowed:
+            user.is_edit_allowed = False
+
+        user.save()
+
+        # ✅ FIX: Update profile - NO refresh_from_db() before save, correct field names
+        if profile:
+            if employee_code:
+                profile.employee_code = empcode  # store as string '4505'
+
+            profile.phone = phone if phone else profile.phone
+            profile.office_code = office_code_post if office_code_post else profile.office_code
+            profile.office_name = office_name_post if office_name_post else profile.office_name
+            profile.email = new_email
+            # ✅ FIX: was profile.region = ... (wrong field name), now correct:
+            profile.language_region = request.POST.get('language_region', '')
+            profile.hod_name = request.POST.get('hod_name', '')
+            profile.profile_updated = True  # ✅ FIX: mark as updated so user isn't redirected to profile again
+
+            try:
+                profile.save()
+                # Debug - remove after confirming it works
+                profile.refresh_from_db()
+                print(f"✅ SAVED: empcode={profile.employee_code}, language_region={profile.language_region}")
+            except Exception as e:
+                messages.error(request, f"Profile save error: {str(e)}")
+                return redirect('profile')
+
+        # ===== SAVE EMPLOYEE FORM =====
+        form = EmployeeForm(request.POST, instance=employee)
+
+        if form.is_valid():
+            employee_obj = form.save(commit=False)  # ⚠️ important
+
+            # ✅ FIX: Force correct int empcode regardless of what form submitted
+            employee_obj.empcode = emp_int
+
+            exams = request.POST.getlist("hindi_exam")
+            employee_obj.highest_exam = ",".join(exams)
+
+            employee_obj.save()
+            employee_obj.refresh_from_db()  # ✅ refresh final object
         else:
+            # Log form errors for debugging
+            print(f"❌ EmployeeForm errors: {form.errors}")
+            messages.warning(request, f"Employee form errors: {form.errors}")
+        # ===============================
 
-            email_hash = hashlib.sha256(new_email.encode()).hexdigest()
+        if approved_request:
+            approved_request.status = 'used'
+            approved_request.save()
 
-            if CustomUser.objects.filter(email_hash=email_hash).exclude(pk=user.pk).exists():
+        send_system_email(user, request, 'update')
 
-                messages.error(
-                    request,
-                    translate_text("Email already in use.", lang),
-                    extra_tags='danger'
-                )
+        messages.success(
+            request,
+            translate_text("Profile updated successfully!", lang)
+        )
 
-            else:
+        return redirect('profile')
 
-                # Update user email
-                user.set_email(new_email)
+    # ===================== GET =====================
 
-                if user.is_edit_allowed:
-                    user.is_edit_allowed = False
+    # ✅ FIX: Use correct field name profile.employee_code (not profile.empcode)
+    empcode = None
+    if profile and profile.employee_code:
+        empcode = profile.employee_code.strip()
 
-                user.save()
+    employee = None
+    if empcode:
+        try:
+            employee = Employee.objects.filter(empcode=int(empcode)).first()
+        except (ValueError, TypeError):
+            employee = Employee.objects.filter(empcode=empcode).first()
 
-                # Update profile
-                if profile:
+    form = EmployeeForm(instance=employee)
 
-                    if employee_code:
-                        profile.employee_code = employee_code
+    # Fetch QPR details
+    latest_qpr = QPRRecord.objects.filter(user=user).order_by('-updated_at').first()
 
-                    profile.phone = phone or profile.phone
-                    profile.office_code = office_code_post or profile.office_code
-                    profile.office_name = office_name_post or profile.office_name
-                    profile.email = new_email
+    qpr_office_name = ""
+    qpr_office_code = ""
+    qpr_phone = ""
+    qpr_email = ""
 
-                    profile.save()
-
-                # ===== SAVE EMPLOYEE FORM =====
-
-                form = EmployeeForm(request.POST, instance=employee)
-
-                if form.is_valid():
-                    exams = request.POST.getlist("hindi_exam")
-                    employee.highest_exam = ",".join(exams)
-                    form.save()
-
-                # ===============================
-
-                if approved_request:
-                    approved_request.status = 'used'
-                    approved_request.save()
-
-                send_system_email(user, request, 'update')
-
-                messages.success(
-                    request,
-                    translate_text("Profile updated successfully!", lang)
-                )
-
-                return redirect('dashboard')
+    if latest_qpr:
+        qpr_office_name = latest_qpr.officeName
+        qpr_office_code = latest_qpr.officeCode
+        qpr_phone = latest_qpr.phone or ""
+        qpr_email = latest_qpr.email or ""
 
     # Other edit requests
     pending_edit_request = EditRequest.objects.filter(
@@ -1670,17 +1700,6 @@ def profile_view(request):
         'profile_updated': profile.profile_updated if profile else False,
     }
 
-    #     'form': form, # Now 'form' is guaranteed to exist!
-    #     'available_hods': get_active_hods(),
-    #     'current_hod': profile.hod_name if profile else None,
-    #     'can_edit': can_edit,
-    #     'offices': Office.objects.all(),
-    #     'profile_updated': profile.profile_updated if profile else False,
-    #     'qpr_office_name': profile.office_name if profile else '',
-    #     'approved_edit_request': approved_request,
-    #     'pending_edit_request': EditRequest.objects.filter(user=user, request_type='profile', status='pending').first(),
-    #     'rejected_edit_request': EditRequest.objects.filter(user=user, request_type='profile', status='rejected').order_by('-created_at').first(),
-    # }
     return render(request, 'profile.html', context)
 
 '''@login_required
@@ -2452,7 +2471,7 @@ def qpr_form(request):
         return redirect('dashboard')
     
     # Auto-create current financial year if it doesn't exist
-    ensure_current_financial_year()
+    # ensure_current_financial_year()
     
     profile_office_name = profile.office_name if profile and profile.office_name else ''
     profile_office_code = profile.office_code if profile and profile.office_code else ''
@@ -2498,6 +2517,7 @@ def qpr_form(request):
 
     # Build financial_years list from FinancialYear table's earliest recorded start
     # up to the current fiscal year. If none exist, start from current fiscal year.
+    from models import FinancialYear
     fy_qs = FinancialYear.objects.filter(is_active=True)
     min_start = fy_qs.aggregate(Min('start_year'))['start_year__min']
     if min_start is None:
@@ -4071,6 +4091,7 @@ def manager_report(request):
     }
     
     return render(request, 'qpr/manager_report.html', context)
+
 
 
 @login_required

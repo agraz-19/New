@@ -35,12 +35,12 @@
                         <div class="row mb-4">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Employee Code"|t:current_lang }}</label>
-                                <input type="text" name="employee_code" id="empcode" class="form-control" value="{{ profile.employee_code|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
+                                <input type="text" name="empcode" id="empcode" class="form-control" value="{{ profile.employee_code|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
                                 <div id="empcodeFeedback" style="margin-top:5px; font-size:14px;"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Username"|t:current_lang }}</label>
-                                <input type="text" name="username" id="username" class="form-control" value="{{ user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
+                                <input type="text" name="username" id="username" class="form-control" value="{{ employee.ename|default:user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
                             </div>
                         </div>
 
@@ -80,7 +80,7 @@
 
                                     {% for value,label in region_choices %}
                                         <option value="{{ value }}"
-                                        {% if profile.region == value %}selected{% endif %}>
+                                        {% if profile.language_region == value %}selected{% endif %}>
                                         {{ label }}
                                         </option>
                                     {% endfor %}
@@ -404,7 +404,7 @@
                 "Superannuation Date"
             ],
             [
-                document.querySelector('[name="employee_code"]')?.value || "",
+                document.querySelector('[name="empcode"]')?.value || "",
                 document.querySelector('[name="username"]')?.value || "",
                 document.querySelector('[name="phone"]')?.value || "",
                 document.querySelector('[name="office_code"]')?.value || "",
