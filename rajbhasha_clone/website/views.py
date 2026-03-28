@@ -1916,6 +1916,7 @@ def profile_view(request):
 
     context = {
         'form': form,
+<<<<<<< Updated upstream
         'employee': employee,
         'profile': profile,
         'qpr_office_name': profile.office_name if profile else '',
@@ -1934,6 +1935,21 @@ def profile_view(request):
         'approved_edit_request': approved_request,
         'pending_edit_request': pending_edit_request,
         'rejected_edit_request': rejected_edit_request,
+=======
+        'region_choices': QPRRecord.region_choices,
+        'available_hods': available_hods,
+        'current_hod': current_hod,
+        'approved_edit_request': approved_request,
+        'pending_edit_request': pending_edit_request,
+        'rejected_edit_request': rejected_edit_request,
+        'can_edit': can_edit,
+        'qpr_office_name': qpr_office_name,
+        'qpr_office_code': qpr_office_code,
+        'qpr_phone': qpr_phone,
+        'qpr_email': qpr_email,
+        'offices': offices,
+        'profile_updated': profile.profile_updated if profile else False,
+>>>>>>> Stashed changes
     }
 
     return render(request, 'profile.html', context)
