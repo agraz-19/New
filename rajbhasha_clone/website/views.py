@@ -130,7 +130,9 @@ def admin_upload_event(request):
                 upload_images_to_existing_event(folder, images)
 
             else:
-                upload_event(event_date, event_name, images)
+                                # AFTER
+                event_name_hi = request.POST.get("event_name_hi", "")
+                upload_event(event_date, event_name, event_name_hi, images)
 
             return JsonResponse({"status": "success"})
 
@@ -216,7 +218,8 @@ def admin_upload_event(request):
                 upload_images_to_existing_event(folder, images)
 
             else:
-                upload_event(event_date, event_name, images)
+                event_name_hi = request.POST.get("event_name_hi", "")
+                upload_event(event_date, event_name, event_name_hi, images)
 
             return JsonResponse({"status": "success"})
 

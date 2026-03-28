@@ -19,7 +19,7 @@ def translate_text(text: Optional[str], lang: str) -> str:
     if lang == 'en' or text_str == "":
         return text_str
 
-    cache_key = f"trans_{lang}_{hashlib.md5(text_str.encode()).hexdigest()}"
+    cache_key = f"trans_{lang}_{hashlib.md5(text_str.encode(), usedforsecurity=False).hexdigest()}"
 
     try:
         return cache.get_or_set(
