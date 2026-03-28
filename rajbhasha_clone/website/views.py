@@ -1,3 +1,155 @@
+import os,io,csv,random,hashlib,json
+from .utils import load_employee_data
+from datetime import datetime
+from datetime import timedelta
+from urllib import request
+from django.utils.timezone import now
+from django.utils import timezone
+from django.db.models import Count, Min
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth import login as auth_login, logout, get_user_model
+from django.http import FileResponse
+from django.contrib.auth.views import LoginView
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.csrf import csrf_exempt
+from django.views import View
+from django.core.cache import cache
+from weasyprint import HTML
+from pypdf import PdfWriter, PdfReader
+from django.template.loader import render_to_string
+import tempfile
+from django.urls import reverse
+from django.http import HttpResponse, FileResponse, Http404, JsonResponse
+from django.core.exceptions import PermissionDenied
+from django.conf import settings
+from django.db.models import Q
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+import os
+from gtts import gTTS
+from captcha.models import CaptchaStore
+from deep_translator import GoogleTranslator
+from .models import (
+    Employee, CustomUser, Role, DataAccessLog, ArchivedUser, cipher_suite,
+    Office,
+    QPRRecord, Section1FilesData, Section2MeetingsData,
+    Section3OfficialLanguagesData, Section4HindiLettersData,
+    Section5EnglishRepliedHindiData, Section6IssuedLettersData,
+    Section7NotingsData, Section8WorkshopsData,
+    Section9ImplementationCommitteeData, Section10HindiAdvisoryData,
+    Section11SpecificAchievementsData, UserProfile, ManagerRequest, EditRequest,
+    TypingUsageReport, CertificateData
+    , QPRPartTwo, StaffHindiKnowledge, HindiPost
+)
+from .forms import CustomLoginForm, CustomUserCreationForm, TypingUsageReportForm, CertificateDataForm
+from .employeeform import EmployeeForm
+from .serializers import EmployeeSerializer
+from .utils import send_system_email, get_allowed_quarters
+from typing import cast
+from datetime import date
+from .templatetags.translate_tags import translate_text
+from .minio_service import get_all_events
+FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
+pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
+from django.contrib.admin.views.decorators import staff_member_required
+from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.contrib import messages
+from .minio_service import get_all_events, upload_event, delete_event
+from .minio_service import upload_event, upload_images_to_existing_event, delete_event
+from .utils import load_employee_data
+from .utils import ensure_current_financial_year
+from .models import FinancialYear
+from django.http import JsonResponse
+import csv
+import hashlib
+import io
+import json
+import os
+import random
+import tempfile
+from datetime import date, datetime, timedelta
+from typing import cast
+from urllib import request
+from django.db import transaction
+# Third-party / Django Imports
+from captcha.models import CaptchaStore, logger
+from deep_translator import GoogleTranslator
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth import get_user_model, logout
+from django.contrib.auth import login as auth_login
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.views import LoginView
+from django.core.cache import cache
+from django.core.exceptions import PermissionDenied
+from django.db.models import Count, Min, Q
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.timezone import now
+from django.views import View
+from django.views.decorators.csrf import csrf_exempt
+from gtts import gTTS
+from pypdf import PdfReader, PdfWriter
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from weasyprint import HTML
+
+# Local App Imports
+from .employeeform import EmployeeForm
+from .forms import (
+    CertificateDataForm, CustomLoginForm, 
+    CustomUserCreationForm, TypingUsageReportForm
+)
+from .minio_service import (
+    delete_event, get_all_events, 
+    upload_event, upload_images_to_existing_event
+)
+from .models import (
+    ArchivedUser, CertificateData, CustomUser, DataAccessLog, 
+    EditRequest, Employee, HindiPost, ManagerRequest, Office, 
+    QPRPartTwo, QPRRecord, Role, Section1FilesData, Section2MeetingsData, 
+    Section3OfficialLanguagesData, Section4HindiLettersData, 
+    Section5EnglishRepliedHindiData, Section6IssuedLettersData, 
+    Section7NotingsData, Section8WorkshopsData, 
+    Section9ImplementationCommitteeData, Section10HindiAdvisoryData, 
+    Section11SpecificAchievementsData, StaffHindiKnowledge, 
+    TypingUsageReport, UserProfile, cipher_suite
+)
+from .serializers import EmployeeSerializer
+from .templatetags.translate_tags import translate_text
+from .utils import get_allowed_quarters, load_employee_data, send_system_email
+from .signals import User
+
+
+# Font Registration
+FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
+pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
+from django.contrib.admin.views.decorators import staff_member_required
+from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.contrib import messages
+from .minio_service import get_all_events, upload_event, delete_event
+from .minio_service import upload_event, upload_images_to_existing_event, delete_event
+from .utils import load_employee_data
+from .utils import ensure_current_financial_year
+from .models import FinancialYear
+from django.http import JsonResponse
 import csv
 import hashlib
 import io
@@ -66,15 +218,11 @@ from .serializers import EmployeeSerializer
 from .templatetags.translate_tags import translate_text
 from .utils import get_allowed_quarters, load_employee_data, send_system_email
 from .signals import User
-
-
-# Font Registration
-FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
 if os.path.exists(FONT_PATH):
     pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
 
 def api_get_employee_details(request):
-    emp_code = str(request.GET.get('empcode', '').strip())
+    emp_code = str(request.GET.get('emp_code') or request.GET.get('empcode', '')).strip()
 
     if not emp_code:
         return JsonResponse({
@@ -85,6 +233,9 @@ def api_get_employee_details(request):
     # 🔥 LOAD EXCEL DATA
     EMPLOYEE_DATA = load_employee_data()
 
+    # # 🔥 DEBUG (temporary)
+    # print("Searching emp_code:", emp_code)
+    # print("Available keys sample:", list(EMPLOYEE_DATA.keys())[:10])
 
     if emp_code not in EMPLOYEE_DATA:
         return JsonResponse({
@@ -93,7 +244,6 @@ def api_get_employee_details(request):
         })
 
     data = EMPLOYEE_DATA[emp_code]
-
 
     return JsonResponse({
         "status": "success",
@@ -149,10 +299,11 @@ def admin_upload_event(request):
 
 @staff_member_required
 def admin_delete_event(request, folder):
-
-    delete_event(folder)
-
-    messages.success(request, "Event deleted successfully")
+    try:
+        delete_event(folder)
+        messages.success(request, "Event deleted successfully")
+    except Exception as e:
+        messages.error(request, f"Failed to delete event: {e}")
 
     return redirect("admin_events_dashboard")
 
@@ -277,6 +428,8 @@ def get_active_hods(office_code=None):
         approval_status='approved'
     )
 
+    # If office_code is provided, filter by it
+    # If office_code is None/empty, show HODs with no office_code restriction or all HODs
     if office_code:
         hod_query = hod_query.filter(office_code=office_code)
 
@@ -725,10 +878,17 @@ def _allowed_frequencies_for_date(user, selected_date):
         selected_date = max_date
 
     # Week (Mon-Sat)
+    q_start, q_end = _get_quarter_range_for_date(selected_date)
+
     week_start = selected_date - timedelta(days=selected_date.weekday())
     week_end = week_start + timedelta(days=5)
-    week_days = [week_start + timedelta(days=i) for i in range(6) if (week_start + timedelta(days=i)).weekday() <= 5]
 
+    # CLIP TO QUARTER
+    week_start = max(week_start, q_start)
+    week_end = min(week_end, q_end)
+    week_days = [
+    d for d in (week_start + timedelta(days=i) for i in range((week_end - week_start).days + 1))
+    if d.weekday() <= 5 and q_start <= d <= q_end ]
     # Submitted daily dates in week
     submitted_week = set(QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='daily', period_start__range=(week_start, week_end)).values_list('period_start', flat=True))
     missing_week = [d for d in week_days if d not in submitted_week and d >= min_date and d <= max_date]
@@ -1164,6 +1324,8 @@ class ForgotPasswordView(View):
     def get(self, request):
         return render(request, 'registration/forgot_password.html')
     def post(self, request):
+        request.session.pop('is_signup', None)
+        request.session.pop('signup_data', None)
         lang = request.session.get('lang', 'en')
         username = request.POST.get('username', '').strip()
         user = CustomUser.objects.filter(username=username).first()
@@ -1185,7 +1347,7 @@ class VerifyOTPView(View):
         context = {'title_text': translate_text("Verify OTP", lang), 'button_text': translate_text("Verify Code", lang), 'current_lang': lang}
         return render(request, 'registration/verify_otp.html', context)
     def post(self, request):
-        otp_input = request.POST.get('otp')
+        otp_input = request.POST.get('otp', '').strip()
         lang = request.session.get('lang', 'en')
         if request.session.get('is_signup'):
             signup_data = request.session.get('signup_data')
@@ -1195,26 +1357,35 @@ class VerifyOTPView(View):
             email_hash = hashlib.sha256(signup_data['email'].encode()).hexdigest()
             att_key, blk_key = f"otp_att_{email_hash}", f"otp_blk_{email_hash}"
             if cache.get(blk_key):
-                return render(request, 'registration/verify_otp.html', {'is_blocked': True, 'current_lang': lang})
+                return render(request, 'registration/verify_otp.html', {'is_blocked': True, 'current_lang': lang})  
             if otp_input == signup_data['otp']:
                 if (timezone.now().timestamp() - signup_data['otp_time']) < 300: # 5 min expiry
                     try:
-                        user = CustomUser(
-                            username=signup_data['username'],
-                            password=signup_data['password'],
-                            first_name=signup_data.get('first_name', ''),
-                            is_active=True,
-                            consent_given_at=timezone.now()
-                        )
-                        user.set_email(signup_data['email'])
-                        user.save()
-                        profile, _ = UserProfile.objects.get_or_create(
-                            user=user,
-                            defaults={"employee_code": user.username}
-                        )
-                        profile.approval_status = 'pending'
-                        profile.profile_updated = False
-                        profile.save()
+                        # 💥 NEW ATOMIC BLOCK 💥
+                        with transaction.atomic():
+                            # Safely get or create to handle race conditions
+                            user, created = CustomUser.objects.get_or_create(
+                                username=signup_data['username'],
+                                defaults={
+                                    'first_name': signup_data.get('first_name', ''),
+                                    'is_active': True,
+                                    'consent_given_at': timezone.now()
+                                }
+                            )
+                            # Set password and email securely
+                            user.password = signup_data['password']
+                            user.set_email(signup_data['email'])
+                            user.save()
+                            
+                            profile, _ = UserProfile.objects.get_or_create(
+                                user=user,
+                                defaults={"employee_code": user.username}
+                            )
+                            profile.approval_status = 'pending'
+                            profile.profile_updated = False
+                            profile.save()
+                            
+                        # Log them in after the transaction is fully successful
                         auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
                         request.session['lang'] = lang
                         request.session['active_role'] = 'user'
@@ -1488,65 +1659,88 @@ def unarchive_user(request, archive_id):
     
 @login_required
 def profile_view(request):
-    """Unified profile view - displaying QPR office details + Employee form"""
+    """Unified profile view - Employee form with strict validation, HOD approval workflow, and controlled editing"""
 
     lang = request.session.get('lang', 'en')
     user = request.user
-    profile = user.profile if hasattr(user, 'profile') else None
+    profile = getattr(user, 'profile', None)
 
-    from .models import Employee, Office
+    from .models import Employee, Office, EditRequest
     from .employeeform import EmployeeForm
 
-    # Approved edit request (needed for both GET and POST)
+    employee = None
+
+    # ===============================
+    # 🔐 EDIT REQUESTS & PERMISSIONS
+    # ===============================
     approved_request = EditRequest.objects.filter(
         user=user,
         request_type='profile',
         status='approved'
     ).first()
 
-    can_edit = (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None)
+    can_edit = (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None) or (profile and profile.approval_status == 'rejected')
+    pending_edit_request = EditRequest.objects.filter(
+        user=user,
+        request_type='profile',
+        status='pending'
+    ).first()
 
+    rejected_edit_request = EditRequest.objects.filter(
+        user=user,
+        request_type='profile',
+        status='rejected'
+    ).order_by('-created_at').first()
+
+    # HEAD-style permission (lenient but controlled)
+    # ===============================
+    # 📩 POST LOGIC
+    # ===============================
     if request.method == 'POST':
+
+        # 🔒 Strict lock
+        if not can_edit:
+            messages.error(
+                request,
+                translate_text("Your profile is locked. Request edit permission.", lang),
+                extra_tags='danger'
+            )
+            return redirect('dashboard')
+
         EMPLOYEE_DATA = load_employee_data()
 
-        # ✅ FIX: Read empcode correctly from POST
         empcode = request.POST.get('empcode', '').strip()
         username = request.POST.get('username', '').strip().upper()
         phone = request.POST.get('phone', '').strip()
 
-        # ✅ FIX: Validate empcode is not empty first
-        if not empcode:
-            messages.error(request, "Employee Code is required.")
-            return redirect('profile')
-
-        # ❌ Check if empcode exists in Excel data
+        # ❌ Validate empcode
         if empcode not in EMPLOYEE_DATA:
             messages.error(request, "Invalid Employee Code")
             return redirect('profile')
 
-        # ✅ FIX: Convert to int for Employee model (IntegerField)
-        try:
-            emp_int = int(empcode)
-        except (ValueError, TypeError):
-            messages.error(request, "Invalid Employee Code format")
+        employee_data = EMPLOYEE_DATA[empcode]
+
+        # ❌ Validate name
+        if username != employee_data["name"]:
+            messages.error(request, "Name does not match official records")
             return redirect('profile')
 
-        employee_data = EMPLOYEE_DATA[empcode]
-        employee, created = Employee.objects.get_or_create(empcode=emp_int)
+        # ❌ Validate phone
+        if phone != employee_data["mobile"]:
+            messages.error(request, "Mobile number does not match official records")
+            return redirect('profile')
 
+        # Fetch employee after validation
+        employee = Employee.objects.filter(empcode=empcode).first()
+
+        # 🔥 HOD mandatory
+        hod_name_post = request.POST.get('hod_name', '').strip()
+        if not hod_name_post:
+            messages.error(request, "HOD/Approver selection is required")
+            return redirect('profile')
+
+        # Email validation
         new_email = request.POST.get('email', '').lower().strip()
-        employee_code = empcode
-        phone = request.POST.get('phone', '').strip()
-        office_code_post = request.POST.get('office_code', '').strip()
-        office_name_post = request.POST.get('office_name', '').strip()
-
-        if user.is_frozen and not can_edit:
-            messages.error(
-                request,
-                translate_text("Profile is frozen. Request edit permission.", lang),
-                extra_tags='danger'
-            )
-            return redirect('dashboard')
 
         if not new_email:
             messages.error(
@@ -1566,28 +1760,29 @@ def profile_view(request):
             )
             return redirect('profile')
 
-        # Update user email
+        # ===============================
+        # ✅ SAVE USER
+        # ===============================
         user.set_email(new_email)
-
-        if user.is_edit_allowed:
-            user.is_edit_allowed = False
-
+        user.is_edit_allowed = False
         user.save()
 
-        # ✅ FIX: Update profile - NO refresh_from_db() before save, correct field names
+        # ===============================
+        # ✅ SAVE PROFILE
+        # ===============================
         if profile:
-            if employee_code:
-                profile.employee_code = empcode  # store as string '4505'
-
-            profile.phone = phone if phone else profile.phone
-            profile.office_code = office_code_post if office_code_post else profile.office_code
-            profile.office_name = office_name_post if office_name_post else profile.office_name
+            profile.employee_code = empcode
+            profile.phone = phone
+            profile.office_code = request.POST.get('office_code', '').strip()
+            profile.office_name = request.POST.get('office_name', '').strip()
             profile.email = new_email
             # ✅ FIX: was profile.region = ... (wrong field name), now correct:
             profile.language_region = request.POST.get('language_region', '')
             profile.hod_name = request.POST.get('hod_name', '')
             profile.profile_updated = True  # ✅ FIX: mark as updated so user isn't redirected to profile again
-
+            if profile.approval_status == 'rejected':
+                profile.approval_status = 'pending'
+                messages.info(request, "Your updated profile has been sent back to your HOD for review.")
             try:
                 profile.save()
                 # Debug - remove after confirming it works
@@ -1596,27 +1791,34 @@ def profile_view(request):
             except Exception as e:
                 messages.error(request, f"Profile save error: {str(e)}")
                 return redirect('profile')
+            profile.hod_name = hod_name_post
 
-        # ===== SAVE EMPLOYEE FORM =====
+            # 🔒 Approval workflow
+            profile.profile_updated = True
+            profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
+
+            profile.save()
+
+        # ===============================
+        # ✅ EMPLOYEE FORM
+        # ===============================
         form = EmployeeForm(request.POST, instance=employee)
 
         if form.is_valid():
-            employee_obj = form.save(commit=False)  # ⚠️ important
-
-            # ✅ FIX: Force correct int empcode regardless of what form submitted
-            employee_obj.empcode = emp_int
+            emp_instance = form.save(commit=False)
 
             exams = request.POST.getlist("hindi_exam")
-            employee_obj.highest_exam = ",".join(exams)
+            emp_instance.highest_exam = ",".join(exams)
 
-            employee_obj.save()
-            employee_obj.refresh_from_db()  # ✅ refresh final object
+            emp_instance.empcode = empcode
+            emp_instance.save()
         else:
-            # Log form errors for debugging
-            print(f"❌ EmployeeForm errors: {form.errors}")
-            messages.warning(request, f"Employee form errors: {form.errors}")
-        # ===============================
+            messages.error(request, "Please fill all required Employee details correctly.")
+            return redirect('profile')
 
+        # ===============================
+        # 🔄 CLEANUP
+        # ===============================
         if approved_request:
             approved_request.status = 'used'
             approved_request.save()
@@ -1625,10 +1827,10 @@ def profile_view(request):
 
         messages.success(
             request,
-            translate_text("Profile updated successfully!", lang)
+            translate_text("Profile submitted successfully! Awaiting approval.", lang)
         )
 
-        return redirect('profile')
+        return redirect('dashboard')
 
     # ===================== GET =====================
 
@@ -1673,39 +1875,171 @@ def profile_view(request):
         status='rejected'
     ).order_by('-created_at').first()
 
-    # Available HODs
-    available_hods = get_active_hods(profile.office_code) if profile else []
-    current_hod = profile.hod_name if profile else None
+    # HEAD-style permission (lenient but controlled)
+    can_edit = (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None)
 
+    # ===============================
+    # 📩 POST LOGIC
+    # ===============================
+    if request.method == 'POST':
+
+        # 🔒 Strict lock
+        if not can_edit:
+            messages.error(
+                request,
+                translate_text("Your profile is locked. Request edit permission.", lang),
+                extra_tags='danger'
+            )
+            return redirect('dashboard')
+
+        EMPLOYEE_DATA = load_employee_data()
+
+        empcode = request.POST.get('empcode', '').strip()
+        username = request.POST.get('username', '').strip().upper()
+        phone = request.POST.get('phone', '').strip()
+
+        # ❌ Validate empcode
+        if empcode not in EMPLOYEE_DATA:
+            messages.error(request, "Invalid Employee Code")
+            return redirect('profile')
+
+        employee_data = EMPLOYEE_DATA[empcode]
+
+        # ❌ Validate name
+        if username != employee_data["name"]:
+            messages.error(request, "Name does not match official records")
+            return redirect('profile')
+
+        # ❌ Validate phone
+        if phone != employee_data["mobile"]:
+            messages.error(request, "Mobile number does not match official records")
+            return redirect('profile')
+
+        # Fetch employee after validation
+        employee = Employee.objects.filter(empcode=empcode).first()
+
+        # 🔥 HOD mandatory
+        hod_name_post = request.POST.get('hod_name', '').strip()
+        if not hod_name_post:
+            messages.error(request, "HOD/Approver selection is required")
+            return redirect('profile')
+
+        # Email validation
+        new_email = request.POST.get('email', '').lower().strip()
+
+        if not new_email:
+            messages.error(
+                request,
+                translate_text("Email is required.", lang),
+                extra_tags='danger'
+            )
+            return redirect('profile')
+
+        email_hash = hashlib.sha256(new_email.encode()).hexdigest()
+
+        if CustomUser.objects.filter(email_hash=email_hash).exclude(pk=user.pk).exists():
+            messages.error(
+                request,
+                translate_text("Email already in use.", lang),
+                extra_tags='danger'
+            )
+            return redirect('profile')
+
+        # ===============================
+        # ✅ SAVE USER
+        # ===============================
+        user.set_email(new_email)
+        user.is_edit_allowed = False
+        user.save()
+
+        # ===============================
+        # ✅ SAVE PROFILE
+        # ===============================
+        if profile:
+            profile.employee_code = empcode
+            profile.phone = phone
+            profile.office_code = request.POST.get('office_code', '').strip()
+            profile.office_name = request.POST.get('office_name', '').strip()
+            profile.email = new_email
+            profile.hod_name = hod_name_post
+
+            # 🔒 Approval workflow
+            profile.profile_updated = True
+            profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
+
+            profile.save()
+
+        # ===============================
+        # ✅ EMPLOYEE FORM
+        # ===============================
+        form = EmployeeForm(request.POST, instance=employee)
+
+        if form.is_valid():
+            emp_instance = form.save(commit=False)
+
+            exams = request.POST.getlist("hindi_exam")
+            emp_instance.highest_exam = ",".join(exams)
+
+            emp_instance.empcode = empcode
+            emp_instance.save()
+        else:
+            messages.error(request, "Please fill all required Employee details correctly.")
+            return redirect('profile')
+
+        # ===============================
+        # 🔄 CLEANUP
+        # ===============================
+        if approved_request:
+            approved_request.status = 'used'
+            approved_request.save()
+
+        send_system_email(user, request, 'update')
+
+        messages.success(
+            request,
+            translate_text("Profile submitted successfully! Awaiting approval.", lang)
+        )
+
+        return redirect('dashboard')
+
+    # ===============================
+    # 📄 GET LOGIC
+    # ===============================
+    else:
+        form = EmployeeForm(instance=employee)
+
+    # ===============================
+    # 📦 CONTEXT
+    # ===============================
     offices = Office.objects.all()
 
     context = {
-        'profile': profile,
-        'employee': employee,
         'form': form,
-        'region_choices': QPRRecord.region_choices,
+        'employee': employee,
+        'profile': profile,
+        'qpr_office_name': profile.office_name if profile else '',
+        'qpr_office_code': profile.office_code if profile else '',
+        'qpr_phone': profile.phone if profile else '',
+        'qpr_email': profile.email if profile else '',
 
-        'available_hods': available_hods,
-        'current_hod': current_hod,
+        'available_hods': get_active_hods(profile.office_code) if profile else [],
+        'current_hod': profile.hod_name if profile else None,
+
+        'can_edit': can_edit,
+        'offices': offices,
+
+        'profile_updated': profile.profile_updated if profile else False,
 
         'approved_edit_request': approved_request,
         'pending_edit_request': pending_edit_request,
         'rejected_edit_request': rejected_edit_request,
-
-        'can_edit': can_edit,
-
-        'qpr_office_name': qpr_office_name,
-        'qpr_office_code': qpr_office_code,
-        'qpr_phone': qpr_phone,
-        'qpr_email': qpr_email,
-
-        'offices': offices,
-        'profile_updated': profile.profile_updated if profile else False,
+        'region_choices': QPRRecord.region_choices,
     }
 
     return render(request, 'profile.html', context)
 
-'''@login_required
+'''
+@login_required
 def user_profile(request):
     """QPR specific profile with office details"""
     lang = request.session.get('lang', 'en')
@@ -1744,7 +2078,7 @@ def user_profile(request):
         request_type='profile',
         status='rejected'
     ).order_by('-created_at').first()
-profile_update
+
     if request.method == 'POST':
         # Collect posted values
         username = request.POST.get('username', '').strip()
@@ -2247,7 +2581,28 @@ def admin_create_manager(request):
 #         return JsonResponse({
 #             'error': 'User has not registered or entered employee code is incorrect'
 #         }, status=404)
-
+def admin_api_get_employee_details(request):
+    """API endpoint to fetch employee details by employee code"""
+    emp_code = request.GET.get('emp_code', '').strip()
+    
+    if not emp_code:
+        return JsonResponse({'error': 'Employee code is required'}, status=400)
+    
+    try:
+        profile = UserProfile.objects.get(employee_code=emp_code)
+        # Return profile display name and existing roles so admin UI can decide actions.
+        roles = list(profile.roles.values_list('name', flat=True))
+        display_name = profile.name or profile.user.get_full_name() or profile.user.username
+        return JsonResponse({
+            'success': True,
+            'name': display_name,
+            'employee_code': profile.employee_code,
+            'roles': roles or ['user']
+        })
+    except UserProfile.DoesNotExist:
+        return JsonResponse({
+            'error': 'User has not registered or entered employee code is incorrect'
+        }, status=404)
 
 @login_required
 def api_create_office(request):
@@ -2474,7 +2829,7 @@ def qpr_form(request):
         return redirect('dashboard')
     
     # Auto-create current financial year if it doesn't exist
-    # ensure_current_financial_year()
+    ensure_current_financial_year()
     
     profile_office_name = profile.office_name if profile and profile.office_name else ''
     profile_office_code = profile.office_code if profile and profile.office_code else ''
@@ -2520,7 +2875,7 @@ def qpr_form(request):
 
     # Build financial_years list from FinancialYear table's earliest recorded start
     # up to the current fiscal year. If none exist, start from current fiscal year.
-    from models import FinancialYear
+    from .models import FinancialYear
     fy_qs = FinancialYear.objects.filter(is_active=True)
     min_start = fy_qs.aggregate(Min('start_year'))['start_year__min']
     if min_start is None:
@@ -2885,6 +3240,31 @@ def api_records(request):
                 except Exception:
                     return JsonResponse({'error': 'Invalid date'}, status=400)
 
+                # --- Validation: reject Sundays, far-future dates, and any future quarter/financial year ---
+                if selected_date:
+                    try:
+                        today = timezone.localdate()
+                        # Reject Sundays (weekday() == 6)
+                        if selected_date.weekday() == 6:
+                            return JsonResponse({'error': 'Selected date cannot be a Sunday'}, status=400)
+
+                        # Reject dates more than 30 days ahead from today
+                        if selected_date > (today + timedelta(days=30)):
+                            return JsonResponse({'error': 'Selected date cannot be more than 30 days in the future'}, status=400)
+
+                        # Reject dates that fall in a future quarter/financial year relative to today
+                        try:
+                            cur_q_start, cur_q_end = _get_quarter_range_for_date(today)
+                            sel_q_start, sel_q_end = _get_quarter_range_for_date(selected_date)
+                            # If selected quarter starts after current quarter start, it's a future quarter/year
+                            if sel_q_start > cur_q_start:
+                                return JsonResponse({'error': 'Next quarter / financial year entries not allowed'}, status=400)
+                        except Exception:
+                            # If quarter calculation fails, do not block on this check
+                            pass
+                    except Exception:
+                        return JsonResponse({'error': 'Invalid date'}, status=400)
+
                 # Validate provided frequency is allowed for this user on selected_date
                 availability = _allowed_frequencies_for_date(request.user, selected_date)
                 if frequency not in availability['allowed']:
@@ -3107,9 +3487,11 @@ def api_period_summary(request):
     w_start = q_start - timedelta(days=q_start.weekday())
     while w_start <= q_end:
         w_end = w_start + timedelta(days=5)  # Mon -> Sat
+        display_start = max(w_start, q_start)
+        display_end = min(w_end, q_end) 
         # determine the actual overlap range within the quarter for counts/totals
-        actual_start = w_start if w_start >= q_start else q_start
-        actual_end = w_end if w_end <= q_end else q_end
+        actual_start = display_start
+        actual_end = display_end
         # Weekly totals: if the user selected weekly view use weekly records, otherwise sum daily records
         if selected_frequency == 'weekly':
             totals = _aggregate_records_for_range(user, actual_start, actual_end, source_frequency='weekly')
@@ -3123,16 +3505,17 @@ def api_period_summary(request):
             if dt.weekday() <= 5 and q_start <= dt <= q_end:
                 expected_days += 1
         missing_days = max(0, expected_days - daily_count)
-        weekly_submitted = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='weekly', period_start=w_start, period_end=w_end).exists()
+        weekly_submitted = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='weekly', period_start__lte=display_start, period_end__gte=display_end).exists()
         # determine region for week: prefer weekly record, else any daily within
-        weekly_rec = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='weekly', period_start=w_start, period_end=w_end).first()
+        weekly_rec = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='weekly', period_start__lte=display_start, period_end__gte=display_end).first()
         region_week = getattr(weekly_rec, 'region', '') if weekly_rec else ''
         if not region_week:
             cand = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='daily', period_start__range=(actual_start, actual_end)).first()
             region_week = getattr(cand, 'region', '') if cand else ''
+        
         weekly.append({
-            'period_start': w_start.isoformat(),
-            'period_end': w_end.isoformat(),
+            'period_start': display_start.isoformat(),
+            'period_end': display_end.isoformat(),
             'totals': totals,
             'daily_count': daily_count,
             'expected_days': expected_days,
@@ -3162,8 +3545,8 @@ def api_period_summary(request):
         else:
             totals = _aggregate_records_for_range(user, month_start, month_end, source_frequency='weekly')
         daily_count = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='daily', period_start__range=(month_start, month_end)).count()
-        monthly_submitted = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='monthly', period_start=month_start, period_end=month_end).exists()
-        monthly_rec = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='monthly', period_start=month_start, period_end=month_end).first()
+        monthly_submitted = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='monthly', period_start__lte=month_start, period_end__gte=month_end).exists()
+        monthly_rec = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='monthly', period_start__lte=month_start, period_end__gte=month_end).first()
         region_month = getattr(monthly_rec, 'region', '') if monthly_rec else ''
         if not region_month:
             cand = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='daily', period_start__range=(month_start, month_end)).first()
@@ -4094,7 +4477,6 @@ def manager_report(request):
     }
     
     return render(request, 'qpr/manager_report.html', context)
-
 
 
 @login_required

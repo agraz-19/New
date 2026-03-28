@@ -1,3 +1,4 @@
+from django import urls
 from django.urls import path, include
 from captcha import views as captcha_views
 from website import views
@@ -70,7 +71,7 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
     path('qpr/admin/employees/', views.admin_employee_list, name='qpr_admin_employee_list'),
     path('qpr/admin/create-hod/', views.admin_create_hod, name='qpr_admin_create_hod'),
     path('qpr/admin/create-manager/', views.admin_create_manager, name='qpr_admin_create_manager'),
-    path('qpr/admin/api/employee-details/', views.api_get_employee_details, name='api_get_employee_details'),
+    path('qpr/admin/api/employee-details/', views.admin_api_get_employee_details, name='api_get_employee_details'),
     path('qpr/admin/api/office-create/', views.api_create_office, name='api_create_office'),
     path('qpr/api/offices/', views.api_list_offices, name='api_list_offices'),
     path('qpr/admin/approve/<int:request_id>/', views.admin_approve_request, name='qpr_admin_approve'),
@@ -106,4 +107,5 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
     path("events-admin/upload/", views.admin_upload_event, name="admin_upload_event"),
     path("events-admin/delete/<str:folder>/", views.admin_delete_event, name="admin_delete_event"),
     path('get-employee/', views.api_get_employee_details, name='get_employee'),
+    path('qpr/hod/approval/<int:profile_id>/<str:action>/', views.process_user_approval, name='process_user_approval'),
 ]

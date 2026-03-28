@@ -52,6 +52,23 @@ def get_allowed_quarters(selected_year):
 
     return allowed
 
+def get_current_financial_year():
+    today = date.today()
+    if today.month >= 4:
+        start= today.year
+    else:
+        start= today.year - 1
+    
+    return start, start + 1
+
+def ensure_current_financial_year():
+    start, end = get_current_financial_year()
+
+    FinancialYear.objects.get_or_create(
+        start_year=start,
+        end_year=end
+    )
+
 def send_system_email(user, request, email_type, extra_context=None):    
     if extra_context is None:
         extra_context = {}
@@ -216,3 +233,39 @@ def load_employee_data():
         }
 
     return employee_dict
+QUARTERS = [
+    ("30 जून / Jun 30", 6),
+    ("30 सितंबर / Sep 30", 9),
+    ("31 दिसंबर / Dec 31", 12),
+    ("31 मार्च / Mar 31", 3),
+]
+
+def get_allowed_quarters(selected_year):
+    today = timezone.localdate()
+    current_start = today.year if today.month >= 4 else today.year - 1
+
+    if not selected_year:
+        selected_year = f"{current_start}-{current_start+1}"
+
+    try:
+        selected_start = int(selected_year.split('-')[0])
+    except:
+        return []
+
+    if selected_start < current_start:
+        return [q[0] for q in QUARTERS]
+
+    if selected_start > current_start:
+        return []
+
+    allowed = []
+    month = today.month
+
+    for name, end_month in QUARTERS:
+        if end_month == 3:
+            if month <= 3:
+                allowed.append(name)
+        elif month >= end_month:
+            allowed.append(name)
+
+    return allowed
