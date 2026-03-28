@@ -1,6 +1,8 @@
 from minio import Minio
 from django.conf import settings
 from datetime import datetime
+import json
+import io
 
 
 def get_minio_client():
@@ -16,9 +18,37 @@ def format_title(name):
     """
     Convert folder slug to readable title
     hindi-diwas -> Hindi Diwas
-    rajbhasha-kirti-awards -> Rajbhasha Kirti Awards
     """
     return name.replace("-", " ").title()
+
+
+def read_meta(client, bucket, folder):
+    """
+    Read meta.json from a folder in MinIO.
+    Returns a dict, or {} if not found.
+    """
+    try:
+        response = client.get_object(bucket, f"{folder}/meta.json")
+        data = json.loads(response.read().decode("utf-8"))
+        response.close()
+        response.release_conn()
+        return data
+    except Exception:
+        return {}
+
+
+def write_meta(client, bucket, folder, meta: dict):
+    """
+    Upload meta.json to the folder in MinIO.
+    """
+    raw = json.dumps(meta, ensure_ascii=False).encode("utf-8")
+    client.put_object(
+        bucket,
+        f"{folder}/meta.json",
+        io.BytesIO(raw),
+        length=len(raw),
+        content_type="application/json",
+    )
 
 
 def get_all_events():
@@ -30,7 +60,7 @@ def get_all_events():
 
     objects = client.list_objects(bucket, recursive=True)
 
-    # Collect images grouped by folder
+    # Collect images grouped by folder (skip meta.json)
     for obj in objects:
 
         parts = obj.object_name.split("/")
@@ -40,6 +70,10 @@ def get_all_events():
 
         folder = parts[0]
         filename = parts[-1]
+
+        # Skip the meta file itself
+        if filename == "meta.json":
+            continue
 
         if filename.lower().endswith(("jpg", "jpeg", "png", "webp")):
 
@@ -56,48 +90,54 @@ def get_all_events():
         try:
 
             if "_" in folder and folder[:4].isdigit():
-                # Folder with date
                 date_str, slug = folder.split("_", 1)
-
                 event_date = datetime.strptime(date_str, "%Y-%m-%d")
-
                 display_date = event_date.strftime("%d %B %Y")
-
                 sort_date = event_date
-
             else:
-                # Folder without date
                 slug = folder
                 display_date = "Unknown Date"
                 sort_date = datetime(1900, 1, 1)
 
+            # Read optional Hindi title from meta.json
+            meta = read_meta(client, bucket, folder)
+            title_en = meta.get("title_en") or format_title(slug)
+            title_hi = meta.get("title_hi") or title_en   # fallback to English title
+
             events.append({
                 "folder": folder,
-                "title": format_title(slug),
+                "title": title_en,           # English title
+                "title_hi": title_hi,        # Hindi title
                 "date": display_date,
-                "thumbnail": images[0],  # first image auto thumbnail
+                "thumbnail": images[0],
                 "images": images,
-                "sort_date": sort_date
+                "sort_date": sort_date,
             })
 
         except Exception as e:
             print("Skipping folder:", folder, e)
 
     # Sort newest → oldest
-    events.sort(
-        key=lambda x: x["sort_date"],
-        reverse=True
-    )
+    events.sort(key=lambda x: x["sort_date"], reverse=True)
 
     return events
 
-def upload_event(event_date, event_name, files):
 
+def upload_event(event_date, event_name, event_name_hi, files):
+    """
+    Create a new event folder, write meta.json with both titles, upload images.
+    """
     client = get_minio_client()
     bucket = settings.MINIO_BUCKET_NAME
 
     slug = event_name.lower().replace(" ", "-")
     folder = f"{event_date}_{slug}"
+
+    # Save both titles in meta.json
+    write_meta(client, bucket, folder, {
+        "title_en": event_name,
+        "title_hi": event_name_hi or event_name,   # fallback to English if blank
+    })
 
     for file in files:
 
@@ -111,12 +151,11 @@ def upload_event(event_date, event_name, files):
             object_name,
             file,
             length=-1,
-            part_size=10*1024*1024,
-            content_type=file.content_type
+            part_size=10 * 1024 * 1024,
+            content_type=file.content_type,
         )
 
     return folder
-
 
 
 def delete_event(folder):
@@ -128,6 +167,8 @@ def delete_event(folder):
 
     for obj in objects:
         client.remove_object(bucket, obj.object_name)
+
+
 def upload_images_to_existing_event(folder, files):
 
     client = get_minio_client()
@@ -142,6 +183,6 @@ def upload_images_to_existing_event(folder, files):
             object_name,
             file,
             length=-1,
-            part_size=10*1024*1024,
-            content_type=file.content_type
+            part_size=10 * 1024 * 1024,
+            content_type=file.content_type,
         )

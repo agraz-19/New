@@ -5,10 +5,10 @@
 <div class="container mt-5">
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-<h3>Event Manager</h3>
+<h3>{% if current_lang == 'hi' %}इवेंट प्रबंधक{% else %}Event Manager{% endif %}</h3>
 
 <a href="{% url 'admin_upload_event' %}" class="btn btn-primary">
-Add Event
+    {% if current_lang == 'hi' %}इवेंट जोड़ें{% else %}Add Event{% endif %}
 </a>
 </div>
 
@@ -21,29 +21,33 @@ Add Event
 <div class="card shadow-sm h-100">
 
 <img src="{{ event.thumbnail }}"
-class="card-img-top"
-style="height:200px; object-fit:cover;">
+    class="card-img-top"
+    style="height:200px; object-fit:cover;">
 
 <div class="card-body">
 
 <h5 class="card-title">
-{{ event.title }}
+    {% if current_lang == 'hi' and event.title_hi %}
+        {{ event.title_hi }}
+    {% else %}
+        {{ event.title }}
+    {% endif %}
 </h5>
 
 <p class="text-muted">
-{{ event.date }}
+    {{ event.date }}
 </p>
 
 <div class="d-flex justify-content-between">
 
 <a href="{% url 'admin_upload_event' %}?folder={{ event.folder }}"
-class="btn btn-sm btn-info">
-Add Images
+    class="btn btn-sm btn-info">
+    {% if current_lang == 'hi' %}चित्र जोड़ें{% else %}Add Images{% endif %}
 </a>
 
 <a href="{% url 'admin_delete_event' event.folder %}"
-class="btn btn-sm btn-danger">
-Delete
+    class="btn btn-sm btn-danger">
+    {% if current_lang == 'hi' %}हटाएं{% else %}Delete{% endif %}
 </a>
 
 </div>

@@ -251,9 +251,12 @@
         </div>
 
         <div class="news-title">
-            {{ event.title }}
+            {% if current_lang == 'hi' and event.title_hi %}
+                {{ event.title_hi }}
+            {% else %}
+                {{ event.title }}
+            {% endif %}
         </div>
-
     </div>
 
     </div>
