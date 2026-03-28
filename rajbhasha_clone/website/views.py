@@ -2875,6 +2875,7 @@ def qpr_form(request):
 
     # Build financial_years list from FinancialYear table's earliest recorded start
     # up to the current fiscal year. If none exist, start from current fiscal year.
+    from .models import FinancialYear
     fy_qs = FinancialYear.objects.filter(is_active=True)
     min_start = fy_qs.aggregate(Min('start_year'))['start_year__min']
     if min_start is None:
