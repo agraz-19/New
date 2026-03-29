@@ -13,8 +13,8 @@ db.sqlite3
 
 # MinIO local storage
 minio/data/
-minio
-mc
+minio.exe
+mc.exe
 
 # OS files
 .DS_Store
