@@ -16,6 +16,8 @@ minio/data/
 minio.exe
 mc.exe
 
+
+
 # OS files
 .DS_Store
 Thumbs.db
