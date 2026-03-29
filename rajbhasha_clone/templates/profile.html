@@ -35,12 +35,12 @@
                         <div class="row mb-4">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Employee Code"|t:current_lang }}</label>
-                                <input type="text" name="employee_code" id="empcode" class="form-control" value="" {% if not can_edit %}disabled{% endif %} required>
+                                <input type="text" name="empcode" id="empcode" class="form-control" value="{{ profile.employee_code|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
                                 <div id="empcodeFeedback" style="margin-top:5px; font-size:14px;"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "Username"|t:current_lang }}</label>
-                                <input type="text" name="username" id="username" class="form-control" value="{{ user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
+                                <input type="text" name="username" id="username" class="form-control" value="{{ employee.ename|default:user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
                             </div>
                         </div>
 
@@ -56,7 +56,7 @@
                         </h5>
 
                         <div class="row mb-4">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Office Code"|t:current_lang }}</label>
                                 <select name="office_code" id="office_code_select" class="form-select" {% if not can_edit %}disabled{% endif %} required>
                                     <option value="">-- {{ "Select Office"|t:current_lang }} --</option>
@@ -65,13 +65,46 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Office Name"|t:current_lang }}</label>
                                 <input type="text" name="office_name" id="office_name_field" class="form-control" value="{{ profile.office_name|default:'' }}" readonly>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Notification Email"|t:current_lang }}</label>
                                 <input type="email" name="email" class="form-control" value="{{ profile.email|default:'' }}" required {% if not can_edit %}disabled{% endif %}>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">{{ "Language Region"|t:current_lang }}</label>
+                                <select name="language_region" class="form-select" {% if not can_edit %}disabled{% endif %}>
+                                    <option value="">-- Select Region --</option>
+
+                                    {% for value,label in region_choices %}
+                                        <option value="{{ value }}"
+                                        {% if profile.language_region == value %}selected{% endif %}>
+                                        {{ label }}
+                                        </option>
+                                    {% endfor %}
+
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">{{ "Select HOD"|t:current_lang }} <span class="text-danger">*</span></label>
+                                <select name="hod_name" class="form-select" {% if not can_edit %}disabled{% endif %} required>
+
+                                    <option value="">-- Select Approver --</option>
+
+                                    {% for hod in available_hods %}
+                                        <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>
+                                            {{ hod }}
+                                        </option>
+                                    {% endfor %}
+
+                                    <option value="ADMIN" {% if current_hod == "ADMIN" %}selected{% endif %}>
+                                        Request via Admin
+                                    </option>
+
+                                </select>
                             </div>
                         </div>
 
@@ -80,11 +113,6 @@
                         </h5>
 
                         <div class="row mb-4">
-
-                            <!-- <div class="col-md-6">
-                                <label class="form-label fw-bold">Empcode</label>
-                                <input type="text" name="empcode" class="form-control"value="{{ employee.empcode }}"readonly>
-                            </div> -->
 
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Name in English</label>
@@ -355,55 +383,141 @@
     }
 
     function downloadExcel() {
-        const data = [
-            [
-                "Employee Code",
-                "Username",
-                "Phone Number",
-                "Office Code",
-                "Office Name",
-                "Notification Email",
-                "Empcode",
-                "Name in English",
-                "Name in Hindi",
-                "Designation",
-                "Typing",
-                "Hindi Proficiency",
-                "Gazet",
-                "Highest Hindi Exam Passed",
-                "Superannuation Date"
-            ],
-            [
-                document.querySelector('[name="employee_code"]')?.value || "",
-                document.querySelector('[name="username"]')?.value || "",
-                document.querySelector('[name="phone"]')?.value || "",
-                document.querySelector('[name="office_code"]')?.value || "",
-                document.querySelector('[name="office_name"]')?.value || "",
-                document.querySelector('[name="email"]')?.value || "",
-                document.querySelector('[name="empcode"]')?.value || "",
-                document.querySelector('[name="ename"]')?.value || "",
-                document.querySelector('[name="hname"]')?.value || "",
-                getSelectedText(document.querySelector('[name="designation"]')),
-                getSelectedText(document.querySelector('[name="typing"]')),
-                getSelectedText(document.querySelector('[name="hindiproficiency"]')),
-                getSelectedText(document.querySelector('[name="gazet"]')),
-                getSelectedText(document.querySelector('[name="highest_hindi_exam_passed"]')),
-                document.querySelector('[name="super_annuation_date"]')?.value || ""
-            ]
-        ];
+    const isHindi = currentLang === 'hi';
 
-        const ws = XLSX.utils.aoa_to_sheet(data);
+    const headers = isHindi ? [
+        "कर्मचारी कोड",
+        "उपयोगकर्ता नाम",
+        "फोन नंबर",
+        "कार्यालय कोड",
+        "कार्यालय का नाम",
+        "अधिसूचना ईमेल",
+        "एम्पकोड",
+        "अंग्रेजी में नाम",
+        "हिंदी में नाम",
+        "पदनाम",
+        "टाइपिंग",
+        "हिंदी दक्षता",
+        "राजपत्र",
+        "उच्चतम हिंदी परीक्षा",
+        "सेवानिवृत्ति तिथि"
+    ] : [
+        "Employee Code",
+        "Username",
+        "Phone Number",
+        "Office Code",
+        "Office Name",
+        "Notification Email",
+        "Empcode",
+        "Name in English",
+        "Name in Hindi",
+        "Designation",
+        "Typing",
+        "Hindi Proficiency",
+        "Gazet",
+        "Highest Hindi Exam Passed",
+        "Superannuation Date"
+    ];
 
-        ws['!cols'] = [
-            { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 18 },
-            { wch: 28 }, { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 18 },
-            { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 25 }, { wch: 20 }
-        ];
-
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Profile Details");
-        XLSX.writeFile(wb, "Edit_Profile_Details.xlsx");
+    // ✅ Translate dropdown values to Hindi when in Hindi mode
+    function getTranslatedValue(selectEl) {
+        if (!selectEl) return "";
+        const text = selectEl.options[selectEl.selectedIndex]?.text?.trim() || "";
+        if (!isHindi) return text;
+        const hindiMap = {
+            "Gazetted": "राजपत्रित",
+            "Non-Gazetted": "अराजपत्रित",
+            "Both": "दोनों",
+            "Hindi": "हिंदी",
+            "English": "अंग्रेजी",
+            "Yes": "हाँ",
+            "No": "नहीं",
+            "Good": "अच्छा",
+            "Average": "औसत",
+            "Basic": "बुनियादी",
+            "Scientist-F": "वैज्ञानिक-एफ",
+            "Scientist-G": "वैज्ञानिक-जी",
+            "Scientist-E": "वैज्ञानिक-ई",
+            "Scientist-D": "वैज्ञानिक-डी",
+            "Scientist-C": "वैज्ञानिक-सी",
+            "Scientist-B": "वैज्ञानिक-बी",
+            "Section Officer": "अनुभाग अधिकारी",
+            "Senior Secretariate Assistant": "वरिष्ठ सचिवालय सहायक",
+            "Scientific/Technical Assistant-A": "वैज्ञानिक/तकनीकी सहायक-ए",
+            "Scientific/Technical Assistant-B": "वैज्ञानिक/तकनीकी सहायक-बी",
+            "Scientific Officer/Engineer-SB": "वैज्ञानिक अधिकारी/इंजीनियर-एसबी",
+        };
+        return hindiMap[text] || text;
     }
+
+    const data = [
+        headers,
+        [
+            document.querySelector('[name="employee_code"]')?.value || "",
+            document.querySelector('[name="username"]')?.value || "",
+            document.querySelector('[name="phone"]')?.value || "",
+            document.querySelector('[name="office_code"]')?.value || "",
+            document.querySelector('[name="office_name"]')?.value || "",
+            document.querySelector('[name="email"]')?.value || "",
+            document.querySelector('[name="empcode"]')?.value || "",
+            document.querySelector('[name="ename"]')?.value || "",
+            document.querySelector('[name="hname"]')?.value || "",
+            getTranslatedValue(document.querySelector('[name="designation"]')),
+            getTranslatedValue(document.querySelector('[name="typing"]')),
+            getTranslatedValue(document.querySelector('[name="hindiproficiency"]')),
+            getTranslatedValue(document.querySelector('[name="gazet"]')),
+            getTranslatedValue(document.querySelector('[name="highest_hindi_exam_passed"]')),
+            document.querySelector('[name="super_annuation_date"]')?.value || ""
+        ]
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+
+    ws['!cols'] = [
+        { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 18 },
+        { wch: 28 }, { wch: 15 }, { wch: 18 }, { wch: 20 }, { wch: 18 },
+        { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 25 }, { wch: 20 }
+    ];
+
+    const range = XLSX.utils.decode_range(ws['!ref']);
+
+    for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_col(col) + "1";
+        if (!ws[cellAddress]) continue;
+        ws[cellAddress].s = {
+            font: { bold: true, color: { rgb: "FFFFFF" }, name: "Arial", sz: 11 },
+            fill: { patternType: "solid", fgColor: { rgb: "366092" } },
+            alignment: { horizontal: "center", vertical: "center", wrapText: true },
+            border: {
+                left: { style: "thin" }, right: { style: "thin" },
+                top: { style: "thin" }, bottom: { style: "thin" }
+            }
+        };
+    }
+
+    for (let row = 1; row <= range.e.r; row++) {
+        for (let col = range.s.c; col <= range.e.c; col++) {
+            const cellAddress = XLSX.utils.encode_col(col) + (row + 1);
+            if (!ws[cellAddress]) continue;
+            ws[cellAddress].s = {
+                font: { name: "Arial", sz: 11, color: { rgb: "000000" } },
+                alignment: { horizontal: "left", vertical: "top", wrapText: true },
+                border: {
+                    left: { style: "thin" }, right: { style: "thin" },
+                    top: { style: "thin" }, bottom: { style: "thin" }
+                }
+            };
+        }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, isHindi ? "प्रोफाइल विवरण" : "Profile Details");
+
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const empCode = document.querySelector('[name="empcode"]')?.value || "Employee";
+    XLSX.writeFile(wb, `Profile_${empCode}_${timestamp}.xlsx`);
+}
+
 
     function downloadPDF() {
         const element = document.getElementById('captureArea');
@@ -476,11 +590,11 @@
         }, 300);
     }
 
-    function disableForm() {
-        const form = document.getElementById("employeeForm");
-        form.querySelectorAll("input, select, textarea, button[type='submit']")
-            .forEach(el => el.disabled = true);
-    }
+    // function disableForm() {
+    //     const form = document.getElementById("employeeForm");
+    //     form.querySelectorAll("input, select, textarea, button[type='submit']")
+    //         .forEach(el => el.disabled = true);
+    // }
 
     (function() {
         const officeSelect = document.getElementById('office_code_select');

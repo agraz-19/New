@@ -8,16 +8,56 @@ from django.utils import timezone
 from .templatetags.translate_tags import translate_text
 import pandas as pd
 import os
+from datetime import date
+from .models import FinancialYear
 from django.conf import settings
-def send_system_email(user, request, email_type, extra_context=None):
-    # Attempting to send system email
+# def send_system_email(user, request, email_type, extra_context=None):
+#     # Attempting to send system email
     
+
+QUARTERS = [
+    ("30 जून / Jun 30", 6),
+    ("30 सितंबर / Sep 30", 9),
+    ("31 दिसंबर / Dec 31", 12),
+    ("31 मार्च / Mar 31", 3),
+]
+
+def get_allowed_quarters(selected_year):
+    today = timezone.localdate()
+    current_start = today.year if today.month >= 4 else today.year - 1
+
+    if not selected_year:
+        selected_year = f"{current_start}-{current_start+1}"
+
+    try:
+        selected_start = int(selected_year.split('-')[0])
+    except:
+        return []
+
+    if selected_start < current_start:
+        return [q[0] for q in QUARTERS]
+
+    if selected_start > current_start:
+        return []
+
+    allowed = []
+    month = today.month
+
+    for name, end_month in QUARTERS:
+        if end_month == 3:
+            if month <= 3:
+                allowed.append(name)
+        elif month >= end_month:
+            allowed.append(name)
+
+    return allowed
+
+def send_system_email(user, request, email_type, extra_context=None):    
     if extra_context is None:
         extra_context = {}
 
     user_email = user.get_email()
     if not user_email: 
-        # No email found for user
         return
 
     lang = request.session.get('lang', 'en') if request else 'en'
@@ -74,6 +114,22 @@ def send_system_email(user, request, email_type, extra_context=None):
             'body': "This is a reminder from your HOD. Please log in to complete your Profile and submit your Quarterly Progress Report (QPR) at the earliest.",
             'action_text': "Login Now",
             'action_url': f"{domain}{reverse('login')}"
+        },
+        'rejected_alert': {
+            'subject': "Registration Status: Action Required",
+            'headline': "Registration Rejected",
+            'body': "Your recent registration request was rejected by your HOD. Please log in to update your personal details and employee information, or contact your administrator.",
+            'action_text': "Update Profile",
+            'action_url': f"{domain}{reverse('login')}",
+            'is_alert': True
+        },
+        'accepted_alert': {
+            'subject': "Registration Status: Action Required",
+            'headline': "Registration Accepted",
+            'body': "Your recent registration request has been accepted by your HOD. Please log in to update your personal details and employee information.",
+            'action_text': "Update Profile",
+            'action_url': f"{domain}{reverse('login')}",
+            'is_alert': True
         },
         'manager_alert': {
             'subject': "Action Required: User Edit Request",

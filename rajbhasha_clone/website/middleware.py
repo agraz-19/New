@@ -78,7 +78,7 @@ class DynamicTranslationMiddleware(MiddlewareMixin):
 
                     # 4. Dynamic Translation with Cache
                     if len(original_text) > 1:
-                        cache_key = hashlib.md5(f"{target_lang}_{original_text}".encode()).hexdigest()
+                        cache_key = hashlib.md5(f"{target_lang}_{original_text}".encode(), usedforsecurity=False).hexdigest()
                         translated_text = cache.get(cache_key)
                         
                         if not translated_text:
