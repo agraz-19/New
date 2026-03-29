@@ -6,17 +6,15 @@ __pycache__/
 venv/
 
 # Database
-# db.sqlite3
+
 
 # Environment variables
 .env
 
 # MinIO local storage
-minio/data/
+minio/data
 minio.exe
 mc.exe
-
-
 
 # OS files
 .DS_Store
