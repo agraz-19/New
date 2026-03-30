@@ -59,7 +59,43 @@ def _write_meta(folder, meta: dict):
     path = _meta_path(folder)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
+        
+def update_event_meta(folder, title_en, title_hi):
+    """
+    Update titles of an existing event safely.
+    """
 
+    folder_path = os.path.join(EVENTS_ROOT, folder)
+
+    # ❌ Folder doesn't exist
+    if not os.path.exists(folder_path):
+        raise Exception(f"Event folder '{folder}' does not exist.")
+
+    meta_path = _meta_path(folder)
+
+    # ✅ Default meta
+    meta = {}
+
+    # 🔥 Read existing meta safely
+    if os.path.exists(meta_path) and os.path.isfile(meta_path):
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+        except Exception as e:
+            print(f"[ERROR] Failed reading existing meta: {e}")
+            meta = {}
+
+    # ✅ Update values
+    meta["title_en"] = title_en.strip()
+    meta["title_hi"] = (title_hi or title_en).strip()
+
+    # 🔥 Write safely
+    try:
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[ERROR] Failed writing meta.json: {e}")
+        raise Exception("Could not update event metadata.")
 
 def _format_title(slug):
     return slug.replace("-", " ").title()

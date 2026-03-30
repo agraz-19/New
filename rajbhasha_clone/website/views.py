@@ -61,7 +61,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
-from .static_event_service import get_all_events, upload_event, delete_event
+from .static_event_service import get_all_events, upload_event, delete_event,update_event_meta
 from .static_event_service import upload_event, upload_images_to_existing_event, delete_event
 from .utils import load_employee_data
 from .utils import ensure_current_financial_year
