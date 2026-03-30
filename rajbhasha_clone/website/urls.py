@@ -108,4 +108,12 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
     path("events-admin/delete/<str:folder>/", views.admin_delete_event, name="admin_delete_event"),
     path('get-employee/', views.api_get_employee_details, name='get_employee'),
     path('qpr/hod/approval/<int:profile_id>/<str:action>/', views.process_user_approval, name='process_user_approval'),
+    path("events-admin/edit-titles/", views.admin_edit_event_titles, name="admin_edit_event_titles"),
+ 
+    # Your existing event URLs should look like this after:
+    path("events-admin/",             views.admin_events_dashboard,  name="admin_events_dashboard"),
+    path("events-admin/upload/",      views.admin_upload_event,      name="admin_upload_event"),
+    path("events-admin/delete/<str:folder>/", views.admin_delete_event, name="admin_delete_event"),
+    path("events-admin/edit-titles/", views.admin_edit_event_titles, name="admin_edit_event_titles"),
+
 ]

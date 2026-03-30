@@ -54,15 +54,15 @@ from .utils import send_system_email, get_allowed_quarters
 from typing import cast
 from datetime import date
 from .templatetags.translate_tags import translate_text
-from .minio_service import get_all_events
+from .static_event_service import get_all_events
 FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
 pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
 from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
-from .minio_service import get_all_events, upload_event, delete_event
-from .minio_service import upload_event, upload_images_to_existing_event, delete_event
+from .static_event_service import get_all_events, upload_event, delete_event
+from .static_event_service import upload_event, upload_images_to_existing_event, delete_event
 from .utils import load_employee_data
 from .utils import ensure_current_financial_year
 from .models import FinancialYear
@@ -116,10 +116,7 @@ from .forms import (
     CertificateDataForm, CustomLoginForm, 
     CustomUserCreationForm, TypingUsageReportForm
 )
-from .minio_service import (
-    delete_event, get_all_events, 
-    upload_event, upload_images_to_existing_event
-)
+
 from .models import (
     ArchivedUser, CertificateData, CustomUser, DataAccessLog, 
     EditRequest, Employee, HindiPost, ManagerRequest, Office, 
@@ -144,8 +141,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
-from .minio_service import get_all_events, upload_event, delete_event
-from .minio_service import upload_event, upload_images_to_existing_event, delete_event
+
 from .utils import load_employee_data
 from .utils import ensure_current_financial_year
 from .models import FinancialYear
@@ -199,10 +195,8 @@ from .forms import (
     CertificateDataForm, CustomLoginForm, 
     CustomUserCreationForm, TypingUsageReportForm
 )
-from .minio_service import (
-    delete_event, get_all_events, 
-    upload_event, upload_images_to_existing_event
-)
+
+
 from .models import (
     ArchivedUser, CertificateData, CustomUser, DataAccessLog, 
     EditRequest, Employee, HindiPost, ManagerRequest, Office, 
@@ -254,49 +248,34 @@ def api_get_employee_details(request):
     })
 @staff_member_required
 def admin_events_dashboard(request):
-
     events = get_all_events()
-
-    return render(request, "admin_events_dashboard.html", {
-        "events": events
-    })
-
-
+    return render(request, "admin_events_dashboard.html", {"events": events})
+ 
+ 
 @staff_member_required
-
 def admin_upload_event(request):
-
     folder = request.GET.get("folder")
-
+ 
     if request.method == "POST":
-
-        event_date = request.POST.get("event_date")
-        event_name = request.POST.get("event_name")
-        images = request.FILES.getlist("images")
-
+        event_date   = request.POST.get("event_date")
+        event_name   = request.POST.get("event_name")
+        event_name_hi = request.POST.get("event_name_hi", "")
+        images       = request.FILES.getlist("images")
+ 
         try:
-
             if folder:
                 upload_images_to_existing_event(folder, images)
-
             else:
-                                # AFTER
-                event_name_hi = request.POST.get("event_name_hi", "")
                 upload_event(event_date, event_name, event_name_hi, images)
-
+ 
             return JsonResponse({"status": "success"})
-
+ 
         except Exception as e:
-
-            return JsonResponse({
-                "status": "error",
-                "message": str(e)
-            })
-
-    return render(request,"admin_upload_event.html",{
-        "folder":folder
-    })
-
+            return JsonResponse({"status": "error", "message": str(e)})
+ 
+    return render(request, "admin_upload_event.html", {"folder": folder})
+ 
+ 
 @staff_member_required
 def admin_delete_event(request, folder):
     try:
@@ -304,9 +283,29 @@ def admin_delete_event(request, folder):
         messages.success(request, "Event deleted successfully")
     except Exception as e:
         messages.error(request, f"Failed to delete event: {e}")
-
     return redirect("admin_events_dashboard")
-
+ 
+ 
+@staff_member_required
+def admin_edit_event_titles(request):
+    """AJAX endpoint — update title_en and title_hi in an event's meta.json"""
+    if request.method == "POST":
+        try:
+            data     = json.loads(request.body)
+            folder   = data.get("folder", "").strip()
+            title_en = data.get("title_en", "").strip()
+            title_hi = data.get("title_hi", "").strip()
+ 
+            if not folder or not title_en:
+                return JsonResponse({"status": "error", "message": "folder and title_en are required"})
+ 
+            update_event_meta(folder, title_en, title_hi)
+            return JsonResponse({"status": "success"})
+ 
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)})
+ 
+    return JsonResponse({"status": "error", "message": "POST only"})
 
 # Helper functions to safely access a user's roles for type-checkers
 def user_has_role(user, role_name):
