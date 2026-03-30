@@ -115,5 +115,6 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
     path("events-admin/upload/",      views.admin_upload_event,      name="admin_upload_event"),
     path("events-admin/delete/<str:folder>/", views.admin_delete_event, name="admin_delete_event"),
     path("events-admin/edit-titles/", views.admin_edit_event_titles, name="admin_edit_event_titles"),
+    path('events-admin/<str:folder>/set-thumbnail/', views.set_thumbnail, name='set_thumbnail'),
 
 ]

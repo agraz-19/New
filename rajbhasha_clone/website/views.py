@@ -306,7 +306,24 @@ def admin_edit_event_titles(request):
             return JsonResponse({"status": "error", "message": str(e)})
  
     return JsonResponse({"status": "error", "message": "POST only"})
+from website.static_event_service import update_event_meta, _read_meta
 
+@login_required
+def set_thumbnail(request, folder):
+    if request.method == "POST":
+        thumbnail = request.POST.get("thumbnail")
+
+        # 🔥 Get existing meta so titles don’t get erased
+        meta = _read_meta(folder)
+
+        update_event_meta(
+            folder,
+            title_en=meta.get("title_en", ""),
+            title_hi=meta.get("title_hi", ""),
+            thumbnail=thumbnail
+        )
+
+    return redirect('event_detail', folder=folder)
 # Helper functions to safely access a user's roles for type-checkers
 def user_has_role(user, role_name):
     """Check if user has a specific role
@@ -338,61 +355,6 @@ def user_role(user):
         if profile and profile.roles.filter(name=role).exists():
             return role
     return None
-
-
-@staff_member_required
-def admin_events_dashboard(request):
-
-    events = get_all_events()
-
-    return render(request, "admin_events_dashboard.html", {
-        "events": events
-    })
-
-
-@staff_member_required
-
-def admin_upload_event(request):
-
-    folder = request.GET.get("folder")
-
-    if request.method == "POST":
-
-        event_date = request.POST.get("event_date")
-        event_name = request.POST.get("event_name")
-        images = request.FILES.getlist("images")
-
-        try:
-
-            if folder:
-                upload_images_to_existing_event(folder, images)
-
-            else:
-                event_name_hi = request.POST.get("event_name_hi", "")
-                upload_event(event_date, event_name, event_name_hi, images)
-
-            return JsonResponse({"status": "success"})
-
-        except Exception as e:
-
-            return JsonResponse({
-                "status": "error",
-                "message": str(e)
-            })
-
-    return render(request,"admin_upload_event.html",{
-        "folder":folder
-    })
-
-
-@staff_member_required
-def admin_delete_event(request, folder):
-    try:
-        delete_event(folder)
-        messages.success(request, "Event deleted successfully")
-    except Exception as e:
-        messages.error(request, f"Failed to delete event: {e}")
-    return redirect("admin_events_dashboard")
 
 def user_get_all_roles(user):
     """Get all role names as a list"""
