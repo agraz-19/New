@@ -36,10 +36,23 @@ def _meta_path(folder):
 
 def _read_meta(folder):
     path = _meta_path(folder)
-    if os.path.exists(path):
+
+    # ✅ If path doesn't exist → return empty
+    if not os.path.exists(path):
+        return {}
+
+    # 🔥 CRITICAL FIX: ensure it's a FILE, not a folder
+    if not os.path.isfile(path):
+        print(f"[ERROR] meta.json is not a file: {path}")
+        return {}
+
+    # ✅ Safe read with error handling
+    try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    return {}
+    except Exception as e:
+        print(f"[ERROR] Failed to read meta.json in {folder}: {e}")
+        return {}
 
 
 def _write_meta(folder, meta: dict):
