@@ -9,7 +9,8 @@ from website.views import (
 
 urlpatterns = [
     path('captcha/', include('captcha.urls')),
-path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),    
+    path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),    
+    
     # Core & Auth
     path('', views.home, name='home'),
     path('dashboard/', views.dashboard, name='dashboard'), # Central Router
@@ -41,13 +42,13 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
     path('manager/report/', views.manager_report, name='manager_report'),
     path('manager/report/edit/<int:record_id>/', views.manager_report_edit_view, name='manager_report_edit'),
     path('manager/report/record/<int:record_id>/', views.manager_report_detail_by_record, name='manager_report_detail_by_record'),
-    #path('manager/report/<str:year>/<path:quarter>/', views.manager_report_detail, name='manager_report_detail'),
     path('qpr/certificate/<int:record_id>/', views.qpr_certificate, name='qpr_certificate'),
     path('qpr/certificate/<int:record_id>/form/', views.certificate_form_view, name='certificate_form'),
     path('qpr/certificate/<int:record_id>/display/', views.certificate_display_view, name='certificate_display'),
     path('qpr/certificate/<int:record_id>/part2/', views.certificate_part2_view, name='certificate_part2'),
     path('qpr/certificate/<int:record_id>/part2/print/', views.certificate_part2_print_view, name='certificate_part2_print'),
-        # Debug
+    
+    # Debug
     path('debug/whoami/', views.debug_whoami, name='debug_whoami'),
     path('qpr/hod/dashboard/', views.qpr_hod_dashboard, name='qpr_hod_dashboard'),
     path('qpr/user/dashboard/', views.user_dashboard, name='qpr_user_dashboard'),
@@ -81,7 +82,9 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
     path('qpr/admin/typing-data-report/', views.typing_data_report, name='typing_data_report'),
     path('update-designation/<int:user_id>/', views.update_designation, name='update_designation'),
     path('action/<int:user_id>/<str:action>/', views.manage_user_action, name='manage_user_action'),
+    path('qpr/hod/approval/<int:profile_id>/<str:action>/', views.process_user_approval, name='process_user_approval'),
 
+    # --- API ---
     path('qpr/api/records/', views.api_records, name='qpr_api_records'), 
     path('qpr/api/records/<int:record_id>/', views.api_record_detail, name='api_record_detail'),
     path('qpr/api/availability/', views.api_qpr_availability, name='qpr_api_availability'),
@@ -89,32 +92,27 @@ path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),
     path('qpr/api/request-edit/', views.request_edit_api, name='request_edit_api'),
     path('qpr/api/update-hod/', views.api_update_hod, name='api_update_hod'),
     path('qpr/api/user-change-hod/', views.api_user_change_hod, name='api_user_change_hod'),
+    path('get-employee/', views.api_get_employee_details, name='get_employee'),
 
+    # --- EMPLOYEE MANAGEMENT ---
     path('employee-form/', views.employee_form, name='employee_form'),
     path('employee/export-pdf/', views.export_employee_pdf, name='export_employee_pdf'), 
     path('api/employees/', EmployeeListCreateAPI.as_view(), name='employee_list_create_api'),
     path('api/employees/<int:pk>/', EmployeeDetailAPI.as_view(), name='employee_detail_api'),
     path('api/employees/submit/', SubmitDraftAPI.as_view(), name='submit_draft_api'),
 
+    # --- SYSTEM ---
     path('download-backup/', views.download_db_backup, name='download_db_backup'),
     path('perform/archive/<int:user_id>/', views.archive_user, name='archive_user'),
     path('perform/unarchive/<int:archive_id>/', views.unarchive_user, name='unarchive_user'),
 
+    # --- REPORTS & EVENTS ---
     path('manager/report/<str:year>/<path:quarter>/print-all/', views.print_all_qpr_reports, name='print_all_qpr_reports'),
     path('manager/report/<str:year>/<path:quarter>/', views.manager_report_detail, name='manager_report_detail'),
     path("event/<str:folder>/", views.event_detail, name="event_detail"),
     path("events-admin/", views.admin_events_dashboard, name="admin_events_dashboard"),
     path("events-admin/upload/", views.admin_upload_event, name="admin_upload_event"),
     path("events-admin/delete/<str:folder>/", views.admin_delete_event, name="admin_delete_event"),
-    path('get-employee/', views.api_get_employee_details, name='get_employee'),
-    path('qpr/hod/approval/<int:profile_id>/<str:action>/', views.process_user_approval, name='process_user_approval'),
-    path("events-admin/edit-titles/", views.admin_edit_event_titles, name="admin_edit_event_titles"),
- 
-    # Your existing event URLs should look like this after:
-    path("events-admin/",             views.admin_events_dashboard,  name="admin_events_dashboard"),
-    path("events-admin/upload/",      views.admin_upload_event,      name="admin_upload_event"),
-    path("events-admin/delete/<str:folder>/", views.admin_delete_event, name="admin_delete_event"),
     path("events-admin/edit-titles/", views.admin_edit_event_titles, name="admin_edit_event_titles"),
     path('events-admin/<str:folder>/set-thumbnail/', views.set_thumbnail, name='set_thumbnail'),
-
 ]
