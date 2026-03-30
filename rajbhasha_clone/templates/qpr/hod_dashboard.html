@@ -173,9 +173,9 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>{{ "Emp Code"|t:current_lang }}</th>
-                                    <th>{{ "Name"|t:current_lang }}</th>
-                                    <th>{{ "Email"|t:current_lang }}</th>
-                                    <th>{{ "Office"|t:current_lang }}</th>
+                                    <th>{{ "Employee Details"|t:current_lang }}</th>
+                                    <th>{{ "Contact Info"|t:current_lang }}</th>
+                                    <th>{{ "Location Details"|t:current_lang }}</th>
                                     <th>{{ "Actions"|t:current_lang }}</th>
                                 </tr>
                             </thead>
@@ -183,9 +183,18 @@
                                 {% for p in pending_approvals %}
                                 <tr>
                                     <td class="fw-bold">{{ p.employee_code }}</td>
-                                    <td>{{ p.name|default:p.user.username }}</td>
-                                    <td>{{ p.email|default:p.user.email }}</td>
-                                    <td>{{ p.office_name|default:"Not Set" }}</td>
+                                    <td>
+                                        <div class="fw-bold">{{ p.name|default:p.user.username }}</div>
+                                        <small class="text-muted">{{ p.designation|default:"Designation Not Set" }}</small>
+                                    </td>
+                                    <td>
+                                        <div><i class="fas fa-envelope text-muted me-1"></i> {{ p.email|default:p.user.email }}</div>
+                                        <div><i class="fas fa-phone text-muted me-1"></i> <small>{{ p.phone|default:"No Phone" }}</small></div>
+                                    </td>
+                                    <td>
+                                        <div><i class="fas fa-building text-muted me-1"></i> {{ p.office_name|default:"Office Not Set" }}</div>
+                                        <div><i class="fas fa-map-marker-alt text-muted me-1"></i> <small>{{ p.language_region|default:"Region Not Set" }}</small></div>
+                                    </td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
                                             <a href="{% url 'process_user_approval' p.id 'approve' %}" class="btn btn-success" onclick="return confirm('{{ "Approve this user?"|t:current_lang }}');">
@@ -205,7 +214,7 @@
             </div>
         </div>
     </div>
-    {% endif %}
+{% endif %}
     <!-- Employee List -->
     {% if user_list %}
     <div class="row mt-4">

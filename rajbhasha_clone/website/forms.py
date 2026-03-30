@@ -79,7 +79,19 @@ class CustomUserCreationForm(UserCreationForm):
     #     if not username.isdigit():
     #         raise forms.ValidationError(translate_text("Username must contain only integers.", self.lang))
     #     return username
-
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        from .models import CustomUser, UserProfile
+        
+        # Check if the user exists
+        if CustomUser.objects.filter(username=username).exists():
+            raise forms.ValidationError(translate_text("A user with this employee code already exists.", self.lang))
+            
+        # Check if an orphaned profile exists
+        if UserProfile.objects.filter(employee_code=username).exists():
+            raise forms.ValidationError(translate_text("This employee code is already registered in a profile.", self.lang))
+            
+        return username
     def clean_email(self):
         email = self.cleaned_data.get('email').lower().strip()
         email_hash = hashlib.sha256(email.encode()).hexdigest()
@@ -168,10 +180,8 @@ class CustomLoginForm(AuthenticationForm):
             )
         except UserProfile.DoesNotExist:
             raise ValidationError("Invalid Employee Code")
-
-        if profile.approval_status != 'approved':
-            raise ValidationError("Your account is not approved yet.")
-
+        
+        
         user = authenticate(
             request=self.request,
             username=profile.user.username,
