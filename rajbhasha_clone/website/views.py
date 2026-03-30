@@ -1,72 +1,3 @@
-import os,io,csv,random,hashlib,json
-from .utils import load_employee_data
-from datetime import datetime
-from datetime import timedelta
-from urllib import request
-from django.utils.timezone import now
-from django.utils import timezone
-from django.db.models import Count, Min
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.contrib.auth import login as auth_login, logout, get_user_model
-from django.http import FileResponse
-from django.contrib.auth.views import LoginView
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.views.decorators.csrf import csrf_exempt
-from django.views import View
-from django.core.cache import cache
-from weasyprint import HTML
-from pypdf import PdfWriter, PdfReader
-from django.template.loader import render_to_string
-import tempfile
-from django.urls import reverse
-from django.http import HttpResponse, FileResponse, Http404, JsonResponse
-from django.core.exceptions import PermissionDenied
-from django.conf import settings
-from django.db.models import Q
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-import os
-from gtts import gTTS
-from captcha.models import CaptchaStore
-from deep_translator import GoogleTranslator
-from .models import (
-    Employee, CustomUser, Role, DataAccessLog, ArchivedUser, cipher_suite,
-    Office,
-    QPRRecord, Section1FilesData, Section2MeetingsData,
-    Section3OfficialLanguagesData, Section4HindiLettersData,
-    Section5EnglishRepliedHindiData, Section6IssuedLettersData,
-    Section7NotingsData, Section8WorkshopsData,
-    Section9ImplementationCommitteeData, Section10HindiAdvisoryData,
-    Section11SpecificAchievementsData, UserProfile, ManagerRequest, EditRequest,
-    TypingUsageReport, CertificateData
-    , QPRPartTwo, StaffHindiKnowledge, HindiPost
-)
-from .forms import CustomLoginForm, CustomUserCreationForm, TypingUsageReportForm, CertificateDataForm
-from .employeeform import EmployeeForm
-from .serializers import EmployeeSerializer
-from .utils import send_system_email, get_allowed_quarters
-from typing import cast
-from datetime import date
-from .templatetags.translate_tags import translate_text
-from .static_event_service import get_all_events
-FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
-pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
-from django.contrib.admin.views.decorators import staff_member_required
-from django.shortcuts import render, redirect
-from django.http import JsonResponse
-from django.contrib import messages
-from .static_event_service import get_all_events, upload_event, delete_event,update_event_meta
-from .static_event_service import upload_event, upload_images_to_existing_event, delete_event
-from .utils import load_employee_data
-from .utils import ensure_current_financial_year
-from .models import FinancialYear
-from django.http import JsonResponse
 import csv
 import hashlib
 import io
@@ -77,7 +8,7 @@ import tempfile
 from datetime import date, datetime, timedelta
 from typing import cast
 from urllib import request
-from django.db import transaction
+
 # Third-party / Django Imports
 from captcha.models import CaptchaStore, logger
 from deep_translator import GoogleTranslator
@@ -90,6 +21,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.views import LoginView
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Count, Min, Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -116,10 +48,9 @@ from .forms import (
     CertificateDataForm, CustomLoginForm, 
     CustomUserCreationForm, TypingUsageReportForm
 )
-
 from .models import (
     ArchivedUser, CertificateData, CustomUser, DataAccessLog, 
-    EditRequest, Employee, HindiPost, ManagerRequest, Office, 
+    EditRequest, Employee, FinancialYear, HindiPost, ManagerRequest, Office, 
     QPRPartTwo, QPRRecord, Role, Section1FilesData, Section2MeetingsData, 
     Section3OfficialLanguagesData, Section4HindiLettersData, 
     Section5EnglishRepliedHindiData, Section6IssuedLettersData, 
@@ -129,89 +60,20 @@ from .models import (
     TypingUsageReport, UserProfile, cipher_suite
 )
 from .serializers import EmployeeSerializer
-from .templatetags.translate_tags import translate_text
-from .utils import get_allowed_quarters, load_employee_data, send_system_email
 from .signals import User
-
+from .static_event_service import (
+    delete_event, get_all_events, update_event_meta, 
+    upload_event, upload_images_to_existing_event
+)
+from .templatetags.translate_tags import translate_text
+from .utils import (
+    ensure_current_financial_year, get_allowed_quarters, 
+    load_employee_data, send_system_email
+)
 
 # Font Registration
 FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
 pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
-from django.contrib.admin.views.decorators import staff_member_required
-from django.shortcuts import render, redirect
-from django.http import JsonResponse
-from django.contrib import messages
-
-from .utils import load_employee_data
-from .utils import ensure_current_financial_year
-from .models import FinancialYear
-from django.http import JsonResponse
-import csv
-import hashlib
-import io
-import json
-import os
-import random
-import tempfile
-from datetime import date, datetime, timedelta
-from typing import cast
-from urllib import request
-
-# Third-party / Django Imports
-from captcha.models import CaptchaStore, logger
-from deep_translator import GoogleTranslator
-from django.conf import settings
-from django.contrib import messages
-from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.auth import get_user_model, logout
-from django.contrib.auth import login as auth_login
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.views import LoginView
-from django.core.cache import cache
-from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Min, Q
-from django.http import FileResponse, Http404, HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
-from django.template.loader import render_to_string
-from django.urls import reverse
-from django.utils import timezone
-from django.utils.timezone import now
-from django.views import View
-from django.views.decorators.csrf import csrf_exempt
-from gtts import gTTS
-from pypdf import PdfReader, PdfWriter
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfgen import canvas
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from weasyprint import HTML
-
-# Local App Imports
-from .employeeform import EmployeeForm
-from .forms import (
-    CertificateDataForm, CustomLoginForm, 
-    CustomUserCreationForm, TypingUsageReportForm
-)
-
-
-from .models import (
-    ArchivedUser, CertificateData, CustomUser, DataAccessLog, 
-    EditRequest, Employee, HindiPost, ManagerRequest, Office, 
-    QPRPartTwo, QPRRecord, Role, Section1FilesData, Section2MeetingsData, 
-    Section3OfficialLanguagesData, Section4HindiLettersData, 
-    Section5EnglishRepliedHindiData, Section6IssuedLettersData, 
-    Section7NotingsData, Section8WorkshopsData, 
-    Section9ImplementationCommitteeData, Section10HindiAdvisoryData, 
-    Section11SpecificAchievementsData, StaffHindiKnowledge, 
-    TypingUsageReport, UserProfile, cipher_suite
-)
-from .serializers import EmployeeSerializer
-from .templatetags.translate_tags import translate_text
-from .utils import get_allowed_quarters, load_employee_data, send_system_email
-from .signals import User
 if os.path.exists(FONT_PATH):
     pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
 
