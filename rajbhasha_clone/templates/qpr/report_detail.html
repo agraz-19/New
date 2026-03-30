@@ -123,12 +123,22 @@
 
     <div class="card shadow-sm">
         <div class="card-body p-3" id="reportContainer">
-            <div class="text-center text-muted py-5">
-                <div class="spinner-border spinner-border-sm me-2"></div> Loading report...
-            </div>
+                <div class="text-center text-muted py-5">
+                    <div class="spinner-border spinner-border-sm me-2"></div> Loading report...
+                </div>
         </div>
     </div>
 </div>
+
+    {% if initial_qpr_json %}
+    <script>
+        // Preloaded aggregated QPR for division mode
+        window.INITIAL_QPR = {{ initial_qpr_json|safe }};
+        window.IS_DIVISION = true;
+    </script>
+    {% else %}
+    <script>window.INITIAL_QPR = null; window.IS_DIVISION = false;</script>
+    {% endif %}
 
 <script>
 const pathParts = window.location.pathname.split('/');
@@ -154,14 +164,28 @@ function cell(val) {
 
 async function loadReport() {
     try {
-        const res = await fetch(`/qpr/api/records/${recordId}/`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        // If template provided INITIAL_QPR (division mode), use it directly
+        let r = null;
+        if (window.INITIAL_QPR) {
+            r = window.INITIAL_QPR;
+        } else {
+            const params = new URLSearchParams(window.location.search);
+            const targetUserId = params.get('user_id') || '';
+            const detailUrl = targetUserId ? `/qpr/api/records/${recordId}/?user_id=${targetUserId}` : `/qpr/api/records/${recordId}/`;
+            console.log('Fetching report detail from', detailUrl);
+            const res = await fetch(detailUrl);
+            console.log('Report detail response status:', res.status, res.statusText);
+            if (!res.ok) {
+                const text = await res.text().catch(() => '<no response body>');
+                throw new Error(`HTTP ${res.status}: ${text}`);
+            }
 
-        const r = await res.json();
-        if (!r || r.error) {
-            document.getElementById('reportContainer').innerHTML =
-                `<div class="text-danger p-4">${r?.error || 'Failed to load'}</div>`;
-            return;
+            r = await res.json();
+            if (!r || r.error) {
+                document.getElementById('reportContainer').innerHTML =
+                    `<div class="text-danger p-4">${r?.error || 'Failed to load'}</div>`;
+                return;
+            }
         }
 
         // Helper to pick cumulative value for non-daily records, otherwise use record's value
