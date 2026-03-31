@@ -1322,13 +1322,16 @@ class ResendOTPView(View):
 
 class ResetPasswordView(View):
     def get(self, request):
-        if not request.session.get('reset_email_hash'): return redirect('forgot_password')
+        if not request.session.get('reset_email_hash'):
+            return redirect('forgot_password')
         return render(request, 'registration/reset_password.html')
+
     def post(self, request):
         email_hash = request.session.get('reset_email_hash')
         pwd = request.POST.get('password')
         cfm = request.POST.get('confirm_password')
-        if not email_hash: return redirect('forgot_password')
+        if not email_hash:
+            return redirect('forgot_password')
         if pwd == cfm:
             user = CustomUser.objects.filter(email_hash=email_hash).first()
             if user:
