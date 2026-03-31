@@ -41,15 +41,20 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-
-    # Teammate middleware
-    'website.middleware.DynamicTranslationMiddleware',
+    # # Custom middleware should always be last
+    # 'website.middleware.DynamicTranslationMiddleware',
 ]
 
 
 ROOT_URLCONF = 'core.urls'
 WSGI_APPLICATION = 'core.wsgi.application'
 
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+CSRF_TRUSTED_ORIGINS = [
+    'http://127.0.0.1:8000',
+    'http://localhost:8000'
+]
 
 # TEMPLATES
 TEMPLATES = [
@@ -168,10 +173,6 @@ ENCRYPTION_KEY = 'EOxZWt1RC6O9GKhF8d30FUxyCyjGAz29smC5i8tWA0I='
 CSRF_FAILURE_VIEW = 'website.views.csrf_failure'
 # ---------------- MINIO CONFIG ---------------- #
 
-MINIO_ENDPOINT = "127.0.0.1:9000"
-MINIO_ACCESS_KEY = "minioadmin"
-MINIO_SECRET_KEY = "minioadmin"
-MINIO_BUCKET_NAME = "events"
-MINIO_SECURE = False  # False because localhost (http)
+
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = "/media/"
