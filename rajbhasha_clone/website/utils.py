@@ -229,7 +229,9 @@ def load_employee_data():
             "name": name,
             "hindi_name": hindi_name,
             "designation": designation,
-            "mobile": mobile
+            "mobile": mobile,
+            "state": str(row.get("State", "")).strip(),
+            "ip_number": str(row.get("IP Number", "")).strip()
         }
 
     return employee_dict
