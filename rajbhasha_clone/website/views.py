@@ -41,6 +41,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from weasyprint import HTML
+from django.views.decorators.http import require_http_methods
 
 # Local App Imports
 from .employeeform import EmployeeForm
@@ -48,6 +49,7 @@ from .forms import (
     CertificateDataForm, CustomLoginForm, 
     CustomUserCreationForm, TypingUsageReportForm
 )
+from .models import ProfileChangeRequest
 from .models import (
     ArchivedUser, CertificateData, CustomUser, DataAccessLog, 
     EditRequest, Employee, FinancialYear, HindiPost, ManagerRequest, Office, 
@@ -106,8 +108,62 @@ def api_get_employee_details(request):
         "name": data.get("name"),
         "hindi_name": data.get("hindi_name"),
         "mobile": data.get("mobile"),
+        'state': data.get('state', ''), # Ensure this col exists in Excel
+        'ip_number': data.get('ip_number', ''), # Ensure this col exists in Excel
         "designation": data.get("designation")
     })
+
+@login_required
+@require_http_methods(["POST"])
+def submit_profile_change_request(request):
+    """User submits a reason to unlock their profile for editing"""
+    try:
+        data = json.loads(request.body)
+        reason = data.get('change_reason', '').strip()
+        
+        if not reason:
+            return JsonResponse({'success': False, 'message': 'Reason is required'})
+        
+        profile = request.user.profile
+        
+        # Create the request
+        change_request = ProfileChangeRequest.objects.create(
+            profile=profile,
+            change_reason=reason,
+            # Link to the HOD currently assigned in their profile
+            hod=CustomUser.objects.filter(username=profile.hod_name).first() 
+        )
+        
+        # Update profile status to reflect a pending change
+        profile.approval_status = 'change_pending' 
+        profile.save()
+        
+        return JsonResponse({'success': True, 'message': 'Request submitted to HOD'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@login_required
+def approve_profile_change(request, request_id):
+    """HOD approves the request, which unlocks the fields"""
+    if not user_has_role(request.user, ['hod', 'admin']):
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+        
+    change_request = get_object_or_404(ProfileChangeRequest, id=request_id)
+    profile = change_request.profile
+    
+    change_request.status = 'approved'
+    change_request.approved_at = timezone.now()
+    change_request.save()
+    
+    # This status allows the frontend to enable input fields
+    profile.approval_status = 'approved' 
+    # Or a specific 'edit_mode' flag if you prefer
+    request.user.is_edit_allowed = True 
+    request.user.save()
+    profile.save()
+    
+    return JsonResponse({'success': True, 'message': 'Profile unlocked for user'})
+
 @staff_member_required
 def admin_events_dashboard(request):
     events = get_all_events()
@@ -1266,13 +1322,16 @@ class ResendOTPView(View):
 
 class ResetPasswordView(View):
     def get(self, request):
-        if not request.session.get('reset_email_hash'): return redirect('forgot_password')
+        if not request.session.get('reset_email_hash'):
+            return redirect('forgot_password')
         return render(request, 'registration/reset_password.html')
+
     def post(self, request):
         email_hash = request.session.get('reset_email_hash')
         pwd = request.POST.get('password')
         cfm = request.POST.get('confirm_password')
-        if not email_hash: return redirect('forgot_password')
+        if not email_hash:
+            return redirect('forgot_password')
         if pwd == cfm:
             user = CustomUser.objects.filter(email_hash=email_hash).first()
             if user:

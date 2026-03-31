@@ -110,4 +110,7 @@ urlpatterns = [
     path('qpr/hod/approval/<int:profile_id>/<str:action>/', views.process_user_approval, name='process_user_approval'),
     path("events-admin/edit-titles/", views.admin_edit_event_titles, name="admin_edit_event_titles"),
     path('events-admin/<str:folder>/set-thumbnail/', views.set_thumbnail, name='set_thumbnail'),
+    # 🆕 Profile Change Request Workflow
+    path('api/submit-profile-change/', views.submit_profile_change_request, name='submit_profile_change_request'),
+    path('api/approve-profile-change/<int:request_id>/', views.approve_profile_change, name='approve_profile_change'),
 ]
