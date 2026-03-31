@@ -74,7 +74,7 @@ import tempfile
 from datetime import date, datetime, timedelta
 from typing import cast
 from urllib import request
-from django.db import transaction
+
 # Third-party / Django Imports
 from captcha.models import CaptchaStore, logger
 from deep_translator import GoogleTranslator
@@ -87,6 +87,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.views import LoginView
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Count, Min, Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -106,6 +107,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from weasyprint import HTML
+from django.views.decorators.http import require_http_methods
 
 # Local App Imports
 from .employeeform import EmployeeForm
@@ -113,9 +115,10 @@ from .forms import (
     CertificateDataForm, CustomLoginForm, 
     CustomUserCreationForm, TypingUsageReportForm
 )
+from .models import ProfileChangeRequest
 from .models import (
     ArchivedUser, CertificateData, CustomUser, DataAccessLog, 
-    EditRequest, Employee, HindiPost, ManagerRequest, Office, 
+    EditRequest, Employee, FinancialYear, HindiPost, ManagerRequest, Office, 
     QPRPartTwo, QPRRecord, Role, Section1FilesData, Section2MeetingsData, 
     Section3OfficialLanguagesData, Section4HindiLettersData, 
     Section5EnglishRepliedHindiData, Section6IssuedLettersData, 
@@ -125,10 +128,16 @@ from .models import (
     TypingUsageReport, UserProfile, cipher_suite
 )
 from .serializers import EmployeeSerializer
-from .templatetags.translate_tags import translate_text
-from .utils import get_allowed_quarters, load_employee_data, send_system_email
 from .signals import User
-
+from .static_event_service import (
+    delete_event, get_all_events, update_event_meta, 
+    upload_event, upload_images_to_existing_event
+)
+from .templatetags.translate_tags import translate_text
+from .utils import (
+    ensure_current_financial_year, get_allowed_quarters, 
+    load_employee_data, send_system_email
+)
 
 # Font Registration
 FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
@@ -237,139 +246,92 @@ def api_get_employee_details(request):
         "name": data.get("name"),
         "hindi_name": data.get("hindi_name"),
         "mobile": data.get("mobile"),
+        'state': data.get('state', ''), # Ensure this col exists in Excel
+        'ip_number': data.get('ip_number', ''), # Ensure this col exists in Excel
         "designation": data.get("designation")
     })
-def manager_report(request):
-    """Manager Report - build grouped HOD -> employees per spec.
 
-    Rules:
-    - Manager limited to their `office_code` (from userprofile)
-    - HODs selected by roles__name='hod', office_code and approval_status='approved'
-    - Employees selected by hod_name__iexact=hod.name and approval_status='approved'
-    - Include HOD in their own employees list, dedupe by id
-    - Render `qpr/manager_report.html` with `manager_data` = list of dicts
-    """
-    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
-        return redirect('/')
+@login_required
+@require_http_methods(["POST"])
+def submit_profile_change_request(request):
+    """User submits a reason to unlock their profile for editing"""
+    try:
+        data = json.loads(request.body)
+        reason = data.get('change_reason', '').strip()
+        
+        if not reason:
+            return JsonResponse({'success': False, 'message': 'Reason is required'})
+        
+        profile = request.user.profile
+        
+        # Create the request
+        change_request = ProfileChangeRequest.objects.create(
+            profile=profile,
+            change_reason=reason,
+            # Link to the HOD currently assigned in their profile
+            hod=CustomUser.objects.filter(username=profile.hod_name).first() 
+        )
+        
+        # Update profile status to reflect a pending change
+        profile.approval_status = 'change_pending' 
+        profile.save()
+        
+        return JsonResponse({'success': True, 'message': 'Request submitted to HOD'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
-    # Step 1: get manager profile and office_code (try both common attribute names)
-    manager_profile = getattr(request.user, 'userprofile', None) or getattr(request.user, 'profile', None)
-    office_code = getattr(manager_profile, 'office_code', None)
-
-    print("MANAGER:", request.user.id)
-    print("OFFICE:", office_code)
-
-    manager_data = []
-    if office_code:
-        hod_profiles = UserProfile.objects.filter(
-            office_code=office_code,
-            roles__name__iexact='hod',
-            approval_status='approved'
-        ).select_related('user').distinct()
-
-        print("HODS FOUND:", hod_profiles.count())
-
-        for hod_profile in hod_profiles:
-            try:
-                # Step 3: fetch employees by hod_name (NOT by office_code)
-                hod_name_raw = (hod_profile.name or '').strip()
-                employees_qs = UserProfile.objects.filter(
-                    hod_name__iexact=hod_name_raw,
-                    approval_status='approved'
-                ).select_related('user')
-
-                # Step 4: include HOD themself (ensure HOD is first)
-                employees_list = [hod_profile] + list(employees_qs)
-
-                # Step 5: remove duplicates by profile id while preserving order (keep first occurrence)
-                unique = {}
-                final_profiles = []
-                for emp in employees_list:
-                    try:
-                        key = getattr(emp, 'id', None)
-                        if key is None:
-                            continue
-                        if key in unique:
-                            continue
-                        unique[key] = True
-                        final_profiles.append(emp)
-                    except Exception:
-                        continue
-
-                # Build employee dicts for template: include user id and display name
-                emp_dicts = []
-                for p in final_profiles:
-                    try:
-                        user_obj = getattr(p, 'user', None)
-                        uid = getattr(user_obj, 'id', None)
-                        # Prefer profile.name, fallback to linked user's username
-                        name = getattr(p, 'name', '') or (getattr(user_obj, 'username', None) or '')
-                        empcode = getattr(p, 'employee_code', '')
-                        # fallback to username when employee_code missing
-                        if not empcode:
-                            empcode = getattr(user_obj, 'username', '')
-                        # normalize to string for template
-                        empcode = str(empcode) if empcode is not None else ''
-                        if uid is None:
-                            # skip profiles without linked user
-                            continue
-                        emp_dicts.append({'id': uid, 'name': name, 'empcode': empcode})
-                    except Exception:
-                        continue
-
-                # Debug logs per group
-                print("HOD:", hod_profile.name)
-                print("EMP COUNT:", len(emp_dicts))
-                print("EMP LIST:", [e['name'] for e in emp_dicts])
-                print("EMP CODES:", [e.get('empcode') for e in emp_dicts])
-
-                manager_data.append({
-                    'hod_name': hod_profile.name,
-                    'employees': emp_dicts,
-                })
-            except Exception:
-                continue
-
-    return render(request, 'qpr/manager_report.html', {
-        'manager_data': manager_data,
-    })
-
+@login_required
+def approve_profile_change(request, request_id):
+    """HOD approves the request, which unlocks the fields"""
+    if not user_has_role(request.user, ['hod', 'admin']):
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+        
+    change_request = get_object_or_404(ProfileChangeRequest, id=request_id)
+    profile = change_request.profile
+    
+    change_request.status = 'approved'
+    change_request.approved_at = timezone.now()
+    change_request.save()
+    
+    # This status allows the frontend to enable input fields
+    profile.approval_status = 'approved' 
+    # Or a specific 'edit_mode' flag if you prefer
+    request.user.is_edit_allowed = True 
+    request.user.save()
+    profile.save()
+    
+    return JsonResponse({'success': True, 'message': 'Profile unlocked for user'})
 
 @staff_member_required
-
+def admin_events_dashboard(request):
+    events = get_all_events()
+    return render(request, "admin_events_dashboard.html", {"events": events})
+ 
+ 
+@staff_member_required
 def admin_upload_event(request):
-
     folder = request.GET.get("folder")
-
+ 
     if request.method == "POST":
-
-        event_date = request.POST.get("event_date")
-        event_name = request.POST.get("event_name")
-        images = request.FILES.getlist("images")
-
+        event_date   = request.POST.get("event_date")
+        event_name   = request.POST.get("event_name")
+        event_name_hi = request.POST.get("event_name_hi", "")
+        images       = request.FILES.getlist("images")
+ 
         try:
-
             if folder:
                 upload_images_to_existing_event(folder, images)
-
             else:
-                                # AFTER
-                event_name_hi = request.POST.get("event_name_hi", "")
                 upload_event(event_date, event_name, event_name_hi, images)
-
+ 
             return JsonResponse({"status": "success"})
-
+ 
         except Exception as e:
-
-            return JsonResponse({
-                "status": "error",
-                "message": str(e)
-            })
-
-    return render(request,"admin_upload_event.html",{
-        "folder":folder
-    })
-
+            return JsonResponse({"status": "error", "message": str(e)})
+ 
+    return render(request, "admin_upload_event.html", {"folder": folder})
+ 
+ 
 @staff_member_required
 def admin_delete_event(request, folder):
     try:
@@ -377,10 +339,47 @@ def admin_delete_event(request, folder):
         messages.success(request, "Event deleted successfully")
     except Exception as e:
         messages.error(request, f"Failed to delete event: {e}")
-
     return redirect("admin_events_dashboard")
+ 
+ 
+@staff_member_required
+def admin_edit_event_titles(request):
+    """AJAX endpoint — update title_en and title_hi in an event's meta.json"""
+    if request.method == "POST":
+        try:
+            data     = json.loads(request.body)
+            folder   = data.get("folder", "").strip()
+            title_en = data.get("title_en", "").strip()
+            title_hi = data.get("title_hi", "").strip()
+ 
+            if not folder or not title_en:
+                return JsonResponse({"status": "error", "message": "folder and title_en are required"})
+ 
+            update_event_meta(folder, title_en, title_hi)
+            return JsonResponse({"status": "success"})
+ 
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)})
+ 
+    return JsonResponse({"status": "error", "message": "POST only"})
+from website.static_event_service import update_event_meta, _read_meta
 
+@login_required
+def set_thumbnail(request, folder):
+    if request.method == "POST":
+        thumbnail = request.POST.get("thumbnail")
 
+        # 🔥 Get existing meta so titles don’t get erased
+        meta = _read_meta(folder)
+
+        update_event_meta(
+            folder,
+            title_en=meta.get("title_en", ""),
+            title_hi=meta.get("title_hi", ""),
+            thumbnail=thumbnail
+        )
+
+    return redirect('event_detail', folder=folder)
 # Helper functions to safely access a user's roles for type-checkers
 def user_has_role(user, role_name):
     """Return True if user (or their profile) has the given role or any in the list."""
@@ -408,61 +407,6 @@ def user_role(user):
         if profile and profile.roles.filter(name=role).exists():
             return role
     return None
-
-
-@staff_member_required
-def admin_events_dashboard(request):
-
-    events = get_all_events()
-
-    return render(request, "admin_events_dashboard.html", {
-        "events": events
-    })
-
-
-@staff_member_required
-
-def admin_upload_event(request):
-
-    folder = request.GET.get("folder")
-
-    if request.method == "POST":
-
-        event_date = request.POST.get("event_date")
-        event_name = request.POST.get("event_name")
-        images = request.FILES.getlist("images")
-
-        try:
-
-            if folder:
-                upload_images_to_existing_event(folder, images)
-
-            else:
-                event_name_hi = request.POST.get("event_name_hi", "")
-                upload_event(event_date, event_name, event_name_hi, images)
-
-            return JsonResponse({"status": "success"})
-
-        except Exception as e:
-
-            return JsonResponse({
-                "status": "error",
-                "message": str(e)
-            })
-
-    return render(request,"admin_upload_event.html",{
-        "folder":folder
-    })
-
-
-@staff_member_required
-def admin_delete_event(request, folder):
-    try:
-        delete_event(folder)
-        messages.success(request, "Event deleted successfully")
-    except Exception as e:
-        messages.error(request, f"Failed to delete event: {e}")
-    return redirect("admin_events_dashboard")
 
 def user_get_all_roles(user):
     """Get all role names as a list"""
@@ -1512,13 +1456,16 @@ class ResendOTPView(View):
 
 class ResetPasswordView(View):
     def get(self, request):
-        if not request.session.get('reset_email_hash'): return redirect('forgot_password')
+        if not request.session.get('reset_email_hash'):
+            return redirect('forgot_password')
         return render(request, 'registration/reset_password.html')
+
     def post(self, request):
         email_hash = request.session.get('reset_email_hash')
         pwd = request.POST.get('password')
         cfm = request.POST.get('confirm_password')
-        if not email_hash: return redirect('forgot_password')
+        if not email_hash:
+            return redirect('forgot_password')
         if pwd == cfm:
             user = CustomUser.objects.filter(email_hash=email_hash).first()
             if user:
@@ -2409,12 +2356,23 @@ def manager_dashboard(request):
 
     users = CustomUser.objects.select_related('profile').filter(profile__office_code=manager_office).order_by('-date_joined')
 
-    # Get employee codes from users in this office
-    office_employee_codes = CustomUser.objects.filter(profile__office_code=manager_office).values_list('profile__employee_code', flat=True)
-    office_employee_codes = [str(code).zfill(3) if code else None for code in office_employee_codes if code]
+    # Get employee codes from users in this office (only numeric codes)
+    office_employee_codes_qs = CustomUser.objects.filter(profile__office_code=manager_office).values_list('profile__employee_code', flat=True)
+    office_employee_codes = []
+    for code in office_employee_codes_qs:
+        if code is None:
+            continue
+        # Accept integers or strings that represent integers; skip non-numeric values
+        try:
+            office_employee_codes.append(int(str(code).strip()))
+        except (ValueError, TypeError):
+            continue
 
-    # Fetch employee records directly by empcode (which matches username/employee_code)
-    raw_employees = Employee.objects.filter(empcode__in=office_employee_codes).order_by('-lastupdate')
+    # Fetch employee records directly by numeric empcode
+    if office_employee_codes:
+        raw_employees = Employee.objects.filter(empcode__in=office_employee_codes).order_by('-lastupdate')
+    else:
+        raw_employees = Employee.objects.none()
     
     employee_data = []
     

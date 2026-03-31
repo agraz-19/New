@@ -88,7 +88,7 @@
 
 <script>
     const LIST_API_URL = "{% url 'qpr_api_records' %}";
-    const SUMMARY_API_URL_BASE = "{% url 'qpr_api_period_summary' %}";
+    const SUMMARY_API_URL_BASE = "{% url 'api_period_summary' %}";
     const IS_HOD_VIEW = "{{ is_hod_view|yesno:'true,false' }}" === "true";
     const TARGET_USER_ID = "{{ target_user_id|default:'' }}";
     const USER_SUFFIX = TARGET_USER_ID ? `?user_id=${TARGET_USER_ID}` : '';

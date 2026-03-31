@@ -243,6 +243,25 @@ class UserProfile(models.Model):
     name = models.CharField(max_length=255, blank=True, null=True)
     encrypted_email = models.BinaryField(blank=True, null=True)
     encrypted_phone = models.BinaryField(blank=True, null=True)
+    alternate_email = models.EmailField(
+        blank=True, 
+        null=True,
+        # validators=[EmailValidator()],
+        help_text="Optional alternate email address")
+    ip_number = models.CharField(
+        max_length=20, 
+        blank=True, 
+        null=True,
+        help_text="Auto-filled from employee database"
+    )
+    
+    # Office Information
+    office_state = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True,
+        help_text="Auto-filled from employee database"
+    )
     office_name = models.CharField(max_length=255, blank=True, null=True)
     office_code = models.CharField(max_length=50, blank=True, null=True)
     # Language region selection used by QPR (e.g., "भाषा क्षेत्र 'क' / Region A")
@@ -293,6 +312,27 @@ class UserProfile(models.Model):
     
     class Meta:
         ordering = ['-id']
+        
+class ProfileChangeRequest(models.Model):
+    """🆕 New model to store change requests from employees"""
+    REQUEST_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('completed', 'Completed'),
+    ]
+
+    profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='change_requests')
+    # Link to the HOD (CustomUser)
+    hod = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='pending_profile_changes')
+    change_reason = models.TextField() 
+    status = models.CharField(max_length=20, choices=REQUEST_STATUS_CHOICES, default='pending')
+    requested_at = models.DateTimeField(auto_now_add=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approval_comments = models.TextField(blank=True)
+    
+    def __str__(self):
+        return f"Change Request - {self.profile.user.username} ({self.status})"
 
 
 class ManagerRequest(models.Model):
