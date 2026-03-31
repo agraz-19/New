@@ -54,15 +54,12 @@ from .utils import send_system_email, get_allowed_quarters
 from typing import cast
 from datetime import date
 from .templatetags.translate_tags import translate_text
-from .minio_service import get_all_events
 FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
 pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
 from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
-from .minio_service import get_all_events, upload_event, delete_event
-from .minio_service import upload_event, upload_images_to_existing_event, delete_event
 from .utils import load_employee_data
 from .utils import ensure_current_financial_year
 from .models import FinancialYear
@@ -116,10 +113,6 @@ from .forms import (
     CertificateDataForm, CustomLoginForm, 
     CustomUserCreationForm, TypingUsageReportForm
 )
-from .minio_service import (
-    delete_event, get_all_events, 
-    upload_event, upload_images_to_existing_event
-)
 from .models import (
     ArchivedUser, CertificateData, CustomUser, DataAccessLog, 
     EditRequest, Employee, HindiPost, ManagerRequest, Office, 
@@ -144,8 +137,6 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
-from .minio_service import get_all_events, upload_event, delete_event
-from .minio_service import upload_event, upload_images_to_existing_event, delete_event
 from .utils import load_employee_data
 from .utils import ensure_current_financial_year
 from .models import FinancialYear
@@ -198,10 +189,6 @@ from .employeeform import EmployeeForm
 from .forms import (
     CertificateDataForm, CustomLoginForm, 
     CustomUserCreationForm, TypingUsageReportForm
-)
-from .minio_service import (
-    delete_event, get_all_events, 
-    upload_event, upload_images_to_existing_event
 )
 from .models import (
     ArchivedUser, CertificateData, CustomUser, DataAccessLog, 
