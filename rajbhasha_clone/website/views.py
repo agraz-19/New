@@ -118,6 +118,11 @@ def api_get_employee_details(request):
 def submit_profile_change_request(request):
     """User submits a reason to unlock their profile for editing"""
     try:
+        # Debug: Print CSRF token and headers
+        print("[DEBUG] CSRF cookie:", request.COOKIES.get('csrftoken'))
+        print("[DEBUG] X-CSRFToken header:", request.headers.get('X-CSRFToken'))
+        print("[DEBUG] All headers:", dict(request.headers))
+
         data = json.loads(request.body)
         reason = data.get('change_reason', '').strip()
         
@@ -140,6 +145,7 @@ def submit_profile_change_request(request):
         
         return JsonResponse({'success': True, 'message': 'Request submitted to HOD'})
     except Exception as e:
+        print("[DEBUG] Exception in submit_profile_change_request:", str(e))
         return JsonResponse({'success': False, 'message': str(e)})
 
 @login_required
@@ -1579,6 +1585,10 @@ def profile_view(request):
     # 📩 POST LOGIC
     # ===============================
     if request.method == 'POST':
+        # Debug: Print POST data and CSRF token
+        print("[DEBUG] POST data:", dict(request.POST))
+        print("[DEBUG] CSRF cookie:", request.COOKIES.get('csrftoken'))
+        print("[DEBUG] Headers:", dict(request.headers))
 
         # 🔒 Strict lock
         if not can_edit:
@@ -1918,6 +1928,8 @@ def profile_view(request):
         'region_choices': QPRRecord.region_choices,
     }
 
+    from django.template.context_processors import csrf
+    context.update(csrf(request))
     return render(request, 'profile.html', context)
 
 '''
