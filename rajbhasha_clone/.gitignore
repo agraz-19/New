@@ -6,11 +6,10 @@ __pycache__/
 venv/
 
 # Database
-
+db.sqlite3
 
 # Environment variables
 .env
-
 
 
 # OS files

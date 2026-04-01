@@ -88,6 +88,17 @@
 
 <script>
     const LIST_API_URL = "{% url 'qpr_api_records' %}";
+    const SUMMARY_API_URL_BASE = "{% url 'api_period_summary' %}";
+    const IS_HOD_VIEW = "{{ is_hod_view|yesno:'true,false' }}" === "true";
+    const TARGET_USER_ID = "{{ target_user_id|default:'' }}";
+    const USER_SUFFIX = TARGET_USER_ID ? `?user_id=${TARGET_USER_ID}` : '';
+    function buildViewUrl(id, extraQuery) {
+        const base = `/qpr/reports/${id}/`;
+        if (!TARGET_USER_ID) return extraQuery ? base + extraQuery : base;
+        if (!extraQuery) return base + `?user_id=${TARGET_USER_ID}`;
+        // extraQuery expected to start with '?'
+        return base + extraQuery + `&user_id=${TARGET_USER_ID}`;
+    }
 
     // Helper to safely read multiple possible property names from API records
     function getProp(obj, ...keys) {
@@ -100,21 +111,47 @@
 
     async function loadList() {
         try {
-            const res = await fetch(LIST_API_URL);
-            const data = await res.json();
+            const listUrl = TARGET_USER_ID ? `${LIST_API_URL}?user_id=${TARGET_USER_ID}` : LIST_API_URL;
+            console.log('Fetching records from', listUrl);
+            const res = await fetch(listUrl);
+            console.log('Records response status:', res.status, res.statusText);
+            let data;
+            if (!res.ok) {
+                const text = await res.text().catch(() => '<no response body>');
+                console.error('Records API error:', res.status, text);
+                throw new Error(`Records API returned ${res.status}: ${text}`);
+            }
+            try {
+                data = await res.json();
+            } catch (je) {
+                const text = await res.text().catch(() => '<no response body>');
+                console.error('Failed to parse JSON from records API:', je, text);
+                throw new Error('Invalid JSON from records API');
+            }
             const records = Array.isArray(data) ? data : [];
             // debug logging removed
 
             // Fetch period summary for the current quarter using the selected frequency.
             // Per specs, use exactly one fetch and pass ?frequency=<selectedFrequency>.
-            const SUMMARY_API_URL = "{% url 'qpr_api_period_summary' %}";
-            let summary = null;
             const freqEl = document.getElementById('frequencySelect');
             const selectedFrequency = (freqEl && freqEl.value) ? freqEl.value : 'daily';
+            const SUMMARY_API_URL = TARGET_USER_ID ? `${SUMMARY_API_URL_BASE}?frequency=${selectedFrequency}&user_id=${TARGET_USER_ID}` : `${SUMMARY_API_URL_BASE}?frequency=${selectedFrequency}`;
+            let summary = null;
             try {
-                const sres = await fetch(`${SUMMARY_API_URL}?frequency=${selectedFrequency}`);
-                if (sres.ok) summary = await sres.json();
-                else console.warn('SUMMARY fetch returned', sres.status, sres.statusText);
+                console.log('Fetching period summary from', SUMMARY_API_URL);
+                const sres = await fetch(SUMMARY_API_URL);
+                console.log('Summary response status:', sres.status, sres.statusText);
+                if (!sres.ok) {
+                    const text = await sres.text().catch(() => '<no response body>');
+                    console.error('Summary API error:', sres.status, text);
+                    throw new Error(`Summary API returned ${sres.status}: ${text}`);
+                }
+                try {
+                    summary = await sres.json();
+                } catch (je) {
+                    const text = await sres.text().catch(() => '<no response body>');
+                    console.error('Failed to parse JSON from summary API:', je, text);
+                }
             } catch (e) {
                 console.warn('Failed to fetch period summary', e);
             }
@@ -168,9 +205,13 @@
             // Populate helper
             function makeActions(rec) {
                 if (!rec) return '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
+                // HOD view is read-only: only show View button
+                if (IS_HOD_VIEW) {
+                    return ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(rec.id)}">View</a>`;
+                }
                 let actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${rec.id})">Request to Edit</button>`;
                 // Use a real anchor href so clicks open the correct report without relying on JS view()
-                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="/qpr/reports/${rec.id}/">View</a>`;
+                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(rec.id)}">View</a>`;
                 return actions;
             }
 
@@ -253,9 +294,13 @@
                         if (rec) {
                             actions = makeActions(rec);
                         } else if (dataSourceRec) {
-                            // Show View + Request to Edit for the daily candidate (will display cumulative weekly data)
-                            actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${dataSourceRec.id})">Request to Edit</button>`;
-                            actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="/qpr/reports/${dataSourceRec.id}/?view_as=weekly">View</a>`;
+                            // If HOD view, only show view link
+                            if (IS_HOD_VIEW) {
+                                actions = ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(dataSourceRec.id, '?view_as=weekly')}">View</a>`;
+                            } else {
+                                actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${dataSourceRec.id})">Request to Edit</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(dataSourceRec.id, '?view_as=weekly')}">View</a>`;
+                            }
                         } else {
                             actions = '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
                         }
@@ -309,8 +354,12 @@
                         if (rec) {
                             actions = makeActions(rec);
                         } else if (dataSourceRec) {
-                            actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${dataSourceRec.id})">Request to Edit</button>`;
-                            actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="/qpr/reports/${dataSourceRec.id}/?view_as=monthly">View</a>`;
+                            if (IS_HOD_VIEW) {
+                                actions = ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(dataSourceRec.id, '?view_as=monthly')}">View</a>`;
+                            } else {
+                                actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${dataSourceRec.id})">Request to Edit</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(dataSourceRec.id, '?view_as=monthly')}">View</a>`;
+                            }
                         } else {
                             actions = '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
                         }
@@ -366,8 +415,12 @@
                     if (rec) {
                         actions = makeActions(rec);
                     } else if (dataSourceRec) {
-                        actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${dataSourceRec.id})">Request to Edit</button>`;
-                        actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="/qpr/reports/${dataSourceRec.id}/?view_as=quarterly">View</a>`;
+                        if (IS_HOD_VIEW) {
+                            actions = ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(dataSourceRec.id, '?view_as=quarterly')}">View</a>`;
+                        } else {
+                            actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${dataSourceRec.id})">Request to Edit</button>`;
+                            actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(dataSourceRec.id, '?view_as=quarterly')}">View</a>`;
+                        }
                     } else {
                         actions = '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
                     }
@@ -380,10 +433,11 @@
 
         } catch (err) {
             console.error('Failed to load records:', err);
+            const message = err && err.message ? err.message : String(err);
             const bodies = ['dailyBody','weeklyBody','monthlyBody','quarterlyBody'];
             bodies.forEach(id => {
                 const el = document.getElementById(id);
-                if (el) el.innerHTML = '<tr><td colspan="99" class="text-center text-muted">Failed to load</td></tr>';
+                if (el) el.innerHTML = `<tr><td colspan="99" class="text-center text-muted">Error: ${message}</td></tr>`;
             });
         }
     }
@@ -398,6 +452,7 @@
     }
 
     function requestEdit(id) {
+        if (IS_HOD_VIEW) { alert("You are viewing in read-only mode."); return; }
         const reason = prompt("{{ 'Please enter the reason for requesting to edit this report:'|t:current_lang }}");
         if (!reason) return;
         fetch(`/qpr/api/request-edit/`, {

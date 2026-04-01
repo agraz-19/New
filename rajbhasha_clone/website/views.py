@@ -1,3 +1,69 @@
+import os,io,csv,random,hashlib,json
+from .utils import load_employee_data
+from datetime import datetime
+from datetime import timedelta
+from urllib import request
+from django.utils.timezone import now
+from django.utils import timezone
+from django.db.models import Count, Min
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth import login as auth_login, logout, get_user_model
+from django.http import FileResponse
+from django.contrib.auth.views import LoginView
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.csrf import csrf_exempt
+from django.views import View
+from django.core.cache import cache
+from weasyprint import HTML
+from pypdf import PdfWriter, PdfReader
+from django.template.loader import render_to_string
+import tempfile
+from django.urls import reverse
+from django.http import HttpResponse, FileResponse, Http404, JsonResponse
+from django.core.exceptions import PermissionDenied
+from django.conf import settings
+from django.db.models import Q
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+import os
+from gtts import gTTS
+from captcha.models import CaptchaStore
+from deep_translator import GoogleTranslator
+from .models import (
+    Employee, CustomUser, Role, DataAccessLog, ArchivedUser, cipher_suite,
+    Office,
+    QPRRecord, Section1FilesData, Section2MeetingsData,
+    Section3OfficialLanguagesData, Section4HindiLettersData,
+    Section5EnglishRepliedHindiData, Section6IssuedLettersData,
+    Section7NotingsData, Section8WorkshopsData,
+    Section9ImplementationCommitteeData, Section10HindiAdvisoryData,
+    Section11SpecificAchievementsData, UserProfile, ManagerRequest, EditRequest,
+    TypingUsageReport, CertificateData
+    , QPRPartTwo, StaffHindiKnowledge, HindiPost
+)
+from .forms import CustomLoginForm, CustomUserCreationForm, TypingUsageReportForm, CertificateDataForm
+from .employeeform import EmployeeForm
+from .serializers import EmployeeSerializer
+from .utils import send_system_email, get_allowed_quarters
+from typing import cast
+from datetime import date
+from .templatetags.translate_tags import translate_text
+FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
+pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
+from django.contrib.admin.views.decorators import staff_member_required
+from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.contrib import messages
+from .utils import load_employee_data
+from .utils import ensure_current_financial_year
+from .models import FinancialYear
+from django.http import JsonResponse
 import csv
 import hashlib
 import io
@@ -76,6 +142,78 @@ from .utils import (
 # Font Registration
 FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
 pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
+from django.contrib.admin.views.decorators import staff_member_required
+from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.contrib import messages
+from .utils import load_employee_data
+from .utils import ensure_current_financial_year
+from .models import FinancialYear
+from django.http import JsonResponse
+import csv
+import hashlib
+import io
+import json
+import os
+import random
+import tempfile
+from datetime import date, datetime, timedelta
+from typing import cast
+from urllib import request
+
+# Third-party / Django Imports
+from captcha.models import CaptchaStore, logger
+from deep_translator import GoogleTranslator
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth import get_user_model, logout
+from django.contrib.auth import login as auth_login
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.views import LoginView
+from django.core.cache import cache
+from django.core.exceptions import PermissionDenied
+from django.db.models import Count, Min, Q
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.timezone import now
+from django.views import View
+from django.views.decorators.csrf import csrf_exempt
+from gtts import gTTS
+from pypdf import PdfReader, PdfWriter
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from weasyprint import HTML
+
+# Local App Imports
+from .employeeform import EmployeeForm
+from .forms import (
+    CertificateDataForm, CustomLoginForm, 
+    CustomUserCreationForm, TypingUsageReportForm
+)
+from .models import (
+    ArchivedUser, CertificateData, CustomUser, DataAccessLog, 
+    EditRequest, Employee, HindiPost, ManagerRequest, Office, 
+    QPRPartTwo, QPRRecord, Role, Section1FilesData, Section2MeetingsData, 
+    Section3OfficialLanguagesData, Section4HindiLettersData, 
+    Section5EnglishRepliedHindiData, Section6IssuedLettersData, 
+    Section7NotingsData, Section8WorkshopsData, 
+    Section9ImplementationCommitteeData, Section10HindiAdvisoryData, 
+    Section11SpecificAchievementsData, StaffHindiKnowledge, 
+    TypingUsageReport, UserProfile, cipher_suite
+)
+from .serializers import EmployeeSerializer
+from .templatetags.translate_tags import translate_text
+from .utils import get_allowed_quarters, load_employee_data, send_system_email
+from .signals import User
 if os.path.exists(FONT_PATH):
     pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
 
@@ -250,13 +388,9 @@ def set_thumbnail(request, folder):
     return redirect('event_detail', folder=folder)
 # Helper functions to safely access a user's roles for type-checkers
 def user_has_role(user, role_name):
-    """Check if user has a specific role
-    Can accept either a single role string or a list of role strings"""
-    if user is None or not user.is_authenticated:
-        return False
-    
+    """Return True if user (or their profile) has the given role or any in the list."""
     profile = getattr(user, 'profile', None)
-    if isinstance(role_name, list):
+    if isinstance(role_name, (list, tuple)):
         user_has = user.roles.filter(name__in=role_name).exists()
         profile_has = profile.roles.filter(name__in=role_name).exists() if profile else False
         return user_has or profile_has
@@ -2234,12 +2368,23 @@ def manager_dashboard(request):
 
     users = CustomUser.objects.select_related('profile').filter(profile__office_code=manager_office).order_by('-date_joined')
 
-    # Get employee codes from users in this office
-    office_employee_codes = CustomUser.objects.filter(profile__office_code=manager_office).values_list('profile__employee_code', flat=True)
-    office_employee_codes = [str(code).zfill(3) if code else None for code in office_employee_codes if code]
+    # Get employee codes from users in this office (only numeric codes)
+    office_employee_codes_qs = CustomUser.objects.filter(profile__office_code=manager_office).values_list('profile__employee_code', flat=True)
+    office_employee_codes = []
+    for code in office_employee_codes_qs:
+        if code is None:
+            continue
+        # Accept integers or strings that represent integers; skip non-numeric values
+        try:
+            office_employee_codes.append(int(str(code).strip()))
+        except (ValueError, TypeError):
+            continue
 
-    # Fetch employee records directly by empcode (which matches username/employee_code)
-    raw_employees = Employee.objects.filter(empcode__in=office_employee_codes).order_by('-lastupdate')
+    # Fetch employee records directly by numeric empcode
+    if office_employee_codes:
+        raw_employees = Employee.objects.filter(empcode__in=office_employee_codes).order_by('-lastupdate')
+    else:
+        raw_employees = Employee.objects.none()
     
     employee_data = []
     
@@ -2791,10 +2936,279 @@ def qpr_form(request):
 
 @login_required
 def report_list(request):
-    return render(request, 'qpr/report_list.html')
+    # Allow HODs to view another employee's reports via ?emp_code=<employee_code>
+    emp_code = (request.GET.get('emp_code') or '').strip()
+    target_user = request.user
+    is_hod_view = False
+    if emp_code:
+        from django.shortcuts import get_object_or_404
+        try:
+            profile = UserProfile.objects.select_related('user').get(employee_code=emp_code)
+        except UserProfile.DoesNotExist:
+            messages.error(request, "Employee not found.")
+            return redirect('qpr_hod_dashboard' if user_has_role(request.user, 'hod') else 'qpr_user_dashboard')
+
+        target_user = profile.user
+        is_hod_view = (getattr(target_user, 'id', None) != getattr(request.user, 'id', None))
+
+        # Authorization: only allow when requester is admin/superuser or HOD of the employee
+        if is_hod_view:
+            if not (user_has_role(request.user, 'admin') or request.user.is_superuser or user_has_role(request.user, 'hod')):
+                messages.error(request, "Unauthorized to view other user's reports.")
+                return redirect('home')
+            # If requester is HOD, enforce same hod_name when available
+            if user_has_role(request.user, 'hod'):
+                requester_hod = (getattr(request.user.profile, 'hod_name', None) or getattr(request.user.profile, 'name', None))
+                target_hod = (getattr(target_user, 'profile', None) and (getattr(target_user.profile, 'hod_name', None) or getattr(target_user.profile, 'name', None)))
+                if requester_hod and target_hod and str(requester_hod).strip().lower() != str(target_hod).strip().lower():
+                    messages.error(request, "Unauthorized to view reports for this employee.")
+                    return redirect('qpr_hod_dashboard')
+
+    context = {
+        'target_user_id': getattr(target_user, 'id', ''),
+        'is_hod_view': is_hod_view,
+    }
+    return render(request, 'qpr/report_list.html', context)
 @login_required
 def report_detail(request, record_id):
-    return render(request, 'qpr/report_detail.html', {'record_id': record_id})
+    # Support HOD view via ?user_id= (existing) and division mode via ?division=1
+    user_id = request.GET.get('user_id') or None
+    is_hod_view = False
+    target_user_id = ''
+
+    # division mode: render aggregated quarterly report for HOD
+    division_flag = request.GET.get('division')
+    if division_flag == '1':
+        # Only allow HODs to access division aggregation
+        if not user_has_role(request.user, 'hod'):
+            messages.error(request, 'Unauthorized')
+            return redirect('home')
+
+        # Identify HOD name via the HOD's profile.name (per requirement)
+        hod_profile = getattr(request.user, 'profile', None)
+        hod_name_val = getattr(hod_profile, 'name', None)
+        if not hod_name_val:
+            messages.error(request, 'HOD identity not found')
+            return redirect('qpr_hod_dashboard')
+
+        # Get users under this HOD by matching UserProfile.hod_name == hod_profile.name
+        users_under = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_name_val).select_related('user')
+
+        current_quarter = get_current_quarter()
+        current_year = get_current_year_label()
+
+        # Determine quarter date range
+        try:
+            q_start, q_end = _quarter_label_to_daterange(current_quarter, current_year)
+        except Exception:
+            q_start = None
+            q_end = None
+
+        # Initialize aggregated totals
+        aggregated = {k: 0 for k in NUMERIC_KEYS}
+        aggregated['quarter'] = current_quarter
+        aggregated['year'] = current_year
+        aggregated['frequency'] = 'quarterly'
+        aggregated['officeName'] = (hod_name_val or '') + " (Division)"
+        aggregated['officeCode'] = ''
+        aggregated['region'] = ''
+        aggregated['phone'] = ''
+        aggregated['email'] = ''
+        aggregated['s9_date'] = ''
+        aggregated['s10_date'] = ''
+        aggregated['s12_1'] = ''
+        aggregated['s12_2'] = ''
+        aggregated['s12_3'] = ''
+
+        # DEBUG logs
+        try:
+            print("DIVISION MODE ACTIVE")
+            print("HOD:", hod_name_val)
+            print("USERS UNDER HOD:", [p.user.id for p in users_under if getattr(p, 'user', None)])
+        except Exception:
+            pass
+
+        # Aggregate per-user using non-overlapping block logic (daily -> weekly -> monthly -> quarterly)
+        try:
+            priority = {'daily': 1, 'weekly': 2, 'monthly': 3, 'quarterly': 4}
+            for profile in users_under:
+                try:
+                    user_obj = getattr(profile, 'user', None)
+                    if not user_obj:
+                        continue
+                    print("USER:", user_obj.id)
+                    # Fetch all submitted records overlapping the quarter
+                    all_records = QPRRecord.objects.filter(
+                        user=user_obj,
+                        is_submitted=True,
+                        period_start__lte=(q_end or date.max),
+                        period_end__gte=(q_start or date.min)
+                    )
+                    print("TOTAL RECORDS:", all_records.count())
+                    # Sort by priority (granular first)
+                    records_sorted = sorted(all_records, key=lambda r: priority.get((getattr(r, 'frequency', '') or '').lower(), 5))
+
+                    covered_dates = set()
+                    user_totals = {k: 0 for k in NUMERIC_KEYS}
+
+                    for r in records_sorted:
+                        try:
+                            if not getattr(r, 'period_start', None) or not getattr(r, 'period_end', None):
+                                continue
+                            start = max(r.period_start, q_start) if q_start else r.period_start
+                            end = min(r.period_end, q_end) if q_end else r.period_end
+                            if start is None or end is None or start > end:
+                                continue
+                            # build dates for this block
+                            dates = []
+                            cur = start
+                            while cur <= end:
+                                dates.append(cur)
+                                cur = cur + timedelta(days=1)
+                            # skip if entire block already covered
+                            if all(d in covered_dates for d in dates):
+                                continue
+                            # Use this record
+                            try:
+                                d = serialize_qpr_record(r)
+                            except Exception:
+                                continue
+                            for k in NUMERIC_KEYS:
+                                try:
+                                    val = d.get(k)
+                                    if val not in [None, '']:
+                                        user_totals[k] += int(val)
+                                except Exception:
+                                    continue
+                            # mark block covered
+                            for dte in dates:
+                                covered_dates.add(dte)
+                        except Exception:
+                            continue
+
+                    # Debug per-user
+                    print("COVERED DAYS:", len(covered_dates))
+                    print("USER TOTALS:", user_totals)
+
+                    # Add to division aggregated
+                    for k in NUMERIC_KEYS:
+                        try:
+                            aggregated[k] += int(user_totals.get(k, 0) or 0)
+                        except Exception:
+                            continue
+                except Exception:
+                    continue
+
+            # Include HOD's own totals using same logic
+            try:
+                hod_all = QPRRecord.objects.filter(
+                    user=request.user,
+                    is_submitted=True,
+                    period_start__lte=(q_end or date.max),
+                    period_end__gte=(q_start or date.min)
+                )
+                hod_records_sorted = sorted(hod_all, key=lambda r: priority.get((getattr(r, 'frequency', '') or '').lower(), 5))
+                hod_covered = set()
+                hod_totals = {k: 0 for k in NUMERIC_KEYS}
+                for r in hod_records_sorted:
+                    try:
+                        if not getattr(r, 'period_start', None) or not getattr(r, 'period_end', None):
+                            continue
+                        start = max(r.period_start, q_start) if q_start else r.period_start
+                        end = min(r.period_end, q_end) if q_end else r.period_end
+                        if start is None or end is None or start > end:
+                            continue
+                        dates = []
+                        cur = start
+                        while cur <= end:
+                            dates.append(cur)
+                            cur = cur + timedelta(days=1)
+                        if all(d in hod_covered for d in dates):
+                            continue
+                        try:
+                            d = serialize_qpr_record(r)
+                        except Exception:
+                            continue
+                        for k in NUMERIC_KEYS:
+                            try:
+                                val = d.get(k)
+                                if val not in [None, '']:
+                                    hod_totals[k] += int(val)
+                            except Exception:
+                                continue
+                        for dte in dates:
+                            hod_covered.add(dte)
+                    except Exception:
+                        continue
+                print("HOD TOTALS:", hod_totals)
+                for k in NUMERIC_KEYS:
+                    try:
+                        aggregated[k] += int(hod_totals.get(k, 0) or 0)
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+
+            try:
+                print("FINAL AGGREGATED:", {k: aggregated.get(k, 0) for k in NUMERIC_KEYS})
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        # Build aggregated_qpr structure expected by template JS
+        aggregated_qpr = {
+            'quarter': aggregated.get('quarter'),
+            'year': aggregated.get('year'),
+            'frequency': aggregated.get('frequency'),
+            'officeName': aggregated.get('officeName'),
+            'officeCode': aggregated.get('officeCode'),
+            'region': aggregated.get('region'),
+            'phone': aggregated.get('phone'),
+            'email': aggregated.get('email'),
+        }
+        for k in NUMERIC_KEYS:
+            aggregated_qpr[k] = aggregated.get(k, 0)
+        aggregated_qpr['s9_date'] = aggregated.get('s9_date', '')
+        aggregated_qpr['s10_date'] = aggregated.get('s10_date', '')
+        aggregated_qpr['s12_1'] = aggregated.get('s12_1', '')
+        aggregated_qpr['s12_2'] = aggregated.get('s12_2', '')
+        aggregated_qpr['s12_3'] = aggregated.get('s12_3', '')
+
+        # Pass JSON string to template for immediate rendering
+        try:
+            import json
+            initial_qpr_json = json.dumps(aggregated_qpr)
+        except Exception:
+            initial_qpr_json = '{}'
+
+        return render(request, 'qpr/report_detail.html', {'qpr': aggregated_qpr, 'initial_qpr_json': initial_qpr_json, 'is_division': True})
+
+    # Fallback: existing per-record behavior
+    if user_id:
+        try:
+            uid = int(user_id)
+            target = CustomUser.objects.filter(id=uid).first()
+        except Exception:
+            target = None
+        if not target:
+            messages.error(request, 'User not found')
+            return redirect('qpr_report_list')
+        # Authorization same as report_list
+        if target.id != request.user.id:
+            if not (user_has_role(request.user, 'admin') or request.user.is_superuser or user_has_role(request.user, 'hod')):
+                messages.error(request, 'Unauthorized')
+                return redirect('home')
+            if user_has_role(request.user, 'hod'):
+                requester_hod = (getattr(request.user.profile, 'hod_name', None) or getattr(request.user.profile, 'name', None))
+                target_hod = (getattr(target, 'profile', None) and (getattr(target.profile, 'hod_name', None) or getattr(target.profile, 'name', None)))
+                if requester_hod and target_hod and str(requester_hod).strip().lower() != str(target_hod).strip().lower():
+                    messages.error(request, 'Unauthorized')
+                    return redirect('qpr_hod_dashboard')
+        is_hod_view = (target.id != request.user.id)
+        target_user_id = target.id
+
+    return render(request, 'qpr/report_detail.html', {'record_id': record_id, 'is_hod_view': is_hod_view, 'target_user_id': target_user_id})
 
 @login_required
 def typing_usage_report_form(request, record_id):
@@ -2943,16 +3357,43 @@ def hod_detail_list(request):
 
         has_pending = ManagerRequest.objects.filter(hod=user, request_type='qpr', status='pending').exists()
         current_qpr = qpr_records.filter( quarter=current_quarter, year=current_year ).first()
-        is_quarterly_frozen = current_qpr.is_quarterly_frozen if current_qpr else False
+        # do not include per-user quarterly action fields here (removed from template)
+        qpr_complete_flag = current_qpr.is_submitted if current_qpr else False
         users_data.append({
             'profile': user_profile, 'user': user, 'employee_code': user_profile.employee_code,
             'name': display_name, 'office_code': office_code_val or 'Not Set', 'office_name': office_name_val or 'Not Set',
-            'profile_complete': user_profile.profile_updated, 'qpr_complete': current_qpr.is_submitted if current_qpr else False,
-            'qpr_record_id': current_qpr.id if current_qpr else None,
+            'profile_complete': user_profile.profile_updated,
+            'qpr_complete': qpr_complete_flag,
             'has_pending_edit_request': has_pending,
-            'is_quarterly_frozen': is_quarterly_frozen
         })
-    context = {'users_data': users_data, 'hod_name': hod_name, 'current_quarter': current_quarter, 'current_year': current_year}
+    # --- Division aggregation: aggregate quarterly numeric fields for employees under this HOD ---
+    division_qpr = None
+    try:
+        user_ids = list(users_under_hod.values_list('user__id', flat=True))
+        if user_ids:
+            qrs = QPRRecord.objects.filter(user_id__in=user_ids, frequency__iexact='quarterly', quarter=current_quarter, year=current_year)
+            # initialize totals
+            totals = {k: 0 for k in NUMERIC_KEYS}
+            record_count = 0
+            for r in qrs:
+                record_count += 1
+                try:
+                    d = serialize_qpr_record(r)
+                except Exception:
+                    continue
+                for k in NUMERIC_KEYS:
+                    try:
+                        v = d.get(k)
+                        if v is None or v == '':
+                            continue
+                        totals[k] += int(v)
+                    except Exception:
+                        continue
+            division_qpr = {'quarter': current_quarter, 'year': current_year, 'totals': totals, 'record_count': record_count, 'num_users': len(user_ids)}
+    except Exception:
+        division_qpr = {'quarter': current_quarter, 'year': current_year, 'totals': {}, 'record_count': 0, 'num_users': 0}
+
+    context = {'users_data': users_data, 'hod_name': hod_name, 'current_quarter': current_quarter, 'current_year': current_year, 'division_qpr': division_qpr}
     response = render(request, 'qpr/hod_detail_list.html', context)
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
@@ -3007,6 +3448,88 @@ def toggle_freeze_qpr(request, qpr_record_id):
     # Redirect back to HOD detail list
     return redirect('qpr_hod_detail_list')
 
+@login_required
+def freeze_division_snapshot(request):
+    """Compute division aggregation for HOD and save as a quarterly frozen QPRRecord snapshot.
+
+    This endpoint expects POST and will create a new QPRRecord for the HOD user
+    with frequency='quarterly', is_quarterly_frozen=True and is_submitted=True.
+    Duplicate freezes for same quarter/year are rejected.
+    """
+    if not user_has_role(request.user, 'hod'):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid method'}, status=405)
+
+    hod_profile = getattr(request.user, 'profile', None)
+    hod_name = (hod_profile.hod_name or hod_profile.name) if hod_profile else None
+    current_quarter = get_current_quarter()
+    current_year = get_current_year_label()
+
+    # Prevent duplicate freeze for same HOD + quarter
+    existing = QPRRecord.objects.filter(user=request.user, frequency__iexact='quarterly', quarter=current_quarter, year=current_year, is_quarterly_frozen=True)
+    if existing.exists():
+        return JsonResponse({'error': 'Already frozen for this quarter'}, status=400)
+
+    # Find users under this HOD
+    if hod_name:
+        user_role_q = Q(roles__name='user') | Q(user__roles__name='user')
+        users_under_hod = UserProfile.objects.filter(user_role_q & Q(hod_name__iexact=hod_name)).select_related('user').distinct()
+    else:
+        users_under_hod = UserProfile.objects.filter(user=request.user).select_related('user')
+
+    user_ids = list(users_under_hod.values_list('user__id', flat=True))
+
+    # Aggregate from stored quarterly QPRRecords for those users
+    totals = {k: 0 for k in NUMERIC_KEYS}
+    record_count = 0
+    if user_ids:
+        qrs = QPRRecord.objects.filter(user_id__in=user_ids, frequency__iexact='quarterly', quarter=current_quarter, year=current_year)
+        for r in qrs:
+            try:
+                d = serialize_qpr_record(r)
+            except Exception:
+                continue
+            record_count += 1
+            for k in NUMERIC_KEYS:
+                try:
+                    v = d.get(k)
+                    if v is None or v == '':
+                        continue
+                    totals[k] += int(v)
+                except Exception:
+                    continue
+
+    officeName = getattr(hod_profile, 'office_name', '') or ''
+    officeCode = getattr(hod_profile, 'office_code', '') or ''
+
+    # Create snapshot record (header only) and persist section data
+    qpr_fields = {
+        'user': request.user,
+        'frequency': 'quarterly',
+        'quarter': current_quarter,
+        'year': current_year,
+        'is_quarterly_frozen': True,
+        'is_submitted': True,
+        'officeName': officeName,
+        'officeCode': officeCode,
+    }
+
+    new_rec = QPRRecord.objects.create(**qpr_fields)
+
+    # Save section-level aggregated totals into related Section models
+    try:
+        _save_section_data(new_rec, totals)
+    except Exception:
+        try:
+            new_rec.delete()
+        except Exception:
+            pass
+        return JsonResponse({'error': 'Failed to save aggregated section data'}, status=500)
+
+    return redirect('qpr_hod_detail_list')
+
 # ==================== APIs ====================
 
 @csrf_exempt
@@ -3014,28 +3537,57 @@ def toggle_freeze_qpr(request, qpr_record_id):
 def api_records(request):
     if not request.user.is_authenticated: return JsonResponse({'error': 'Unauthorized'}, status=401)
     if request.method == 'GET':
-        records = QPRRecord.objects.filter(user=request.user).order_by('-id')
+        # Optional: allow HOD/admin to request another user's records via ?user_id=
+        user_id = request.GET.get('user_id') or None
+        target_user = request.user
+        if user_id:
+            try:
+                user_id_int = int(user_id)
+                target_user = CustomUser.objects.filter(id=user_id_int).first()
+            except Exception:
+                return JsonResponse({'error': 'Invalid user_id'}, status=400)
+
+            if not target_user:
+                return JsonResponse({'error': 'User not found'}, status=404)
+
+            # Authorization: if viewing another user's data, allow only admin/superuser or HOD (and HOD must match department when possible)
+            if target_user.id != request.user.id:
+                if not (user_has_role(request.user, 'admin') or request.user.is_superuser or user_has_role(request.user, 'hod')):
+                    return JsonResponse({'error': 'Unauthorized'}, status=403)
+                if user_has_role(request.user, 'hod'):
+                    requester_hod = (getattr(request.user.profile, 'hod_name', None) or getattr(request.user.profile, 'name', None))
+                    target_hod = (getattr(target_user, 'profile', None) and (getattr(target_user.profile, 'hod_name', None) or getattr(target_user.profile, 'name', None)))
+                    if requester_hod and target_hod and str(requester_hod).strip().lower() != str(target_hod).strip().lower():
+                        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+        records = QPRRecord.objects.filter(user=target_user).order_by('-id')
         data = []
         for record in records:
             d = serialize_qpr_record(record)
-            edit_approved = False
-            if record.is_submitted:
-                # Check for approved ManagerRequest targeted to this user (manager approved)
-                # Also respect the user's is_edit_allowed flag (set when manager unlocks)
-                edit_approved = (
-                    ManagerRequest.objects.filter(user=request.user, request_type='qpr', status='approved').exists()
-                    or bool(getattr(request.user, 'is_edit_allowed', False))
-                )
-                # Also allow explicit approved EditRequest entries
-                if not edit_approved:
-                    edit_approved = EditRequest.objects.filter(
-                        user=request.user,
-                        request_type='qpr',
-                        qpr_record_id=record.pk,
-                        status='approved'
-                    ).exists()
-            d['can_edit'] = not record.is_submitted or edit_approved
-            d['edit_approved'] = edit_approved
+            # If requester is not the owner, HOD/admins must not be able to edit via the API
+            if target_user.id != request.user.id:
+                d['can_edit'] = False
+                d['edit_approved'] = False
+            else:
+                edit_approved = False
+                if record.is_submitted:
+                    # Check for approved ManagerRequest targeted to this user (manager approved)
+                    # Also respect the user's is_edit_allowed flag (set when manager unlocks)
+                    edit_approved = (
+                        ManagerRequest.objects.filter(user=request.user, request_type='qpr', status='approved').exists()
+                        or bool(getattr(request.user, 'is_edit_allowed', False))
+                    )
+                    # Also allow explicit approved EditRequest entries
+                    if not edit_approved:
+                        edit_approved = EditRequest.objects.filter(
+                            user=request.user,
+                            request_type='qpr',
+                            qpr_record_id=record.pk,
+                            status='approved'
+                        ).exists()
+                d['can_edit'] = not record.is_submitted or edit_approved
+                d['edit_approved'] = edit_approved
+
             # include cumulative aggregates (daily/weekly/monthly/quarterly) for convenience
             try:
                 d['cumulative'] = compute_cumulative_for_record(record)
@@ -3227,31 +3779,50 @@ def api_records(request):
 @login_required
 @csrf_exempt
 def api_record_detail(request, record_id):
+    # Support optional ?user_id=<id> so HOD/admin can view another user's record when authorized
+    user_id = request.GET.get('user_id') or None
     try:
         record = QPRRecord.objects.get(pk=record_id)
     except QPRRecord.DoesNotExist:
         return JsonResponse({'error': 'Record not found'}, status=404)
+
+    # If a user_id is supplied, validate it matches the record's owner
+    if user_id:
+        try:
+            uid = int(user_id)
+        except Exception:
+            return JsonResponse({'error': 'Invalid user_id'}, status=400)
+        if record.user_id != uid:
+            return JsonResponse({'error': 'Record does not belong to provided user_id'}, status=400)
 
     # Determine roles
     is_owner = record.user == request.user
     is_manager = user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser
     is_hod = user_has_role(request.user, ['hod'])
 
-    # Basic permission check
-    if not (is_owner or is_manager or is_hod):
+    # Basic permission check: owners and managers/admins may view
+    if is_owner or is_manager:
+        permitted = True
+    else:
+        permitted = False
+
+    # If requester is HOD, allow only when HOD is authorized for this employee (match hod_name or office)
+    if not permitted and is_hod:
+        # determine hod identifier and target profile
+        requester_hod = (getattr(request.user.profile, 'hod_name', None) or getattr(request.user.profile, 'name', None))
+        target_profile = getattr(record.user, 'profile', None)
+        target_hod = (getattr(target_profile, 'hod_name', None) or getattr(target_profile, 'name', None)) if target_profile else None
+        # Allow if hod names match (case-insensitive) or if requester's hod_name is absent but office matches
+        if requester_hod and target_hod and str(requester_hod).strip().lower() == str(target_hod).strip().lower():
+            permitted = True
+        else:
+            # fallback: allow if both share same office_code (if set)
+            hod_office = getattr(request.user.profile, 'office_code', None)
+            if hod_office and target_profile and getattr(target_profile, 'office_code', None) == hod_office:
+                permitted = True
+
+    if not permitted:
         return JsonResponse({'error': 'Access denied'}, status=403)
-
-    # Additional HOD restriction
-    if not is_manager and is_hod:
-        hod_office = getattr(request.user.profile, 'office_code', None)
-
-        hod_employees = UserProfile.objects.filter(
-            office_code=hod_office,
-            hod_name=request.user.username
-        )
-
-        if not hod_employees.filter(user_id=record.user_id).exists():
-            return JsonResponse({'error': 'Access denied'}, status=403)
     
     data = serialize_qpr_record(record)
     # Compute edit approval flags consistent with api_records
@@ -3319,7 +3890,27 @@ def api_period_summary(request):
     Query params: quarter (label like '31 मार्च / Mar 31') and year (label like '2025-2026').
     If not provided, uses current quarter/year.
     """
+    # Allow HOD/admin to request a period summary for another user via ?user_id=
     user = request.user
+    user_id = request.GET.get('user_id') or None
+    if user_id:
+        try:
+            uid = int(user_id)
+            target = CustomUser.objects.filter(id=uid).first()
+        except Exception:
+            return JsonResponse({'error': 'Invalid user_id'}, status=400)
+        if not target:
+            return JsonResponse({'error': 'User not found'}, status=404)
+        # Authorization: only admin/superuser or HOD (and HOD must match department when possible)
+        if target.id != request.user.id:
+            if not (user_has_role(request.user, 'admin') or request.user.is_superuser or user_has_role(request.user, 'hod')):
+                return JsonResponse({'error': 'Unauthorized'}, status=403)
+            if user_has_role(request.user, 'hod'):
+                requester_hod = (getattr(request.user.profile, 'hod_name', None) or getattr(request.user.profile, 'name', None))
+                target_hod = (getattr(target, 'profile', None) and (getattr(target.profile, 'hod_name', None) or getattr(target.profile, 'name', None)))
+                if requester_hod and target_hod and str(requester_hod).strip().lower() != str(target_hod).strip().lower():
+                    return JsonResponse({'error': 'Unauthorized'}, status=403)
+        user = target
     quarter = request.GET.get('quarter') or get_current_quarter()
     year = request.GET.get('year') or get_current_year_label()
     # User-selected frequency controls aggregation source. One of: daily, weekly, monthly, quarterly
@@ -4308,69 +4899,198 @@ def export_employee_pdf(request):
 
 @login_required
 def manager_report(request):
-    """Manager Report - Display status of last 4 quarterly progress reports"""
     if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
         return redirect('/')
-    
-    # Get the manager's office code from their associated QPRRecords or default
-    # For now, we'll get all unique office codes from QPRRecords
-    # If manager is associated with specific office, filter accordingly
-    manager_user = request.user
-    
-    # Determine manager's office_code from profile
-    manager_office = getattr(request.user.profile, 'office_code', None)
-    if not manager_office:
-        # fallback: derive from any QPRRecord for this user
-        first = QPRRecord.objects.filter(user=request.user).first()
-        manager_office = first.officeCode if first else None
 
-    # Get users count for this office (role 'user')
-    users_count = 0
-    if manager_office:
-        # expected users list (use user_id to avoid mismatches)
-        # Include users who have the 'user' role on either UserProfile or CustomUser
-        # Use distinct() to avoid duplicate user_ids from join duplication
-        expected_user_ids = list(UserProfile.objects.filter(office_code=manager_office).filter(
-            Q(roles__name='user') | Q(user__roles__name='user')
-        ).values_list('user_id', flat=True).distinct())
-        # Ensure we only consider non-null user ids
-        expected_user_ids = [u for u in expected_user_ids if u is not None]
-        users_count = len(expected_user_ids)
-    logger.debug('manager_report: manager=%s office=%s users_count=%s', request.user.username, manager_office, users_count)
+    manager_profile = getattr(request.user, 'userprofile', None) or getattr(request.user, 'profile', None)
+    office_code = getattr(manager_profile, 'office_code', None)
 
-    # Find quarter-year groups for which number of distinct submitted user records == users_count
-    report_data = []
-    if manager_office and users_count > 0:
-        q_groups = QPRRecord.objects.filter(officeCode=manager_office, is_submitted=True) \
-            .values('year', 'quarter') \
-            .annotate(submitted_users=Count('user', distinct=True)) \
-            .order_by('-year', '-quarter')
+    manager_data = []
+    hod_profiles = UserProfile.objects.none()
+    if office_code:
+        hod_profiles = UserProfile.objects.filter(
+            office_code=office_code,
+            roles__name__iexact='hod',
+            approval_status='approved'
+        ).select_related('user').distinct()
 
-        for g in q_groups:
-            # get distinct user ids who submitted for this quarter
-            submitted_user_ids = list(QPRRecord.objects.filter(officeCode=manager_office, year=g['year'], quarter=g['quarter'], is_submitted=True).values_list('user', flat=True).distinct())
-            # require that all expected users have submitted (subset test)
-            if set(expected_user_ids).issubset(set([u for u in submitted_user_ids if u is not None])):
-                rep = QPRRecord.objects.filter(officeCode=manager_office, year=g['year'], quarter=g['quarter'], is_submitted=True).order_by('-updated_at').first()
-                status_date = rep.updated_at.strftime('%b %d, %Y – %I:%M %p') if rep and rep.updated_at else ''
-                report_data.append({
-                    'year': g['year'] or '2025–2026',
-                    'quarter': g['quarter'] or 'Q1',
-                    'office_name': rep.officeName if rep else manager_office,
-                    'status_title': 'Received by Official Language Department',
-                    'status_date': status_date,
-                    'id': rep.pk if rep else None,
-                    'edit_count': EditRequest.objects.filter(qpr_record_id=rep.pk, status__in=['approved','used']).count() if rep else 0,
-                    'submitted_users': len([u for u in submitted_user_ids if u is not None]),
-                    'expected_users': users_count,
+        for hod_profile in hod_profiles:
+            try:
+                hod_name_raw = (hod_profile.name or '').strip()
+                employees_qs = UserProfile.objects.filter(
+                    hod_name__iexact=hod_name_raw,
+                    approval_status='approved'
+                ).select_related('user')
+
+                employees_list = [hod_profile] + list(employees_qs)
+
+                unique = {}
+                final_profiles = []
+                for emp in employees_list:
+                    try:
+                        key = getattr(emp, 'id', None)
+                        if key is None:
+                            continue
+                        if key in unique:
+                            continue
+                        unique[key] = True
+                        final_profiles.append(emp)
+                    except Exception:
+                        continue
+
+                emp_dicts = []
+                for p in final_profiles:
+                    try:
+                        user_obj = getattr(p, 'user', None)
+                        uid = getattr(user_obj, 'id', None)
+                        name = getattr(p, 'name', '') or (getattr(user_obj, 'username', None) or '')
+                        empcode = getattr(p, 'employee_code', '')
+                        if not empcode:
+                            empcode = getattr(user_obj, 'username', '')
+                        empcode = str(empcode) if empcode is not None else ''
+                        if uid is None:
+                            continue
+                        emp_dicts.append({'id': uid, 'name': name, 'empcode': empcode})
+                    except Exception:
+                        continue
+
+                manager_data.append({
+                    'hod_name': hod_profile.name,
+                    'employees': emp_dicts,
+                    'division_frozen': False,
+                    'division_qpr_id': None,
                 })
+            except Exception:
+                continue
 
-    context = {
-        'office_code': manager_office or '',
-        'qpr_reports': report_data,
+    # Detect frozen division QPR per HOD and compute state totals (current quarter/year)
+    try:
+        hod_user_map = {}
+        for i, hod in enumerate(hod_profiles):
+            uid = getattr(hod.user, 'id', None)
+            if uid is not None and i < len(manager_data):
+                hod_user_map[uid] = i
+
+        hod_user_ids = [getattr(h.user, 'id', None) for h in hod_profiles if getattr(h.user, 'id', None) is not None]
+
+        current_quarter = get_current_quarter()
+        current_year = get_current_year_label()
+
+        state_totals = {k: 0 for k in NUMERIC_KEYS}
+        hod_qprs = QPRRecord.objects.filter(
+            user_id__in=hod_user_ids,
+            frequency__iexact='quarterly',
+            is_quarterly_frozen=True,
+            quarter=current_quarter,
+            year=current_year
+        )
+
+        for rec in hod_qprs:
+            try:
+                d = serialize_qpr_record(rec)
+            except Exception:
+                continue
+            for k in NUMERIC_KEYS:
+                try:
+                    v = d.get(k)
+                    if v is None or v == '':
+                        continue
+                    state_totals[k] += int(v)
+                except Exception:
+                    continue
+            hid = getattr(rec.user, 'id', None)
+            if hid in hod_user_map:
+                idx = hod_user_map[hid]
+                manager_data[idx]['division_frozen'] = True
+                manager_data[idx]['division_qpr_id'] = getattr(rec, 'id', None)
+
+        frozen_count = hod_qprs.count()
+        total_hods = hod_profiles.count()
+    except Exception:
+        state_totals = {k: 0 for k in NUMERIC_KEYS}
+        frozen_count = 0
+        total_hods = hod_profiles.count() if 'hod_profiles' in locals() else 0
+
+    # Build single aggregated QPR-like dict for template and items list
+    state_qpr = None
+    state_qpr_items = []
+    try:
+        state_qpr = {'quarter': current_quarter, 'year': current_year, 'frequency': 'quarterly', 'officeName': 'State Aggregated', 'officeCode': ''}
+        for k in NUMERIC_KEYS:
+            state_qpr[k] = state_totals.get(k, 0)
+            state_qpr_items.append((k, state_qpr[k]))
+    except Exception:
+        state_qpr = None
+
+    return render(request, 'qpr/manager_report.html', {
+        'manager_data': manager_data,
+        'state_totals': state_totals,
+        'state_qpr': state_qpr,
+        'state_qpr_items': state_qpr_items,
+        'frozen_count': frozen_count,
+        'total_hods': total_hods,
+    })
+
+
+@login_required
+def manager_state_qpr(request):
+    """Render aggregated State QPR (from frozen HOD snapshots) as a single QPR view.
+
+    Uses the same `report_detail.html` but passes `initial_qpr_json` containing
+    the aggregated QPR so the client-side loader will render it directly.
+    """
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return redirect('/')
+
+    manager_profile = getattr(request.user, 'profile', None)
+    office_code = getattr(manager_profile, 'office_code', None)
+
+    if not office_code:
+        messages.error(request, 'Manager office not found')
+        return redirect('manager_report')
+
+    hod_profiles = UserProfile.objects.filter(office_code=office_code, roles__name__iexact='hod').select_related('user')
+    hod_user_ids = [getattr(h.user, 'id', None) for h in hod_profiles if getattr(h.user, 'id', None) is not None]
+
+    current_quarter = get_current_quarter()
+    current_year = get_current_year_label()
+
+    # Aggregate from frozen HOD snapshots for current quarter/year
+    state_totals = {k: 0 for k in NUMERIC_KEYS}
+    if hod_user_ids:
+        hod_qprs = QPRRecord.objects.filter(user_id__in=hod_user_ids, frequency__iexact='quarterly', is_quarterly_frozen=True, quarter=current_quarter, year=current_year)
+        for rec in hod_qprs:
+            try:
+                d = serialize_qpr_record(rec)
+            except Exception:
+                continue
+            for k in NUMERIC_KEYS:
+                try:
+                    v = d.get(k)
+                    if v is None or v == '':
+                        continue
+                    state_totals[k] += int(v)
+                except Exception:
+                    continue
+
+    state_qpr = {
+        'quarter': current_quarter,
+        'year': current_year,
+        'frequency': 'quarterly',
+        'officeName': 'State Aggregated',
+        'officeCode': '',
     }
-    
-    return render(request, 'qpr/manager_report.html', context)
+    for k in NUMERIC_KEYS:
+        state_qpr[k] = state_totals.get(k, 0)
+
+    try:
+        initial_qpr_json = json.dumps(state_qpr)
+    except Exception:
+        initial_qpr_json = None
+
+    return render(request, 'qpr/report_detail.html', {
+        'initial_qpr_json': initial_qpr_json,
+    })
 
 
 @login_required

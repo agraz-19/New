@@ -210,15 +210,13 @@
                     <th>{{ "Office Code"|t:current_lang }}</th>
                     <th>{{ "Office Name"|t:current_lang }}</th>
                     <th>{{ "Profile"|t:current_lang }}</th>
-                    <th>QPR ({{ current_quarter }} {{ current_year }})</th>
-                    <th>{{ "Freeze QPR"|t:current_lang }}</th>
                     <th>{{ "Email"|t:current_lang }}</th>
                 </tr>
             </thead>
             <tbody>
                 {% for user in users_data %}
                 <tr>
-                    <td><strong>{{ user.employee_code }}</strong></td>
+                    <td><strong><a href="/qpr/reports/?emp_code={{ user.employee_code }}">{{ user.employee_code }}</a></strong></td>
                     <td>{{ user.name }}</td>
                     <td>{{ user.office_code|default:"Not Set" }}</td>
                     <td>{{ user.office_name|default:"Not Set" }}</td>
@@ -229,39 +227,7 @@
                         <span class="status-incomplete"><i class="fas fa-times-circle"></i> {{ "Incomplete"|t:current_lang }}</span>
                         {% endif %}
                     </td>
-                    <td>
-                        {% if user.qpr_record_id %}
-                            <a href="{% url 'qpr_report_detail' user.qpr_record_id %}" class="btn btn-sm btn-outline-primary">View</a>
-                        {% elif user.qpr_complete %}
-                            <span class="status-complete"><i class="fas fa-check-circle"></i> {{ "Submitted"|t:current_lang }}</span>
-                        {% else %}
-                            <span class="status-incomplete"><i class="fas fa-times-circle"></i> {{ "Pending"|t:current_lang }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if user.qpr_record_id %}
-                            {% if user.is_quarterly_frozen %}
-                            <form action="{% url 'toggle_freeze_qpr' user.qpr_record_id %}" method="POST" style="margin: 0; display: inline;">
-                                {% csrf_token %}
-                                <span class="badge bg-danger" title="{{ 'Quarterly report is frozen'|t:current_lang }}">
-                                    <i class="fas fa-lock"></i> {{ "Frozen"|t:current_lang }}
-                                </span>
-                                <button type="submit" class="btn btn-sm btn-outline-success" title="{{ 'Unfreeze to allow editing'|t:current_lang }}" onclick="return confirm('{{ "Unfreeze this quarterly report?"|t:current_lang }}');">
-                                    <i class="fas fa-unlock"></i> {{ "Unfreeze"|t:current_lang }}
-                                </button>
-                            </form>
-                            {% else %}
-                            <form action="{% url 'toggle_freeze_qpr' user.qpr_record_id %}" method="POST" style="margin: 0; display: inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ 'Freeze this quarterly report'|t:current_lang }}" onclick="return confirm('{{ "Freeze this quarterly report? No edits will be allowed."|t:current_lang }}');">
-                                    <i class="fas fa-lock"></i> {{ "Freeze"|t:current_lang }}
-                                </button>
-                            </form>
-                            {% endif %}
-                        {% else %}
-                        <span class="text-muted">—</span>
-                        {% endif %}
-                    </td>
+                    
                     <td>
                         {% if not user.profile_complete or not user.qpr_complete %}
                         <form action="{% url 'send_reminder_email' user.user.id %}" method="POST" style="margin: 0;">
@@ -286,5 +252,33 @@
         <i class="fas fa-info-circle"></i> {{ "No employees found under your HOD group."|t:current_lang }}
     </div>
     {% endif %}
+    
+    <!-- Division Quarter Section -->
+    <div class="mt-4">
+        <h4>Division Quarter</h4>
+
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Quarter</th>
+                    <th>Year</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ current_quarter }}</td>
+                    <td>{{ current_year }}</td>
+                    <td>
+                        <a href="{% url 'qpr_report_detail' 0 %}?division=1" class="btn btn-sm btn-outline-primary">View</a>
+                        <form method="post" action="{% url 'freeze_division_snapshot' %}" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Freeze</button>
+                        </form>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

@@ -243,263 +243,82 @@
 
 {% block content %}
 <div class="container report-container">
-    
+
     <a href="{% url 'manager_dashboard' %}" class="back-button">
         <i class="fas fa-arrow-left"></i> {{ "Back"|t:current_lang }}
     </a>
 
-    <!-- Heading Section -->
-    <div class="report-heading">{{ "Status of Last 4 Quarterly Progress Reports"|t:current_lang }}</div>
-    
-    <div class="office-code-line">
-        <span class="office-code-label">{{ "Office Code"|t:current_lang }} –</span> 
-        <span class="office-code-value">{{ office_code }}</span>
-    </div>
+    <!-- Manager groups -->
 
-    <!-- Instruction/Warning Section -->
-    <div class="instruction-text">
-        {{ "For the Financial Year 2025–2026, all quarterly reports can be edited up to two times after submission to the Official Language Department, till the 30th of the respective upload month."|t:current_lang }}
-    </div>
-
-    <!-- Table Section -->
     <table class="report-table">
         <thead>
             <tr>
-                <th>{{ "Year"|t:current_lang }}</th>
-                <th>{{ "Quarter"|t:current_lang }}</th>
-                <th>{{ "Office Name"|t:current_lang }}</th>
-                <th>{{ "Status"|t:current_lang }}</th>
-                <th>{{ "View"|t:current_lang }}</th>
-                <th>{{ "Edit"|t:current_lang }}</th>
-                <th>{{ "Certificate"|t:current_lang }}</th>
+                <th>HOD NAME</th>
+                <th>EMP CODE</th>
+                <th>VIEW</th>
+                <th>DIVISION QPR</th>
             </tr>
         </thead>
         <tbody>
-            {% for report in qpr_reports %}
-            <tr>
-                <td>{{ report.year }}</td>
-                <td>{{ report.quarter }}</td>
-                <td>{{ report.office_name }}</td>
-                <td class="status-cell">
-                    <strong>{{ report.status_title }}</strong><br>
-                    <small>{{ report.status_date }}</small>
-                </td>
-                <td>
-                    <a href="/manager/report/record/{{ report.id }}/" class="action-link" onclick="window.location.href=this.href;">
-                        {{ "View"|t:current_lang }}
-                    </a>
-                </td>
-                <td>
-                {% if report.edit_count >= 2 %}
-                    <button class="edit-btn" disabled style="color:#999; cursor:not-allowed;">
-                        {{ "Edit"|t:current_lang }} ({{ report.edit_count }}/2)
-                    </button>
-                {% else %}
-                    <button class="edit-btn" onclick="showUnlockModal({{ report.id }}, '{{ report.quarter }}', {{ report.edit_count }})">
-                        {{ "Edit"|t:current_lang }} ({{ report.edit_count }}/2)
-                    </button>
-                {% endif %}
-                </td>
-                <td>
-                    <a href="{% url 'certificate_form' report.id %}" class="action-link">
-                        {{ "Certificate"|t:current_lang }}
-                    </a>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="7" class="no-data-message">
-                    {{ "No quarterly reports found for this office."|t:current_lang }}
-                </td>
-            </tr>
-            {% endfor %}
+            {% if manager_data %}
+                {% for group in manager_data %}
+                    {% for emp in group.employees %}
+                        <tr>
+                            {% if forloop.first %}
+                                <td rowspan="{{ group.employees|length }}">{{ group.hod_name }}</td>
+                            {% endif %}
+                            <td>{% if emp.empcode %}{{ emp.empcode }}{% else %}{{ emp.name }}{% endif %}</td>
+                            <td><a class="action-link" href="{% url 'qpr_report_detail' emp.id %}">View</a></td>
+                            {% if forloop.first %}
+                                <td rowspan="{{ group.employees|length }}">
+                                    {% if group.division_frozen and group.division_qpr_id %}
+                                        <a class="action-link" href="{% url 'qpr_report_detail' group.division_qpr_id %}?division=1">View</a>
+                                    {% else %}
+                                        <span class="text-muted">Not Frozen</span>
+                                    {% endif %}
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="3" class="no-data-message">No employees found</td>
+                </tr>
+            {% endif %}
         </tbody>
     </table>
 
-</div>
-
-<!-- Unlock Confirmation Modal -->
-<div id="unlockModal" class="modal-overlay">
-    <div class="modal-content">
-        <div class="modal-header">{{ "Confirm Edit Unlock"|t:current_lang }}</div>
-        <div class="modal-body">
-            <p>{{ "You are about to unlock all QPR forms for the following period:"|t:current_lang }}</p>
-            <p style="margin-top: 15px;">
-                <strong id="modalQuarter"></strong>
-            </p>
-            <p style="margin-top: 15px; font-size: 0.95rem; color: #666;">
-                {{ "All users will be able to edit their submitted forms for this period."|t:current_lang }}
-            </p>
+    {% if state_qpr_items %}
+    <div style="margin-top:20px;">
+        <h5>State QPR (Aggregated frozen division snapshots)</h5>
+        <div style="display:flex; gap:12px; align-items:center;">
+            <div>Quarter: {{ state_qpr.quarter }} — Year: {{ state_qpr.year }}</div>
+            <div>Frozen HODs: {{ frozen_count }} / {{ total_hods }}</div>
+            <div>
+                <a href="{% url 'manager_state_qpr' %}" class="btn btn-sm btn-primary">View State QPR</a>
+            </div>
         </div>
-        <div class="modal-footer">
-            <button type="button" class="modal-btn modal-btn-cancel" onclick="hideUnlockModal()">
-                {{ "Cancel"|t:current_lang }}
-            </button>
-            <button type="button" class="modal-btn modal-btn-confirm" id="confirmUnlockBtn" onclick="confirmUnlock()">
-                {{ "OK"|t:current_lang }}
-            </button>
-        </div>
+        <table class="report-table" style="margin-top:10px;">
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for k,v in state_qpr_items %}
+                <tr>
+                    <td>{{ k }}</td>
+                    <td>{{ v }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+    {% endif %}
+
 </div>
 
-<script>
-let currentRecordId = null;
-
-function showUnlockModal(recordId, quarter, editCount) {
-    if (editCount >= 2) {
-        alert('{{ "Maximum edit attempts (2) reached for this record."|t:current_lang }}');
-        return;
-    }
-    
-    currentRecordId = recordId;
-    document.getElementById('modalQuarter').textContent = quarter;
-    document.getElementById('unlockModal').classList.add('show');
-}
-
-function hideUnlockModal() {
-    currentRecordId = null;
-    document.getElementById('unlockModal').classList.remove('show');
-}
-
-function confirmUnlock() {
-    if (!currentRecordId) return;
-    
-    const confirmBtn = document.getElementById('confirmUnlockBtn');
-    confirmBtn.disabled = true;
-    confirmBtn.textContent = '{{ "Processing..."|t:current_lang }}';
-    
-    // Get CSRF token
-    const csrfToken = getCookie('csrftoken');
-    console.log('CSRF Token retrieved:', !!csrfToken);
-    console.log('Record ID:', currentRecordId);
-    console.log('URL:', `/manager/report/edit/${currentRecordId}/`);
-    console.log('Method: POST');
-    
-    fetch(`/manager/report/edit/${currentRecordId}/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken
-        },
-        body: JSON.stringify({})  // Send empty JSON body
-    })
-    .then(response => {
-        const contentType = response.headers.get('content-type');
-        console.log('Response received:', response.status, response.statusText);
-        console.log('Content-Type:', contentType);
-        
-        // Check if response is OK
-        if (!response.ok) {
-            console.error('HTTP Error:', response.status, response.statusText);
-            return response.text().then(text => {
-                console.log('Error Response Text:', text.substring(0, 200));
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            });
-        }
-        
-        // Check if response is JSON
-        if (!contentType || !contentType.includes('application/json')) {
-            console.error('Response is not JSON:', contentType);
-            return response.text().then(text => {
-                console.log('Response Text:', text.substring(0, 200));
-                throw new Error(`Expected JSON but got ${contentType}`);
-            });
-        }
-        
-        return response.json().then(data => {
-            console.log('JSON Response:', data);
-            return data;
-        });
-    })
-    .then(data => {
-        hideUnlockModal();
-        
-        if (data.success) {
-            // Show success notification
-            showNotification(data.message, 'success');
-            // Reload page after a short delay
-            setTimeout(() => location.reload(), 1500);
-        } else {
-            showNotification(data.error || '{{ "An error occurred"|t:current_lang }}', 'error');
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = '{{ "OK"|t:current_lang }}';
-        }
-    })
-    .catch(error => {
-        console.error('Request Error:', error.message);
-        console.error('Error Stack:', error.stack);
-        hideUnlockModal();
-        showNotification(error.message || '{{ "Request failed"|t:current_lang }}', 'error');
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = '{{ "OK"|t:current_lang }}';
-    });
-}
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    // Fallback: try to get from input field (in case it's there)
-    if (!cookieValue) {
-        const csrfInput = document.querySelector('[name="csrfmiddlewaretoken"]');
-        if (csrfInput) {
-            cookieValue = csrfInput.value;
-        }
-    }
-    console.log(`getCookie('${name}') = ${cookieValue ? cookieValue.substring(0, 10) + '...' : 'null'}`);
-    return cookieValue;
-}
-
-function showNotification(message, type) {
-    const notif = document.createElement('div');
-    notif.className = `notification notification-${type}`;
-    notif.textContent = message;
-    notif.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 15px 20px;
-        border-radius: 4px;
-        background-color: ${type === 'success' ? '#28a745' : '#dc3545'};
-        color: white;
-        z-index: 2000;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-        animation: slideIn 0.3s ease;
-    `;
-    document.body.appendChild(notif);
-    
-    setTimeout(() => notif.remove(), 4000);
-}
-
-// Close modal when clicking outside
-document.getElementById('unlockModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        hideUnlockModal();
-    }
-});
-
-// Style for animation
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-`;
-document.head.appendChild(style);
-</script>
 {% endblock %}
+                </tr>
