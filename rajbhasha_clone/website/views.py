@@ -35,6 +35,12 @@ import os
 from gtts import gTTS
 from captcha.models import CaptchaStore
 from deep_translator import GoogleTranslator
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.utils import timezone
+from .models import ProfileChangeRequest
+import hashlib
+import json
 from .models import (
     Employee, CustomUser, Role, DataAccessLog, ArchivedUser, cipher_suite,
     Office,
@@ -74,7 +80,10 @@ import tempfile
 from datetime import date, datetime, timedelta
 from typing import cast
 from urllib import request
-
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from website.static_event_service import get_all_events, EVENTS_ROOT, STATIC_URL_PREFIX
+import os
 # Third-party / Django Imports
 from captcha.models import CaptchaStore, logger
 from deep_translator import GoogleTranslator
@@ -125,7 +134,7 @@ from .models import (
     Section7NotingsData, Section8WorkshopsData, 
     Section9ImplementationCommitteeData, Section10HindiAdvisoryData, 
     Section11SpecificAchievementsData, StaffHindiKnowledge, 
-    TypingUsageReport, UserProfile, cipher_suite
+    TypingUsageReport, UserProfile, cipher_suite,ProfileChangeRequest
 )
 from .serializers import EmployeeSerializer
 from .signals import User
@@ -255,59 +264,120 @@ def api_get_employee_details(request):
 @require_http_methods(["POST"])
 def submit_profile_change_request(request):
     """User submits a reason to unlock their profile for editing"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'})
+    
     try:
-        # Debug: Print CSRF token and headers
-        print("[DEBUG] CSRF cookie:", request.COOKIES.get('csrftoken'))
-        print("[DEBUG] X-CSRFToken header:", request.headers.get('X-CSRFToken'))
-        print("[DEBUG] All headers:", dict(request.headers))
-
         data = json.loads(request.body)
         reason = data.get('change_reason', '').strip()
         
-        if not reason:
-            return JsonResponse({'success': False, 'message': 'Reason is required'})
+        if not reason or len(reason) < 10:
+            return JsonResponse({
+                'success': False, 
+                'message': 'Please provide at least 10 characters for reason'
+            })
         
         profile = request.user.profile
         
-        # Create the request
+        if not profile:
+            return JsonResponse({
+                'success': False, 
+                'message': 'Profile not found'
+            })
+        
+        # Create the change request
         change_request = ProfileChangeRequest.objects.create(
             profile=profile,
             change_reason=reason,
-            # Link to the HOD currently assigned in their profile
-            hod=CustomUser.objects.filter(username=profile.hod_name).first() 
+            hod=CustomUser.objects.filter(username=profile.hod_name).first()
         )
         
-        # Update profile status to reflect a pending change
-        profile.approval_status = 'change_pending' 
+        # Mark profile as having a pending change request
+        profile.approval_status = 'change_pending'
         profile.save()
         
-        return JsonResponse({'success': True, 'message': 'Request submitted to HOD'})
+        return JsonResponse({
+            'success': True, 
+            'message': 'Request submitted successfully. Your HOD will review it shortly.'
+        })
     except Exception as e:
-        print("[DEBUG] Exception in submit_profile_change_request:", str(e))
-        return JsonResponse({'success': False, 'message': str(e)})
+        print(f"[ERROR] submit_profile_change_request: {str(e)}")
+        return JsonResponse({
+            'success': False, 
+            'message': f'Error: {str(e)}'
+        })
 
 @login_required
+@require_http_methods(["POST"])
 def approve_profile_change(request, request_id):
-    """HOD approves the request, which unlocks the fields"""
+    """HOD approves the change request and unlocks the profile for editing"""
+    
+    # Check if user is HOD/Admin
     if not user_has_role(request.user, ['hod', 'admin']):
-        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+        return JsonResponse({
+            'success': False, 
+            'message': 'Unauthorized'
+        }, status=403)
+    
+    try:
+        from .models import ProfileChangeRequest
+        change_request = ProfileChangeRequest.objects.get(id=request_id)
+        profile = change_request.profile
+        user = profile.user
         
-    change_request = get_object_or_404(ProfileChangeRequest, id=request_id)
-    profile = change_request.profile
-    
-    change_request.status = 'approved'
-    change_request.approved_at = timezone.now()
-    change_request.save()
-    
-    # This status allows the frontend to enable input fields
-    profile.approval_status = 'approved' 
-    # Or a specific 'edit_mode' flag if you prefer
-    request.user.is_edit_allowed = True 
-    request.user.save()
-    profile.save()
-    
-    return JsonResponse({'success': True, 'message': 'Profile unlocked for user'})
+        # Approve the change request
+        change_request.status = 'approved'
+        change_request.approved_at = timezone.now()
+        change_request.save()
+        
+        # 🔓 UNLOCK the profile for editing
+        profile.approval_status = 'edit_mode'  # Temp status for editing
+        profile.profile_locked = False
+        profile.save()
+        
+        user.is_frozen = False
+        user.is_edit_allowed = True
+        user.save()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': 'Profile unlocked. User can now edit their information.'
+        })
+    except ProfileChangeRequest.DoesNotExist:
+        return JsonResponse({
+            'success': False, 
+            'message': 'Request not found'
+        }, status=404)
+    except Exception as e:
+        print(f"[ERROR] approve_profile_change: {str(e)}")
+        return JsonResponse({
+            'success': False, 
+            'message': f'Error: {str(e)}'
+        }, status=500)
 
+
+@require_http_methods(["GET"])
+def api_event_images(request, folder):
+    """
+    API endpoint to fetch all images for an event folder
+    """
+    folder_path = os.path.join(EVENTS_ROOT, folder)
+    
+    if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
+        return JsonResponse({"images": []}, status=404)
+    
+    IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+    
+    image_files = [
+        fname for fname in os.listdir(folder_path)
+        if os.path.splitext(fname)[1].lower() in IMAGE_EXTS
+    ]
+    
+    image_files.sort(key=lambda x: os.path.getctime(os.path.join(folder_path, x)))
+    
+    images = [f"{STATIC_URL_PREFIX}/{folder}/{fname}" for fname in image_files]
+    
+    return JsonResponse({"images": images})
 @staff_member_required
 def admin_events_dashboard(request):
     events = get_all_events()
@@ -1679,7 +1749,6 @@ def unarchive_user(request, archive_id):
         messages.error(request, "Original user record not found. Cannot restore.")
         return redirect('dashboard')
     
-@login_required
 def profile_view(request):
     """Unified profile view - Employee form with strict validation, HOD approval workflow, and controlled editing"""
 
@@ -1687,48 +1756,45 @@ def profile_view(request):
     user = request.user
     profile = getattr(user, 'profile', None)
 
-    from .models import Employee, Office, EditRequest
+    from .models import Employee, Office, EditRequest, ProfileChangeRequest
     from .employeeform import EmployeeForm
 
     employee = None
 
     # ===============================
-    # 🔐 EDIT REQUESTS & PERMISSIONS
+    # 🔐 EDIT PERMISSION LOGIC (UPDATED)
     # ===============================
-    approved_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
+    
+    # Check if there's an approved change request (HOD approved their request to unlock)
+    approved_change_request = ProfileChangeRequest.objects.filter(
+        profile=profile,
         status='approved'
-    ).first()
+    ).first() if profile else None
 
-    can_edit = (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None) or (profile and profile.approval_status == 'rejected')
-    pending_edit_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
+    # Check if there's a pending change request (waiting for HOD approval)
+    pending_change_request = ProfileChangeRequest.objects.filter(
+        profile=profile,
         status='pending'
-    ).first()
+    ).first() if profile else None
 
-    rejected_edit_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
-        status='rejected'
-    ).order_by('-created_at').first()
+    # User can edit if:
+    # 1. NOT frozen AND profile not locked, OR
+    # 2. is_edit_allowed flag is True, OR
+    # 3. An approved change request exists (HOD gave permission)
+    can_edit = (
+        (not user.is_frozen and not (profile and getattr(profile, 'profile_locked', False))) or
+        user.is_edit_allowed or
+        (approved_change_request is not None)
+    )
 
-    # HEAD-style permission (lenient but controlled)
-    # ===============================
-    # 📩 POST LOGIC
+    # POST LOGIC
     # ===============================
     if request.method == 'POST':
-        # Debug: Print POST data and CSRF token
-        print("[DEBUG] POST data:", dict(request.POST))
-        print("[DEBUG] CSRF cookie:", request.COOKIES.get('csrftoken'))
-        print("[DEBUG] Headers:", dict(request.headers))
-
-        # 🔒 Strict lock
+        # 🔒 Strict lock check
         if not can_edit:
             messages.error(
                 request,
-                translate_text("Your profile is locked. Request edit permission.", lang),
+                "Your profile is locked. Request edit permission.",
                 extra_tags='danger'
             )
             return redirect('dashboard')
@@ -1771,7 +1837,7 @@ def profile_view(request):
         if not new_email:
             messages.error(
                 request,
-                translate_text("Email is required.", lang),
+                "Email is required.",
                 extra_tags='danger'
             )
             return redirect('profile')
@@ -1781,7 +1847,7 @@ def profile_view(request):
         if CustomUser.objects.filter(email_hash=email_hash).exclude(pk=user.pk).exists():
             messages.error(
                 request,
-                translate_text("Email already in use.", lang),
+                "Email already in use.",
                 extra_tags='danger'
             )
             return redirect('profile')
@@ -1802,270 +1868,93 @@ def profile_view(request):
             profile.office_code = request.POST.get('office_code', '').strip()
             profile.office_name = request.POST.get('office_name', '').strip()
             profile.email = new_email
-            # ✅ FIX: was profile.region = ... (wrong field name), now correct:
             profile.language_region = request.POST.get('language_region', '')
             profile.hod_name = request.POST.get('hod_name', '')
-            profile.profile_updated = True  # ✅ FIX: mark as updated so user isn't redirected to profile again
+            profile.profile_updated = True
+
             if profile.approval_status == 'rejected':
                 profile.approval_status = 'pending'
                 messages.info(request, "Your updated profile has been sent back to your HOD for review.")
+            
+            # If profile was in edit_mode, lock it again after save
+            if profile.approval_status == 'edit_mode':
+                profile.approval_status = 'pending'  # Back to pending for HOD review
+                profile.profile_locked = False  # Temp unlock while editing
+            
             try:
                 profile.save()
-                # Debug - remove after confirming it works
                 profile.refresh_from_db()
-                print(f"✅ SAVED: empcode={profile.employee_code}, language_region={profile.language_region}")
             except Exception as e:
                 messages.error(request, f"Profile save error: {str(e)}")
                 return redirect('profile')
-            profile.hod_name = hod_name_post
 
             # 🔒 Approval workflow
             profile.profile_updated = True
             profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
-
             profile.save()
 
-        # ===============================
-        # ✅ EMPLOYEE FORM
-        # ===============================
-        form = EmployeeForm(request.POST, instance=employee)
-
-        if form.is_valid():
-            emp_instance = form.save(commit=False)
-
-            exams = request.POST.getlist("hindi_exam")
-            emp_instance.highest_exam = ",".join(exams)
-
-            emp_instance.empcode = empcode
-            emp_instance.save()
+            messages.success(
+                request,
+                "Profile submitted successfully. Awaiting HOD approval.",
+                extra_tags='success'
+            )
+            return redirect('dashboard')
         else:
-            messages.error(request, "Please fill all required Employee details correctly.")
+            messages.error(request, "Profile not found")
             return redirect('profile')
 
-        # ===============================
-        # 🔄 CLEANUP
-        # ===============================
-        if approved_request:
-            approved_request.status = 'used'
-            approved_request.save()
+    # ===============================
+    # 📄 GET LOGIC - DISPLAY FORM
+    # ===============================
+    
+    # Find employee data
+    if profile:
+        employee = Employee.objects.filter(empcode=profile.employee_code).first()
 
-        send_system_email(user, request, 'update')
+    # Load template context
+    EMPLOYEE_DATA = load_employee_data()
 
-        messages.success(
-            request,
-            translate_text("Profile submitted successfully! Awaiting approval.", lang)
-        )
+    available_hods = sorted(set(
+        CustomUser.objects.filter(roles__name='hod').values_list('username', flat=True)
+    ))
 
-        return redirect('dashboard')
+    current_hod = profile.hod_name if profile else None
 
-    # ===================== GET =====================
+    offices = Office.objects.all()
 
-    # ✅ FIX: Use correct field name profile.employee_code (not profile.empcode)
-    empcode = None
-    if profile and profile.employee_code:
-        empcode = profile.employee_code.strip()
+    # Designation choices
+    designation_choices = Employee.DESIGNATION_CHOICES
+    region_choices = [
+        ('Region_A', 'भाषा क्षेत्र \'क\' / Region A'),
+        ('Region_B', 'भाषा क्षेत्र \'ख\' / Region B'),
+        ('Region_C', 'भाषा क्षेत्र \'ग\' / Region C'),
+    ]
+    from .models import EditRequest  # make sure this import exists
 
-    employee = None
-    if empcode:
-        try:
-            employee = Employee.objects.filter(empcode=int(empcode)).first()
-        except (ValueError, TypeError):
-            employee = Employee.objects.filter(empcode=empcode).first()
-
-    form = EmployeeForm(instance=employee)
-
-    # Fetch QPR details
-    latest_qpr = QPRRecord.objects.filter(user=user).order_by('-updated_at').first()
-
-    qpr_office_name = ""
-    qpr_office_code = ""
-    qpr_phone = ""
-    qpr_email = ""
-
-    if latest_qpr:
-        qpr_office_name = latest_qpr.officeName
-        qpr_office_code = latest_qpr.officeCode
-        qpr_phone = latest_qpr.phone or ""
-        qpr_email = latest_qpr.email or ""
-
-    # Other edit requests
     pending_edit_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
+        user=request.user,
         status='pending'
     ).first()
 
-    rejected_edit_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
-        status='rejected'
-    ).order_by('-created_at').first()
+    approved_change_request = EditRequest.objects.filter(
+        user=request.user,
+        status='approved'
+    ).first()
 
-    # HEAD-style permission (lenient but controlled)
-    can_edit = (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None)
-
-    # ===============================
-    # 📩 POST LOGIC
-    # ===============================
-    if request.method == 'POST':
-
-        # 🔒 Strict lock
-        if not can_edit:
-            messages.error(
-                request,
-                translate_text("Your profile is locked. Request edit permission.", lang),
-                extra_tags='danger'
-            )
-            return redirect('dashboard')
-
-        EMPLOYEE_DATA = load_employee_data()
-
-        empcode = request.POST.get('empcode', '').strip()
-        username = request.POST.get('username', '').strip().upper()
-        phone = request.POST.get('phone', '').strip()
-
-        # ❌ Validate empcode
-        if empcode not in EMPLOYEE_DATA:
-            messages.error(request, "Invalid Employee Code")
-            return redirect('profile')
-
-        employee_data = EMPLOYEE_DATA[empcode]
-
-        # ❌ Validate name
-        if username != employee_data["name"]:
-            messages.error(request, "Name does not match official records")
-            return redirect('profile')
-
-        # ❌ Validate phone
-        if phone != employee_data["mobile"]:
-            messages.error(request, "Mobile number does not match official records")
-            return redirect('profile')
-
-        # Fetch employee after validation
-        employee = Employee.objects.filter(empcode=empcode).first()
-
-        # 🔥 HOD mandatory
-        hod_name_post = request.POST.get('hod_name', '').strip()
-        if not hod_name_post:
-            messages.error(request, "HOD/Approver selection is required")
-            return redirect('profile')
-
-        # Email validation
-        new_email = request.POST.get('email', '').lower().strip()
-
-        if not new_email:
-            messages.error(
-                request,
-                translate_text("Email is required.", lang),
-                extra_tags='danger'
-            )
-            return redirect('profile')
-
-        email_hash = hashlib.sha256(new_email.encode()).hexdigest()
-
-        if CustomUser.objects.filter(email_hash=email_hash).exclude(pk=user.pk).exists():
-            messages.error(
-                request,
-                translate_text("Email already in use.", lang),
-                extra_tags='danger'
-            )
-            return redirect('profile')
-
-        # ===============================
-        # ✅ SAVE USER
-        # ===============================
-        user.set_email(new_email)
-        user.is_edit_allowed = False
-        user.save()
-
-        # ===============================
-        # ✅ SAVE PROFILE
-        # ===============================
-        if profile:
-            profile.employee_code = empcode
-            profile.phone = phone
-            profile.office_code = request.POST.get('office_code', '').strip()
-            profile.office_name = request.POST.get('office_name', '').strip()
-            profile.email = new_email
-            profile.hod_name = hod_name_post
-
-            # 🔒 Approval workflow
-            profile.profile_updated = True
-            profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
-
-            profile.save()
-
-        # ===============================
-        # ✅ EMPLOYEE FORM
-        # ===============================
-        form = EmployeeForm(request.POST, instance=employee)
-
-        if form.is_valid():
-            emp_instance = form.save(commit=False)
-
-            exams = request.POST.getlist("hindi_exam")
-            emp_instance.highest_exam = ",".join(exams)
-
-            emp_instance.empcode = empcode
-            emp_instance.save()
-        else:
-            messages.error(request, "Please fill all required Employee details correctly.")
-            return redirect('profile')
-
-        # ===============================
-        # 🔄 CLEANUP
-        # ===============================
-        if approved_request:
-            approved_request.status = 'used'
-            approved_request.save()
-
-        send_system_email(user, request, 'update')
-
-        messages.success(
-            request,
-            translate_text("Profile submitted successfully! Awaiting approval.", lang)
-        )
-
-        return redirect('dashboard')
-
-    # ===============================
-    # 📄 GET LOGIC
-    # ===============================
-    else:
-        form = EmployeeForm(instance=employee)
-
-    # ===============================
-    # 📦 CONTEXT
-    # ===============================
-    offices = Office.objects.all()
-
-    context = {
-        'form': form,
-        'employee': employee,
+    return render(request, 'profile.html', {
+        'user': user,
         'profile': profile,
-        'qpr_office_name': profile.office_name if profile else '',
-        'qpr_office_code': profile.office_code if profile else '',
-        'qpr_phone': profile.phone if profile else '',
-        'qpr_email': profile.email if profile else '',
-
-        'available_hods': get_active_hods(profile.office_code) if profile else [],
-        'current_hod': profile.hod_name if profile else None,
-
+        'employee': employee,
         'can_edit': can_edit,
-        'offices': offices,
-
-        'profile_updated': profile.profile_updated if profile else False,
-
-        'approved_edit_request': approved_request,
         'pending_edit_request': pending_edit_request,
-        'rejected_edit_request': rejected_edit_request,
-        'region_choices': QPRRecord.region_choices,
-    }
-
-    from django.template.context_processors import csrf
-    context.update(csrf(request))
-    return render(request, 'profile.html', context)
-
+        'approved_change_request': approved_change_request,  # 🆕 Pass this to template
+        'current_lang': lang,
+        'available_hods': available_hods,
+        'current_hod': current_hod,
+        'offices': offices,
+        'designation_choices': designation_choices,
+        'region_choices': region_choices,
+    })
 '''
 @login_required
 def user_profile(request):
