@@ -1797,7 +1797,7 @@ def profile_view(request):
     # 1. NOT frozen AND profile not locked, OR
     # 2. is_edit_allowed flag is True, OR
     # 3. An approved change request exists (HOD gave permission)
-    can_edit = profile.approval_status == 'edit_mode'
+    can_edit = not (profile.profile_locked and profile.approval_status == 'approved')
     
 
     # POST LOGIC
