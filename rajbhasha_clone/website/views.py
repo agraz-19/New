@@ -306,54 +306,70 @@ def submit_profile_change_request(request):
             'success': False, 
             'message': f'Error: {str(e)}'
         })
+@login_required
+@require_http_methods(["POST"])
+def approve_profile_final(request, profile_id):
+    """HOD/Admin approves profile → LOCK it"""
 
+    if not user_has_role(request.user, ['hod', 'admin']):
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+
+    try:
+        from .models import UserProfile
+
+        profile = UserProfile.objects.get(id=profile_id)
+
+        profile.approval_status = 'approved'
+        profile.profile_locked = True   # 🔒 LOCK
+        profile.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Profile approved and locked successfully'
+        })
+
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Profile not found'}, status=404)
 @login_required
 @require_http_methods(["POST"])
 def approve_profile_change(request, request_id):
-    """HOD approves the change request and unlocks the profile for editing"""
-    
-    # Check if user is HOD/Admin
+    """HOD approves edit request → UNLOCK profile"""
+
     if not user_has_role(request.user, ['hod', 'admin']):
-        return JsonResponse({
-            'success': False, 
-            'message': 'Unauthorized'
-        }, status=403)
-    
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+
     try:
         from .models import ProfileChangeRequest
+
         change_request = ProfileChangeRequest.objects.get(id=request_id)
         profile = change_request.profile
         user = profile.user
-        
-        # Approve the change request
+
+        # ✅ Mark request approved
         change_request.status = 'approved'
         change_request.approved_at = timezone.now()
         change_request.save()
-        
-        # 🔓 UNLOCK the profile for editing
-        profile.approval_status = 'edit_mode'  # Temp status for editing
+
+        # 🔓 UNLOCK profile for editing
+        profile.approval_status = 'edit_mode'
         profile.profile_locked = False
         profile.save()
-        
+
         user.is_frozen = False
         user.is_edit_allowed = True
         user.save()
-        
+
         return JsonResponse({
-            'success': True, 
-            'message': 'Profile unlocked. User can now edit their information.'
+            'success': True,
+            'message': 'Profile unlocked for editing'
         })
+
     except ProfileChangeRequest.DoesNotExist:
-        return JsonResponse({
-            'success': False, 
-            'message': 'Request not found'
-        }, status=404)
+        return JsonResponse({'success': False, 'message': 'Request not found'}, status=404)
+
     except Exception as e:
         print(f"[ERROR] approve_profile_change: {str(e)}")
-        return JsonResponse({
-            'success': False, 
-            'message': f'Error: {str(e)}'
-        }, status=500)
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
 @require_http_methods(["GET"])
@@ -1781,11 +1797,8 @@ def profile_view(request):
     # 1. NOT frozen AND profile not locked, OR
     # 2. is_edit_allowed flag is True, OR
     # 3. An approved change request exists (HOD gave permission)
-    can_edit = (
-        (not user.is_frozen and not (profile and getattr(profile, 'profile_locked', False))) or
-        user.is_edit_allowed or
-        (approved_change_request is not None)
-    )
+    can_edit = profile.approval_status == 'edit_mode'
+    
 
     # POST LOGIC
     # ===============================
@@ -1931,14 +1944,14 @@ def profile_view(request):
     ]
     from .models import EditRequest  # make sure this import exists
 
-    pending_edit_request = EditRequest.objects.filter(
-        user=request.user,
-        status='pending'
+    approved_change_request = ProfileChangeRequest.objects.filter(
+        profile=profile,
+        status='approved'
     ).first()
 
-    approved_change_request = EditRequest.objects.filter(
-        user=request.user,
-        status='approved'
+    pending_change_request = ProfileChangeRequest.objects.filter(
+        profile=profile,
+        status='pending'
     ).first()
 
     return render(request, 'profile.html', {
@@ -1946,7 +1959,7 @@ def profile_view(request):
         'profile': profile,
         'employee': employee,
         'can_edit': can_edit,
-        'pending_edit_request': pending_edit_request,
+        'pending_change_request': pending_change_request,
         'approved_change_request': approved_change_request,  # 🆕 Pass this to template
         'current_lang': lang,
         'available_hods': available_hods,
