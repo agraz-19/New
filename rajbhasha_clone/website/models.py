@@ -243,11 +243,7 @@ class UserProfile(models.Model):
     name = models.CharField(max_length=255, blank=True, null=True)
     encrypted_email = models.BinaryField(blank=True, null=True)
     encrypted_phone = models.BinaryField(blank=True, null=True)
-    alternate_email = models.EmailField(
-        blank=True, 
-        null=True,
-        # validators=[EmailValidator()],
-        help_text="Optional alternate email address")
+    alternate_email = models.EmailField(blank=True, null=True)
     ip_number = models.CharField(
         max_length=20, 
         blank=True, 

@@ -69,11 +69,11 @@ def ensure_current_financial_year():
         end_year=end
     )
 
-def send_system_email(user, request, email_type, extra_context=None):    
+def send_system_email(user, request, email_type, extra_context=None, target_email=None):    
     if extra_context is None:
         extra_context = {}
 
-    user_email = user.get_email()
+    user_email = target_email or user.get_email()
     if not user_email: 
         return
 

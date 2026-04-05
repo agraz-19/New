@@ -67,7 +67,25 @@
                     {% bootstrap_field form.username %}
                     {% bootstrap_field form.password %}
                     {% bootstrap_field form.role %}
-                    
+                    <div class="mb-4 mt-3">
+        <label class="form-label fw-bold text-secondary">{{ "Send Secure OTP To:"|t:current_lang }}</label>
+        <div class="row g-2">
+            {% for radio in form.email_choice %}
+            <div class="col-6">
+                <input type="radio" 
+                       class="btn-check" 
+                       name="{{ form.email_choice.html_name }}" 
+                       id="{{ radio.id_for_label }}" 
+                       value="{{ radio.data.value }}" 
+                       {% if radio.data.value == form.email_choice.value or radio.data.selected %}checked{% endif %}>
+                
+                <label class="btn btn-outline-primary w-100 h-100 d-flex align-items-center justify-content-center p-2 shadow-sm" for="{{ radio.id_for_label }}">
+                    {{ radio.choice_label }}
+                </label>
+            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
                     <div id="captcha-wrapper">
                         {% bootstrap_field form.captcha %}
                     </div>

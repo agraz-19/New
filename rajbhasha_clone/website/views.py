@@ -1234,11 +1234,11 @@ def serialize_qpr_record(record):
         pass
     return data
 
-def send_otp_email(user, lang):
+def send_otp_email(user, lang, target_email=None):
     user.otp = str(random.randint(100000, 999999))
     user.otp_created_at = timezone.now()
     user.save(update_fields=['otp', 'otp_created_at'])
-    send_system_email(user, None, 'otp', extra_context={'otp': user.otp, 'lang': lang})
+    send_system_email(user, None, 'otp', extra_context={'otp': user.otp, 'lang': lang}, target_email=target_email)
     return user.otp
 
 
@@ -1338,39 +1338,43 @@ class CustomLoginView(LoginView):
 
     def form_valid(self, form):
         user = cast(CustomUser, form.get_user())
-        auth_login(self.request, user)
         current_lang = self.request.session.get('lang', 'en')
         
-        # Get the selected role from the form
         selected_role = form.cleaned_data.get('role')
-        # Check if user actually has the selected role and use it; otherwise fall back
         if selected_role and user_has_role(user, selected_role):
             active_role = selected_role
         else:
             active_role = user_role(user)
 
-        # Set session variables and ensure session is saved
+        # --- NEW OTP LOGIC ---
+        email_choice = form.cleaned_data.get('email_choice', 'primary')
+        target_email = user.get_email()
+        profile = getattr(user, 'profile', None)
+        alternate_email = getattr(profile, 'alternate_email', None)
+        
+        if email_choice == 'alternate':
+            if alternate_email:
+                target_email = alternate_email
+            else:
+                messages.warning(self.request, translate_text("No alternate email found in your profile. Sending to official email.", current_lang))
+
+        # Send OTP
+        send_otp_email(user, current_lang, target_email=target_email)
+        
+        # Save pre-login state
+        self.request.session['pre_login_user_id'] = user.id
+        self.request.session['login_target_email'] = target_email
+        self.request.session['is_login_otp'] = True
         self.request.session['lang'] = current_lang
         self.request.session['active_role'] = active_role
         self.request.session.modified = True
-        self.request.session.save()
         
-        send_system_email(user, self.request, 'login')
-        # If user is a regular user and hasn't completed profile, force profile completion first
-        try:
-            profile = getattr(user, 'profile', None)
-        except Exception:
-            profile = None
-
-        if user_role(user) == 'user' and profile and not profile.profile_updated:
-            return redirect('qpr_user_profile')
-
-        return redirect(self.get_success_url())
+        messages.success(self.request, translate_text("OTP sent successfully.", current_lang))
+        return redirect('verify_otp')
 
     def form_invalid(self, form):
         username = form.data.get('username')
         user = CustomUser.objects.filter(username=username).first()
-        # Ensure we have a password string before passing to check_password
         raw_password = form.data.get('password')
         if not isinstance(raw_password, str):
             return super().form_invalid(form)
@@ -1424,7 +1428,73 @@ def signup(request):
     return render(request, 'registration/signup.html', {'form': form})
 
 # ==================== PASSWORD & OTP ====================
-
+class LoginOTPView(View):
+    def get(self, request):
+        user_id = request.session.get('pre_otp_user_id')
+        if not user_id:
+            return redirect('login')
+            
+        user = CustomUser.objects.get(id=user_id)
+        profile = getattr(user, 'profile', None)
+        lang = request.session.get('lang', 'en')
+        
+        # Helper to mask emails for security (e.g., p***@domain.com)
+        def mask_email(email):
+            if not email or '@' not in email: return ""
+            parts = email.split('@')
+            return f"{parts[0][0]}***@{parts[1]}"
+            
+        context = {
+            'primary_email': mask_email(user.get_email()),
+            'has_alternate': bool(profile and profile.alternate_email),
+            'alternate_email': mask_email(profile.alternate_email) if profile and profile.alternate_email else "",
+            'current_lang': lang
+        }
+        return render(request, 'registration/login_otp.html', context)
+        
+    def post(self, request):
+        user_id = request.session.get('pre_otp_user_id')
+        if not user_id:
+            return redirect('login')
+            
+        user = CustomUser.objects.get(id=user_id)
+        profile = getattr(user, 'profile', None)
+        action = request.POST.get('action')
+        lang = request.session.get('lang', 'en')
+        
+        if action == 'send_otp':
+            email_choice = request.POST.get('email_choice', 'primary')
+            target_email = user.get_email()
+            
+            # Switch to alternate if selected and it exists
+            if email_choice == 'alternate' and profile and profile.alternate_email:
+                target_email = profile.alternate_email
+                
+            send_otp_email(user, lang, target_email=target_email)
+            messages.success(request, translate_text("OTP sent to your selected email.", lang))
+            return redirect('login_otp_step')
+            
+        elif action == 'verify_otp':
+            otp_input = request.POST.get('otp', '').strip()
+            
+            if user.otp == otp_input and user.otp_created_at and (timezone.now() - user.otp_created_at).total_seconds() < 300:
+                # OTP is valid! Log them in properly
+                user.otp = None
+                user.save(update_fields=['otp'])
+                
+                auth_login(request, user)
+                
+                # Execute your standard post-login actions
+                send_system_email(user, request, 'login')
+                if user_role(user) == 'user' and profile and not profile.profile_updated:
+                    return redirect('qpr_user_profile')
+                    
+                # Clean up session
+                request.session.pop('pre_otp_user_id', None)
+                return redirect('dashboard')
+            else:
+                messages.error(request, translate_text("Invalid or expired OTP.", lang))
+                return redirect('login_otp_step')
 class ForgotPasswordView(View):
     def get(self, request):
         return render(request, 'registration/forgot_password.html')
@@ -1446,14 +1516,41 @@ class ForgotPasswordView(View):
 
 class VerifyOTPView(View):
     def get(self, request):
-        if not request.session.get('reset_email_hash') and not request.session.get('is_signup'): 
+        if not request.session.get('reset_email_hash') and not request.session.get('is_signup') and not request.session.get('is_login_otp'): 
             return redirect('forgot_password')
+            
         lang = request.session.get('lang', 'en')
         context = {'title_text': translate_text("Verify OTP", lang), 'button_text': translate_text("Verify Code", lang), 'current_lang': lang}
         return render(request, 'registration/verify_otp.html', context)
     def post(self, request):
         otp_input = request.POST.get('otp', '').strip()
         lang = request.session.get('lang', 'en')
+        if request.session.get('is_login_otp'):
+            user_id = request.session.get('pre_login_user_id')
+            if not user_id: return redirect('login')
+            user = CustomUser.objects.get(id=user_id)
+            
+            att_key, blk_key = f"otp_att_login_{user_id}", f"otp_blk_login_{user_id}"
+            if cache.get(blk_key):
+                return render(request, 'registration/verify_otp.html', {'is_blocked': True, 'current_lang': lang})
+                
+            if user.otp == otp_input and user.otp_created_at and (timezone.now() - user.otp_created_at).total_seconds() < 300:
+                user.otp = None
+                user.save(update_fields=['otp'])
+                
+                # Log them in for real
+                auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+                send_system_email(user, request, 'login')
+                
+                # Cleanup session
+                request.session.pop('pre_login_user_id', None)
+                request.session.pop('is_login_otp', None)
+                request.session.pop('login_target_email', None)
+                
+                profile = getattr(user, 'profile', None)
+                if user_role(user) == 'user' and profile and not profile.profile_updated:
+                    return redirect('qpr_user_profile')
+                return redirect('dashboard')
         if request.session.get('is_signup'):
             signup_data = request.session.get('signup_data')
             if not signup_data:
@@ -1536,6 +1633,14 @@ class ResendOTPView(View):
             dummy_user = CustomUser(username=signup_data['username'])
             dummy_user.set_email(signup_data['email'])
             send_system_email(dummy_user, request, 'otp', extra_context={'otp': new_otp, 'lang': lang})
+            messages.success(request, translate_text("New OTP sent.", lang))
+            return redirect('verify_otp')
+        if request.session.get('is_login_otp'):
+            user_id = request.session.get('pre_login_user_id')
+            target_email = request.session.get('login_target_email')
+            if not user_id: return redirect('login')
+            user = CustomUser.objects.get(id=user_id)
+            send_otp_email(user, lang, target_email=target_email)
             messages.success(request, translate_text("New OTP sent.", lang))
             return redirect('verify_otp')
         email_hash = request.session.get('reset_email_hash')
@@ -1883,8 +1988,9 @@ def profile_view(request):
             profile.email = new_email
             profile.language_region = request.POST.get('language_region', '')
             profile.hod_name = request.POST.get('hod_name', '')
-            profile.profile_updated = True
-
+            alt_email_post = request.POST.get('alternate_email', '').lower().strip()
+            profile.alternate_email = alt_email_post if alt_email_post else None
+            profile.profile_updated = True  # ✅ FIX: mark as updated so user isn't redirected to profile again
             if profile.approval_status == 'rejected':
                 profile.approval_status = 'pending'
                 messages.info(request, "Your updated profile has been sent back to your HOD for review.")
