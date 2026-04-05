@@ -117,6 +117,13 @@ class CustomLoginForm(AuthenticationForm):
         choices=[('user', 'User'), ('manager', 'Manager'), ('hod', 'HOD'), ('admin', 'Admin'),('backup_user','Backup User')],
         widget=forms.Select(attrs={'class': 'form-select'})
     )
+
+    email_choice = forms.ChoiceField(
+        choices=[('primary', 'Official Email'), ('alternate', 'Alternate Email')],
+        widget=forms.RadioSelect,
+        initial='primary',
+        required=False
+    )
     captcha = CaptchaField()
 
     def __init__(self, request=None, *args, **kwargs):
@@ -135,7 +142,12 @@ class CustomLoginForm(AuthenticationForm):
         self.fields["password"].label = translate_text("Password", self.lang)
         self.fields['role'].label = translate_text("Select Role", self.lang)
         self.fields['captcha'].label = translate_text("Enter the characters shown", self.lang)
-        
+        self.fields['email_choice'].label = translate_text("Send Secure OTP To:", self.lang)
+        self.fields['email_choice'].choices = [
+            ('primary', translate_text("Official Email", self.lang)),
+            ('alternate', translate_text("Alternate Email", self.lang))
+        ]
+
         self.error_messages['invalid_login'] = translate_text(
             "Please enter a correct username and password. Note that both fields may be case-sensitive.",
             self.lang

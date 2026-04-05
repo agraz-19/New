@@ -3,7 +3,7 @@ from django.urls import path, include
 from captcha import views as captcha_views
 from website import views
 from website.views import (
-    CustomLoginView, signup, ForgotPasswordView, VerifyOTPView, ResetPasswordView,
+    CustomLoginView, LoginOTPView, signup, ForgotPasswordView, VerifyOTPView, ResetPasswordView,
     EmployeeListCreateAPI, EmployeeDetailAPI, SubmitDraftAPI, custom_logout
 )
 
@@ -15,6 +15,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'), # Central Router
     
     path('login/', CustomLoginView.as_view(), name='login'),
+    path('login/verify-otp/', LoginOTPView.as_view(), name='login_otp_step'),
     path('signup/', signup, name='signup'),
     path('logout/', custom_logout, name='logout'),
 
