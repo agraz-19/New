@@ -4,7 +4,7 @@ from captcha import views as captcha_views
 from website import views
 from website.views import (
     CustomLoginView, signup, ForgotPasswordView, VerifyOTPView, ResetPasswordView,
-    EmployeeListCreateAPI, EmployeeDetailAPI, SubmitDraftAPI, custom_logout
+    EmployeeListCreateAPI, EmployeeDetailAPI, SubmitDraftAPI, custom_logout,approve_profile_change_hod, reject_profile_change_hod
 )
 
 urlpatterns = [
@@ -112,5 +112,7 @@ urlpatterns = [
     path('events-admin/<str:folder>/set-thumbnail/', views.set_thumbnail, name='set_thumbnail'),
     # 🆕 Profile Change Request Workflow
     path('api/submit-profile-change/', views.submit_profile_change_request, name='submit_profile_change_request'),
-    path('api/approve-profile-change/<int:request_id>/', views.approve_profile_change, name='approve_profile_change'),
+    # path('api/approve-profile-change/<int:request_id>/', views.approve_profile_change, name='approve_profile_change'),
+    path('profile/change-request/approve/<int:request_id>/', approve_profile_change_hod, name='approve_profile_change'),
+    path('profile/change-request/reject/<int:request_id>/', reject_profile_change_hod, name='reject_profile_change'),
 ]

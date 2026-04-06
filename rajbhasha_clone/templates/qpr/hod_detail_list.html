@@ -200,86 +200,186 @@
     {% endfor %}
     {% endif %}
 
+<!-- Profile Change Requests Section -->
+{% if profile_change_requests %}
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-info text-white fw-bold">
+                <i class="fas fa-history"></i> {{ "Profile Change Request "|t:current_lang }}
+            </div>
+
+            <div class="card-body table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{{ "Employee Code"|t:current_lang }}</th>
+                            <th>{{ "Employee Name"|t:current_lang }}</th>
+                            <th>{{ "Reason for Change"|t:current_lang }}</th>
+                            <th>{{ "Requested On"|t:current_lang }}</th>
+                            <th>{{ "Status"|t:current_lang }}</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for req in profile_change_requests %}
+                        <tr>
+                            <td class="fw-bold">{{ req.profile.employee_code }}</td>
+                            <td>{{ req.profile.name|default:req.profile.user.username }}</td>
+                            <td>
+                                <div style="max-width: 300px; word-wrap: break-word;">
+                                    {{ req.change_reason }}
+                                </div>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ req.requested_at|date:"d M Y, H:i" }}</small>
+                            </td>
+                            <td>
+                                {% if req.status == 'pending' %}
+                                    <div class="btn-group btn-group-sm">
+                                        <form action="{% url 'approve_profile_change' req.id %}" method="POST" style="display:inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-success" onclick="return confirm('Approve this request?')">
+                                                <i class="fas fa-check"></i> {{ "Approve"|t:current_lang }}
+                                            </button>
+                                        </form>
+
+                                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal{{ req.id }}">
+                                            <i class="fas fa-times"></i> {{ "Reject"|t:current_lang }}
+                                        </button>
+                                    </div>
+
+                                    <div class="modal fade" id="rejectModal{{ req.id }}" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <form action="{% url 'reject_profile_change' req.id %}" method="POST">
+                                                {% csrf_token %}
+                                                <div class="modal-content">
+                                                    <div class="modal-header bg-danger text-white">
+                                                        <h5 class="modal-title">Reject Request - {{ req.profile.employee_code }}</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <label class="form-label">Reason for Rejection:</label>
+                                                        <textarea name="rejection_reason" class="form-control" required></textarea>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+                                                    </div>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+
+                                {% elif req.status == 'approved' %}
+                                    <span class="badge bg-success">{{ "Approved"|t:current_lang }}</span>
+                                {% elif req.status == 'rejected' %}
+                                    <span class="badge bg-danger">{{ "Rejected"|t:current_lang }}</span>
+                                    {% if req.approval_comments %}
+                                        <div class="small text-muted mt-1"><strong>Reason:</strong> {{ req.approval_comments }}</div>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+    <!-- Employee List -->
     {% if users_data %}
-    <div class="table-container">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>{{ "Employee Code"|t:current_lang }}</th>
-                    <th>{{ "Name"|t:current_lang }}</th>
-                    <th>{{ "Office Code"|t:current_lang }}</th>
-                    <th>{{ "Office Name"|t:current_lang }}</th>
-                    <th>{{ "Profile"|t:current_lang }}</th>
-                    <th>QPR ({{ current_quarter }} {{ current_year }})</th>
-                    <th>{{ "Freeze QPR"|t:current_lang }}</th>
-                    <th>{{ "Email"|t:current_lang }}</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for user in users_data %}
-                <tr>
-                    <td><strong>{{ user.employee_code }}</strong></td>
-                    <td>{{ user.name }}</td>
-                    <td>{{ user.office_code|default:"Not Set" }}</td>
-                    <td>{{ user.office_name|default:"Not Set" }}</td>
-                    <td>
-                        {% if user.profile_complete %}
-                        <span class="status-complete"><i class="fas fa-check-circle"></i> {{ "Complete"|t:current_lang }}</span>
-                        {% else %}
-                        <span class="status-incomplete"><i class="fas fa-times-circle"></i> {{ "Incomplete"|t:current_lang }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if user.qpr_record_id %}
-                            <a href="{% url 'qpr_report_detail' user.qpr_record_id %}" class="btn btn-sm btn-outline-primary">View</a>
-                        {% elif user.qpr_complete %}
-                            <span class="status-complete"><i class="fas fa-check-circle"></i> {{ "Submitted"|t:current_lang }}</span>
-                        {% else %}
-                            <span class="status-incomplete"><i class="fas fa-times-circle"></i> {{ "Pending"|t:current_lang }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if user.qpr_record_id %}
-                            {% if user.is_quarterly_frozen %}
-                            <form action="{% url 'toggle_freeze_qpr' user.qpr_record_id %}" method="POST" style="margin: 0; display: inline;">
-                                {% csrf_token %}
-                                <span class="badge bg-danger" title="{{ 'Quarterly report is frozen'|t:current_lang }}">
-                                    <i class="fas fa-lock"></i> {{ "Frozen"|t:current_lang }}
-                                </span>
-                                <button type="submit" class="btn btn-sm btn-outline-success" title="{{ 'Unfreeze to allow editing'|t:current_lang }}" onclick="return confirm('{{ "Unfreeze this quarterly report?"|t:current_lang }}');">
-                                    <i class="fas fa-unlock"></i> {{ "Unfreeze"|t:current_lang }}
-                                </button>
-                            </form>
-                            {% else %}
-                            <form action="{% url 'toggle_freeze_qpr' user.qpr_record_id %}" method="POST" style="margin: 0; display: inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ 'Freeze this quarterly report'|t:current_lang }}" onclick="return confirm('{{ "Freeze this quarterly report? No edits will be allowed."|t:current_lang }}');">
-                                    <i class="fas fa-lock"></i> {{ "Freeze"|t:current_lang }}
-                                </button>
-                            </form>
-                            {% endif %}
-                        {% else %}
-                        <span class="text-muted">—</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if not user.profile_complete or not user.qpr_complete %}
-                        <form action="{% url 'send_reminder_email' user.user.id %}" method="POST" style="margin: 0;">
-                            {% csrf_token %}
-                            <button type="submit" class="email-btn" title="{{ 'Send Reminder Email'|t:current_lang }}">
-                                <i class="fas fa-envelope"></i> {{ "Send Reminder"|t:current_lang }}
-                            </button>
-                        </form>
-                        {% else %}
-                        <span class="email-btn disabled" title="{{ 'No action needed'|t:current_lang }}" style="display: inline-block;">
-                            <i class="fas fa-check"></i> {{ "Done"|t:current_lang }}
-                        </span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white fw-bold">
+                    <i class="fas fa-list"></i> {{ "Employees Under"|t:current_lang }} {{ hod_name|upper }}
+                </div>
+                <div class="card-body table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{{ "Employee Code"|t:current_lang }}</th>
+                                <th>{{ "Name"|t:current_lang }}</th>
+                                <th>{{ "Office Code"|t:current_lang }}</th>
+                                <th>{{ "Office Name"|t:current_lang }}</th>
+                                <th>{{ "Profile"|t:current_lang }}</th>
+                                <th>QPR ({{ current_quarter }} {{ current_year }})</th>
+                                <th>{{ "Freeze QPR"|t:current_lang }}</th>
+                                <th>{{ "Email"|t:current_lang }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users_data %}
+                            <tr>
+                                <td><strong>{{ user.employee_code }}</strong></td>
+                                <td>{{ user.name }}</td>
+                                <td>{{ user.office_code|default:"Not Set" }}</td>
+                                <td>{{ user.office_name|default:"Not Set" }}</td>
+                                <td>
+                                    {% if user.profile_complete %}
+                                    <span class="status-complete"><i class="fas fa-check-circle"></i> {{ "Complete"|t:current_lang }}</span>
+                                    {% else %}
+                                    <span class="status-incomplete"><i class="fas fa-times-circle"></i> {{ "Incomplete"|t:current_lang }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.qpr_record_id %}
+                                        <a href="{% url 'qpr_report_detail' user.qpr_record_id %}" class="btn btn-sm btn-outline-primary">View</a>
+                                    {% elif user.qpr_complete %}
+                                        <span class="status-complete"><i class="fas fa-check-circle"></i> {{ "Submitted"|t:current_lang }}</span>
+                                    {% else %}
+                                        <span class="status-incomplete"><i class="fas fa-times-circle"></i> {{ "Pending"|t:current_lang }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.qpr_record_id %}
+                                        {% if user.is_quarterly_frozen %}
+                                        <form action="{% url 'toggle_freeze_qpr' user.qpr_record_id %}" method="POST" style="margin: 0; display: inline;">
+                                            {% csrf_token %}
+                                            <span class="badge bg-danger" title="{{ 'Quarterly report is frozen'|t:current_lang }}">
+                                                <i class="fas fa-lock"></i> {{ "Frozen"|t:current_lang }}
+                                            </span>
+                                            <button type="submit" class="btn btn-sm btn-outline-success" title="{{ 'Unfreeze to allow editing'|t:current_lang }}" onclick="return confirm('{{ "Unfreeze this quarterly report?"|t:current_lang }}');">
+                                                <i class="fas fa-unlock"></i> {{ "Unfreeze"|t:current_lang }}
+                                            </button>
+                                        </form>
+                                        {% else %}
+                                        <form action="{% url 'toggle_freeze_qpr' user.qpr_record_id %}" method="POST" style="margin: 0; display: inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ 'Freeze this quarterly report'|t:current_lang }}" onclick="return confirm('{{ "Freeze this quarterly report? No edits will be allowed."|t:current_lang }}');">
+                                                <i class="fas fa-lock"></i> {{ "Freeze"|t:current_lang }}
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not user.profile_complete or not user.qpr_complete %}
+                                    <form action="{% url 'send_reminder_email' user.user.id %}" method="POST" style="margin: 0;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="email-btn" title="{{ 'Send Reminder Email'|t:current_lang }}">
+                                            <i class="fas fa-envelope"></i> {{ "Send Reminder"|t:current_lang }}
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <span class="email-btn disabled" title="{{ 'No action needed'|t:current_lang }}" style="display: inline-block;">
+                                        <i class="fas fa-check"></i> {{ "Done"|t:current_lang }}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
     {% else %}
     <div class="alert alert-info">
