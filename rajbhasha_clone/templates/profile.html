@@ -440,14 +440,19 @@
     }
 
     function checkProfileLockState() {
-        const profileStatus = "{{ profile.status|default:'' }}";
-        
-        if (profileLocked && "{{ user.pk }}" !== "") {
-            isProfileLocked = true;
-            lockAllFormFields();
-            showProfileLockedUI();
-        }
+    const profileStatus = "{{ profile.approval_status|default:'' }}";
+    
+    // ONLY lock if the status is explicitly 'approved'
+    // If status is empty, 'pending', or 'rejected', keep it UNLOCKED
+    if (profileStatus === 'approved') {
+        isProfileLocked = true;
+        lockAllFormFields();
+        showProfileLockedUI();
+    } else {
+        isProfileLocked = false;
+        unlockFormFields(); // Ensure fields are open for new users
     }
+}
 
     function lockAllFormFields() {
         const form = document.getElementById("employeeForm");
