@@ -113,5 +113,5 @@ urlpatterns = [
     # 🆕 Profile Change Request Workflow
     path('profile/change-request/reject/<int:request_id>/', reject_profile_change_hod, name='reject_profile_change'),
     path('profile/submit-change/', views.submit_profile_change_request, name='submit_profile_change_request'),
-    path('profile/approve-change/<int:request_id>/', views.approve_profile_change, name='approve_profile_change'),
+    path('profile/approve-change/<int:request_id>/', views.approve_profile_change_hod, name='approve_profile_change'),
 ]
