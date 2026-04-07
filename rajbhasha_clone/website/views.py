@@ -478,18 +478,20 @@ def can_access_manager_site(user):
 #     return list(
 #         hod_query.values_list('hod_name', flat=True).distinct()
 #     )
-def get_active_hods(office_code):
+def get_active_hods(office_code=None):
     """
-    Returns a list of HOD names or Usernames belonging to a specific office code.
+    Returns a list of HOD names/usernames. 
+    Matches office_code if provided, otherwise returns all HODs.
     """
-    if not office_code:
-        return []
-        
-    # Filter by office_code and ensure they have the 'hod' role
-    return UserProfile.objects.filter(
-        office_code=office_code,
-        roles__name='hod'
-    ).values_list('user__username', flat=True) # This returns ['1999', ...]
+    hod_query = UserProfile.objects.filter(Q(roles__name='hod') | Q(user__roles__name='hod'))
+    
+    if office_code:
+        # Try to find HODs in same office, but fallback to all HODs if none found in that office
+        specific_hods = hod_query.filter(office_code=office_code).values_list('user__username', flat=True)
+        if specific_hods.exists():
+            return specific_hods
+            
+    return hod_query.values_list('user__username', flat=True).distinct()
 
 def _convert_to_int(value):
     if value == '' or value is None: return None
