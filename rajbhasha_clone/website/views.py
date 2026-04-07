@@ -263,115 +263,48 @@ def api_get_employee_details(request):
 @login_required
 @require_http_methods(["POST"])
 def submit_profile_change_request(request):
-    """User submits a reason to unlock their profile for editing"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'POST required'})
-    
     try:
         data = json.loads(request.body)
         reason = data.get('change_reason', '').strip()
-        
-        if not reason or len(reason) < 10:
-            return JsonResponse({
-                'success': False, 
-                'message': 'Please provide at least 10 characters for reason'
-            })
-        
+
+        if not reason:
+            return JsonResponse({'success': False, 'message': 'Reason is required'})
+
         profile = request.user.profile
-        
-        if not profile:
+        hod_identifier = profile.hod_name.strip() # This is likely '1999' or a Name
+
+        # 1. First, try to find the HOD profile by Employee Code (username/empcode)
+        # 2. If not found, fall back to searching by Name
+        hod_profile = UserProfile.objects.filter(
+            Q(employee_code=hod_identifier) | Q(name__iexact=hod_identifier) | Q(hod_name__iexact=hod_identifier),
+            roles__name='hod'
+        ).first()
+
+        if not hod_profile:
             return JsonResponse({
-                'success': False, 
-                'message': 'Profile not found'
+                'success': False,
+                'message': f'HOD "{hod_identifier}" not found in system. Please ensure your HOD has registered and is approved.'
             })
-        
-        # Create the change request
-        change_request = ProfileChangeRequest.objects.create(
+
+        # Create the request linked to the HOD's actual User object
+        ProfileChangeRequest.objects.create(
             profile=profile,
             change_reason=reason,
-            hod=CustomUser.objects.filter(username=profile.hod_name).first()
+            hod=hod_profile.user, # This links it to User 1999
+            status='pending'
         )
-        
-        # Mark profile as having a pending change request
+
         profile.approval_status = 'change_pending'
-        profile.save()
-        
-        return JsonResponse({
-            'success': True, 
-            'message': 'Request submitted successfully. Your HOD will review it shortly.'
-        })
-    except Exception as e:
-        print(f"[ERROR] submit_profile_change_request: {str(e)}")
-        return JsonResponse({
-            'success': False, 
-            'message': f'Error: {str(e)}'
-        })
-@login_required
-@require_http_methods(["POST"])
-def approve_profile_final(request, profile_id):
-    """HOD/Admin approves profile → LOCK it"""
-
-    if not user_has_role(request.user, ['hod', 'admin']):
-        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
-
-    try:
-        from .models import UserProfile
-
-        profile = UserProfile.objects.get(id=profile_id)
-
-        profile.approval_status = 'approved'
-        profile.profile_locked = True   # 🔒 LOCK
-        profile.save()
+        profile.save(update_fields=['approval_status'])
 
         return JsonResponse({
             'success': True,
-            'message': 'Profile approved and locked successfully'
+            'message': 'Change request submitted successfully. Awaiting HOD approval.'
         })
-
-    except UserProfile.DoesNotExist:
-        return JsonResponse({'success': False, 'message': 'Profile not found'}, status=404)
-@login_required
-@require_http_methods(["POST"])
-def approve_profile_change(request, request_id):
-    """HOD approves edit request → UNLOCK profile"""
-
-    if not user_has_role(request.user, ['hod', 'admin']):
-        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
-
-    try:
-        from .models import ProfileChangeRequest
-
-        change_request = ProfileChangeRequest.objects.get(id=request_id)
-        profile = change_request.profile
-        user = profile.user
-
-        # ✅ Mark request approved
-        change_request.status = 'approved'
-        change_request.approved_at = timezone.now()
-        change_request.save()
-
-        # 🔓 UNLOCK profile for editing
-        profile.approval_status = 'edit_mode'
-        profile.profile_locked = False
-        profile.save()
-
-        user.is_frozen = False
-        user.is_edit_allowed = True
-        user.save()
-
-        return JsonResponse({
-            'success': True,
-            'message': 'Profile unlocked for editing'
-        })
-
-    except ProfileChangeRequest.DoesNotExist:
-        return JsonResponse({'success': False, 'message': 'Request not found'}, status=404)
 
     except Exception as e:
-        print(f"[ERROR] approve_profile_change: {str(e)}")
-        return JsonResponse({'success': False, 'message': str(e)}, status=500)
-
-
+        return JsonResponse({'success': False, 'message': str(e)})
+    
 @require_http_methods(["GET"])
 def api_event_images(request, folder):
     """
@@ -525,22 +458,38 @@ def can_access_manager_site(user):
     """Manager site accessible to users with 'manager' role"""
     return user.is_authenticated and user_has_role(user, 'manager')
 
-def get_active_hods(office_code=None):
-    """Get list of valid HODs only"""
+# def get_active_hods(office_code=None):
+#     """Get list of valid HODs only"""
     
-    hod_query = UserProfile.objects.filter(
-        roles__name='hod',
-        approval_status='approved'
-    )
+#     hod_query = UserProfile.objects.filter(
+#         roles__name='hod',
+#         approval_status='approved'
+#     )
 
-    # If office_code is provided, filter by it
-    # If office_code is None/empty, show HODs with no office_code restriction or all HODs
-    if office_code:
-        hod_query = hod_query.filter(office_code=office_code)
+#     # If office_code is provided, filter by it
+#     # If office_code is None/empty, show HODs with no office_code restriction or all HODs
+#     if office_code:
+#         hod_query = hod_query.filter(office_code=office_code)
 
-    return list(
-        hod_query.values_list('hod_name', flat=True).distinct()
-    )
+#     return list(
+#         hod_query.values_list('hod_name', flat=True).distinct()
+    
+#     )
+def get_active_hods(office_code):
+    """
+    Returns a list of HOD names or Usernames belonging to a specific office code.
+    """
+    if not office_code:
+        return []
+        
+    # Filter by office_code and ensure they have the 'hod' role
+    return UserProfile.objects.filter(
+        office_code=office_code,
+        roles__name='hod'
+    ).values_list('user__username', flat=True) # This returns ['1999', ...]
+
+
+
 
 def _convert_to_int(value):
     if value == '' or value is None: return None
@@ -1870,210 +1819,248 @@ def unarchive_user(request, archive_id):
         messages.error(request, "Original user record not found. Cannot restore.")
         return redirect('dashboard')
     
+@login_required
 def profile_view(request):
-    """Unified profile view - Employee form with strict validation, HOD approval workflow, and controlled editing"""
+    """
+    Refactored profile view.
+    Fix: Ensures new users can edit/fill details, but locks the profile 
+    once approved, requiring a Change Request to unlock.
+    """
+    from .models import Employee, Office, ProfileChangeRequest, QPRRecord
+    from .employeeform import EmployeeForm
 
     lang = request.session.get('lang', 'en')
     user = request.user
     profile = getattr(user, 'profile', None)
-
-    from .models import Employee, Office, EditRequest, ProfileChangeRequest
-    from .employeeform import EmployeeForm
-
-    employee = None
-
-    # ===============================
-    # 🔐 EDIT PERMISSION LOGIC (UPDATED)
-    # ===============================
     
-    # Check if there's an approved change request (HOD approved their request to unlock)
-    approved_change_request = ProfileChangeRequest.objects.filter(
-        profile=profile,
-        status='approved'
-    ).first() if profile else None
+    # ===============================
+    # 🔑 STATE FLAGS & LOCK LOGIC
+    # ===============================
+    # FIX: A user can edit if:
+    # 1. is_edit_allowed is explicitly True (The Source of Truth)
+    # 2. OR the profile hasn't been approved yet (New User/Rejected User)
+    is_approved = profile and profile.approval_status == "approved"
+    can_edit = user.is_edit_allowed or not is_approved
 
-    # Check if there's a pending change request (waiting for HOD approval)
     pending_change_request = ProfileChangeRequest.objects.filter(
         profile=profile,
         status='pending'
     ).first() if profile else None
 
-    # User can edit if:
-    # 1. NOT frozen AND profile not locked, OR
-    # 2. is_edit_allowed flag is True, OR
-    # 3. An approved change request exists (HOD gave permission)
-    can_edit = not (profile.profile_locked and profile.approval_status == 'approved')
-    
+    approved_change_request = ProfileChangeRequest.objects.filter(
+        profile=profile,
+        status='approved'
+    ).order_by('-approved_at').first() if profile else None
 
-    # POST LOGIC
+    # ===============================
+    # 📩 POST LOGIC (SAVE CHANGES)
     # ===============================
     if request.method == 'POST':
-        # 🔒 Strict lock check
         if not can_edit:
-            messages.error(
-                request,
-                "Your profile is locked. Request edit permission.",
-                extra_tags='danger'
-            )
-            return redirect('dashboard')
+            messages.error(request, "Your profile is locked. Please request edit permission.", extra_tags='danger')
+            return redirect('profile')
 
+        # Load Master Data for Validation
         EMPLOYEE_DATA = load_employee_data()
-
         empcode = request.POST.get('empcode', '').strip()
         username = request.POST.get('username', '').strip().upper()
         phone = request.POST.get('phone', '').strip()
 
-        # ❌ Validate empcode
+        # Official Record Validation
         if empcode not in EMPLOYEE_DATA:
             messages.error(request, "Invalid Employee Code")
             return redirect('profile')
-
-        employee_data = EMPLOYEE_DATA[empcode]
-
-        # ❌ Validate name
-        if username != employee_data["name"]:
-            messages.error(request, "Name does not match official records")
+        
+        record = EMPLOYEE_DATA[empcode]
+        if username != record["name"] or phone != record["mobile"]:
+            messages.error(request, "Details do not match official records.")
             return redirect('profile')
 
-        # ❌ Validate phone
-        if phone != employee_data["mobile"]:
-            messages.error(request, "Mobile number does not match official records")
-            return redirect('profile')
-
-        # Fetch employee after validation
-        employee = Employee.objects.filter(empcode=empcode).first()
-
-        # 🔥 HOD mandatory
-        hod_name_post = request.POST.get('hod_name', '').strip()
-        if not hod_name_post:
-            messages.error(request, "HOD/Approver selection is required")
-            return redirect('profile')
-
-        # Email validation
+        # Email & Security
         new_email = request.POST.get('email', '').lower().strip()
-
         if not new_email:
-            messages.error(
-                request,
-                "Email is required.",
-                extra_tags='danger'
-            )
+            messages.error(request, "Email is required.", extra_tags='danger')
             return redirect('profile')
 
         email_hash = hashlib.sha256(new_email.encode()).hexdigest()
-
         if CustomUser.objects.filter(email_hash=email_hash).exclude(pk=user.pk).exists():
-            messages.error(
-                request,
-                "Email already in use.",
-                extra_tags='danger'
-            )
+            messages.error(request, "Email already in use.", extra_tags='danger')
             return redirect('profile')
 
-        # ===============================
-        # ✅ SAVE USER
-        # ===============================
+        # HOD Selection
+        hod_name_post = request.POST.get('hod_name', '').strip()
+        if not hod_name_post:
+            messages.error(request, "HOD/Approver selection is required.")
+            return redirect('profile')
+
+        # 1. Update User & Initial Lock
         user.set_email(new_email)
-        user.is_edit_allowed = False
+        # If they were editing via an approved change request, re-lock the user
+        user.is_edit_allowed = False 
         user.save()
 
-        # ===============================
-        # ✅ SAVE PROFILE
-        # ===============================
+        # 2. Update Profile
         if profile:
             profile.employee_code = empcode
             profile.phone = phone
             profile.office_code = request.POST.get('office_code', '').strip()
             profile.office_name = request.POST.get('office_name', '').strip()
+            profile.office_state = request.POST.get('office_state', '').strip()
             profile.email = new_email
             profile.language_region = request.POST.get('language_region', '')
-            profile.hod_name = request.POST.get('hod_name', '')
-            alt_email_post = request.POST.get('alternate_email', '').lower().strip()
-            profile.alternate_email = alt_email_post if alt_email_post else None
-            profile.profile_updated = True  # ✅ FIX: mark as updated so user isn't redirected to profile again
-            if profile.approval_status == 'rejected':
-                profile.approval_status = 'pending'
-                messages.info(request, "Your updated profile has been sent back to your HOD for review.")
+            profile.hod_name = hod_name_post
             
-            # If profile was in edit_mode, lock it again after save
-            if profile.approval_status == 'edit_mode':
-                profile.approval_status = 'pending'  # Back to pending for HOD review
-                profile.profile_locked = False  # Temp unlock while editing
-            
-            try:
-                profile.save()
-                profile.refresh_from_db()
-            except Exception as e:
-                messages.error(request, f"Profile save error: {str(e)}")
-                return redirect('profile')
-
-            # 🔒 Approval workflow
-            profile.profile_updated = True
+            # Workflow Transition: 
+            # If they are a new user or were previously rejected, they go to 'pending'
+            # If they used an 'approved_change_request', they go to 'pending' for re-verification
             profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
+            profile.profile_updated = True
             profile.save()
 
-            messages.success(
-                request,
-                "Profile submitted successfully. Awaiting HOD approval.",
-                extra_tags='success'
-            )
-            return redirect('dashboard')
+        # 3. Update Employee Model (Master Data Instance)
+        employee = Employee.objects.filter(empcode=empcode).first()
+        form = EmployeeForm(request.POST, instance=employee)
+        if form.is_valid():
+            emp_instance = form.save(commit=False)
+            emp_instance.highest_exam = ",".join(request.POST.getlist("hindi_exam"))
+            emp_instance.empcode = empcode
+            emp_instance.save()
         else:
-            messages.error(request, "Profile not found")
+            messages.error(request, "Form validation failed. Please check your entries.")
             return redirect('profile')
 
+        # 4. Request Cleanup
+        if approved_change_request:
+            approved_change_request.status = 'completed'
+            approved_change_request.save()
+
+        send_system_email(user, request, 'update')
+        messages.success(request, "Profile submitted successfully! It is now awaiting HOD approval.")
+        return redirect('profile')
+
     # ===============================
-    # 📄 GET LOGIC - DISPLAY FORM
+    # 📥 GET LOGIC (PAGE LOAD)
     # ===============================
-    
-    # Find employee data
-    if profile:
-        employee = Employee.objects.filter(empcode=profile.employee_code).first()
+    empcode = profile.employee_code if profile else None
+    employee = Employee.objects.filter(empcode=empcode).first() if empcode else None
+    form = EmployeeForm(instance=employee)
+    current_office_code = profile.office_code if profile else "0012"
 
-    # Load template context
-    EMPLOYEE_DATA = load_employee_data()
-
-    available_hods = sorted(set(
-        CustomUser.objects.filter(roles__name='hod').values_list('username', flat=True)
-    ))
-
-    current_hod = profile.hod_name if profile else None
-
+    # Context Generation
     offices = Office.objects.all()
-
-    # Designation choices
-    designation_choices = Employee.DESIGNATION_CHOICES
-    region_choices = [
-        ('Region_A', 'भाषा क्षेत्र \'क\' / Region A'),
-        ('Region_B', 'भाषा क्षेत्र \'ख\' / Region B'),
-        ('Region_C', 'भाषा क्षेत्र \'ग\' / Region C'),
-    ]
-    from .models import EditRequest  # make sure this import exists
-
-    approved_change_request = ProfileChangeRequest.objects.filter(
-        profile=profile,
-        status='approved'
-    ).first()
-
-    pending_change_request = ProfileChangeRequest.objects.filter(
-        profile=profile,
-        status='pending'
-    ).first()
-
-    return render(request, 'profile.html', {
-        'user': user,
-        'profile': profile,
+    context = {
+        'form': form,
         'employee': employee,
-        'can_edit': can_edit,
-        'pending_change_request': pending_change_request,
-        'approved_change_request': approved_change_request,  # 🆕 Pass this to template
-        'current_lang': lang,
-        'available_hods': available_hods,
-        'current_hod': current_hod,
+        'profile': profile,
         'offices': offices,
-        'designation_choices': designation_choices,
-        'region_choices': region_choices,
-    })
+        'region_choices': QPRRecord.region_choices,
+        
+        # Identity
+        # 'available_hods': get_active_hods(profile.office_code) if profile and profile.office_code else [],
+        'available_hods': get_active_hods(current_office_code),
+        'current_hod': profile.hod_name if profile else None,
+
+        # 🔑 Flags for Template
+        'can_edit': can_edit,
+        'profile_locked': not can_edit, # Used by JS to trigger field locking
+        'profile_approved': is_approved,
+        'pending_change_request': pending_change_request,
+        'profile_updated': profile.profile_updated if profile else False,
+    }
+
+    return render(request, 'profile.html', context)
+@login_required
+def approve_profile_change_hod(request, request_id):
+    """HOD approves profile change request → unlock form"""
+
+    from .models import ProfileChangeRequest
+    from django.utils import timezone
+
+    # 🔐 ROLE CHECK
+    if not user_has_role(request.user, ['hod', 'admin']):
+        messages.error(request, "Unauthorized", extra_tags='danger')
+        return redirect('qpr_hod_detail_list')
+
+    change_request = get_object_or_404(ProfileChangeRequest, id=request_id)
+
+    # 🔒 Prevent re-processing
+    if change_request.status != 'pending':
+        messages.warning(request, "This request is already processed.")
+        return redirect('qpr_hod_detail_list')
+
+    # 🔐 HOD VALIDATION
+    if change_request.hod != request.user and not request.user.is_staff:
+        messages.error(request, "Not authorized for this request", extra_tags='danger')
+        return redirect('qpr_hod_detail_list')
+
+    # ✅ APPROVE REQUEST
+    change_request.status = 'approved'
+    change_request.approved_at = timezone.now()
+    change_request.save()
+
+    # 🔓 UNLOCK USER FORM
+    user = change_request.profile.user
+    user.is_edit_allowed = True
+    user.save(update_fields=['is_edit_allowed'])
+
+    messages.success(
+        request,
+        f"Edit request approved for {change_request.profile.name}. Form unlocked.",
+        extra_tags='success'
+    )
+
+    return redirect('qpr_hod_detail_list')
+@login_required
+def reject_profile_change_hod(request, request_id):
+    """HOD rejects profile change request → keep form locked"""
+
+    from .models import ProfileChangeRequest
+    from django.utils import timezone
+
+    if request.method != 'POST':
+        return redirect('qpr_hod_detail_list')
+
+    # 🔐 ROLE CHECK
+    if not user_has_role(request.user, ['hod', 'admin']):
+        messages.error(request, "Unauthorized", extra_tags='danger')
+        return redirect('qpr_hod_detail_list')
+
+    change_request = get_object_or_404(ProfileChangeRequest, id=request_id)
+
+    # 🔒 Prevent re-processing
+    if change_request.status != 'pending':
+        messages.warning(request, "This request is already processed.")
+        return redirect('qpr_hod_detail_list')
+
+    # 🔐 HOD VALIDATION
+    if change_request.hod != request.user and not request.user.is_staff:
+        messages.error(request, "Not authorized for this request", extra_tags='danger')
+        return redirect('qpr_hod_detail_list')
+
+    rejection_reason = request.POST.get('rejection_reason', '').strip()
+
+    if not rejection_reason:
+        messages.error(request, "Rejection reason is required", extra_tags='danger')
+        return redirect('qpr_hod_detail_list')
+
+    # ❌ REJECT REQUEST
+    change_request.status = 'rejected'
+    change_request.approved_at = timezone.now()  # you can rename to reviewed_at later
+    change_request.approval_comments = rejection_reason
+    change_request.save()
+
+    # 🚫 KEEP USER LOCKED (explicit for clarity)
+    user = change_request.profile.user
+    user.is_edit_allowed = False
+    user.save(update_fields=['is_edit_allowed'])
+
+    messages.success(
+        request,
+        f"Edit request rejected for {change_request.profile.name}",
+        extra_tags='success'
+    )
+
+    return redirect('qpr_hod_detail_list')
 '''
 @login_required
 def user_profile(request):
