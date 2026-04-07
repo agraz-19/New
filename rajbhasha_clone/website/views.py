@@ -159,27 +159,7 @@ def submit_profile_change_request(request):
 
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
-# @login_required
-# def approve_profile_change(request, request_id):
-#     """HOD approves the request, which unlocks the fields"""
-#     if not user_has_role(request.user, ['hod', 'admin']):
-#         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
-        
-#     change_request = get_object_or_404(ProfileChangeRequest, id=request_id)
-#     profile = change_request.profile
-    
-#     change_request.status = 'approved'
-#     change_request.approved_at = timezone.now()
-#     change_request.save()
-    
-#     # This status allows the frontend to enable input fields
-#     profile.approval_status = 'approved' 
-#     # Or a specific 'edit_mode' flag if you prefer
-#     request.user.is_edit_allowed = True 
-#     request.user.save()
-#     profile.save()
-    
-#     return JsonResponse({'success': True, 'message': 'Profile unlocked for user'})
+
 
 @staff_member_required
 def admin_events_dashboard(request):
