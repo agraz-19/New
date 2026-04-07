@@ -260,6 +260,8 @@ def api_get_employee_details(request):
         "designation": data.get("designation")
     })
 
+# In views.py -> submit_profile_change_request function
+
 @login_required
 @require_http_methods(["POST"])
 def submit_profile_change_request(request):
@@ -327,6 +329,8 @@ def api_event_images(request, folder):
     images = [f"{STATIC_URL_PREFIX}/{folder}/{fname}" for fname in image_files]
     
     return JsonResponse({"images": images})
+
+
 @staff_member_required
 def admin_events_dashboard(request):
     events = get_all_events()
@@ -473,7 +477,6 @@ def can_access_manager_site(user):
 
 #     return list(
 #         hod_query.values_list('hod_name', flat=True).distinct()
-    
 #     )
 def get_active_hods(office_code):
     """
@@ -487,9 +490,6 @@ def get_active_hods(office_code):
         office_code=office_code,
         roles__name='hod'
     ).values_list('user__username', flat=True) # This returns ['1999', ...]
-
-
-
 
 def _convert_to_int(value):
     if value == '' or value is None: return None
@@ -1819,6 +1819,7 @@ def unarchive_user(request, archive_id):
         messages.error(request, "Original user record not found. Cannot restore.")
         return redirect('dashboard')
     
+
 @login_required
 def profile_view(request):
     """
@@ -2294,47 +2295,77 @@ def user_dashboard(request):
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
     return response 
+
 @login_required
 def qpr_hod_dashboard(request):
     """HOD Dashboard - Department overview and employee statistics"""
-    if not user_has_role(request.user, 'hod'): return redirect('/')
+
+    if not user_has_role(request.user, 'hod'):
+        return redirect('/')
+
     lang = request.session.get('lang', 'en')
-    
-    # Force fresh database fetch
-    from django.db import connections
-    connections.close_all()
-    
+
+    from .models import ProfileChangeRequest, UserProfile
+    from django.db.models import Q
+
+    # ===============================
+    # 🔥 CHANGE REQUESTS (FOR DASHBOARD)
+    # ===============================
+    profile_change_requests = ProfileChangeRequest.objects.filter(
+        hod=request.user,
+        status='pending'
+    ).select_related('profile', 'profile__user').order_by('-requested_at')
+
+    # ===============================
+    # 📊 BASIC INFO
+    # ===============================
     current_quarter = get_current_quarter()
     current_year = get_current_year_label()
 
     hod_profile = UserProfile.objects.select_related('user').get(user=request.user)
-    hod_name = hod_profile.hod_name or hod_profile.name
-    hod_name = hod_name.strip() if hod_name else None
-    
-    from django.db.models import Q
-    
+    hod_name = (hod_profile.hod_name or hod_profile.name or "").strip()
+
+    # ===============================
+    # 👥 USERS UNDER HOD
+    # ===============================
     if hod_name:
         user_role_q = Q(roles__name='user') | Q(user__roles__name='user')
+
         users_under_hod = UserProfile.objects.filter(
-            (user_role_q & Q(hod_name__iexact=hod_name)) | Q(user=request.user)
+            (user_role_q & Q(hod_name__iexact=hod_name)) |
+            Q(user=request.user)
         ).distinct()
     else:
         users_under_hod = UserProfile.objects.filter(user=request.user).distinct()
 
     total_users = users_under_hod.count()
+
+    # ===============================
+    # 📈 QPR COUNTS (FIXED LOOP)
+    # ===============================
     qpr_submitted_count = 0
-    profile_updated_count = users_under_hod.filter(profile_updated=True).count()
 
     for up in users_under_hod:
-
         current_qpr = up.user.qpr_records.filter(
-        quarter=current_quarter,
-        year=current_year
+            quarter=current_quarter,
+            year=current_year
         ).first()
-    if current_qpr and current_qpr.is_submitted:
-        qpr_submitted_count += 1
+
+        if current_qpr and current_qpr.is_submitted:
+            qpr_submitted_count += 1
+
     qpr_pending = total_users - qpr_submitted_count
+
+    # ===============================
+    # 📊 PROFILE STATUS
+    # ===============================
+    profile_updated_count = users_under_hod.filter(profile_updated=True).count()
+
     pending_approvals = users_under_hod.filter(approval_status='pending')
+
+    # ===============================
+    # 📦 CONTEXT
+    # ===============================
     context = {
         'role': 'hod',
         'total_users': total_users,
@@ -2342,17 +2373,29 @@ def qpr_hod_dashboard(request):
         'qpr_pending': qpr_pending,
         'profile_updated': profile_updated_count,
         'hod_name': hod_name,
+
+        # 🔥 IMPORTANT (for dashboard UI)
+        'profile_change_requests': profile_change_requests,
+
         'current_lang': lang,
         'current_quarter': current_quarter,
         'current_year': current_year,
         'pending_approvals': pending_approvals,
     }
+
     response = render(request, 'qpr/hod_dashboard.html', context)
+
+    # ===============================
+    # 🚫 NO CACHE
+    # ===============================
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
-    return response 
+    print("HOD USER:", request.user.id)
+    print("REQUEST COUNT:", profile_change_requests.count())
+    print("DATA:", list(profile_change_requests.values()))
 
+    return response
 @login_required
 def manager_dashboard(request):
     """Manager Dashboard - Manage system access and employee records"""
@@ -3297,7 +3340,10 @@ def typing_usage_report_view(request, record_id):
 
 @login_required
 def hod_detail_list(request):
-    if not user_has_role(request.user, 'hod'): return redirect('/')
+    """HOD Detail List with profile change request approvals"""
+    if not user_has_role(request.user, 'hod'): 
+        return redirect('/')
+    
     # Determine hod_name from profile (fallback to profile.name)
     hod_profile = getattr(request.user, 'profile', None)
     hod_name = (hod_profile.hod_name or hod_profile.name) if hod_profile else None
@@ -3311,9 +3357,11 @@ def hod_detail_list(request):
         ).select_related('user').distinct()
     else:
         users_under_hod = UserProfile.objects.filter(user=request.user).select_related('user')
+    
     users_data = []
     current_quarter = get_current_quarter()
     current_year = get_current_year_label()
+    
     for user_profile in users_under_hod:
         user = user_profile.user
         qpr_records = user.qpr_records.all()
@@ -3351,44 +3399,37 @@ def hod_detail_list(request):
             office_name_val = getattr(emp_record, 'hname', '') or office_name_val
 
         has_pending = ManagerRequest.objects.filter(hod=user, request_type='qpr', status='pending').exists()
-        current_qpr = qpr_records.filter( quarter=current_quarter, year=current_year ).first()
-        # do not include per-user quarterly action fields here (removed from template)
-        qpr_complete_flag = current_qpr.is_submitted if current_qpr else False
+        current_qpr = qpr_records.filter(quarter=current_quarter, year=current_year).first()
+        is_quarterly_frozen = current_qpr.is_quarterly_frozen if current_qpr else False
+        
         users_data.append({
-            'profile': user_profile, 'user': user, 'employee_code': user_profile.employee_code,
-            'name': display_name, 'office_code': office_code_val or 'Not Set', 'office_name': office_name_val or 'Not Set',
-            'profile_complete': user_profile.profile_updated,
-            'qpr_complete': qpr_complete_flag,
+            'profile': user_profile, 
+            'user': user, 
+            'employee_code': user_profile.employee_code,
+            'name': display_name, 
+            'office_code': office_code_val or 'Not Set', 
+            'office_name': office_name_val or 'Not Set',
+            'profile_complete': user_profile.profile_updated, 
+            'qpr_complete': current_qpr.is_submitted if current_qpr else False,
+            'qpr_record_id': current_qpr.id if current_qpr else None,
             'has_pending_edit_request': has_pending,
         })
-    # --- Division aggregation: aggregate quarterly numeric fields for employees under this HOD ---
-    division_qpr = None
-    try:
-        user_ids = list(users_under_hod.values_list('user__id', flat=True))
-        if user_ids:
-            qrs = QPRRecord.objects.filter(user_id__in=user_ids, frequency__iexact='quarterly', quarter=current_quarter, year=current_year)
-            # initialize totals
-            totals = {k: 0 for k in NUMERIC_KEYS}
-            record_count = 0
-            for r in qrs:
-                record_count += 1
-                try:
-                    d = serialize_qpr_record(r)
-                except Exception:
-                    continue
-                for k in NUMERIC_KEYS:
-                    try:
-                        v = d.get(k)
-                        if v is None or v == '':
-                            continue
-                        totals[k] += int(v)
-                    except Exception:
-                        continue
-            division_qpr = {'quarter': current_quarter, 'year': current_year, 'totals': totals, 'record_count': record_count, 'num_users': len(user_ids)}
-    except Exception:
-        division_qpr = {'quarter': current_quarter, 'year': current_year, 'totals': {}, 'record_count': 0, 'num_users': 0}
+    
+    # ✅ NEW: Fetch pending profile change requests for this HOD
+    from .models import ProfileChangeRequest
+    profile_change_requests = ProfileChangeRequest.objects.filter(
+        hod=request.user,
+        status__in=['pending', 'approved', 'rejected']
+    ).select_related('profile__user').order_by('-requested_at')
 
-    context = {'users_data': users_data, 'hod_name': hod_name, 'current_quarter': current_quarter, 'current_year': current_year, 'division_qpr': division_qpr}
+    context = {
+        'users_data': users_data, 
+        'hod_name': hod_name, 
+        'current_quarter': current_quarter, 
+        'current_year': current_year,
+        'profile_change_requests': profile_change_requests,  # ✅ NEW
+    }
+    
     response = render(request, 'qpr/hod_detail_list.html', context)
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
@@ -4137,131 +4178,131 @@ def request_edit_api(request):
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
     return JsonResponse({'error': 'Invalid method'}, status=400)
 
-class EmployeeListCreateAPI(APIView):
-    def get(self, request):
-        if request.session.get('active_role') != 'user':
-            return Response({"detail": "Unauthorized"}, status=403)
+# class EmployeeListCreateAPI(APIView):
+#     def get(self, request):
+#         if request.session.get('active_role') != 'user':
+#             return Response({"detail": "Unauthorized"}, status=403)
 
-        # Use profile.employee_code when available (some users have non-numeric username)
-        user_empcode = None
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except Exception:
-            return Response({"detail": "Invalid employee code."}, status=400)
+#         # Use profile.employee_code when available (some users have non-numeric username)
+#         user_empcode = None
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except Exception:
+#             return Response({"detail": "Invalid employee code."}, status=400)
 
-        status_filter = request.GET.get("status")
+#         status_filter = request.GET.get("status")
 
-        qs = Employee.objects.filter(empcode=user_empcode)
+#         qs = Employee.objects.filter(empcode=user_empcode)
 
-        if status_filter:
-            qs = qs.filter(status=status_filter)
+#         if status_filter:
+#             qs = qs.filter(status=status_filter)
 
-        serializer = EmployeeSerializer(qs.order_by("-lastupdate"), many=True)
-        return Response(serializer.data)
-    def post(self, request):
-        if request.session.get('active_role') != 'user':
-            return Response({"detail": "Unauthorized"}, status=403)
+#         serializer = EmployeeSerializer(qs.order_by("-lastupdate"), many=True)
+#         return Response(serializer.data)
+#     def post(self, request):
+#         if request.session.get('active_role') != 'user':
+#             return Response({"detail": "Unauthorized"}, status=403)
 
-        # Resolve the numeric employee code from the user's profile when possible
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except Exception:
-            return Response({"detail": "Username must be numeric."}, status=400)
+#         # Resolve the numeric employee code from the user's profile when possible
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except Exception:
+#             return Response({"detail": "Username must be numeric."}, status=400)
 
-        # Check if a record already exists
-        existing_emp = Employee.objects.filter(empcode=user_empcode).first()
-        if existing_emp:
-            # Return the existing record so user can edit it
-            serializer = EmployeeSerializer(existing_emp)
-            return Response(
-                {
-                    "id": existing_emp.id,
-                    "message": "A record already exists for you. Edit your saved draft instead of creating a new record.",
-                    "data": serializer.data
-                },
-                status=200
-            )
+#         # Check if a record already exists
+#         existing_emp = Employee.objects.filter(empcode=user_empcode).first()
+#         if existing_emp:
+#             # Return the existing record so user can edit it
+#             serializer = EmployeeSerializer(existing_emp)
+#             return Response(
+#                 {
+#                     "id": existing_emp.id,
+#                     "message": "A record already exists for you. Edit your saved draft instead of creating a new record.",
+#                     "data": serializer.data
+#                 },
+#                 status=200
+#             )
 
-        data = request.data.copy()
-        data["empcode"] = user_empcode
+#         data = request.data.copy()
+#         data["empcode"] = user_empcode
 
-        serializer = EmployeeSerializer(data=data)
+#         serializer = EmployeeSerializer(data=data)
 
-        if serializer.is_valid():
-            serializer.save(lastupdate=timezone.now())
-            return Response(serializer.data, status=201)
+#         if serializer.is_valid():
+#             serializer.save(lastupdate=timezone.now())
+#             return Response(serializer.data, status=201)
 
-        return Response(serializer.errors, status=400)
+#         return Response(serializer.errors, status=400)
 
-class EmployeeDetailAPI(APIView):
-    def get_object(self, pk):
-        try: return Employee.objects.get(pk=pk)
-        except Employee.DoesNotExist: return None
-    def get(self, request, pk):
-        emp = self.get_object(pk)
-        if not emp: return Response({"error": "Not found"}, status=404)
-        return Response(EmployeeSerializer(emp).data)
-    def put(self, request, pk):
-        emp = self.get_object(pk)
-        if not emp:
-            return Response({"error": "Not found"}, status=404)
+# class EmployeeDetailAPI(APIView):
+#     def get_object(self, pk):
+#         try: return Employee.objects.get(pk=pk)
+#         except Employee.DoesNotExist: return None
+#     def get(self, request, pk):
+#         emp = self.get_object(pk)
+#         if not emp: return Response({"error": "Not found"}, status=404)
+#         return Response(EmployeeSerializer(emp).data)
+#     def put(self, request, pk):
+#         emp = self.get_object(pk)
+#         if not emp:
+#             return Response({"error": "Not found"}, status=404)
 
-        # Get user's employee code from profile or username
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except (ValueError, TypeError):
-            return Response({"error": "Invalid employee code"}, status=400)
+#         # Get user's employee code from profile or username
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except (ValueError, TypeError):
+#             return Response({"error": "Invalid employee code"}, status=400)
         
-        # USER can only edit their own records, admins/managers can edit others
-        if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
-            return Response({"error": "Unauthorized"}, status=403)
+#         # USER can only edit their own records, admins/managers can edit others
+#         if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
+#             return Response({"error": "Unauthorized"}, status=403)
 
-        serializer = EmployeeSerializer(emp, data=request.data)
+#         serializer = EmployeeSerializer(emp, data=request.data)
 
-        if serializer.is_valid():
-            serializer.save(lastupdate=timezone.now())
-            return Response(serializer.data)
+#         if serializer.is_valid():
+#             serializer.save(lastupdate=timezone.now())
+#             return Response(serializer.data)
 
-        return Response(serializer.errors, status=400)
-    def delete(self, request, pk):
-        emp = self.get_object(pk)
-        if not emp:
-            return Response({"error": "Not found"}, status=404)
+#         return Response(serializer.errors, status=400)
+#     def delete(self, request, pk):
+#         emp = self.get_object(pk)
+#         if not emp:
+#             return Response({"error": "Not found"}, status=404)
 
-        # Get user's employee code from profile or username
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except (ValueError, TypeError):
-            return Response({"error": "Invalid employee code"}, status=400)
+#         # Get user's employee code from profile or username
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except (ValueError, TypeError):
+#             return Response({"error": "Invalid employee code"}, status=400)
         
-        # USER can only delete their own records, admins/managers can delete others
-        if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
-            return Response({"error": "Unauthorized"}, status=403)
+#         # USER can only delete their own records, admins/managers can delete others
+#         if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
+#             return Response({"error": "Unauthorized"}, status=403)
 
-        emp.delete()
-        return Response({"message": "Deleted"})
+#         emp.delete()
+#         return Response({"message": "Deleted"})
 
-class SubmitDraftAPI(APIView):
-    def post(self, request):
-        ids = request.data.get("ids", [])
-        count = Employee.objects.filter(id__in=ids, status="draft").update(status="submitted", lastupdate=timezone.now())
-        return Response({"message": f"{count} record(s) submitted"})
+# class SubmitDraftAPI(APIView):
+#     def post(self, request):
+#         ids = request.data.get("ids", [])
+#         count = Employee.objects.filter(id__in=ids, status="draft").update(status="submitted", lastupdate=timezone.now())
+#         return Response({"message": f"{count} record(s) submitted"})
 
 @login_required
 def employee_form(request):
