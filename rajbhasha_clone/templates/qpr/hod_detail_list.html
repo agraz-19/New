@@ -222,10 +222,13 @@
                     </thead>
 
                     <tbody>
-                        {% for req in profile_change_requests %}
+                        {% regroup profile_change_requests by profile as grouped_requests %}
+
+                        {% for group in grouped_requests %}
+                            {% with req=group.list.0 %}
                         <tr>
                             <td class="fw-bold">{{ req.profile.employee_code }}</td>
-                            <td>{{ req.profile.name|default:req.profile.user.username }}</td>
+                            <td>{{ req.profile.ename|default:req.profile.user.username }}</td>
                             <td>
                                 <div style="max-width: 300px; word-wrap: break-word;">
                                     {{ req.change_reason }}
@@ -281,6 +284,7 @@
                                 {% endif %}
                             </td>
                         </tr>
+                        {% endwith %}
                         {% endfor %}
                     </tbody>
 

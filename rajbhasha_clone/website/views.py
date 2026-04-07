@@ -273,12 +273,31 @@ def submit_profile_change_request(request):
             return JsonResponse({'success': False, 'message': 'Reason is required'})
 
         profile = request.user.profile
-        hod_identifier = profile.hod_name.strip() # This is likely '1999' or a Name
+        hod_identifier = (profile.hod_name or "").strip()
 
-        # 1. First, try to find the HOD profile by Employee Code (username/empcode)
-        # 2. If not found, fall back to searching by Name
+        if not hod_identifier:
+            return JsonResponse({
+                'success': False,
+                'message': 'HOD is not assigned to your profile.'
+            })
+
+        # 🔴 PREVENT DUPLICATE REQUESTS
+        existing_request = ProfileChangeRequest.objects.filter(
+            profile=profile,
+            status='pending'
+        ).first()
+
+        if existing_request:
+            return JsonResponse({
+                'success': False,
+                'message': 'You already have a pending request. Please wait for approval.'
+            })
+
+        # 🔍 Find HOD (same logic, untouched)
         hod_profile = UserProfile.objects.filter(
-            Q(employee_code=hod_identifier) | Q(name__iexact=hod_identifier) | Q(hod_name__iexact=hod_identifier),
+            Q(employee_code=hod_identifier) |
+            Q(name__iexact=hod_identifier) |
+            Q(hod_name__iexact=hod_identifier),
             roles__name='hod'
         ).first()
 
@@ -288,14 +307,15 @@ def submit_profile_change_request(request):
                 'message': f'HOD "{hod_identifier}" not found in system. Please ensure your HOD has registered and is approved.'
             })
 
-        # Create the request linked to the HOD's actual User object
+        # ✅ CREATE REQUEST (unchanged logic)
         ProfileChangeRequest.objects.create(
             profile=profile,
             change_reason=reason,
-            hod=hod_profile.user, # This links it to User 1999
+            hod=hod_profile.user,
             status='pending'
         )
 
+        # ✅ UPDATE PROFILE STATUS (unchanged)
         profile.approval_status = 'change_pending'
         profile.save(update_fields=['approval_status'])
 
@@ -304,9 +324,11 @@ def submit_profile_change_request(request):
             'message': 'Change request submitted successfully. Awaiting HOD approval.'
         })
 
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Invalid JSON data'})
+
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
-    
 @require_http_methods(["GET"])
 def api_event_images(request, folder):
     """
@@ -1968,6 +1990,8 @@ def profile_view(request):
         'profile_locked': not can_edit, # Used by JS to trigger field locking
         'profile_approved': is_approved,
         'pending_change_request': pending_change_request,
+        'has_pending_change_request': bool(pending_change_request),
+        'has_approved_change_request': bool(approved_change_request),
         'profile_updated': profile.profile_updated if profile else False,
     }
 
