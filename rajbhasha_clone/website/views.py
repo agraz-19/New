@@ -3498,131 +3498,131 @@ def request_edit_api(request):
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
     return JsonResponse({'error': 'Invalid method'}, status=400)
 
-class EmployeeListCreateAPI(APIView):
-    def get(self, request):
-        if request.session.get('active_role') != 'user':
-            return Response({"detail": "Unauthorized"}, status=403)
+# class EmployeeListCreateAPI(APIView):
+#     def get(self, request):
+#         if request.session.get('active_role') != 'user':
+#             return Response({"detail": "Unauthorized"}, status=403)
 
-        # Use profile.employee_code when available (some users have non-numeric username)
-        user_empcode = None
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except Exception:
-            return Response({"detail": "Invalid employee code."}, status=400)
+#         # Use profile.employee_code when available (some users have non-numeric username)
+#         user_empcode = None
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except Exception:
+#             return Response({"detail": "Invalid employee code."}, status=400)
 
-        status_filter = request.GET.get("status")
+#         status_filter = request.GET.get("status")
 
-        qs = Employee.objects.filter(empcode=user_empcode)
+#         qs = Employee.objects.filter(empcode=user_empcode)
 
-        if status_filter:
-            qs = qs.filter(status=status_filter)
+#         if status_filter:
+#             qs = qs.filter(status=status_filter)
 
-        serializer = EmployeeSerializer(qs.order_by("-lastupdate"), many=True)
-        return Response(serializer.data)
-    def post(self, request):
-        if request.session.get('active_role') != 'user':
-            return Response({"detail": "Unauthorized"}, status=403)
+#         serializer = EmployeeSerializer(qs.order_by("-lastupdate"), many=True)
+#         return Response(serializer.data)
+#     def post(self, request):
+#         if request.session.get('active_role') != 'user':
+#             return Response({"detail": "Unauthorized"}, status=403)
 
-        # Resolve the numeric employee code from the user's profile when possible
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except Exception:
-            return Response({"detail": "Username must be numeric."}, status=400)
+#         # Resolve the numeric employee code from the user's profile when possible
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except Exception:
+#             return Response({"detail": "Username must be numeric."}, status=400)
 
-        # Check if a record already exists
-        existing_emp = Employee.objects.filter(empcode=user_empcode).first()
-        if existing_emp:
-            # Return the existing record so user can edit it
-            serializer = EmployeeSerializer(existing_emp)
-            return Response(
-                {
-                    "id": existing_emp.id,
-                    "message": "A record already exists for you. Edit your saved draft instead of creating a new record.",
-                    "data": serializer.data
-                },
-                status=200
-            )
+#         # Check if a record already exists
+#         existing_emp = Employee.objects.filter(empcode=user_empcode).first()
+#         if existing_emp:
+#             # Return the existing record so user can edit it
+#             serializer = EmployeeSerializer(existing_emp)
+#             return Response(
+#                 {
+#                     "id": existing_emp.id,
+#                     "message": "A record already exists for you. Edit your saved draft instead of creating a new record.",
+#                     "data": serializer.data
+#                 },
+#                 status=200
+#             )
 
-        data = request.data.copy()
-        data["empcode"] = user_empcode
+#         data = request.data.copy()
+#         data["empcode"] = user_empcode
 
-        serializer = EmployeeSerializer(data=data)
+#         serializer = EmployeeSerializer(data=data)
 
-        if serializer.is_valid():
-            serializer.save(lastupdate=timezone.now())
-            return Response(serializer.data, status=201)
+#         if serializer.is_valid():
+#             serializer.save(lastupdate=timezone.now())
+#             return Response(serializer.data, status=201)
 
-        return Response(serializer.errors, status=400)
+#         return Response(serializer.errors, status=400)
 
-class EmployeeDetailAPI(APIView):
-    def get_object(self, pk):
-        try: return Employee.objects.get(pk=pk)
-        except Employee.DoesNotExist: return None
-    def get(self, request, pk):
-        emp = self.get_object(pk)
-        if not emp: return Response({"error": "Not found"}, status=404)
-        return Response(EmployeeSerializer(emp).data)
-    def put(self, request, pk):
-        emp = self.get_object(pk)
-        if not emp:
-            return Response({"error": "Not found"}, status=404)
+# class EmployeeDetailAPI(APIView):
+#     def get_object(self, pk):
+#         try: return Employee.objects.get(pk=pk)
+#         except Employee.DoesNotExist: return None
+#     def get(self, request, pk):
+#         emp = self.get_object(pk)
+#         if not emp: return Response({"error": "Not found"}, status=404)
+#         return Response(EmployeeSerializer(emp).data)
+#     def put(self, request, pk):
+#         emp = self.get_object(pk)
+#         if not emp:
+#             return Response({"error": "Not found"}, status=404)
 
-        # Get user's employee code from profile or username
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except (ValueError, TypeError):
-            return Response({"error": "Invalid employee code"}, status=400)
+#         # Get user's employee code from profile or username
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except (ValueError, TypeError):
+#             return Response({"error": "Invalid employee code"}, status=400)
         
-        # USER can only edit their own records, admins/managers can edit others
-        if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
-            return Response({"error": "Unauthorized"}, status=403)
+#         # USER can only edit their own records, admins/managers can edit others
+#         if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
+#             return Response({"error": "Unauthorized"}, status=403)
 
-        serializer = EmployeeSerializer(emp, data=request.data)
+#         serializer = EmployeeSerializer(emp, data=request.data)
 
-        if serializer.is_valid():
-            serializer.save(lastupdate=timezone.now())
-            return Response(serializer.data)
+#         if serializer.is_valid():
+#             serializer.save(lastupdate=timezone.now())
+#             return Response(serializer.data)
 
-        return Response(serializer.errors, status=400)
-    def delete(self, request, pk):
-        emp = self.get_object(pk)
-        if not emp:
-            return Response({"error": "Not found"}, status=404)
+#         return Response(serializer.errors, status=400)
+#     def delete(self, request, pk):
+#         emp = self.get_object(pk)
+#         if not emp:
+#             return Response({"error": "Not found"}, status=404)
 
-        # Get user's employee code from profile or username
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except (ValueError, TypeError):
-            return Response({"error": "Invalid employee code"}, status=400)
+#         # Get user's employee code from profile or username
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except (ValueError, TypeError):
+#             return Response({"error": "Invalid employee code"}, status=400)
         
-        # USER can only delete their own records, admins/managers can delete others
-        if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
-            return Response({"error": "Unauthorized"}, status=403)
+#         # USER can only delete their own records, admins/managers can delete others
+#         if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
+#             return Response({"error": "Unauthorized"}, status=403)
 
-        emp.delete()
-        return Response({"message": "Deleted"})
+#         emp.delete()
+#         return Response({"message": "Deleted"})
 
-class SubmitDraftAPI(APIView):
-    def post(self, request):
-        ids = request.data.get("ids", [])
-        count = Employee.objects.filter(id__in=ids, status="draft").update(status="submitted", lastupdate=timezone.now())
-        return Response({"message": f"{count} record(s) submitted"})
+# class SubmitDraftAPI(APIView):
+#     def post(self, request):
+#         ids = request.data.get("ids", [])
+#         count = Employee.objects.filter(id__in=ids, status="draft").update(status="submitted", lastupdate=timezone.now())
+#         return Response({"message": f"{count} record(s) submitted"})
 
 @login_required
 def employee_form(request):
