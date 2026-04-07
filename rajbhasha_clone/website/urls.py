@@ -111,8 +111,7 @@ urlpatterns = [
     path("events-admin/edit-titles/", views.admin_edit_event_titles, name="admin_edit_event_titles"),
     path('events-admin/<str:folder>/set-thumbnail/', views.set_thumbnail, name='set_thumbnail'),
     # 🆕 Profile Change Request Workflow
-    path('api/submit-profile-change/', views.submit_profile_change_request, name='submit_profile_change_request'),
-    # path('api/approve-profile-change/<int:request_id>/', views.approve_profile_change, name='approve_profile_change'),
-    path('profile/change-request/approve/<int:request_id>/', approve_profile_change_hod, name='approve_profile_change'),
     path('profile/change-request/reject/<int:request_id>/', reject_profile_change_hod, name='reject_profile_change'),
+    path('profile/submit-change/', views.submit_profile_change_request, name='submit_profile_change_request'),
+    path('profile/approve-change/<int:request_id>/', views.approve_profile_change, name='approve_profile_change'),
 ]
