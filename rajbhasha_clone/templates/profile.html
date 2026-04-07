@@ -16,7 +16,7 @@
                 <p class="text-muted">{{ "Manage your profile and office information"|t:current_lang }}</p>
             </div>
 
-            {% if pending_change_request %}
+            {% if pending_edit_request %}
             <div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
                 <i class="fas fa-info-circle"></i> {{ "Edit request is pending approval. You cannot edit until it is approved."|t:current_lang }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -24,50 +24,50 @@
             {% endif %}
 
             <!-- Profile Locked Alert -->
-            <div id="profileLockedAlert" 
-                class="alert alert-warning alert-dismissible fade show mb-4" 
-                role="alert" 
-                style="display:{% if profile.profile_locked and profile.approval_status == 'approved' %}block{% else %}none{% endif %};">
+            <div id="profileLockedAlert" class="alert alert-warning alert-dismissible fade show mb-4" role="alert" style="display:none;">
                 <i class="fas fa-lock"></i> 
-                <strong>{{ "Profile Locked"|t:current_lang }}</strong> — 
-                {{ "Your profile has been approved and is now locked. To make changes, submit a request below."|t:current_lang }}
+                <strong>{{ "Profile Locked"|t:current_lang }}</strong> — {{ "Your profile has been approved. To make changes, please submit a request below."|t:current_lang }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+
+            <!-- Pending Change Request Alert -->
+            <div id="pendingChangeAlert" class="alert alert-warning alert-dismissible fade show mb-4" role="alert" style="display:none;">
+                <i class="fas fa-hourglass-half"></i>
+                <strong>{{ "Request Pending"|t:current_lang }}</strong> — {{ "Your edit request is awaiting HOD approval. No changes can be made until approved."|t:current_lang }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
 
             <!-- Request for Change Section -->
-            <div id="requestChangeSection" 
-                class="card shadow-lg border-0 mb-4" 
-                style="display:{% if profile.profile_locked and profile.approval_status == 'approved' %}block{% else %}none{% endif %};">
+            <div id="requestChangeSection" class="card shadow-lg border-0 mb-4"{% if profile_approved %}style="display:block;"{% else %}style="display:none;"{% endif %}>
                 <div class="card-header bg-light border-bottom">
                     <h5 class="fw-bold text-primary mb-0">
                         <i class="fas fa-edit"></i> {{ "Request Change to Profile"|t:current_lang }}
                     </h5>
                 </div>
                 <div class="card-body p-4">
-                    <p class="text-muted mb-3">
-                        {{ "Your profile is locked. To make changes, please describe why you need to update your information."|t:current_lang }}
-                    </p>
+                    <p class="text-muted mb-3">{{ "Your profile is locked. To make changes, please describe why you need to update your information."|t:current_lang }}</p>
                     
                     <div class="mb-3">
-                        <label class="form-label fw-bold" for="changeReason">
-                            {{ "Reason for Change"|t:current_lang }} <span class="text-danger">*</span>
-                        </label>
+                        <label class="form-label fw-bold" for="changeReason">{{ "Reason for Change"|t:current_lang }} <span class="text-danger">*</span></label>
                         <textarea 
-                            id="changeReason" 
-                            name="change_reason" 
-                            class="form-control" 
-                            rows="4"
-                            placeholder="{{ 'e.g., Got promoted to Scientist-F, need to update designation...'|t:current_lang }}"
-                            required></textarea>
-                        <small class="text-muted d-block mt-2">
-                            {{ "This will be sent to your HOD for approval."|t:current_lang }}
+                        id="changeReason" 
+                        name="change_reason" 
+                        class="form-control" 
+                        rows="4"
+                        placeholder="{{ 'Describe why you need to make these changes...'|t:current_lang }}"
+                        {% if pending_change_request %}disabled{% endif %}
+                        required></textarea>
+                        <small id="reasonStatus" class="d-block mt-2{% if pending_change_request %}text-warning{% else %}text-muted{% endif %}">
+                            {% if pending_change_request %}
+                                {{ "Request already sent, waiting for approval..."|t:current_lang }}
+                            {% else %}
+                                {{ "This will be sent to your HOD for approval."|t:current_lang }}
+                            {% endif %}
                         </small>
                     </div>
 
-                    <div id="submitChangeMsg" class="alert alert-info mb-3" style="display:none;"></div>
-
                     <div class="d-flex gap-2">
-                        <button type="button" id="submitChangeRequest" class="btn btn-warning btn-lg">
+                        <button type="button" id="submitChangeRequest" class="btn btn-warning btn-lg"{% if pending_change_request %}disabled{% endif %}>
                             <i class="fas fa-paper-plane"></i> {{ "Submit Request for Change"|t:current_lang }}
                         </button>
                         <button type="button" id="cancelChangeRequest" class="btn btn-outline-secondary btn-lg">
@@ -93,7 +93,7 @@
                                 <div id="empcodeFeedback" style="margin-top:5px; font-size:14px;"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">{{ "Username"|t:current_lang }}</label>
+                                <label class="form-label fw-bold">{{ "Employee Name"|t:current_lang }}</label>
                                 <input type="text" name="username" id="username" class="form-control" value="{{ employee.ename|default:user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
                             </div>
                         </div>
@@ -105,7 +105,8 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">{{ "IP Number"|t:current_lang }}</label>
-                                <input type="text" name="ip_number" id="ip_number" class="form-control" value="{{ profile.ip_number|default:'' }}" readonly>
+                               <input type="text" name="ip_number" id="ip_number" class="form-control"value="{{ profile.ip_number|default:'' }}"{% if not can_edit %}disabled{% endif %}>
+
                             </div>
                         </div>
 
@@ -116,7 +117,8 @@
                         <div class="row mb-4">
                             <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Office State"|t:current_lang }} <span class="text-danger">*</span></label>
-                                <input type="text" name="office_state" id="office_state" class="form-control" value="{{ profile.office_state|default:'' }}" readonly>
+                                <input type="text" name="office_state" id="office_state" class="form-control"value="{{ profile.office_state|default:'' }}"{% if not can_edit %}disabled{% endif %}>
+
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Office Code"|t:current_lang }}</label>
@@ -129,7 +131,8 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Office Name"|t:current_lang }}</label>
-                                <input type="text" name="office_name" id="office_name_field" class="form-control" value="{{ profile.office_name|default:'' }}" readonly>
+                                <input type="text" name="office_name" id="office_name_field" class="form-control"value="{{ profile.office_name|default:'' }}"{% if not can_edit %}disabled{% endif %}>
+
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Language Region"|t:current_lang }}</label>
@@ -403,10 +406,30 @@
         border-color: #1f4788;
         box-shadow: 0 0 0 0.2rem rgba(44, 90, 134, 0.25);
     }
+
+    /* Lock visual styling */
+    input:disabled, select:disabled, textarea:disabled {
+        background-color: #e9ecef !important;
+        color: #6c757d !important;
+        cursor: not-allowed !important;
+        opacity: 0.7 !important;
+        pointer-events: none !important;
+    }
+
+    button:disabled {
+        opacity: 0.6 !important;
+        cursor: not-allowed !important;
+    }
 </style>
 
 <script>
     const currentLang = "{{ current_lang|default:'hi' }}";
+    // const profileLocked = {{ profile_locked|default:"false" }};
+    // const hasPendingRequest = {{ has_pending_change_request|default:"false" }};
+    // const hasApprovedRequest = {{ has_approved_change_request|default:"false" }};
+    const profileLocked = {{ profile_locked|yesno:"true,false" }};
+    const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
+    const hasApprovedRequest = {{ has_approved_change_request|yesno:"true,false" }}
     let isProfileLocked = false;
 
     function getSelectedText(selectElement) {
@@ -417,26 +440,78 @@
     }
 
     function checkProfileLockState() {
-    const isLocked = "{{ profile.profile_locked|yesno:'true,false' }}" === "true";
-    const isApproved = "{{ profile.approval_status }}" === "approved";
-
-    if (isLocked && isApproved) {
-            isProfileLocked = true;
-            lockAllFormFields();
-            showProfileLockedUI();
-        }
+    const profileStatus = "{{ profile.approval_status|default:'' }}";
+    
+    // ONLY lock if the status is explicitly 'approved'
+    // If status is empty, 'pending', or 'rejected', keep it UNLOCKED
+    if (profileStatus === 'approved') {
+        isProfileLocked = true;
+        lockAllFormFields();
+        showProfileLockedUI();
+    } else {
+        isProfileLocked = false;
+        unlockFormFields(); // Ensure fields are open for new users
     }
+}
 
     function lockAllFormFields() {
         const form = document.getElementById("employeeForm");
-        form.querySelectorAll("input:not([type='hidden']), select, textarea").forEach(el => {
-            if (!el.id.includes("office_state") && !el.id.includes("office_name_field") && !el.id.includes("ip_number")) {
-                el.disabled = true;
+        if (!form) return;
+        
+        console.log("DEBUG: lockAllFormFields called");
+        
+        // Disable ALL form controls except readonly fields
+        const allInputs = form.querySelectorAll("input[type='text'], input[type='email'], input[type='date'], input[type='checkbox'], select, textarea");
+        allInputs.forEach(el => {
+            // Skip readonly/hidden fields
+            if (el.type === 'hidden' || el.readOnly || el.name === 'csrfmiddlewaretoken') {
+                return;
             }
+            // Keep office_state, office_name, ip_number as readonly (not disabled)
+            
+            // }
+            // Disable everything else including checkboxes
+            el.disabled = true;
+            el.style.pointerEvents = 'none';
+            el.style.opacity = '0.6';
         });
-        document.getElementById("submitBtn").disabled = true;
-        document.getElementById("profileLockedAlert").style.display = "block";
-        document.getElementById("requestChangeSection").style.display = "block";
+        
+        // Disable submit button
+        const submitBtn = document.getElementById("submitBtn");
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.6';
+        }
+        
+        console.log("DEBUG: All form fields locked");
+    }
+
+    function unlockFormFields() {
+        const form = document.getElementById("employeeForm");
+        if (!form) return;
+        
+        console.log("DEBUG: unlockFormFields called");
+        
+        // Enable all form controls except readonly fields
+        const allInputs = form.querySelectorAll("input[type='text'], input[type='email'], input[type='date'], input[type='checkbox'], select, textarea");
+        allInputs.forEach(el => {
+            // Skip readonly fields
+            if (el.id === 'office_state' || el.id === 'office_name_field' || el.id === 'ip_number' || el.readOnly) {
+                return;
+            }
+            el.disabled = false;
+            el.style.pointerEvents = 'auto';
+            el.style.opacity = '1';
+        });
+        
+        // Enable submit button
+        const submitBtn = document.getElementById("submitBtn");
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+        }
+        
+        console.log("DEBUG: All form fields unlocked");
     }
 
     function showProfileLockedUI() {
@@ -445,9 +520,43 @@
     }
 
     document.addEventListener("DOMContentLoaded", function() {
+        console.log("DEBUG: profileLocked =", profileLocked, "hasPendingRequest =", hasPendingRequest, "hasApprovedRequest =", hasApprovedRequest);
+        
+        const profileLockedAlert = document.getElementById('profileLockedAlert');
+        const pendingChangeAlert = document.getElementById('pendingChangeAlert');
+        const requestChangeSection = document.getElementById('requestChangeSection');
+        const reasonStatus = document.getElementById('reasonStatus');
+        const changeReason = document.getElementById('changeReason');
+        const submitChangeRequest = document.getElementById('submitChangeRequest');
+
+        if (profileLocked && !hasPendingRequest && !hasApprovedRequest) {
+            console.log("DEBUG: Profile is locked - showing alerts and locking fields");
+            profileLockedAlert.style.display = 'block';
+            requestChangeSection.style.display = 'block';
+            lockAllFormFields();
+        } else if (hasPendingRequest) {
+            pendingChangeAlert.style.display = 'block';
+            requestChangeSection.style.display = 'block';
+            lockAllFormFields();
+            changeReason.disabled = true;
+            submitChangeRequest.disabled = true;
+            reasonStatus.textContent = '{{ "Request already sent, waiting for HOD approval..."|t:current_lang }}';
+            reasonStatus.className = 'text-warning d-block mt-2';
+        } else if (hasApprovedRequest) {
+            console.log("DEBUG: Change request approved - form still locked, awaiting edit");
+            requestChangeSection.style.display = 'none';
+            lockAllFormFields();
+            const successAlert = document.createElement('div');
+            successAlert.className = 'alert alert-success alert-dismissible fade show mb-4';
+            successAlert.role = 'alert';
+            successAlert.innerHTML = '<i class="fas fa-check-circle"></i> <strong>{{ "Change Request Approved"|t:current_lang }}</strong> — {{ "Your profile change request has been approved. Form is unlocked. You can now make changes and save again."|t:current_lang }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+            document.querySelector('.container').prepend(successAlert);
+        }
+
         const submitChangeBtn = document.getElementById("submitChangeRequest");
         if (submitChangeBtn) {
-            submitChangeBtn.addEventListener("click", function() {
+            submitChangeBtn.addEventListener("click", function(e) {
+                e.preventDefault();
                 const reason = document.getElementById("changeReason").value.trim();
                 
                 if (!reason) {
@@ -455,11 +564,13 @@
                     return;
                 }
 
+                const csrftoken = document.querySelector('[name="csrfmiddlewaretoken"]').value;
+
                 fetch("{% url 'submit_profile_change_request' %}", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        "X-CSRFToken": document.querySelector('[name="csrfmiddlewaretoken"]').value
+                        "X-CSRFToken": csrftoken
                     },
                     body: JSON.stringify({
                         change_reason: reason
@@ -469,9 +580,11 @@
                 .then(data => {
                     if (data.success) {
                         alert("Change request submitted successfully. Awaiting HOD approval.");
-                        document.getElementById("changeReason").value = "";
-                        document.getElementById("requestChangeSection").style.display = "none";
-                        document.getElementById("profileLockedAlert").style.display = "block";
+                        changeReason.disabled = true;
+                        submitChangeRequest.disabled = true;
+                        reasonStatus.textContent = '{{ "Request already sent, waiting for approval..."|t:current_lang }}';
+                        reasonStatus.className = 'text-warning d-block mt-2';
+                        pendingChangeAlert.style.display = 'block';
                     } else {
                         alert("Error: " + (data.message || "Failed to submit request"));
                     }
@@ -488,6 +601,9 @@
             cancelChangeBtn.addEventListener("click", function() {
                 document.getElementById("changeReason").value = "";
                 document.getElementById("requestChangeSection").style.display = "none";
+                if (profileLocked) {
+                    profileLockedAlert.style.display = "block";
+                }
             });
         }
     });
@@ -507,9 +623,9 @@
             "Scientific/Technical Assistant-B"
         ];
 
-        if(nonGazettedList.includes(designation)){
+        if (!designation || nonGazettedList.includes(designation)) {
             gazetField.value = "Non-Gazetted";
-        } else if(designation){
+        } else {
             gazetField.value = "Gazetted";
         }
     }
@@ -554,7 +670,7 @@
                     "Scientific/Technical Assistant-A",
                     "Scientific/Technical Assistant-B"
                 ];
-                if(nonGazettedList.includes(designationText.trim())){
+                if (!designation || nonGazettedList.includes(designation)) {
                     gazetField.value = "Non-Gazetted";
                 } else {
                     gazetField.value = "Gazetted";
@@ -594,7 +710,7 @@
     const typingField = document.querySelector("select[name='typing']");
     const proficiencyField = document.querySelector("select[name='hindiproficiency']");
 
-    const triggerExams = ["Prabodh", "Praveen", "Pragya"];
+    const triggerExams = ["Prabodh", "Praveen", "Pragya", "Parangat"];
 
     const originalTyping = typingField.value;
     const originalProficiency = proficiencyField.value;
@@ -644,12 +760,19 @@
         checkProfileLockState();
     });
 
+    function getTranslatedValue(selectElement) {
+        if (!selectElement) return "";
+        return selectElement.options[selectElement.selectedIndex]
+            ? selectElement.options[selectElement.selectedIndex].text.trim()
+            : "";
+    }
+
     function downloadExcel() {
         const isHindi = currentLang === 'hi';
 
         const headers = isHindi ? [
             "कर्मचारी कोड",
-            "उपयोगकर्ता नाम",
+            "कर्मचारी नाम",
             "फोन नंबर",
             "आईपी नंबर",
             "कार्यालय स्थिति",
@@ -664,47 +787,28 @@
             "टाइपिंग",
             "हिंदी दक्षता",
             "राजपत्र",
-            "उच्चतम हिंदी परीक्षा",
-            "सेवानिवृत्ति तिथि"
+            "सर्वोच्च हिंदी परीक्षा उत्तीर्ण",
+            "सुपरएनुएशन तारीख"
         ] : [
-            "Employee Code",
-            "Username",
-            "Phone Number",
-            "IP Number",
-            "Office State",
-            "Office Code",
-            "Office Name",
-            "Language Region",
-            "Notification Email",
-            "Alternate Email",
-            "Name in English",
-            "Name in Hindi",
-            "Designation",
-            "Typing",
-            "Hindi Proficiency",
-            "Gazet",
-            "Highest Hindi Exam Passed",
-            "Superannuation Date"
+            '{{ "Employee Code"|t:current_lang }}',
+            '{{ "Employee Name"|t:current_lang }}',
+            '{{ "Phone Number"|t:current_lang }}',
+            '{{ "IP Number"|t:current_lang }}',
+            '{{ "Office State"|t:current_lang }}',
+            '{{ "Office Code"|t:current_lang }}',
+            '{{ "Office Name"|t:current_lang }}',
+            '{{ "Language Region"|t:current_lang }}',
+            '{{ "Email"|t:current_lang }}',
+            '{{ "Alternate Email"|t:current_lang }}',
+            '{{ "Employee Name (English)"|t:current_lang }}',
+            '{{ "Employee Name (Hindi)"|t:current_lang }}',
+            '{{ "Designation"|t:current_lang }}',
+            '{{ "Typing (English)"|t:current_lang }}',
+            '{{ "Hindi Proficiency"|t:current_lang }}',
+            '{{ "Gazette Notification"|t:current_lang }}',
+            '{{ "Highest Hindi Exam Passed"|t:current_lang }}',
+            '{{ "Super Annuation Date"|t:current_lang }}'
         ];
-
-        function getTranslatedValue(selectEl) {
-            if (!selectEl) return "";
-            const text = selectEl.options[selectEl.selectedIndex]?.text?.trim() || "";
-            if (!isHindi) return text;
-            const hindiMap = {
-                "Gazetted": "राजपत्रित",
-                "Non-Gazetted": "अराजपत्रित",
-                "Both": "दोनों",
-                "Hindi": "हिंदी",
-                "English": "अंग्रेजी",
-                "Yes": "हाँ",
-                "No": "नहीं",
-                "Good": "अच्छा",
-                "Average": "औसत",
-                "Basic": "बुनियादी",
-            };
-            return hindiMap[text] || text;
-        }
 
         const data = [
             headers,
@@ -849,83 +953,4 @@
         }, 300);
     }
 </script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const submitBtn = document.getElementById('submitChangeRequest');
-    const cancelBtn = document.getElementById('cancelChangeRequest');
-    const reasonField = document.getElementById('changeReason');
-    const msgBox = document.getElementById('submitChangeMsg');
-    
-    if (submitBtn) {
-        submitBtn.addEventListener('click', function() {
-            const reason = reasonField.value.trim();
-            
-            if (!reason || reason.length < 10) {
-                msgBox.innerHTML = '<strong>Error:</strong> Please provide at least 10 characters.';
-                msgBox.classList.remove('alert-info');
-                msgBox.classList.add('alert-danger');
-                msgBox.style.display = 'block';
-                return;
-            }
-            
-            // Show loading state
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-            
-            // Send request
-            fetch('{% url "submit_profile_change_request" %}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                body: JSON.stringify({
-                    change_reason: reason
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    msgBox.innerHTML = '<strong>Success!</strong> ' + data.message;
-                    msgBox.classList.remove('alert-danger');
-                    msgBox.classList.add('alert-success');
-                    reasonField.value = '';
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> {{ "Submit Request for Change"|t:current_lang }}';
-                    
-                    // Reload after 2 seconds
-                    setTimeout(() => location.reload(), 2000);
-                } else {
-                    msgBox.innerHTML = '<strong>Error:</strong> ' + data.message;
-                    msgBox.classList.remove('alert-success');
-                    msgBox.classList.add('alert-danger');
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> {{ "Submit Request for Change"|t:current_lang }}';
-                }
-                msgBox.style.display = 'block';
-            })
-            .catch(err => {
-                msgBox.innerHTML = '<strong>Error:</strong> ' + err.message;
-                msgBox.classList.remove('alert-success');
-                msgBox.classList.add('alert-danger');
-                msgBox.style.display = 'block';
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> {{ "Submit Request for Change"|t:current_lang }}';
-            });
-        });
-    }
-    
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', function() {
-            reasonField.value = '';
-            msgBox.style.display = 'none';
-        });
-    }
-});
-</script>
-<p>
-Locked: {{ profile.profile_locked }} |
-Status: {{ profile.approval_status }} |
-Can Edit: {{ can_edit }}
-</p>
 {% endblock %}
