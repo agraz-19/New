@@ -77,7 +77,9 @@ function populateMonthDropdown() {
     return;
 }
 
-const API_URL = "/qpr/api/records/";
+// API URL is removed for client-side fetch. When present, templates may define
+// `PRELOADED_RECORDS` or `window.QPR_API_URL`. Default to null to avoid calls.
+let API_URL = window.QPR_API_URL || null;
 let records = []; // Store data globally
 
 // Function to mask sensitive fields
@@ -143,9 +145,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             async function fetchAvailability(dateStr) {
                 try {
-                    const res = await fetch('/qpr/api/availability/?date=' + encodeURIComponent(dateStr));
-                    if (!res.ok) return;
-                    const j = await res.json();
+                    // Prefer server-provided availability object when present
+                    if (typeof PRELOADED_AVAILABILITY !== 'undefined' && PRELOADED_AVAILABILITY) {
+                        var j = PRELOADED_AVAILABILITY;
+                    } else if (typeof AVAILABILITY !== 'undefined' && AVAILABILITY) {
+                        var j = AVAILABILITY;
+                    } else if (window.AVAILABILITY) {
+                        var j = window.AVAILABILITY;
+                    } else {
+                        const res = await fetch('/qpr/api/availability/?date=' + encodeURIComponent(dateStr));
+                        if (!res.ok) return;
+                        const ct = res.headers.get('content-type') || '';
+                        if (!ct.includes('application/json')) {
+                            // Received HTML or unexpected content; avoid parsing
+                            console.error('availability: unexpected content-type', ct);
+                            return;
+                        }
+                        const j = await res.json();
+                    }
                     // set min/max/default
                     if (selectedDateEl) {
                         selectedDateEl.min = j.min_date;
@@ -209,15 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function checkAuthentication() {
     const userDisplay = document.getElementById('userDisplay');
     if (!userDisplay) return;
-    
-    fetch('/qpr/api/records/')
-        .then(res => {
-            if (res.status === 401) {
-                // Not authenticated, redirect to login
-                window.location.href = '/login/';
-            }
-        })
-        .catch(err => console.error(err));
+    // Authentication checks are handled server-side. Avoid calling removed API.
 }
 
 // Hindi Keyboard - Track focused input
@@ -380,10 +389,18 @@ function updateQuarterAvailability() {
 // --- 2. Load Data (GET) ---
 async function loadData() {
     try {
-        const response = await fetch(API_URL);
-        const data = await response.json();
+        let data = [];
+        // Prefer server-preloaded records when available (template provides PRELOADED_RECORDS)
+        if (typeof PRELOADED_RECORDS !== 'undefined') {
+            data = Array.isArray(PRELOADED_RECORDS) ? PRELOADED_RECORDS : [];
+        } else if (API_URL) {
+            const response = await fetch(API_URL);
+            data = await response.json();
+        } else {
+            data = [];
+        }
 
-        // *** FIX 1: Update the global variable so editRecord finds the data ***
+        // Update the global variable so editRecord finds the data
         records = data;
         
         // If tableBody exists on this page, populate the table (report list or main view)
@@ -401,18 +418,41 @@ async function loadData() {
 
                     if (record.status === 'Draft') {
                         statusBadge = '<span class="badge bg-primary">Draft</span>';
+                    } else {
+                        statusBadge = '<span class="badge bg-success">Submitted</span>';
+                    }
+
+                    // Show Edit only when server explicitly allows it for this record
+                    if (record.can_edit) {
                         actionButtons = `
                             <button class="btn btn-sm btn-outline-warning fw-bold" onclick="event.stopPropagation(); editRecord(${record.id})">
                                 ✏️ Edit
                             </button>
                         `;
                     } else {
-                        statusBadge = '<span class="badge bg-success">Submitted</span>';
-                        actionButtons = `
-                            <button class="btn btn-sm btn-outline-danger fw-bold" onclick="event.stopPropagation(); deleteRecord(${record.id})">
-                                ✘ Delete
-                            </button>
-                        `;
+                        // For submitted records that are not editable, offer request-to-edit or show pending
+                        if (record.status === 'Submitted' || record.is_submitted) {
+                            if (record.has_pending_edit_request) {
+                                actionButtons = `
+                                    <button class="btn btn-sm btn-outline-secondary fw-bold" disabled>
+                                        ⏳ Pending
+                                    </button>
+                                `;
+                            } else {
+                                actionButtons = `
+                                    <button class="btn btn-sm btn-outline-primary fw-bold" onclick="event.stopPropagation(); try { requestEdit(${record.id}); } catch(e){ window.location.href='/qpr/reports/${record.id}/request-edit/'; }">
+                                        ✉️ Request to Edit
+                                    </button>
+                                `;
+                            }
+                        } else {
+                            // Non-submitted and not editable (rare) — show disabled edit
+                            actionButtons = `
+                                <button class="btn btn-sm btn-outline-secondary fw-bold" disabled>
+                                    ✏️ Edit
+                                </button>
+                            `;
+                        }
                     }
 
                     const row = document.createElement('tr');
@@ -510,6 +550,36 @@ async function saveData(status) {
         }
     }
 
+    // If client-side API URL is not present, submit the server-rendered form instead
+    if (!API_URL) {
+        const form = document.getElementById('qprForm');
+        if (!form) { alert('Form element not found.'); return; }
+
+        // ensure hidden details field exists and set its value
+        let detailsField = document.getElementById('detailsField') || form.querySelector('input[name="details"]');
+        if (!detailsField) {
+            detailsField = document.createElement('input');
+            detailsField.type = 'hidden';
+            detailsField.name = 'details';
+            detailsField.id = 'detailsField';
+            form.appendChild(detailsField);
+        }
+        detailsField.value = JSON.stringify(payload.details || {});
+
+        // ensure status field exists and set it
+        let statusInput = form.querySelector('input[name="status"]');
+        if (!statusInput) {
+            statusInput = document.createElement('input');
+            statusInput.type = 'hidden';
+            statusInput.name = 'status';
+            form.appendChild(statusInput);
+        }
+        statusInput.value = status;
+
+        form.submit();
+        return;
+    }
+
     try {
         const res = await fetch(API_URL, {
             method: 'POST',
@@ -556,23 +626,27 @@ function editRecord(id) {
 
     // Fill Main Fields - Apply masking to all records
     document.getElementById('recordId').value = record.id;
-    document.getElementById('officeName').value = record.officeName;
+    const officeNameEl = document.getElementById('officeName');
+    if (officeNameEl && String(officeNameEl.dataset.protected) !== '1') officeNameEl.value = record.officeName || '';
     // Do not mask office code — show the full code so it is saved unchanged
-    document.getElementById('officeCode').value = record.officeCode || '';
-    document.getElementById('region').value = record.region;
-    document.getElementById('quarter').value = record.quarter;
+    const officeCodeEl = document.getElementById('officeCode');
+    if (officeCodeEl && String(officeCodeEl.dataset.protected) !== '1') officeCodeEl.value = record.officeCode || '';
+    const regionEl = document.getElementById('region');
+    if (regionEl && String(regionEl.dataset.protected) !== '1') regionEl.value = record.region || '';
+    const quarterEl = document.getElementById('quarter');
+    if (quarterEl) quarterEl.value = record.quarter || '';
     
     // Handle phone field if it exists in details
     const phoneEl = document.getElementById('phone');
-    if (phoneEl) {
+    if (phoneEl && String(phoneEl.dataset.protected) !== '1') {
         phoneEl.value = record.phone || '';
-        }
+    }
     
     // Handle email field if it exists in details
     const emailEl = document.getElementById('email');
-    if (emailEl) {
+    if (emailEl && String(emailEl.dataset.protected) !== '1') {
         emailEl.value = record.email || '';
-        }
+    }
     // Fill Details - Apply masking to all records
     if (record.details) {
     for (const [key, value] of Object.entries(record.details)) {
@@ -603,24 +677,20 @@ function setFormEditability(canEdit, editApproved) {
     const saveBtns = document.querySelectorAll('button[onclick*="saveData"]');
     
     if (canEdit) {
-        // Enable all fields
+        // Enable fields except those protected by profile data
         allInputs.forEach(input => {
-            input.disabled = false;
+            const isProtected = String(input.dataset.protected) === '1';
+            if (!isProtected) input.disabled = false;
         });
         saveBtns.forEach(btn => btn.disabled = false);
-        
+
         if (editApproved) {
-            // Show info message
             showEditApprovedMessage();
         }
     } else {
         // Disable all fields (read-only mode)
-        allInputs.forEach(input => {
-            input.disabled = true;
-        });
+        allInputs.forEach(input => { input.disabled = true; });
         saveBtns.forEach(btn => btn.disabled = true);
-        
-        // Show message
         showEditDisabledMessage();
     }
 }
@@ -665,14 +735,42 @@ function showEditDisabledMessage() {
 // --- 5. Delete Data ---
 async function deleteRecord(id) {
     if (!confirm("Are you sure you want to permanently delete this record?")) return;
-
     try {
-        await fetch(`${API_URL}?id=${id}`, { method: 'DELETE' });
-        loadData();
+        // Submit server-side delete POST form to the configured endpoint.
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/qpr/records/delete/${id}/`;
+
+        // Attach CSRF token from cookie if available
+        const csrf = getCookie('csrftoken');
+        if (csrf) {
+            const inpt = document.createElement('input');
+            inpt.type = 'hidden'; inpt.name = 'csrfmiddlewaretoken'; inpt.value = csrf;
+            form.appendChild(inpt);
+        }
+
+        document.body.appendChild(form);
+        form.submit();
     } catch (error) {
         console.error("Error deleting:", error);
         alert("Failed to delete.");
     }
+}
+
+// Utility: read cookie value (used for CSRF token)
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
 }
 
 // --- 6. Tab Navigation ---

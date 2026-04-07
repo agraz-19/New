@@ -139,6 +139,14 @@
     {% else %}
     <script>window.INITIAL_QPR = null; window.IS_DIVISION = false;</script>
     {% endif %}
+    
+    {% if record_json %}
+    <script>
+        try { window.PRELOADED_RECORD = {{ record_json|safe }}; } catch(e) { window.PRELOADED_RECORD = null; }
+    </script>
+    {% else %}
+    <script>window.PRELOADED_RECORD = null;</script>
+    {% endif %}
 
 <script>
 const pathParts = window.location.pathname.split('/');
@@ -164,28 +172,30 @@ function cell(val) {
 
 async function loadReport() {
     try {
-        // If template provided INITIAL_QPR (division mode), use it directly
+        // If template provided INITIAL_QPR (division mode), use it; otherwise use PRELOADED_RECORD
         let r = null;
         if (window.INITIAL_QPR) {
             r = window.INITIAL_QPR;
+        } else if (window.PRELOADED_RECORD) {
+            r = window.PRELOADED_RECORD;
         } else {
-            const params = new URLSearchParams(window.location.search);
-            const targetUserId = params.get('user_id') || '';
-            const detailUrl = targetUserId ? `/qpr/api/records/${recordId}/?user_id=${targetUserId}` : `/qpr/api/records/${recordId}/`;
-            console.log('Fetching report detail from', detailUrl);
-            const res = await fetch(detailUrl);
-            console.log('Report detail response status:', res.status, res.statusText);
-            if (!res.ok) {
-                const text = await res.text().catch(() => '<no response body>');
-                throw new Error(`HTTP ${res.status}: ${text}`);
-            }
+            document.getElementById('reportContainer').innerHTML = '<div class="text-danger p-4">Failed to load report data.</div>';
+            return;
+        }
 
-            r = await res.json();
-            if (!r || r.error) {
-                document.getElementById('reportContainer').innerHTML =
-                    `<div class="text-danger p-4">${r?.error || 'Failed to load'}</div>`;
-                return;
-            }
+        if (!r || r.error) {
+            document.getElementById('reportContainer').innerHTML =
+                `<div class="text-danger p-4">${r?.error || 'Failed to load'}</div>`;
+            return;
+        }
+
+        // If this is the HOD division aggregated payload, prefer the top-level
+        // aggregated fields instead of the `cumulative` object which may be
+        // present but sometimes contains zeros due to fallback logic.
+        if (window.IS_DIVISION && r) {
+            try { console.info('Division view - using top-level aggregated values'); } catch(e) {}
+            // Remove cumulative to force `valFor` to use top-level keys
+            try { delete r.cumulative; } catch(e) {}
         }
 
         // Helper to pick cumulative value for non-daily records, otherwise use record's value

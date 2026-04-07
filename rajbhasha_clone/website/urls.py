@@ -84,10 +84,15 @@ urlpatterns = [
     path('update-designation/<int:user_id>/', views.update_designation, name='update_designation'),
     path('action/<int:user_id>/<str:action>/', views.manage_user_action, name='manage_user_action'),
 
-    path('qpr/api/records/', views.api_records, name='qpr_api_records'), 
-    path('qpr/api/records/<int:record_id>/', views.api_record_detail, name='api_record_detail'),
+    # API endpoint for QPR records was removed in favor of POST-based views.
+    # Keep the route here as a comment in case it's needed again later.
+    # path('qpr/api/records/', views.api_records, name='qpr_api_records'),
+    path('qpr/records/', views.qpr_records_view, name='qpr_records'),
+    path('qpr/records/save/', views.qpr_save_record, name='qpr_save_record'),
+    path('qpr/records/delete/<int:id>/', views.qpr_delete_record, name='qpr_delete_record'),
+    #path('qpr/api/records/<int:record_id>/', views.api_record_detail, name='api_record_detail'),
     path('qpr/api/availability/', views.api_qpr_availability, name='qpr_api_availability'),
-    path('qpr/api/period-summary/', views.api_period_summary, name='api_period_summary'),
+    #path('qpr/api/period-summary/', views.api_period_summary, name='api_period_summary'),
     path('qpr/api/request-edit/', views.request_edit_api, name='request_edit_api'),
     path('qpr/api/update-hod/', views.api_update_hod, name='api_update_hod'),
     path('qpr/api/user-change-hod/', views.api_user_change_hod, name='api_user_change_hod'),

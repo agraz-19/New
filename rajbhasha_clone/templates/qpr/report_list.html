@@ -87,11 +87,11 @@
     </div>
 
 <script>
-    const LIST_API_URL = "{% url 'qpr_api_records' %}";
-    const SUMMARY_API_URL_BASE = "{% url 'api_period_summary' %}";
+    // Server-provided records (preloaded) — avoids client-side API fetch.
+    const PRELOADED_RECORDS = {{ records_json|default:'[]'|safe }};
+    const PRELOADED_SUMMARY = {{ summary_json|default:'null'|safe }};
     const IS_HOD_VIEW = "{{ is_hod_view|yesno:'true,false' }}" === "true";
     const TARGET_USER_ID = "{{ target_user_id|default:'' }}";
-    const USER_SUFFIX = TARGET_USER_ID ? `?user_id=${TARGET_USER_ID}` : '';
     function buildViewUrl(id, extraQuery) {
         const base = `/qpr/reports/${id}/`;
         if (!TARGET_USER_ID) return extraQuery ? base + extraQuery : base;
@@ -111,50 +111,16 @@
 
     async function loadList() {
         try {
-            const listUrl = TARGET_USER_ID ? `${LIST_API_URL}?user_id=${TARGET_USER_ID}` : LIST_API_URL;
-            console.log('Fetching records from', listUrl);
-            const res = await fetch(listUrl);
-            console.log('Records response status:', res.status, res.statusText);
-            let data;
-            if (!res.ok) {
-                const text = await res.text().catch(() => '<no response body>');
-                console.error('Records API error:', res.status, text);
-                throw new Error(`Records API returned ${res.status}: ${text}`);
-            }
-            try {
-                data = await res.json();
-            } catch (je) {
-                const text = await res.text().catch(() => '<no response body>');
-                console.error('Failed to parse JSON from records API:', je, text);
-                throw new Error('Invalid JSON from records API');
-            }
-            const records = Array.isArray(data) ? data : [];
+            // Use server-provided records when available, otherwise empty list
+            const records = Array.isArray(PRELOADED_RECORDS) ? PRELOADED_RECORDS : [];
             // debug logging removed
 
             // Fetch period summary for the current quarter using the selected frequency.
             // Per specs, use exactly one fetch and pass ?frequency=<selectedFrequency>.
             const freqEl = document.getElementById('frequencySelect');
             const selectedFrequency = (freqEl && freqEl.value) ? freqEl.value : 'daily';
-            const SUMMARY_API_URL = TARGET_USER_ID ? `${SUMMARY_API_URL_BASE}?frequency=${selectedFrequency}&user_id=${TARGET_USER_ID}` : `${SUMMARY_API_URL_BASE}?frequency=${selectedFrequency}`;
-            let summary = null;
-            try {
-                console.log('Fetching period summary from', SUMMARY_API_URL);
-                const sres = await fetch(SUMMARY_API_URL);
-                console.log('Summary response status:', sres.status, sres.statusText);
-                if (!sres.ok) {
-                    const text = await sres.text().catch(() => '<no response body>');
-                    console.error('Summary API error:', sres.status, text);
-                    throw new Error(`Summary API returned ${sres.status}: ${text}`);
-                }
-                try {
-                    summary = await sres.json();
-                } catch (je) {
-                    const text = await sres.text().catch(() => '<no response body>');
-                    console.error('Failed to parse JSON from summary API:', je, text);
-                }
-            } catch (e) {
-                console.warn('Failed to fetch period summary', e);
-            }
+            // Use server-provided summary if present. Otherwise summary stays null.
+            let summary = PRELOADED_SUMMARY || null;
             
             const dailyBody = document.getElementById('dailyBody');
             const weeklyBody = document.getElementById('weeklyBody');
@@ -209,8 +175,12 @@
                 if (IS_HOD_VIEW) {
                     return ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(rec.id)}">View</a>`;
                 }
+                // If record is editable (owner + approved/unsubmitted), show Edit button
+                if (rec.can_edit) {
+                    return `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); edit(${rec.id})">Edit</button> <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(rec.id)}">View</a>`;
+                }
+                // Otherwise offer request-to-edit
                 let actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${rec.id})">Request to Edit</button>`;
-                // Use a real anchor href so clicks open the correct report without relying on JS view()
                 actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(rec.id)}">View</a>`;
                 return actions;
             }
@@ -455,10 +425,28 @@
         if (IS_HOD_VIEW) { alert("You are viewing in read-only mode."); return; }
         const reason = prompt("{{ 'Please enter the reason for requesting to edit this report:'|t:current_lang }}");
         if (!reason) return;
-        fetch(`/qpr/api/request-edit/`, {
-            method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({request_type:'qpr', record_id:id, reason:reason})
-        }).then(r=>r.json()).then(d=>{ if (d.success) { alert("{{ 'Request sent successfully!'|t:current_lang }}"); loadList(); } else alert(d.error||'Failed'); }).catch(e=>{console.error(e); alert('Failed');});
+        // Submit a standard POST form to the server-side handler so the view can
+        // record the EditRequest and redirect to the report detail page.
+        try {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/qpr/reports/${id}/request-edit/`;
+
+            // CSRF token from cookie
+            const csrf = (function(){
+                const name = 'csrftoken=';
+                const parts = document.cookie.split(';').map(s=>s.trim());
+                for (let p of parts) if (p.indexOf(name)===0) return decodeURIComponent(p.substring(name.length));
+                return null;
+            })();
+            if (csrf) {
+                const inp = document.createElement('input'); inp.type='hidden'; inp.name='csrfmiddlewaretoken'; inp.value = csrf; form.appendChild(inp);
+            }
+
+            const rInp = document.createElement('input'); rInp.type='hidden'; rInp.name='reason'; rInp.value = reason; form.appendChild(rInp);
+            document.body.appendChild(form);
+            form.submit();
+        } catch (e) { console.error('request-edit submit failed', e); alert('Failed to submit request.'); }
     }
 
     window.addEventListener('DOMContentLoaded', () => {
