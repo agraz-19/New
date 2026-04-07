@@ -4,7 +4,7 @@ from captcha import views as captcha_views
 from website import views
 from website.views import (
     CustomLoginView, signup, ForgotPasswordView, VerifyOTPView, ResetPasswordView,
-    EmployeeListCreateAPI, EmployeeDetailAPI, SubmitDraftAPI, custom_logout,approve_profile_change_hod, reject_profile_change_hod
+     custom_logout,approve_profile_change_hod, reject_profile_change_hod
 )
 
 urlpatterns = [

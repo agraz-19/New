@@ -93,7 +93,7 @@
                                 <div id="empcodeFeedback" style="margin-top:5px; font-size:14px;"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">{{ "Username"|t:current_lang }}</label>
+                                <label class="form-label fw-bold">{{ "Employee Name"|t:current_lang }}</label>
                                 <input type="text" name="username" id="username" class="form-control" value="{{ employee.ename|default:user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
                             </div>
                         </div>
@@ -772,7 +772,7 @@
 
         const headers = isHindi ? [
             "कर्मचारी कोड",
-            "उपयोगकर्ता नाम",
+            "कर्मचारी नाम",
             "फोन नंबर",
             "आईपी नंबर",
             "कार्यालय स्थिति",
@@ -791,7 +791,7 @@
             "सुपरएनुएशन तारीख"
         ] : [
             '{{ "Employee Code"|t:current_lang }}',
-            '{{ "Username"|t:current_lang }}',
+            '{{ "Employee Name"|t:current_lang }}',
             '{{ "Phone Number"|t:current_lang }}',
             '{{ "IP Number"|t:current_lang }}',
             '{{ "Office State"|t:current_lang }}',
