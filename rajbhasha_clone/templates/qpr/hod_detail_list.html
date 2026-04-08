@@ -229,7 +229,7 @@
                     </td>
                     
                     <td>
-                        {% if not user.profile_complete or not user.qpr_complete %}
+                        {% if not user.submitted_today %}
                         <form action="{% url 'send_reminder_email' user.user.id %}" method="POST" style="margin: 0;">
                             {% csrf_token %}
                             <button type="submit" class="email-btn" title="{{ 'Send Reminder Email'|t:current_lang }}">

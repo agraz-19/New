@@ -316,9 +316,10 @@ function populateQuarterDropdown() {
     const selectedYearStart = parseInt(yearValue.split("-")[0], 10);
     if (isNaN(selectedYearStart)) return;
 
-    const currentMonth = window.SERVER_MONTH || (new Date()).getMonth() + 1;
-    const currentYear = window.SERVER_YEAR || (new Date()).getFullYear();
+    const currentMonth = parseInt(window.SERVER_MONTH || (new Date()).getMonth() + 1, 10);
+    const currentYear = parseInt(window.SERVER_YEAR || (new Date()).getFullYear(), 10);
 
+    // Map month -> fiscal quarter number (Q1: Apr-Jun, Q2: Jul-Sep, Q3: Oct-Dec, Q4: Jan-Mar)
     let currentQuarter;
     if (currentMonth <= 3) currentQuarter = 4;
     else if (currentMonth <= 6) currentQuarter = 1;
@@ -334,21 +335,32 @@ function populateQuarterDropdown() {
         { value: "Q4", label: "Jan-Mar", backendLabel: "31 मार्च / Mar 31" }
     ];
 
-    quarters.forEach((q, idx) => {
-        const quarterNumber = idx + 1;
+    // Determine fiscal-year start for server/current and for selected year
+    const currentFiscalStart = (currentMonth >= 4) ? currentYear : (currentYear - 1);
+    const selectedFiscalStart = selectedYearStart;
+
+    // Decide which quarter indices to include in the dropdown
+    let includeIndices = [];
+    if (selectedFiscalStart < currentFiscalStart) {
+        // Past financial year: show all quarters (Q1..Q4)
+        includeIndices = [0,1,2,3];
+    } else if (selectedFiscalStart === currentFiscalStart) {
+        // Current financial year: show quarters up to the current quarter
+        // quarterNumber mapping: idx+1 -> 1..4 aligned with quarters array
+        for (let idx = 0; idx < quarters.length; idx++) {
+            const quarterNumber = idx + 1;
+            if (quarterNumber <= currentQuarter) includeIndices.push(idx);
+        }
+    } else {
+        // Future financial year: reset to Q1 only
+        includeIndices = [0];
+    }
+
+    includeIndices.forEach(idx => {
+        const q = quarters[idx];
         const opt = document.createElement('option');
-        // Keep option.value as backend-friendly label so server validation continues to work
         opt.value = q.backendLabel;
         opt.textContent = `${q.value} (${q.label})`;
-
-        if (selectedYearStart < currentYear) {
-            opt.disabled = false;
-        } else if (selectedYearStart === currentYear) {
-            opt.disabled = quarterNumber > currentQuarter;
-        } else {
-            opt.disabled = true;
-        }
-
         quarterSelect.appendChild(opt);
     });
 

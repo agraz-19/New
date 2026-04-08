@@ -1182,6 +1182,22 @@ def serialize_qpr_record(record):
                 data[k] = 0
     except Exception:
         pass
+    # Also provide a `details` dictionary that mirrors form input ids so client
+    # `editRecord()` can populate fields from `record.details` when editing.
+    try:
+        details = {}
+        # numeric and simple keys used by the form
+        for k in NUMERIC_KEYS:
+            details[k] = data.get(k, 0)
+        # date / text fields
+        details['s9_date'] = data.get('s9_date', '')
+        details['s10_date'] = data.get('s10_date', '')
+        details['s12_1'] = data.get('s12_1', '')
+        details['s12_2'] = data.get('s12_2', '')
+        details['s12_3'] = data.get('s12_3', '')
+        data['details'] = details
+    except Exception:
+        data['details'] = {}
     return data
 
 def send_otp_email(user, lang, target_email=None):
@@ -2473,14 +2489,21 @@ def qpr_hod_dashboard(request):
     qpr_submitted_count = 0
     profile_updated_count = users_under_hod.filter(profile_updated=True).count()
 
+    # Count users who submitted a daily QPR for today's server date.
+    today = timezone.localdate()
     for up in users_under_hod:
+        try:
+            # Check for a submitted daily QPR with period_start == today
+            submitted_today = up.user.qpr_records.filter(
+                frequency__iexact='daily',
+                period_start=today,
+                is_submitted=True
+            ).exists()
+            if submitted_today:
+                qpr_submitted_count += 1
+        except Exception:
+            continue
 
-        current_qpr = up.user.qpr_records.filter(
-        quarter=current_quarter,
-        year=current_year
-        ).first()
-    if current_qpr and current_qpr.is_submitted:
-        qpr_submitted_count += 1
     qpr_pending = total_users - qpr_submitted_count
     pending_approvals = users_under_hod.filter(approval_status='pending')
     context = {
@@ -3396,119 +3419,43 @@ def report_detail(request, record_id):
         except Exception:
             pass
 
-        # Aggregate per-user using non-overlapping block logic (daily -> weekly -> monthly -> quarterly)
+        # Aggregate per-user using the same robust fallback aggregation used
+        # for individual records (daily->weekly->monthly->quarterly). This
+        # avoids skipping records that lack explicit period_start/period_end
+        # and ensures division totals reflect stored data.
         try:
-            priority = {'daily': 1, 'weekly': 2, 'monthly': 3, 'quarterly': 4}
             for profile in users_under:
                 try:
                     user_obj = getattr(profile, 'user', None)
                     if not user_obj:
                         continue
                     print("USER:", user_obj.id)
-                    # Fetch all submitted records overlapping the quarter
-                    all_records = QPRRecord.objects.filter(
-                        user=user_obj,
-                        is_submitted=True,
-                        period_start__lte=(q_end or date.max),
-                        period_end__gte=(q_start or date.min)
-                    )
-                    print("TOTAL RECORDS:", all_records.count())
-                    # Sort by priority (granular first)
-                    records_sorted = sorted(all_records, key=lambda r: priority.get((getattr(r, 'frequency', '') or '').lower(), 5))
-
-                    covered_dates = set()
-                    user_totals = {k: 0 for k in NUMERIC_KEYS}
-
-                    for r in records_sorted:
-                        try:
-                            if not getattr(r, 'period_start', None) or not getattr(r, 'period_end', None):
-                                continue
-                            start = max(r.period_start, q_start) if q_start else r.period_start
-                            end = min(r.period_end, q_end) if q_end else r.period_end
-                            if start is None or end is None or start > end:
-                                continue
-                            # build dates for this block
-                            dates = []
-                            cur = start
-                            while cur <= end:
-                                dates.append(cur)
-                                cur = cur + timedelta(days=1)
-                            # skip if entire block already covered
-                            if all(d in covered_dates for d in dates):
-                                continue
-                            # Use this record
-                            try:
-                                d = serialize_qpr_record(r)
-                            except Exception:
-                                continue
-                            for k in NUMERIC_KEYS:
-                                try:
-                                    val = d.get(k)
-                                    if val not in [None, '']:
-                                        user_totals[k] += int(val)
-                                except Exception:
-                                    continue
-                            # mark block covered
-                            for dte in dates:
-                                covered_dates.add(dte)
-                        except Exception:
-                            continue
-
-                    # Debug per-user
-                    print("COVERED DAYS:", len(covered_dates))
-                    print("USER TOTALS:", user_totals)
-
-                    # Add to division aggregated
+                    user_totals = _aggregate_records_with_fallback(user_obj, q_start, q_end, preferred='quarterly') or {k: 0 for k in NUMERIC_KEYS}
+                    try:
+                        print("USER_TOTALS:", user_totals)
+                    except Exception:
+                        pass
+                    any_nonzero = False
                     for k in NUMERIC_KEYS:
                         try:
-                            aggregated[k] += int(user_totals.get(k, 0) or 0)
+                            v = int(user_totals.get(k, 0) or 0)
+                            aggregated[k] += v
+                            if v != 0:
+                                any_nonzero = True
                         except Exception:
                             continue
+                    if any_nonzero:
+                        record_count += 1
                 except Exception:
                     continue
 
-            # Include HOD's own totals using same logic
+            # Include HOD's own totals using the same fallback aggregation
             try:
-                hod_all = QPRRecord.objects.filter(
-                    user=request.user,
-                    is_submitted=True,
-                    period_start__lte=(q_end or date.max),
-                    period_end__gte=(q_start or date.min)
-                )
-                hod_records_sorted = sorted(hod_all, key=lambda r: priority.get((getattr(r, 'frequency', '') or '').lower(), 5))
-                hod_covered = set()
-                hod_totals = {k: 0 for k in NUMERIC_KEYS}
-                for r in hod_records_sorted:
-                    try:
-                        if not getattr(r, 'period_start', None) or not getattr(r, 'period_end', None):
-                            continue
-                        start = max(r.period_start, q_start) if q_start else r.period_start
-                        end = min(r.period_end, q_end) if q_end else r.period_end
-                        if start is None or end is None or start > end:
-                            continue
-                        dates = []
-                        cur = start
-                        while cur <= end:
-                            dates.append(cur)
-                            cur = cur + timedelta(days=1)
-                        if all(d in hod_covered for d in dates):
-                            continue
-                        try:
-                            d = serialize_qpr_record(r)
-                        except Exception:
-                            continue
-                        for k in NUMERIC_KEYS:
-                            try:
-                                val = d.get(k)
-                                if val not in [None, '']:
-                                    hod_totals[k] += int(val)
-                            except Exception:
-                                continue
-                        for dte in dates:
-                            hod_covered.add(dte)
-                    except Exception:
-                        continue
-                print("HOD TOTALS:", hod_totals)
+                hod_totals = _aggregate_records_with_fallback(request.user, q_start, q_end, preferred='quarterly') or {k: 0 for k in NUMERIC_KEYS}
+                try:
+                    print("HOD TOTALS:", hod_totals)
+                except Exception:
+                    pass
                 for k in NUMERIC_KEYS:
                     try:
                         aggregated[k] += int(hod_totals.get(k, 0) or 0)
@@ -3779,6 +3726,7 @@ def hod_detail_list(request):
     users_data = []
     current_quarter = get_current_quarter()
     current_year = get_current_year_label()
+    today = timezone.localdate()
     for user_profile in users_under_hod:
         user = user_profile.user
         qpr_records = user.qpr_records.all()
@@ -3819,12 +3767,18 @@ def hod_detail_list(request):
         current_qpr = qpr_records.filter( quarter=current_quarter, year=current_year ).first()
         # do not include per-user quarterly action fields here (removed from template)
         qpr_complete_flag = current_qpr.is_submitted if current_qpr else False
+        # Has the user submitted a daily QPR for today?
+        try:
+            submitted_today = user.qpr_records.filter(frequency__iexact='daily', period_start=today, is_submitted=True).exists()
+        except Exception:
+            submitted_today = False
         users_data.append({
             'profile': user_profile, 'user': user, 'employee_code': user_profile.employee_code,
             'name': display_name, 'office_code': office_code_val or 'Not Set', 'office_name': office_name_val or 'Not Set',
             'profile_complete': user_profile.profile_updated,
             'qpr_complete': qpr_complete_flag,
             'has_pending_edit_request': has_pending,
+            'submitted_today': submitted_today,
         })
     # --- Division aggregation: aggregate quarterly numeric fields for employees under this HOD ---
     division_qpr = None
@@ -4453,7 +4407,7 @@ def qpr_save_record(request):
             _save_section_data(record, details)
 
         messages.success(request, "Saved successfully")
-        return redirect('qpr_records')
+        return redirect('qpr_report_list')
 
     except Exception as e:
         messages.error(request, str(e))

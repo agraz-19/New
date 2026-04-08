@@ -11,7 +11,12 @@
 {% endblock %}
 {% block content %}
     <div class="container py-3">
-        <h3>Quarterly Progress Reports</h3>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h3 class="mb-0">Quarterly Progress Reports</h3>
+            {% if is_hod_view %}
+            <a href="{% url 'qpr_hod_detail_list' %}" class="btn btn-secondary btn-sm">← Back to Employee List</a>
+            {% endif %}
+        </div>
 
         <!-- Frequency selector: controls which summary source the backend should provide -->
         <div class="mb-2">
