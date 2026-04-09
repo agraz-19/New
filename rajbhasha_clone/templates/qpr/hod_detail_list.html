@@ -200,6 +200,101 @@
     {% endfor %}
     {% endif %}
 
+<!-- Profile Change Requests Section -->
+{% if profile_change_requests %}
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-info text-white fw-bold">
+                <i class="fas fa-history"></i> {{ "Profile Change Request "|t:current_lang }}
+            </div>
+
+            <div class="card-body table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{{ "Employee Code"|t:current_lang }}</th>
+                            <th>{{ "Employee Name"|t:current_lang }}</th>
+                            <th>{{ "Reason for Change"|t:current_lang }}</th>
+                            <th>{{ "Requested On"|t:current_lang }}</th>
+                            <th>{{ "Status"|t:current_lang }}</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% regroup profile_change_requests by profile as grouped_requests %}
+
+                        {% for group in grouped_requests %}
+                            {% with req=group.list.0 %}
+                        <tr>
+                            <td class="fw-bold">{{ req.profile.employee_code }}</td>
+                            <td>{{ req.profile.ename|default:req.profile.user.username }}</td>
+                            <td>
+                                <div style="max-width: 300px; word-wrap: break-word;">
+                                    {{ req.change_reason }}
+                                </div>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ req.requested_at|date:"d M Y, H:i" }}</small>
+                            </td>
+                            <td>
+                                {% if req.status == 'pending' %}
+                                    <div class="btn-group btn-group-sm">
+                                        <form action="{% url 'approve_profile_change' req.id %}" method="POST" style="display:inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-success" onclick="return confirm('Approve this request?')">
+                                                <i class="fas fa-check"></i> {{ "Approve"|t:current_lang }}
+                                            </button>
+                                        </form>
+
+                                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal{{ req.id }}">
+                                            <i class="fas fa-times"></i> {{ "Reject"|t:current_lang }}
+                                        </button>
+                                    </div>
+
+                                    <div class="modal fade" id="rejectModal{{ req.id }}" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <form action="{% url 'reject_profile_change' req.id %}" method="POST">
+                                                {% csrf_token %}
+                                                <div class="modal-content">
+                                                    <div class="modal-header bg-danger text-white">
+                                                        <h5 class="modal-title">Reject Request - {{ req.profile.employee_code }}</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <label class="form-label">Reason for Rejection:</label>
+                                                        <textarea name="rejection_reason" class="form-control" required></textarea>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+                                                    </div>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+
+                                {% elif req.status == 'approved' %}
+                                    <span class="badge bg-success">{{ "Approved"|t:current_lang }}</span>
+                                {% elif req.status == 'rejected' %}
+                                    <span class="badge bg-danger">{{ "Rejected"|t:current_lang }}</span>
+                                    {% if req.approval_comments %}
+                                        <div class="small text-muted mt-1"><strong>Reason:</strong> {{ req.approval_comments }}</div>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endwith %}
+                        {% endfor %}
+                    </tbody>
+
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
     {% if users_data %}
     <div class="table-container">
         <table class="table table-hover">

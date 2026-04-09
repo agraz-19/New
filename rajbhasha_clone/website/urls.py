@@ -97,11 +97,11 @@ urlpatterns = [
     path('qpr/api/update-hod/', views.api_update_hod, name='api_update_hod'),
     path('qpr/api/user-change-hod/', views.api_user_change_hod, name='api_user_change_hod'),
 
-    path('employee-form/', views.employee_form, name='employee_form'),
-    path('employee/export-pdf/', views.export_employee_pdf, name='export_employee_pdf'), 
-    path('api/employees/', EmployeeListCreateAPI.as_view(), name='employee_list_create_api'),
-    path('api/employees/<int:pk>/', EmployeeDetailAPI.as_view(), name='employee_detail_api'),
-    path('api/employees/submit/', SubmitDraftAPI.as_view(), name='submit_draft_api'),
+    #path('employee-form/', views.employee_form, name='employee_form'),
+    #path('employee/export-pdf/', views.export_employee_pdf, name='export_employee_pdf'), 
+    #path('api/employees/', EmployeeListCreateAPI.as_view(), name='employee_list_create_api'),
+    #path('api/employees/<int:pk>/', EmployeeDetailAPI.as_view(), name='employee_detail_api'),
+    #path('api/employees/submit/', SubmitDraftAPI.as_view(), name='submit_draft_api'),
 
     path('download-backup/', views.download_db_backup, name='download_db_backup'),
     path('perform/archive/<int:user_id>/', views.archive_user, name='archive_user'),
@@ -119,6 +119,7 @@ urlpatterns = [
     path("events-admin/edit-titles/", views.admin_edit_event_titles, name="admin_edit_event_titles"),
     path('events-admin/<str:folder>/set-thumbnail/', views.set_thumbnail, name='set_thumbnail'),
     # 🆕 Profile Change Request Workflow
-    path('api/submit-profile-change/', views.submit_profile_change_request, name='submit_profile_change_request'),
-    path('api/approve-profile-change/<int:request_id>/', views.approve_profile_change, name='approve_profile_change'),
+    path('profile/change-request/reject/<int:request_id>/', reject_profile_change_hod, name='reject_profile_change'),
+    path('profile/submit-change/', views.submit_profile_change_request, name='submit_profile_change_request'),
+    path('profile/approve-change/<int:request_id>/', views.approve_profile_change_hod, name='approve_profile_change'),
 ]

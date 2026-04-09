@@ -164,7 +164,7 @@
         <div class="col-md-12">
             <div class="card shadow mb-4 border-warning">
                 <div class="card-header py-3 bg-warning text-dark d-flex justify-content-between align-items-center">
-                    <h6 class="m-0 font-weight-bold"><i class="fas fa-user-clock me-2"></i> {{ "Pending User Registrations"|t:current_lang }}</h6>
+                    <h6 class="m-0 font-weight-bold"><i class="fas fa-user-clock me-2"></i> {{ "Pending User Approvals"|t:current_lang }}</h6>
                     <span class="badge bg-dark text-white rounded-pill">{{ pending_approvals.count }}</span>
                 </div>
                 <div class="card-body">
@@ -184,7 +184,7 @@
                                 <tr>
                                     <td class="fw-bold">{{ p.employee_code }}</td>
                                     <td>
-                                        <div class="fw-bold">{{ p.name|default:p.user.username }}</div>
+                                        <div class="fw-bold">{{ p.employee.ename|default:p.user.username }}</div>
                                         <small class="text-muted">{{ p.designation|default:"Designation Not Set" }}</small>
                                     </td>
                                     <td>
