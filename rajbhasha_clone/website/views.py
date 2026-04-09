@@ -36,6 +36,12 @@ import os
 from gtts import gTTS
 from captcha.models import CaptchaStore
 from deep_translator import GoogleTranslator
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.utils import timezone
+from .models import ProfileChangeRequest
+import hashlib
+import json
 from .models import (
     Employee, CustomUser, Role, DataAccessLog, ArchivedUser, cipher_suite,
     Office,
@@ -75,7 +81,10 @@ import tempfile
 from datetime import date, datetime, timedelta
 from typing import cast
 from urllib import request
-
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from website.static_event_service import get_all_events, EVENTS_ROOT, STATIC_URL_PREFIX
+import os
 # Third-party / Django Imports
 from captcha.models import CaptchaStore, logger
 from deep_translator import GoogleTranslator
@@ -126,7 +135,7 @@ from .models import (
     Section7NotingsData, Section8WorkshopsData, 
     Section9ImplementationCommitteeData, Section10HindiAdvisoryData, 
     Section11SpecificAchievementsData, StaffHindiKnowledge, 
-    TypingUsageReport, UserProfile, cipher_suite
+    TypingUsageReport, UserProfile, cipher_suite,ProfileChangeRequest
 )
 from .serializers import EmployeeSerializer
 from .signals import User
@@ -252,68 +261,98 @@ def api_get_employee_details(request):
         "designation": data.get("designation")
     })
 
+# In views.py -> submit_profile_change_request function
+
 @login_required
 @require_http_methods(["POST"])
 def submit_profile_change_request(request):
-    """User submits a reason to unlock their profile for editing"""
     try:
-        # Debug: Print CSRF token and headers
-        print("[DEBUG] CSRF cookie:", request.COOKIES.get('csrftoken'))
-        print("[DEBUG] X-CSRFToken header:", request.headers.get('X-CSRFToken'))
-        print("[DEBUG] All headers:", dict(request.headers))
-
         data = json.loads(request.body)
         reason = data.get('change_reason', '').strip()
-        
+
         if not reason:
             return JsonResponse({'success': False, 'message': 'Reason is required'})
-        
+
         profile = request.user.profile
-        
-        # Create the request
-        change_request = ProfileChangeRequest.objects.create(
+        hod_identifier = (profile.hod_name or "").strip()
+
+        if not hod_identifier:
+            return JsonResponse({
+                'success': False,
+                'message': 'HOD is not assigned to your profile.'
+            })
+
+        # 🔴 PREVENT DUPLICATE REQUESTS
+        existing_request = ProfileChangeRequest.objects.filter(
+            profile=profile,
+            status='pending'
+        ).first()
+
+        if existing_request:
+            return JsonResponse({
+                'success': False,
+                'message': 'You already have a pending request. Please wait for approval.'
+            })
+
+        # 🔍 Find HOD (same logic, untouched)
+        hod_profile = UserProfile.objects.filter(
+            Q(employee_code=hod_identifier) |
+            Q(name__iexact=hod_identifier) |
+            Q(hod_name__iexact=hod_identifier),
+            roles__name='hod'
+        ).first()
+
+        if not hod_profile:
+            return JsonResponse({
+                'success': False,
+                'message': f'HOD "{hod_identifier}" not found in system. Please ensure your HOD has registered and is approved.'
+            })
+
+        # ✅ CREATE REQUEST (unchanged logic)
+        ProfileChangeRequest.objects.create(
             profile=profile,
             change_reason=reason,
-            # Link to the HOD currently assigned in their profile
-            hod=CustomUser.objects.filter(username=profile.hod_name).first() 
+            hod=hod_profile.user,
+            status='pending'
         )
-        
-        # Update profile status to reflect a pending change
-        profile.approval_status = 'change_pending' 
-        profile.save()
-        
-        return JsonResponse({'success': True, 'message': 'Request submitted to HOD'})
-    except Exception as e:
-        print("[DEBUG] Exception in submit_profile_change_request:", str(e))
-        return JsonResponse({'success': False, 'message': str(e)})
 
-@login_required
-def approve_profile_change(request, request_id):
-    """HOD approves the request, which unlocks the fields"""
-    if not user_has_role(request.user, ['hod', 'admin']):
-        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
-        
-    change_request = get_object_or_404(ProfileChangeRequest, id=request_id)
-    profile = change_request.profile
+        # ✅ UPDATE PROFILE STATUS (unchanged)
+        profile.approval_status = 'change_pending'
+        profile.save(update_fields=['approval_status'])
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Change request submitted successfully. Awaiting HOD approval.'
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Invalid JSON data'})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+@require_http_methods(["GET"])
+def api_event_images(request, folder):
+    """
+    API endpoint to fetch all images for an event folder
+    """
+    folder_path = os.path.join(EVENTS_ROOT, folder)
     
-    change_request.status = 'approved'
-    change_request.approved_at = timezone.now()
-    change_request.save()
+    if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
+        return JsonResponse({"images": []}, status=404)
     
-    # This status allows the frontend to enable input fields
-    profile.approval_status = 'approved' 
-    # Or a specific 'edit_mode' flag if you prefer
-    # Allow the profile owner to edit (set on the profile's user, not the approver)
-    try:
-        owner_user = getattr(profile, 'user', None)
-        if owner_user:
-            owner_user.is_edit_allowed = True
-            owner_user.save(update_fields=['is_edit_allowed'])
-    except Exception:
-        pass
-    profile.save()
+    IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
     
-    return JsonResponse({'success': True, 'message': 'Profile unlocked for user'})
+    image_files = [
+        fname for fname in os.listdir(folder_path)
+        if os.path.splitext(fname)[1].lower() in IMAGE_EXTS
+    ]
+    
+    image_files.sort(key=lambda x: os.path.getctime(os.path.join(folder_path, x)))
+    
+    images = [f"{STATIC_URL_PREFIX}/{folder}/{fname}" for fname in image_files]
+    
+    return JsonResponse({"images": images})
+
 
 @staff_member_required
 def admin_events_dashboard(request):
@@ -446,22 +485,36 @@ def can_access_manager_site(user):
     """Manager site accessible to users with 'manager' role"""
     return user.is_authenticated and user_has_role(user, 'manager')
 
-def get_active_hods(office_code=None):
-    """Get list of valid HODs only"""
+# def get_active_hods(office_code=None):
+#     """Get list of valid HODs only"""
     
-    hod_query = UserProfile.objects.filter(
-        roles__name='hod',
-        approval_status='approved'
-    )
+#     hod_query = UserProfile.objects.filter(
+#         roles__name='hod',
+#         approval_status='approved'
+#     )
 
-    # If office_code is provided, filter by it
-    # If office_code is None/empty, show HODs with no office_code restriction or all HODs
+#     # If office_code is provided, filter by it
+#     # If office_code is None/empty, show HODs with no office_code restriction or all HODs
+#     if office_code:
+#         hod_query = hod_query.filter(office_code=office_code)
+
+#     return list(
+#         hod_query.values_list('hod_name', flat=True).distinct()
+#     )
+def get_active_hods(office_code=None):
+    """
+    Returns a list of HOD names/usernames. 
+    Matches office_code if provided, otherwise returns all HODs.
+    """
+    hod_query = UserProfile.objects.filter(Q(roles__name='hod') | Q(user__roles__name='hod'))
+    
     if office_code:
-        hod_query = hod_query.filter(office_code=office_code)
-
-    return list(
-        hod_query.values_list('hod_name', flat=True).distinct()
-    )
+        # Try to find HODs in same office, but fallback to all HODs if none found in that office
+        specific_hods = hod_query.filter(office_code=office_code).values_list('user__username', flat=True)
+        if specific_hods.exists():
+            return specific_hods
+            
+    return hod_query.values_list('user__username', flat=True).distinct()
 
 def _convert_to_int(value):
     if value == '' or value is None: return None
@@ -1836,101 +1889,68 @@ def unarchive_user(request, archive_id):
         messages.error(request, "Original user record not found. Cannot restore.")
         return redirect('dashboard')
     
+
 @login_required
 def profile_view(request):
-    """Unified profile view - Employee form with strict validation, HOD approval workflow, and controlled editing"""
+    """
+    Refactored profile view.
+    Fix: Ensures new users can edit/fill details, but locks the profile 
+    once approved, requiring a Change Request to unlock.
+    """
+    from .models import Employee, Office, ProfileChangeRequest, QPRRecord
+    from .employeeform import EmployeeForm
 
     lang = request.session.get('lang', 'en')
     user = request.user
     profile = getattr(user, 'profile', None)
-
-    from .models import Employee, Office, EditRequest
-    from .employeeform import EmployeeForm
-
-    employee = None
-
+    
     # ===============================
-    # 🔐 EDIT REQUESTS & PERMISSIONS
+    # 🔑 STATE FLAGS & LOCK LOGIC
     # ===============================
-    approved_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
-        status='approved'
-    ).first()
+    # FIX: A user can edit if:
+    # 1. is_edit_allowed is explicitly True (The Source of Truth)
+    # 2. OR the profile hasn't been approved yet (New User/Rejected User)
+    is_approved = profile and profile.approval_status == "approved"
+    can_edit = user.is_edit_allowed or not is_approved
 
-    can_edit = (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None) or (profile and profile.approval_status == 'rejected')
-    pending_edit_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
+    pending_change_request = ProfileChangeRequest.objects.filter(
+        profile=profile,
         status='pending'
-    ).first()
+    ).first() if profile else None
 
-    rejected_edit_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
-        status='rejected'
-    ).order_by('-created_at').first()
+    approved_change_request = ProfileChangeRequest.objects.filter(
+        profile=profile,
+        status='approved'
+    ).order_by('-approved_at').first() if profile else None
 
-    # HEAD-style permission (lenient but controlled)
     # ===============================
-    # 📩 POST LOGIC
+    # 📩 POST LOGIC (SAVE CHANGES)
     # ===============================
     if request.method == 'POST':
-        # Debug: Print POST data and CSRF token
-        print("[DEBUG] POST data:", dict(request.POST))
-        print("[DEBUG] CSRF cookie:", request.COOKIES.get('csrftoken'))
-        print("[DEBUG] Headers:", dict(request.headers))
-
-        # 🔒 Strict lock
         if not can_edit:
-            messages.error(
-                request,
-                translate_text("Your profile is locked. Request edit permission.", lang),
-                extra_tags='danger'
-            )
-            return redirect('dashboard')
+            messages.error(request, "Your profile is locked. Please request edit permission.", extra_tags='danger')
+            return redirect('profile')
 
+        # Load Master Data for Validation
         EMPLOYEE_DATA = load_employee_data()
-
         empcode = request.POST.get('empcode', '').strip()
         username = request.POST.get('username', '').strip().upper()
         phone = request.POST.get('phone', '').strip()
 
-        # ❌ Validate empcode
+        # Official Record Validation
         if empcode not in EMPLOYEE_DATA:
             messages.error(request, "Invalid Employee Code")
             return redirect('profile')
-
-        employee_data = EMPLOYEE_DATA[empcode]
-
-        # ❌ Validate name
-        if username != employee_data["name"]:
-            messages.error(request, "Name does not match official records")
+        
+        record = EMPLOYEE_DATA[empcode]
+        if username != record["name"] or phone != record["mobile"]:
+            messages.error(request, "Details do not match official records.")
             return redirect('profile')
 
-        # ❌ Validate phone
-        if phone != employee_data["mobile"]:
-            messages.error(request, "Mobile number does not match official records")
-            return redirect('profile')
-
-        # Fetch employee after validation
-        employee = Employee.objects.filter(empcode=empcode).first()
-
-        # 🔥 HOD mandatory
-        hod_name_post = request.POST.get('hod_name', '').strip()
-        if not hod_name_post:
-            messages.error(request, "HOD/Approver selection is required")
-            return redirect('profile')
-
-        # Email validation
+        # Email & Security
         new_email = request.POST.get('email', '').lower().strip()
-
         if not new_email:
-            messages.error(
-                request,
-                translate_text("Email is required.", lang),
-                extra_tags='danger'
-            )
+            messages.error(request, "Email is required.", extra_tags='danger')
             return redirect('profile')
 
         email_hash = hashlib.sha256(new_email.encode()).hexdigest()
@@ -1945,286 +1965,182 @@ def profile_view(request):
         #     )
         #     return redirect('profile')
 
-        # ===============================
-        # ✅ SAVE USER
-        # ===============================
-        user.set_email(new_email)
-        user.is_edit_allowed = False
-        user.save()
-
-        # ===============================
-        # ✅ SAVE PROFILE
-        # ===============================
-        if profile:
-            profile.employee_code = empcode
-            profile.phone = phone
-            profile.office_code = request.POST.get('office_code', '').strip()
-            profile.office_name = request.POST.get('office_name', '').strip()
-            profile.email = new_email
-            # ✅ FIX: was profile.region = ... (wrong field name), now correct:
-            profile.language_region = request.POST.get('language_region', '')
-            profile.hod_name = request.POST.get('hod_name', '')
-            alt_email_post = request.POST.get('alternate_email', '').lower().strip()
-            profile.alternate_email = alt_email_post if alt_email_post else None
-            profile.profile_updated = True  # ✅ FIX: mark as updated so user isn't redirected to profile again
-            if profile.approval_status == 'rejected':
-                profile.approval_status = 'pending'
-                messages.info(request, "Your updated profile has been sent back to your HOD for review.")
-            try:
-                profile.save()
-                # Debug - remove after confirming it works
-                profile.refresh_from_db()
-                print(f"✅ SAVED: empcode={profile.employee_code}, language_region={profile.language_region}")
-            except Exception as e:
-                messages.error(request, f"Profile save error: {str(e)}")
-                return redirect('profile')
-            profile.hod_name = hod_name_post
-
-            # 🔒 Approval workflow
-            profile.profile_updated = True
-            profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
-
-            profile.save()
-
-        # ===============================
-        # ✅ EMPLOYEE FORM
-        # ===============================
-        form = EmployeeForm(request.POST, instance=employee)
-
-        if form.is_valid():
-            emp_instance = form.save(commit=False)
-
-            exams = request.POST.getlist("hindi_exam")
-            emp_instance.highest_exam = ",".join(exams)
-
-            emp_instance.empcode = empcode
-            emp_instance.save()
-        else:
-            messages.error(request, "Please fill all required Employee details correctly.")
-            return redirect('profile')
-
-        # ===============================
-        # 🔄 CLEANUP
-        # ===============================
-        if approved_request:
-            EditRequest.objects.filter(user=user, request_type='profile', status='approved').update(status='used')
-
-        send_system_email(user, request, 'update')
-
-        messages.success(
-            request,
-            translate_text("Profile submitted successfully! Awaiting approval.", lang)
-        )
-
-        return redirect('dashboard')
-
-    # ===================== GET =====================
-
-    # ✅ FIX: Use correct field name profile.employee_code (not profile.empcode)
-    empcode = None
-    if profile and profile.employee_code:
-        empcode = profile.employee_code.strip()
-
-    employee = None
-    if empcode:
-        try:
-            employee = Employee.objects.filter(empcode=int(empcode)).first()
-        except (ValueError, TypeError):
-            employee = Employee.objects.filter(empcode=empcode).first()
-
-    form = EmployeeForm(instance=employee)
-
-    # Fetch QPR details
-    latest_qpr = QPRRecord.objects.filter(user=user).order_by('-updated_at').first()
-
-    qpr_office_name = ""
-    qpr_office_code = ""
-    qpr_phone = ""
-    qpr_email = ""
-
-    if latest_qpr:
-        qpr_office_name = latest_qpr.officeName
-        qpr_office_code = latest_qpr.officeCode
-        qpr_phone = latest_qpr.phone or ""
-        qpr_email = latest_qpr.email or ""
-
-    # Other edit requests
-    pending_edit_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
-        status='pending'
-    ).first()
-
-    rejected_edit_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
-        status='rejected'
-    ).order_by('-created_at').first()
-
-    # HEAD-style permission (lenient but controlled)
-    can_edit = (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None)
-
-    # ===============================
-    # 📩 POST LOGIC
-    # ===============================
-    if request.method == 'POST':
-
-        # 🔒 Strict lock
-        if not can_edit:
-            messages.error(
-                request,
-                translate_text("Your profile is locked. Request edit permission.", lang),
-                extra_tags='danger'
-            )
-            return redirect('dashboard')
-
-        EMPLOYEE_DATA = load_employee_data()
-
-        empcode = request.POST.get('empcode', '').strip()
-        username = request.POST.get('username', '').strip().upper()
-        phone = request.POST.get('phone', '').strip()
-
-        # ❌ Validate empcode
-        if empcode not in EMPLOYEE_DATA:
-            messages.error(request, "Invalid Employee Code")
-            return redirect('profile')
-
-        employee_data = EMPLOYEE_DATA[empcode]
-
-        # ❌ Validate name
-        if username != employee_data["name"]:
-            messages.error(request, "Name does not match official records")
-            return redirect('profile')
-
-        # ❌ Validate phone
-        if phone != employee_data["mobile"]:
-            messages.error(request, "Mobile number does not match official records")
-            return redirect('profile')
-
-        # Fetch employee after validation
-        employee = Employee.objects.filter(empcode=empcode).first()
-
-        # 🔥 HOD mandatory
+        # HOD Selection
         hod_name_post = request.POST.get('hod_name', '').strip()
         if not hod_name_post:
-            messages.error(request, "HOD/Approver selection is required")
+            messages.error(request, "HOD/Approver selection is required.")
             return redirect('profile')
 
-        # Email validation
-        new_email = request.POST.get('email', '').lower().strip()
-
-        if not new_email:
-            messages.error(
-                request,
-                translate_text("Email is required.", lang),
-                extra_tags='danger'
-            )
-            return redirect('profile')
-
-        email_hash = hashlib.sha256(new_email.encode()).hexdigest()
-
-        if CustomUser.objects.filter(email_hash=email_hash).exclude(pk=user.pk).exists():
-            messages.error(
-                request,
-                translate_text("Email already in use.", lang),
-                extra_tags='danger'
-            )
-            return redirect('profile')
-
-        # ===============================
-        # ✅ SAVE USER
-        # ===============================
+        # 1. Update User & Initial Lock
         user.set_email(new_email)
-        user.is_edit_allowed = False
+        # If they were editing via an approved change request, re-lock the user
+        user.is_edit_allowed = False 
         user.save()
 
-        # ===============================
-        # ✅ SAVE PROFILE
-        # ===============================
+        # 2. Update Profile
         if profile:
             profile.employee_code = empcode
             profile.phone = phone
             profile.office_code = request.POST.get('office_code', '').strip()
             profile.office_name = request.POST.get('office_name', '').strip()
+            profile.office_state = request.POST.get('office_state', '').strip()
             profile.email = new_email
+            profile.language_region = request.POST.get('language_region', '')
             profile.hod_name = hod_name_post
-
-            # 🔒 Approval workflow
-            profile.profile_updated = True
+            
+            # Workflow Transition: 
+            # If they are a new user or were previously rejected, they go to 'pending'
+            # If they used an 'approved_change_request', they go to 'pending' for re-verification
             profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
-
+            profile.profile_updated = True
             profile.save()
 
-        # ===============================
-        # ✅ EMPLOYEE FORM
-        # ===============================
+        # 3. Update Employee Model (Master Data Instance)
+        employee = Employee.objects.filter(empcode=empcode).first()
         form = EmployeeForm(request.POST, instance=employee)
-
         if form.is_valid():
             emp_instance = form.save(commit=False)
-
-            exams = request.POST.getlist("hindi_exam")
-            emp_instance.highest_exam = ",".join(exams)
-
+            emp_instance.highest_exam = ",".join(request.POST.getlist("hindi_exam"))
             emp_instance.empcode = empcode
             emp_instance.save()
         else:
-            messages.error(request, "Please fill all required Employee details correctly.")
+            messages.error(request, "Form validation failed. Please check your entries.")
             return redirect('profile')
 
-        # ===============================
-        # 🔄 CLEANUP
-        # ===============================
-        if approved_request:
-            EditRequest.objects.filter(user=user, request_type='profile', status='approved').update(status='used')
+        # 4. Request Cleanup
+        if approved_change_request:
+            approved_change_request.status = 'completed'
+            approved_change_request.save()
 
         send_system_email(user, request, 'update')
-
-        messages.success(
-            request,
-            translate_text("Profile submitted successfully! Awaiting approval.", lang)
-        )
-
-        return redirect('dashboard')
+        messages.success(request, "Profile submitted successfully! It is now awaiting HOD approval.")
+        return redirect('profile')
 
     # ===============================
-    # 📄 GET LOGIC
+    # 📥 GET LOGIC (PAGE LOAD)
     # ===============================
-    else:
-        form = EmployeeForm(instance=employee)
+    empcode = profile.employee_code if profile else None
+    employee = Employee.objects.filter(empcode=empcode).first() if empcode else None
+    form = EmployeeForm(instance=employee)
+    current_office_code = profile.office_code if profile else "0012"
 
-    # ===============================
-    # 📦 CONTEXT
-    # ===============================
+    # Context Generation
     offices = Office.objects.all()
-
     context = {
         'form': form,
         'employee': employee,
         'profile': profile,
-        'qpr_office_name': profile.office_name if profile else '',
-        'qpr_office_code': profile.office_code if profile else '',
-        'qpr_phone': profile.phone if profile else '',
-        'qpr_email': profile.email if profile else '',
-
-        'available_hods': get_active_hods(profile.office_code) if profile else [],
+        'offices': offices,
+        'region_choices': QPRRecord.region_choices,
+        
+        # Identity
+        # 'available_hods': get_active_hods(profile.office_code) if profile and profile.office_code else [],
+        'available_hods': get_active_hods(current_office_code),
         'current_hod': profile.hod_name if profile else None,
 
+        # 🔑 Flags for Template
         'can_edit': can_edit,
-        'offices': offices,
-
+        'profile_locked': not can_edit, # Used by JS to trigger field locking
+        'profile_approved': is_approved,
+        'pending_change_request': pending_change_request,
+        'has_pending_change_request': bool(pending_change_request),
+        'has_approved_change_request': bool(approved_change_request),
         'profile_updated': profile.profile_updated if profile else False,
-
-        'approved_edit_request': approved_request,
-        'pending_edit_request': pending_edit_request,
-        'rejected_edit_request': rejected_edit_request,
-        'region_choices': QPRRecord.region_choices,
     }
 
-    from django.template.context_processors import csrf
-    context.update(csrf(request))
     return render(request, 'profile.html', context)
+@login_required
+def approve_profile_change_hod(request, request_id):
+    """HOD approves profile change request → unlock form"""
 
+    from .models import ProfileChangeRequest
+    from django.utils import timezone
+
+    # 🔐 ROLE CHECK
+    if not user_has_role(request.user, ['hod', 'admin']):
+        messages.error(request, "Unauthorized", extra_tags='danger')
+        return redirect('qpr_hod_detail_list')
+
+    change_request = get_object_or_404(ProfileChangeRequest, id=request_id)
+
+    # 🔒 Prevent re-processing
+    if change_request.status != 'pending':
+        messages.warning(request, "This request is already processed.")
+        return redirect('qpr_hod_detail_list')
+
+    # 🔐 HOD VALIDATION
+    if change_request.hod != request.user and not request.user.is_staff:
+        messages.error(request, "Not authorized for this request", extra_tags='danger')
+        return redirect('qpr_hod_detail_list')
+
+    # ✅ APPROVE REQUEST
+    change_request.status = 'approved'
+    change_request.approved_at = timezone.now()
+    change_request.save()
+
+    # 🔓 UNLOCK USER FORM
+    user = change_request.profile.user
+    user.is_edit_allowed = True
+    user.save(update_fields=['is_edit_allowed'])
+
+    messages.success(
+        request,
+        f"Edit request approved for {change_request.profile.name}. Form unlocked.",
+        extra_tags='success'
+    )
+
+    return redirect('qpr_hod_detail_list')
+@login_required
+def reject_profile_change_hod(request, request_id):
+    """HOD rejects profile change request → keep form locked"""
+
+    from .models import ProfileChangeRequest
+    from django.utils import timezone
+
+    if request.method != 'POST':
+        return redirect('qpr_hod_detail_list')
+
+    # 🔐 ROLE CHECK
+    if not user_has_role(request.user, ['hod', 'admin']):
+        messages.error(request, "Unauthorized", extra_tags='danger')
+        return redirect('qpr_hod_detail_list')
+
+    change_request = get_object_or_404(ProfileChangeRequest, id=request_id)
+
+    # 🔒 Prevent re-processing
+    if change_request.status != 'pending':
+        messages.warning(request, "This request is already processed.")
+        return redirect('qpr_hod_detail_list')
+
+    # 🔐 HOD VALIDATION
+    if change_request.hod != request.user and not request.user.is_staff:
+        messages.error(request, "Not authorized for this request", extra_tags='danger')
+        return redirect('qpr_hod_detail_list')
+
+    rejection_reason = request.POST.get('rejection_reason', '').strip()
+
+    if not rejection_reason:
+        messages.error(request, "Rejection reason is required", extra_tags='danger')
+        return redirect('qpr_hod_detail_list')
+
+    # ❌ REJECT REQUEST
+    change_request.status = 'rejected'
+    change_request.approved_at = timezone.now()  # you can rename to reviewed_at later
+    change_request.approval_comments = rejection_reason
+    change_request.save()
+
+    # 🚫 KEEP USER LOCKED (explicit for clarity)
+    user = change_request.profile.user
+    user.is_edit_allowed = False
+    user.save(update_fields=['is_edit_allowed'])
+
+    messages.success(
+        request,
+        f"Edit request rejected for {change_request.profile.name}",
+        extra_tags='success'
+    )
+
+    return redirect('qpr_hod_detail_list')
 '''
 @login_required
 def user_profile(request):
@@ -2458,36 +2374,55 @@ def user_dashboard(request):
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
     return response 
+
 @login_required
 def qpr_hod_dashboard(request):
     """HOD Dashboard - Department overview and employee statistics"""
-    if not user_has_role(request.user, 'hod'): return redirect('/')
+
+    if not user_has_role(request.user, 'hod'):
+        return redirect('/')
+
     lang = request.session.get('lang', 'en')
-    
-    # Force fresh database fetch
-    from django.db import connections
-    connections.close_all()
-    
+
+    from .models import ProfileChangeRequest, UserProfile
+    from django.db.models import Q
+
+    # ===============================
+    # 🔥 CHANGE REQUESTS (FOR DASHBOARD)
+    # ===============================
+    profile_change_requests = ProfileChangeRequest.objects.filter(
+        hod=request.user,
+        status='pending'
+    ).select_related('profile', 'profile__user').order_by('-requested_at')
+
+    # ===============================
+    # 📊 BASIC INFO
+    # ===============================
     current_quarter = get_current_quarter()
     current_year = get_current_year_label()
 
     hod_profile = UserProfile.objects.select_related('user').get(user=request.user)
-    hod_name = hod_profile.hod_name or hod_profile.name
-    hod_name = hod_name.strip() if hod_name else None
-    
-    from django.db.models import Q
-    
+    hod_name = (hod_profile.hod_name or hod_profile.name or "").strip()
+
+    # ===============================
+    # 👥 USERS UNDER HOD
+    # ===============================
     if hod_name:
         user_role_q = Q(roles__name='user') | Q(user__roles__name='user')
+
         users_under_hod = UserProfile.objects.filter(
-            (user_role_q & Q(hod_name__iexact=hod_name)) | Q(user=request.user)
+            (user_role_q & Q(hod_name__iexact=hod_name)) |
+            Q(user=request.user)
         ).distinct()
     else:
         users_under_hod = UserProfile.objects.filter(user=request.user).distinct()
 
     total_users = users_under_hod.count()
+
+    # ===============================
+    # 📈 QPR COUNTS (FIXED LOOP)
+    # ===============================
     qpr_submitted_count = 0
-    profile_updated_count = users_under_hod.filter(profile_updated=True).count()
 
     # Count users who submitted a daily QPR for today's server date.
     today = timezone.localdate()
@@ -2505,7 +2440,17 @@ def qpr_hod_dashboard(request):
             continue
 
     qpr_pending = total_users - qpr_submitted_count
+
+    # ===============================
+    # 📊 PROFILE STATUS
+    # ===============================
+    profile_updated_count = users_under_hod.filter(profile_updated=True).count()
+
     pending_approvals = users_under_hod.filter(approval_status='pending')
+
+    # ===============================
+    # 📦 CONTEXT
+    # ===============================
     context = {
         'role': 'hod',
         'total_users': total_users,
@@ -2513,17 +2458,29 @@ def qpr_hod_dashboard(request):
         'qpr_pending': qpr_pending,
         'profile_updated': profile_updated_count,
         'hod_name': hod_name,
+
+        # 🔥 IMPORTANT (for dashboard UI)
+        'profile_change_requests': profile_change_requests,
+
         'current_lang': lang,
         'current_quarter': current_quarter,
         'current_year': current_year,
         'pending_approvals': pending_approvals,
     }
+
     response = render(request, 'qpr/hod_dashboard.html', context)
+
+    # ===============================
+    # 🚫 NO CACHE
+    # ===============================
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
-    return response 
+    print("HOD USER:", request.user.id)
+    print("REQUEST COUNT:", profile_change_requests.count())
+    print("DATA:", list(profile_change_requests.values()))
 
+    return response
 @login_required
 def manager_dashboard(request):
     """Manager Dashboard - Manage system access and employee records"""
@@ -3709,7 +3666,10 @@ def typing_usage_report_view(request, record_id):
 
 @login_required
 def hod_detail_list(request):
-    if not user_has_role(request.user, 'hod'): return redirect('/')
+    """HOD Detail List with profile change request approvals"""
+    if not user_has_role(request.user, 'hod'): 
+        return redirect('/')
+    
     # Determine hod_name from profile (fallback to profile.name)
     hod_profile = getattr(request.user, 'profile', None)
     hod_name = (hod_profile.hod_name or hod_profile.name) if hod_profile else None
@@ -3723,6 +3683,7 @@ def hod_detail_list(request):
         ).select_related('user').distinct()
     else:
         users_under_hod = UserProfile.objects.filter(user=request.user).select_related('user')
+    
     users_data = []
     current_quarter = get_current_quarter()
     current_year = get_current_year_label()
@@ -3773,41 +3734,34 @@ def hod_detail_list(request):
         except Exception:
             submitted_today = False
         users_data.append({
-            'profile': user_profile, 'user': user, 'employee_code': user_profile.employee_code,
-            'name': display_name, 'office_code': office_code_val or 'Not Set', 'office_name': office_name_val or 'Not Set',
-            'profile_complete': user_profile.profile_updated,
-            'qpr_complete': qpr_complete_flag,
+            'profile': user_profile, 
+            'user': user, 
+            'employee_code': user_profile.employee_code,
+            'name': display_name, 
+            'office_code': office_code_val or 'Not Set', 
+            'office_name': office_name_val or 'Not Set',
+            'profile_complete': user_profile.profile_updated, 
+            'qpr_complete': current_qpr.is_submitted if current_qpr else False,
+            'qpr_record_id': current_qpr.id if current_qpr else None,
             'has_pending_edit_request': has_pending,
             'submitted_today': submitted_today,
         })
-    # --- Division aggregation: aggregate quarterly numeric fields for employees under this HOD ---
-    division_qpr = None
-    try:
-        user_ids = list(users_under_hod.values_list('user__id', flat=True))
-        if user_ids:
-            qrs = QPRRecord.objects.filter(user_id__in=user_ids, frequency__iexact='quarterly', quarter=current_quarter, year=current_year)
-            # initialize totals
-            totals = {k: 0 for k in NUMERIC_KEYS}
-            record_count = 0
-            for r in qrs:
-                record_count += 1
-                try:
-                    d = serialize_qpr_record(r)
-                except Exception:
-                    continue
-                for k in NUMERIC_KEYS:
-                    try:
-                        v = d.get(k)
-                        if v is None or v == '':
-                            continue
-                        totals[k] += int(v)
-                    except Exception:
-                        continue
-            division_qpr = {'quarter': current_quarter, 'year': current_year, 'totals': totals, 'record_count': record_count, 'num_users': len(user_ids)}
-    except Exception:
-        division_qpr = {'quarter': current_quarter, 'year': current_year, 'totals': {}, 'record_count': 0, 'num_users': 0}
+    
+    # ✅ NEW: Fetch pending profile change requests for this HOD
+    from .models import ProfileChangeRequest
+    profile_change_requests = ProfileChangeRequest.objects.filter(
+        hod=request.user,
+        status__in=['pending', 'approved', 'rejected']
+    ).select_related('profile__user').order_by('-requested_at')
 
-    context = {'users_data': users_data, 'hod_name': hod_name, 'current_quarter': current_quarter, 'current_year': current_year, 'division_qpr': division_qpr}
+    context = {
+        'users_data': users_data, 
+        'hod_name': hod_name, 
+        'current_quarter': current_quarter, 
+        'current_year': current_year,
+        'profile_change_requests': profile_change_requests,  # ✅ NEW
+    }
+    
     response = render(request, 'qpr/hod_detail_list.html', context)
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
@@ -4782,131 +4736,131 @@ def request_edit_api(request):
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
     return JsonResponse({'error': 'Invalid method'}, status=400)
 
-class EmployeeListCreateAPI(APIView):
-    def get(self, request):
-        if request.session.get('active_role') != 'user':
-            return Response({"detail": "Unauthorized"}, status=403)
+# class EmployeeListCreateAPI(APIView):
+#     def get(self, request):
+#         if request.session.get('active_role') != 'user':
+#             return Response({"detail": "Unauthorized"}, status=403)
 
-        # Use profile.employee_code when available (some users have non-numeric username)
-        user_empcode = None
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except Exception:
-            return Response({"detail": "Invalid employee code."}, status=400)
+#         # Use profile.employee_code when available (some users have non-numeric username)
+#         user_empcode = None
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except Exception:
+#             return Response({"detail": "Invalid employee code."}, status=400)
 
-        status_filter = request.GET.get("status")
+#         status_filter = request.GET.get("status")
 
-        qs = Employee.objects.filter(empcode=user_empcode)
+#         qs = Employee.objects.filter(empcode=user_empcode)
 
-        if status_filter:
-            qs = qs.filter(status=status_filter)
+#         if status_filter:
+#             qs = qs.filter(status=status_filter)
 
-        serializer = EmployeeSerializer(qs.order_by("-lastupdate"), many=True)
-        return Response(serializer.data)
-    def post(self, request):
-        if request.session.get('active_role') != 'user':
-            return Response({"detail": "Unauthorized"}, status=403)
+#         serializer = EmployeeSerializer(qs.order_by("-lastupdate"), many=True)
+#         return Response(serializer.data)
+#     def post(self, request):
+#         if request.session.get('active_role') != 'user':
+#             return Response({"detail": "Unauthorized"}, status=403)
 
-        # Resolve the numeric employee code from the user's profile when possible
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except Exception:
-            return Response({"detail": "Username must be numeric."}, status=400)
+#         # Resolve the numeric employee code from the user's profile when possible
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except Exception:
+#             return Response({"detail": "Username must be numeric."}, status=400)
 
-        # Check if a record already exists
-        existing_emp = Employee.objects.filter(empcode=user_empcode).first()
-        if existing_emp:
-            # Return the existing record so user can edit it
-            serializer = EmployeeSerializer(existing_emp)
-            return Response(
-                {
-                    "id": existing_emp.id,
-                    "message": "A record already exists for you. Edit your saved draft instead of creating a new record.",
-                    "data": serializer.data
-                },
-                status=200
-            )
+#         # Check if a record already exists
+#         existing_emp = Employee.objects.filter(empcode=user_empcode).first()
+#         if existing_emp:
+#             # Return the existing record so user can edit it
+#             serializer = EmployeeSerializer(existing_emp)
+#             return Response(
+#                 {
+#                     "id": existing_emp.id,
+#                     "message": "A record already exists for you. Edit your saved draft instead of creating a new record.",
+#                     "data": serializer.data
+#                 },
+#                 status=200
+#             )
 
-        data = request.data.copy()
-        data["empcode"] = user_empcode
+#         data = request.data.copy()
+#         data["empcode"] = user_empcode
 
-        serializer = EmployeeSerializer(data=data)
+#         serializer = EmployeeSerializer(data=data)
 
-        if serializer.is_valid():
-            serializer.save(lastupdate=timezone.now())
-            return Response(serializer.data, status=201)
+#         if serializer.is_valid():
+#             serializer.save(lastupdate=timezone.now())
+#             return Response(serializer.data, status=201)
 
-        return Response(serializer.errors, status=400)
+#         return Response(serializer.errors, status=400)
 
-class EmployeeDetailAPI(APIView):
-    def get_object(self, pk):
-        try: return Employee.objects.get(pk=pk)
-        except Employee.DoesNotExist: return None
-    def get(self, request, pk):
-        emp = self.get_object(pk)
-        if not emp: return Response({"error": "Not found"}, status=404)
-        return Response(EmployeeSerializer(emp).data)
-    def put(self, request, pk):
-        emp = self.get_object(pk)
-        if not emp:
-            return Response({"error": "Not found"}, status=404)
+# class EmployeeDetailAPI(APIView):
+#     def get_object(self, pk):
+#         try: return Employee.objects.get(pk=pk)
+#         except Employee.DoesNotExist: return None
+#     def get(self, request, pk):
+#         emp = self.get_object(pk)
+#         if not emp: return Response({"error": "Not found"}, status=404)
+#         return Response(EmployeeSerializer(emp).data)
+#     def put(self, request, pk):
+#         emp = self.get_object(pk)
+#         if not emp:
+#             return Response({"error": "Not found"}, status=404)
 
-        # Get user's employee code from profile or username
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except (ValueError, TypeError):
-            return Response({"error": "Invalid employee code"}, status=400)
+#         # Get user's employee code from profile or username
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except (ValueError, TypeError):
+#             return Response({"error": "Invalid employee code"}, status=400)
         
-        # USER can only edit their own records, admins/managers can edit others
-        if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
-            return Response({"error": "Unauthorized"}, status=403)
+#         # USER can only edit their own records, admins/managers can edit others
+#         if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
+#             return Response({"error": "Unauthorized"}, status=403)
 
-        serializer = EmployeeSerializer(emp, data=request.data)
+#         serializer = EmployeeSerializer(emp, data=request.data)
 
-        if serializer.is_valid():
-            serializer.save(lastupdate=timezone.now())
-            return Response(serializer.data)
+#         if serializer.is_valid():
+#             serializer.save(lastupdate=timezone.now())
+#             return Response(serializer.data)
 
-        return Response(serializer.errors, status=400)
-    def delete(self, request, pk):
-        emp = self.get_object(pk)
-        if not emp:
-            return Response({"error": "Not found"}, status=404)
+#         return Response(serializer.errors, status=400)
+#     def delete(self, request, pk):
+#         emp = self.get_object(pk)
+#         if not emp:
+#             return Response({"error": "Not found"}, status=404)
 
-        # Get user's employee code from profile or username
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except (ValueError, TypeError):
-            return Response({"error": "Invalid employee code"}, status=400)
+#         # Get user's employee code from profile or username
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except (ValueError, TypeError):
+#             return Response({"error": "Invalid employee code"}, status=400)
         
-        # USER can only delete their own records, admins/managers can delete others
-        if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
-            return Response({"error": "Unauthorized"}, status=403)
+#         # USER can only delete their own records, admins/managers can delete others
+#         if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
+#             return Response({"error": "Unauthorized"}, status=403)
 
-        emp.delete()
-        return Response({"message": "Deleted"})
+#         emp.delete()
+#         return Response({"message": "Deleted"})
 
-class SubmitDraftAPI(APIView):
-    def post(self, request):
-        ids = request.data.get("ids", [])
-        count = Employee.objects.filter(id__in=ids, status="draft").update(status="submitted", lastupdate=timezone.now())
-        return Response({"message": f"{count} record(s) submitted"})
+# class SubmitDraftAPI(APIView):
+#     def post(self, request):
+#         ids = request.data.get("ids", [])
+#         count = Employee.objects.filter(id__in=ids, status="draft").update(status="submitted", lastupdate=timezone.now())
+#         return Response({"message": f"{count} record(s) submitted"})
 
 @login_required
 def employee_form(request):

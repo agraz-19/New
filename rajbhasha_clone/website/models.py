@@ -278,10 +278,11 @@ class UserProfile(models.Model):
         ('rejected', 'Rejected'),
     ]
     approval_status = models.CharField(
-        max_length=20, 
-        choices=APPROVAL_STATUS_CHOICES, 
-        default='approved' 
+    max_length=20, 
+    choices=APPROVAL_STATUS_CHOICES, 
+    default='pending'  
     )
+    profile_locked = models.BooleanField(default=False)
     @property
     def email(self):
         if self.encrypted_email:
