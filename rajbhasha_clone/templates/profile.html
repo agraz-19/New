@@ -487,18 +487,12 @@
         
         const allControls = form.querySelectorAll("input, select, textarea");
         allControls.forEach(el => {
-            if (el.name === 'csrfmiddlewaretoken' || el.type === 'hidden') {
-                return;
-            }
+            if (el.name === 'csrfmiddlewaretoken' || el.type === 'hidden') return;
             el.disabled = true;
-            el.setAttribute('disabled', 'disabled');
         });
         
         const submitBtn = document.getElementById("submitBtn");
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.setAttribute('disabled', 'disabled');
-        }
+        if (submitBtn) submitBtn.disabled = true;
     }
 
     function unlockFormFields() {
@@ -508,156 +502,71 @@
         const readonlyFields = ['office_state', 'office_name_field', 'ip_number'];
         const allControls = form.querySelectorAll("input, select, textarea");
         allControls.forEach(el => {
-            if (readonlyFields.includes(el.id) || el.readOnly) {
-                return;
-            }
+            if (readonlyFields.includes(el.id) || el.readOnly) return;
             el.disabled = false;
-            el.removeAttribute('disabled');
         });
         
         const submitBtn = document.getElementById("submitBtn");
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.removeAttribute('disabled');
-        }
+        if (submitBtn) submitBtn.disabled = false;
     }
 
-
-
-    // function lockAllFormFields() {
-    //     const form = document.getElementById("employeeForm");
-    //     if (!form) return;
-        
-    //     console.log("DEBUG: lockAllFormFields called");
-        
-    //     const allInputs = form.querySelectorAll("input[type='text'], input[type='email'], input[type='date'], input[type='checkbox'], select, textarea");
-    //     allInputs.forEach(el => {
-    //         if (el.type === 'hidden' || el.readOnly || el.name === 'csrfmiddlewaretoken') {
-    //             return;
-    //         }
-            
-    //         el.disabled = true;
-    //         el.style.pointerEvents = 'none';
-    //         el.style.opacity = '0.6';
-    //     });
-        
-    //     const submitBtn = document.getElementById("submitBtn");
-    //     if (submitBtn) {
-    //         submitBtn.disabled = true;
-    //         submitBtn.style.opacity = '0.6';
-    //     }
-        
-    //     console.log("DEBUG: All form fields locked");
-    // }
-
-    // function unlockFormFields() {
-    //     const form = document.getElementById("employeeForm");
-    //     if (!form) return;
-        
-    //     console.log("DEBUG: unlockFormFields called");
-        
-    //     const readonlyFields = ['office_state', 'office_name_field', 'ip_number'];
-    //     const allInputs = form.querySelectorAll("input[type='text'], input[type='email'], input[type='date'], input[type='checkbox'], select, textarea");
-    //     allInputs.forEach(el => {
-    //         if (readonlyFields.includes(el.id) || el.readOnly) {
-    //             return;
-    //         }
-    //         el.disabled = false;
-    //         el.style.pointerEvents = 'auto';
-    //         el.style.opacity = '1';
-    //     });
-        
-    //     const submitBtn = document.getElementById("submitBtn");
-    //     if (submitBtn) {
-    //         submitBtn.disabled = false;
-    //         submitBtn.style.opacity = '1';
-    //     }
-        
-    //     console.log("DEBUG: All form fields unlocked");
-    // }
     function showProfileLockedUI() {
         document.getElementById("profileLockedAlert").style.display = "block";
         document.getElementById("requestChangeSection").style.display = "block";
     }
 
     document.addEventListener("DOMContentLoaded", function() {
-        console.log("DEBUG: profileLocked =", profileLocked, "hasPendingRequest =", hasPendingRequest, "hasApprovedRequest =", hasApprovedRequest);
+        const profileLocked = {{ profile_locked|yesno:"true,false" }};
+        const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
+        const hasApprovedRequest = {{ has_approved_change_request|yesno:"true,false" }};
         
         const profileLockedAlert = document.getElementById('profileLockedAlert');
         const pendingChangeAlert = document.getElementById('pendingChangeAlert');
         const requestChangeSection = document.getElementById('requestChangeSection');
-        const reasonStatus = document.getElementById('reasonStatus');
-        const changeReason = document.getElementById('changeReason');
-        const submitChangeRequest = document.getElementById('submitChangeRequest');
 
-        if (profileLocked && !hasPendingRequest && !hasApprovedRequest) {
-            console.log("DEBUG: Profile is locked - showing alerts and locking fields");
+        if (hasApprovedRequest) {
+            requestChangeSection.style.display = 'none';
+            unlockFormFields();
+        } 
+        else if (profileLocked && !hasPendingRequest) {
             profileLockedAlert.style.display = 'block';
             requestChangeSection.style.display = 'block';
             lockAllFormFields();
-        } else if (hasPendingRequest) {
-            console.log("DEBUG: Has pending request - locking form");
+        } 
+        else if (hasPendingRequest) {
             pendingChangeAlert.style.display = 'block';
             requestChangeSection.style.display = 'block';
             lockAllFormFields();
-            changeReason.disabled = true;
-            submitChangeRequest.disabled = true;
-            reasonStatus.textContent = '{{ "Request already sent, waiting for HOD approval..."|t:current_lang }}';
-            reasonStatus.className = 'text-warning d-block mt-2';
-        } else if (hasApprovedRequest) {
-            console.log("DEBUG: Change request approved - unlocking form for editing");
-            requestChangeSection.style.display = 'none';
-            unlockFormFields();
-
+            document.getElementById('changeReason').disabled = true;
+            document.getElementById('submitChangeRequest').disabled = true;
         }
-        
-        else if (!profileLocked && "{{ profile.approval_status }}" === 'pending')  {
-            console.log("DEBUG: Profile just submitted - locking form");
-            lockAllFormFields();
-            profileLockedAlert.style.display = 'block';
-            requestChangeSection.style.display = 'block';
-}
 
         const submitChangeBtn = document.getElementById("submitChangeRequest");
         if (submitChangeBtn) {
             submitChangeBtn.addEventListener("click", function(e) {
                 e.preventDefault();
                 const reason = document.getElementById("changeReason").value.trim();
-                
                 if (!reason) {
-                    alert("Please provide a reason for the change request.");
+                    alert("Please provide a reason.");
                     return;
                 }
-
                 const csrftoken = document.querySelector('[name="csrfmiddlewaretoken"]').value;
-
                 fetch("{% url 'submit_profile_change_request' %}", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                         "X-CSRFToken": csrftoken
                     },
-                    body: JSON.stringify({
-                        change_reason: reason
-                    })
+                    body: JSON.stringify({ change_reason: reason })
                 })
-                .then(response => response.json())
+                .then(r => r.json())
                 .then(data => {
                     if (data.success) {
-                        alert("Change request submitted successfully. Awaiting HOD approval.");
-                        changeReason.disabled = true;
-                        submitChangeRequest.disabled = true;
-                        reasonStatus.textContent = '{{ "Request already sent, waiting for approval..."|t:current_lang }}';
-                        reasonStatus.className = 'text-warning d-block mt-2';
-                        pendingChangeAlert.style.display = 'block';
-                    } else {
-                        alert("Error: " + (data.message || "Failed to submit request"));
+                        alert("Request submitted. Awaiting approval.");
+                        location.reload();
                     }
                 })
-                .catch(error => {
-                    console.error("Error:", error);
-                    alert("An error occurred while submitting the request.");
-                });
+                .catch(err => alert("Error: " + err));
             });
         }
 
@@ -666,12 +575,10 @@
             cancelChangeBtn.addEventListener("click", function() {
                 document.getElementById("changeReason").value = "";
                 document.getElementById("requestChangeSection").style.display = "none";
-                if (profileLocked) {
-                    profileLockedAlert.style.display = "block";
-                }
             });
         }
     });
+        
 
     const empcodeField = document.getElementById("empcode");
     const feedback = document.getElementById("empcodeFeedback");

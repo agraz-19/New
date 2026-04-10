@@ -184,8 +184,18 @@
                                 <tr>
                                     <td class="fw-bold">{{ p.employee_code }}</td>
                                     <td>
-                                        <div class="fw-bold">{{ p.employee.ename|default:p.user.username }}</div>
-                                        <small class="text-muted">{{ p.designation|default:"Designation Not Set" }}</small>
+                                        <div class="fw-bold">
+                                            {% if p.name %}
+                                                {{ p.name }}
+                                            {% elif p.employee.ename %}
+                                                {{ p.employee.ename }}
+                                            {% else %}
+                                                {{ p.user.username }}
+                                            {% endif %}
+                                        </div>
+                                        <small class="text-muted">
+                                            {{ p.employee.designation|default:"Designation Not Set" }}
+                                        </small>
                                     </td>
                                     <td>
                                         <div><i class="fas fa-envelope text-muted me-1"></i> {{ p.email|default:p.user.email }}</div>

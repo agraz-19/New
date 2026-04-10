@@ -332,16 +332,50 @@ def submit_profile_change_request(request):
         return JsonResponse({'success': False, 'message': str(e)})
 from django.http import JsonResponse
 from website.static_event_service import get_all_events
-@require_http_methods(["GET"])
 
-def api_event_images(request, folder):
-    events = get_all_events()
-    event = next((e for e in events if e['folder'] == folder), None)
+def get_event_images(request, folder):
+    """Get event images (non-API version)"""
+    if request.method != 'POST':
+        return JsonResponse({'images': []}, status=400)
     
-    if not event:
-        return JsonResponse({'images': []}, status=404)
+    try:
+        from website.static_event_service import get_all_events
+        events = get_all_events()
+        event = next((e for e in events if e['folder'] == folder), None)
+        
+        if not event:
+            return JsonResponse({'images': []})
+        
+        return JsonResponse({'images': event['images']})
+    except Exception as e:
+        return JsonResponse({'images': [], 'error': str(e)})
+
+def update_event_titles(request):
+    """Update event titles"""
+    if request.method != 'POST':
+        return redirect('admin_events_dashboard')
     
-    return JsonResponse({'images': event['images']})
+    folder = request.POST.get('folder')
+    title_en = request.POST.get('title_en')
+    title_hi = request.POST.get('title_hi')
+    
+    from website.static_event_service import update_event_meta
+    try:
+        update_event_meta(folder, title_en, title_hi)
+        messages.success(request, "Titles updated")
+    except Exception as e:
+        messages.error(request, str(e))
+    
+    return redirect('admin_events_dashboard')
+# @require_http_methods(["GET"])
+# def api_event_images(request, folder):
+#     events = get_all_events()
+#     event = next((e for e in events if e['folder'] == folder), None)
+    
+#     if not event:
+#         return JsonResponse({'images': []}, status=404)
+    
+#     return JsonResponse({'images': event['images']})
 
 
 @staff_member_required
@@ -1948,16 +1982,6 @@ def profile_view(request):
 
         email_hash = hashlib.sha256(new_email.encode()).hexdigest()
 
-        # TEMPORARY FOR TESTING: skip enforcing email_hash uniqueness on profile edit.
-        # To revert: uncomment the original check below and remove these temporary lines.
-        # if CustomUser.objects.filter(email_hash=email_hash).exclude(pk=user.pk).exists():
-        #     messages.error(
-        #         request,
-        #         translate_text("Email already in use.", lang),
-        #         extra_tags='danger'
-        #     )
-        #     return redirect('profile')
-
         # HOD Selection
         hod_name_post = request.POST.get('hod_name', '').strip()
         if not hod_name_post:
@@ -1980,6 +2004,8 @@ def profile_view(request):
             profile.email = new_email
             profile.language_region = request.POST.get('language_region', '')
             profile.hod_name = hod_name_post
+            profile.ip_number = request.POST.get('ip_number', '').strip()
+            profile.alternate_email = request.POST.get('alternate_email', '').strip()
             
             # Workflow Transition: 
             # If they are a new user or were previously rejected, they go to 'pending'
@@ -1996,6 +2022,9 @@ def profile_view(request):
             emp_instance.highest_exam = ",".join(request.POST.getlist("hindi_exam"))
             emp_instance.empcode = empcode
             emp_instance.save()
+            if profile:
+                profile.employee = emp_instance
+                profile.save(update_fields=['employee'])
         else:
             messages.error(request, "Form validation failed. Please check your entries.")
             return redirect('profile')
@@ -2030,6 +2059,8 @@ def profile_view(request):
         # 'available_hods': get_active_hods(profile.office_code) if profile and profile.office_code else [],
         'available_hods': get_active_hods(current_office_code),
         'current_hod': profile.hod_name if profile else None,
+        'ip_number': profile.ip_number if profile else '',
+        'alternate_email': profile.alternate_email if profile else '',
 
         # 🔑 Flags for Template
         'can_edit': can_edit,
@@ -2469,9 +2500,7 @@ def qpr_hod_dashboard(request):
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
-    print("HOD USER:", request.user.id)
-    print("REQUEST COUNT:", profile_change_requests.count())
-    print("DATA:", list(profile_change_requests.values()))
+
 
     return response
 @login_required
@@ -6394,7 +6423,7 @@ def debug_whoami(request):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
     
-@login_required
+# In views.py
 def process_user_approval(request, profile_id, action):
     if not user_has_role(request.user, ['hod', 'admin']):
         messages.error(request, "Unauthorized action.")
@@ -6403,17 +6432,30 @@ def process_user_approval(request, profile_id, action):
     target_profile = get_object_or_404(UserProfile, id=profile_id)
     
     if action == 'approve':
+        from .models import Employee
+        # Fetch the master record to sync the correct English Name (ename)
+        master_record = Employee.objects.filter(empcode=target_profile.employee_code).first()
+        
+        if master_record:
+            # Sync the name to the profile so it shows on the dashboard
+            target_profile.name = master_record.ename
+            target_profile.employee = master_record
+            
+            # Sync to the Django User object so {{ user.first_name }} works
+            target_user = target_profile.user
+            target_user.first_name = master_record.ename
+            target_user.save()
+        
         target_profile.approval_status = 'approved'
         target_profile.save()
-        # Send Email: "Approved! Verify login & go to QPR Form"
+        
         send_system_email(target_profile.user, request, 'accepted_alert') 
         messages.success(request, f"User {target_profile.employee_code} approved.")
         
     elif action == 'reject':
         target_profile.approval_status = 'rejected'
         target_profile.save()
-        # Send Email: "Rejected. Please update details or register again."
-        send_system_email(target_profile.user, request, 'rejected_alert') # You'll need to add this template to utils.py
+        send_system_email(target_profile.user, request, 'rejected_alert')
         messages.warning(request, f"User {target_profile.employee_code} rejected.")
 
     return redirect('qpr_hod_dashboard')

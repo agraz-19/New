@@ -144,23 +144,17 @@ function saveTitles() {
         return
     }
 
-    fetch("{% url 'admin_edit_event_titles' %}", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": "{{ csrf_token }}"
-        },
-        body: JSON.stringify({ folder, title_en: titleEn, title_hi: titleHi })
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.status === "success") {
-            location.reload()
-        } else {
-            errBox.innerText = res.message || "Failed to save."
-            errBox.classList.remove("d-none")
-        }
-    })
+    const form = document.createElement('form')
+    form.method = 'POST'
+    form.action = "{% url 'admin_edit_event_titles' %}"
+    form.innerHTML = `
+        <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+        <input type="hidden" name="folder" value="${folder}">
+        <input type="hidden" name="title_en" value="${titleEn}">
+        <input type="hidden" name="title_hi" value="${titleHi}">
+    `
+    document.body.appendChild(form)
+    form.submit()
 }
 
 function openGalleryModal(folder, currentThumbnail) {
@@ -175,7 +169,8 @@ function openGalleryModal(folder, currentThumbnail) {
 }
 
 function fetchGalleryImages(folder, currentThumbnail) {
-    fetch(`/api/event-images/${folder}/`, {
+    fetch(`/events-admin/get-images/${folder}/`, {
+        method: 'POST',
         headers: {
             "X-CSRFToken": "{{ csrf_token }}"
         }
