@@ -524,21 +524,30 @@
         const pendingChangeAlert = document.getElementById('pendingChangeAlert');
         const requestChangeSection = document.getElementById('requestChangeSection');
 
+        // ✅ CORRECTED LOGIC: Only show request box if profile was previously approved
         if (hasApprovedRequest) {
-            requestChangeSection.style.display = 'none';
+            // Profile was approved before, now user wants to change it
+            requestChangeSection.style.display = 'block';
             unlockFormFields();
         } 
         else if (profileLocked && !hasPendingRequest) {
+            // Profile locked but NO pending/approved requests = just show locked alert, hide request box
             profileLockedAlert.style.display = 'block';
-            requestChangeSection.style.display = 'block';
+            requestChangeSection.style.display = 'none';
             lockAllFormFields();
         } 
         else if (hasPendingRequest) {
+            // Pending change request = show pending alert, hide request box
             pendingChangeAlert.style.display = 'block';
-            requestChangeSection.style.display = 'block';
+            requestChangeSection.style.display = 'none';
             lockAllFormFields();
             document.getElementById('changeReason').disabled = true;
             document.getElementById('submitChangeRequest').disabled = true;
+        }
+        else {
+            // New user, no profile yet = allow editing
+            requestChangeSection.style.display = 'none';
+            unlockFormFields();
         }
 
         const submitChangeBtn = document.getElementById("submitChangeRequest");
@@ -605,18 +614,11 @@
 // In profile.html inside <script>
 function fetchEmployeeData() {
     let empcode = empcodeField.value.trim();
-    if (!empcode) { 
-        feedback.innerHTML = ""; 
-        return; 
-    }
+    if (!empcode) { feedback.innerHTML = ""; return; }
 
     const csrftoken = document.querySelector('[name="csrfmiddlewaretoken"]').value;
-    const url = "{% url 'get_employee_details_form' %}";
-    
-    console.log("Fetching from URL:", url);
-    console.log("Empcode:", empcode);
 
-    fetch(url, {
+    fetch("{% url 'get_employee_details_form' %}", {
         method: "POST",
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",
@@ -624,35 +626,42 @@ function fetchEmployeeData() {
         },
         body: `empcode=${empcode}`
     })
-    .then(res => {
-        console.log("Response status:", res.status);
-        return res.json();
-    })
+    .then(res => res.json())
     .then(data => {
-        console.log("Response data:", data);
-        
         if (data.status === "success") {
+            // 1. User Account Information Section
             document.getElementById("username").value = data.name || "";
             document.getElementById("phone").value = data.mobile || "";
             document.getElementById("ip_number").value = data.ip_number || "";
+
+            // 2. Office Information Section
             document.getElementById("office_state").value = data.state || "";
+            document.getElementById("office_name_field").value = data.office_name || "";
+            
+            // Notification Email (uses name="email", no ID in your HTML)
+            const emailField = document.querySelector('input[name="email"]');
+            if(emailField) emailField.value = data.email || "";
+
+            // 3. Employee Information Section
             document.getElementById("name_english").value = data.name || "";
             document.getElementById("name_hindi").value = data.hindi_name || "";
             
+            // For Designation Select
             const designationSelect = document.getElementById("designation");
             if(designationSelect) designationSelect.value = data.designation || "";
 
             feedback.innerHTML = "✔ Verified";
             feedback.style.color = "green";
         } else {
-            feedback.innerHTML = "✖ " + (data.message || "Invalid Employee Code");
+            feedback.innerHTML = "✖ Invalid Employee Code";
             feedback.style.color = "red";
         }
     })
+
     .catch(err => {
-        console.error("Fetch error:", err);
-        feedback.innerHTML = `❌ Error fetching data`;
+        feedback.innerHTML = `Error fetching data`;
         feedback.style.color = "red";
+        console.error(err);
     });
 }
 
