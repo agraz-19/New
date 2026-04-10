@@ -330,28 +330,18 @@ def submit_profile_change_request(request):
 
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
+from django.http import JsonResponse
+from website.static_event_service import get_all_events
 @require_http_methods(["GET"])
+
 def api_event_images(request, folder):
-    """
-    API endpoint to fetch all images for an event folder
-    """
-    folder_path = os.path.join(EVENTS_ROOT, folder)
+    events = get_all_events()
+    event = next((e for e in events if e['folder'] == folder), None)
     
-    if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
-        return JsonResponse({"images": []}, status=404)
+    if not event:
+        return JsonResponse({'images': []}, status=404)
     
-    IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
-    
-    image_files = [
-        fname for fname in os.listdir(folder_path)
-        if os.path.splitext(fname)[1].lower() in IMAGE_EXTS
-    ]
-    
-    image_files.sort(key=lambda x: os.path.getctime(os.path.join(folder_path, x)))
-    
-    images = [f"{STATIC_URL_PREFIX}/{folder}/{fname}" for fname in image_files]
-    
-    return JsonResponse({"images": images})
+    return JsonResponse({'images': event['images']})
 
 
 @staff_member_required
@@ -418,20 +408,23 @@ from website.static_event_service import update_event_meta, _read_meta
 
 @login_required
 def set_thumbnail(request, folder):
-    if request.method == "POST":
-        thumbnail = request.POST.get("thumbnail")
-
-        # 🔥 Get existing meta so titles don’t get erased
-        meta = _read_meta(folder)
-
-        update_event_meta(
-            folder,
-            title_en=meta.get("title_en", ""),
-            title_hi=meta.get("title_hi", ""),
-            thumbnail=thumbnail
-        )
-
-    return redirect('event_detail', folder=folder)
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=400)
+    
+    try:
+        data = json.loads(request.body)
+        thumbnail = data.get('thumbnail')
+        
+        if not thumbnail:
+            return JsonResponse({'status': 'error', 'message': 'Thumbnail filename required'})
+        
+        from website.static_event_service import update_event_meta
+        update_event_meta(folder, None, None, thumbnail=thumbnail)
+        
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
+    
 # Helper functions to safely access a user's roles for type-checkers
 def user_has_role(user, role_name):
     """Return True if user (or their profile) has the given role or any in the list."""

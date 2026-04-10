@@ -480,68 +480,101 @@
     isProfileLocked = false;
     unlockFormFields();
 
-}
-
+    }
     function lockAllFormFields() {
         const form = document.getElementById("employeeForm");
         if (!form) return;
         
-        console.log("DEBUG: lockAllFormFields called");
-        
-        // Disable ALL form controls except readonly fields
-        const allInputs = form.querySelectorAll("input[type='text'], input[type='email'], input[type='date'], input[type='checkbox'], select, textarea");
-        allInputs.forEach(el => {
-            // Skip readonly/hidden fields
-            if (el.type === 'hidden' || el.readOnly || el.name === 'csrfmiddlewaretoken') {
+        const allControls = form.querySelectorAll("input, select, textarea");
+        allControls.forEach(el => {
+            if (el.name === 'csrfmiddlewaretoken' || el.type === 'hidden') {
                 return;
             }
-            // Keep office_state, office_name, ip_number as readonly (not disabled)
-            
-            // }
-            // Disable everything else including checkboxes
             el.disabled = true;
-            el.style.pointerEvents = 'none';
-            el.style.opacity = '0.6';
+            el.setAttribute('disabled', 'disabled');
         });
         
-        // Disable submit button
         const submitBtn = document.getElementById("submitBtn");
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.style.opacity = '0.6';
+            submitBtn.setAttribute('disabled', 'disabled');
         }
-        
-        console.log("DEBUG: All form fields locked");
     }
 
     function unlockFormFields() {
         const form = document.getElementById("employeeForm");
         if (!form) return;
         
-        console.log("DEBUG: unlockFormFields called");
-        
-        // Enable all form controls except readonly fields
-        const allInputs = form.querySelectorAll("input[type='text'], input[type='email'], input[type='date'], input[type='checkbox'], select, textarea");
-        allInputs.forEach(el => {
-            // Skip readonly fields
-            if (el.id === 'office_state' || el.id === 'office_name_field' || el.id === 'ip_number' || el.readOnly) {
+        const readonlyFields = ['office_state', 'office_name_field', 'ip_number'];
+        const allControls = form.querySelectorAll("input, select, textarea");
+        allControls.forEach(el => {
+            if (readonlyFields.includes(el.id) || el.readOnly) {
                 return;
             }
             el.disabled = false;
-            el.style.pointerEvents = 'auto';
-            el.style.opacity = '1';
+            el.removeAttribute('disabled');
         });
         
-        // Enable submit button
         const submitBtn = document.getElementById("submitBtn");
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.style.opacity = '1';
+            submitBtn.removeAttribute('disabled');
         }
-        
-        console.log("DEBUG: All form fields unlocked");
     }
 
+
+
+    // function lockAllFormFields() {
+    //     const form = document.getElementById("employeeForm");
+    //     if (!form) return;
+        
+    //     console.log("DEBUG: lockAllFormFields called");
+        
+    //     const allInputs = form.querySelectorAll("input[type='text'], input[type='email'], input[type='date'], input[type='checkbox'], select, textarea");
+    //     allInputs.forEach(el => {
+    //         if (el.type === 'hidden' || el.readOnly || el.name === 'csrfmiddlewaretoken') {
+    //             return;
+    //         }
+            
+    //         el.disabled = true;
+    //         el.style.pointerEvents = 'none';
+    //         el.style.opacity = '0.6';
+    //     });
+        
+    //     const submitBtn = document.getElementById("submitBtn");
+    //     if (submitBtn) {
+    //         submitBtn.disabled = true;
+    //         submitBtn.style.opacity = '0.6';
+    //     }
+        
+    //     console.log("DEBUG: All form fields locked");
+    // }
+
+    // function unlockFormFields() {
+    //     const form = document.getElementById("employeeForm");
+    //     if (!form) return;
+        
+    //     console.log("DEBUG: unlockFormFields called");
+        
+    //     const readonlyFields = ['office_state', 'office_name_field', 'ip_number'];
+    //     const allInputs = form.querySelectorAll("input[type='text'], input[type='email'], input[type='date'], input[type='checkbox'], select, textarea");
+    //     allInputs.forEach(el => {
+    //         if (readonlyFields.includes(el.id) || el.readOnly) {
+    //             return;
+    //         }
+    //         el.disabled = false;
+    //         el.style.pointerEvents = 'auto';
+    //         el.style.opacity = '1';
+    //     });
+        
+    //     const submitBtn = document.getElementById("submitBtn");
+    //     if (submitBtn) {
+    //         submitBtn.disabled = false;
+    //         submitBtn.style.opacity = '1';
+    //     }
+        
+    //     console.log("DEBUG: All form fields unlocked");
+    // }
     function showProfileLockedUI() {
         document.getElementById("profileLockedAlert").style.display = "block";
         document.getElementById("requestChangeSection").style.display = "block";
@@ -575,11 +608,7 @@
             console.log("DEBUG: Change request approved - unlocking form for editing");
             requestChangeSection.style.display = 'none';
             unlockFormFields();
-            const successAlert = document.createElement('div');
-            successAlert.className = 'alert alert-success alert-dismissible fade show mb-4';
-            successAlert.role = 'alert';
-            successAlert.innerHTML = '<i class="fas fa-check-circle"></i> <strong>{{ "Change Request Approved"|t:current_lang }}</strong> — {{ "Your profile change request has been approved. Form is unlocked. You can now make changes and save again."|t:current_lang }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
-            document.querySelector('.container').prepend(successAlert);
+
         }
         
         else if (!profileLocked && "{{ profile.approval_status }}" === 'pending')  {
