@@ -463,6 +463,63 @@
                 <a href="{% url 'change_password' %}" class="btn btn-warning me-2 mb-2"><i class="fas fa-lock"></i> {{ "Change Password"|t:current_lang }}</a>
             </div>
         </div>
+        {% if profile_change_requests|length > 0 %}
+        <div class="card shadow-sm border-0 mt-4">
+            <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-bold">
+                    <i class="fas fa-edit"></i> Pending Profile Change Requests
+                </h6>
+                <span class="badge bg-dark">{{ profile_change_requests|length }}</span>
+            </div>
+
+            <div class="card-body table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Emp Code</th>
+                            <th>Name</th>
+                            <th>Reason</th>
+                            <th>Requested On</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in profile_change_requests %}
+                        <tr>
+                            <td><strong>{{ req.profile.employee_code }}</strong></td>
+                            <td>{{ req.profile.name }}</td>
+                            <td style="max-width:250px;">{{ req.change_reason }}</td>
+                            <td>{{ req.requested_at|date:"d M Y, H:i" }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+
+                                    <!-- APPROVE -->
+                                    <form action="{% url 'approve_profile_change_hod' req.id %}" method="POST">
+                                        {% csrf_token %}
+                                        <button class="btn btn-success"
+                                            onclick="return confirm('Approve this request?')">
+                                            ✔
+                                        </button>
+                                    </form>
+
+                                    <!-- REJECT -->
+                                    <form action="{% url 'reject_profile_change_hod' req.id %}" method="POST">
+                                        {% csrf_token %}
+                                        <button class="btn btn-danger"
+                                            onclick="return confirm('Reject this request?')">
+                                            ✖
+                                        </button>
+                                    </form>
+
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
 
         <button class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></button>
         <div class="menu-items" id="menuItems">
@@ -524,7 +581,7 @@
                             <a href="{% url 'profile' %}" class="btn btn-info text-white">
                                 <i class="bi bi-person-gear"></i> {{ "Edit / Freeze Profile"|t:current_lang }}
                             </a>
-                            <a href="{% url 'employee_form' %}" class="btn btn-outline-info">
+                            <a href="" class="btn btn-outline-info">
                                 <i class="bi bi-card-list"></i> {{ "Manage Employee Records"|t:current_lang }}
                             </a>
                         </div>

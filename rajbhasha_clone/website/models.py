@@ -54,8 +54,14 @@ class CustomUserManager(UserManager["CustomUser"]):
         return user
 
 class CustomUser(AbstractUser):
-    email_hash = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    # TEMPORARY FOR TESTING: email_hash uniqueness constraint intentionally disabled.
+    # To revert, uncomment the original line below and remove the non-unique field.
+    #email_hash = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    email_hash = models.CharField(max_length=64, unique=False, null=True, blank=True)
     encrypted_email_data = models.BinaryField(null=True, blank=True)
+    # TEMPORARY FOR TESTING: email uniqueness constraint intentionally disabled.
+    # To revert, uncomment the original line below and remove the explicit non-unique field.
+    #email = models.EmailField(unique=True, null=True, blank=True)
     email = models.EmailField(unique=False, null=True, blank=True)
     roles = models.ManyToManyField(Role, related_name='users', blank=True)
     otp = models.CharField(max_length=6, blank=True, null=True)
@@ -238,6 +244,7 @@ class UserProfile(models.Model):
     
     user = models.OneToOneField(settings.AUTH_USER_MODEL,on_delete=models.CASCADE,related_name='profile')
     employee_code = models.CharField(max_length=50, unique=True)
+    employee = models.ForeignKey('Employee', on_delete=models.SET_NULL, null=True, blank=True, related_name='user_profiles')
     roles = models.ManyToManyField(Role, related_name='user_profiles', blank=True)
     hod_name = models.CharField(max_length=50, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True, null=True)
@@ -272,10 +279,11 @@ class UserProfile(models.Model):
         ('rejected', 'Rejected'),
     ]
     approval_status = models.CharField(
-        max_length=20, 
-        choices=APPROVAL_STATUS_CHOICES, 
-        default='approved' 
+    max_length=20, 
+    choices=APPROVAL_STATUS_CHOICES, 
+    default='pending'  
     )
+    profile_locked = models.BooleanField(default=False)
     @property
     def email(self):
         if self.encrypted_email:

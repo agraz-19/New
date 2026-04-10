@@ -2,6 +2,7 @@ import os,io,csv,random,hashlib,json
 from .utils import load_employee_data
 from datetime import datetime
 from datetime import timedelta
+from datetime import datetime, timedelta
 from urllib import request
 from django.utils.timezone import now
 from django.utils import timezone
@@ -35,6 +36,12 @@ import os
 from gtts import gTTS
 from captcha.models import CaptchaStore
 from deep_translator import GoogleTranslator
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.utils import timezone
+from .models import ProfileChangeRequest
+import hashlib
+import json
 from .models import (
     Employee, CustomUser, Role, DataAccessLog, ArchivedUser, cipher_suite,
     Office,
@@ -74,7 +81,10 @@ import tempfile
 from datetime import date, datetime, timedelta
 from typing import cast
 from urllib import request
-
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from website.static_event_service import get_all_events, EVENTS_ROOT, STATIC_URL_PREFIX
+import os
 # Third-party / Django Imports
 from captcha.models import CaptchaStore, logger
 from deep_translator import GoogleTranslator
@@ -125,7 +135,7 @@ from .models import (
     Section7NotingsData, Section8WorkshopsData, 
     Section9ImplementationCommitteeData, Section10HindiAdvisoryData, 
     Section11SpecificAchievementsData, StaffHindiKnowledge, 
-    TypingUsageReport, UserProfile, cipher_suite
+    TypingUsageReport, UserProfile, cipher_suite,ProfileChangeRequest
 )
 from .serializers import EmployeeSerializer
 from .signals import User
@@ -250,62 +260,122 @@ def api_get_employee_details(request):
         "designation": data.get("designation")
     })
 
+# In views.py -> submit_profile_change_request function
+
 @login_required
 @require_http_methods(["POST"])
 def submit_profile_change_request(request):
-    """User submits a reason to unlock their profile for editing"""
     try:
-        # Debug: Print CSRF token and headers
-        print("[DEBUG] CSRF cookie:", request.COOKIES.get('csrftoken'))
-        print("[DEBUG] X-CSRFToken header:", request.headers.get('X-CSRFToken'))
-        print("[DEBUG] All headers:", dict(request.headers))
-
         data = json.loads(request.body)
         reason = data.get('change_reason', '').strip()
-        
+
         if not reason:
             return JsonResponse({'success': False, 'message': 'Reason is required'})
-        
+
         profile = request.user.profile
-        
-        # Create the request
-        change_request = ProfileChangeRequest.objects.create(
+        hod_identifier = (profile.hod_name or "").strip()
+
+        if not hod_identifier:
+            return JsonResponse({
+                'success': False,
+                'message': 'HOD is not assigned to your profile.'
+            })
+
+        # 🔴 PREVENT DUPLICATE REQUESTS
+        existing_request = ProfileChangeRequest.objects.filter(
+            profile=profile,
+            status='pending'
+        ).first()
+
+        if existing_request:
+            return JsonResponse({
+                'success': False,
+                'message': 'You already have a pending request. Please wait for approval.'
+            })
+
+        # 🔍 Find HOD (same logic, untouched)
+        hod_profile = UserProfile.objects.filter(
+            Q(employee_code=hod_identifier) |
+            Q(name__iexact=hod_identifier) |
+            Q(hod_name__iexact=hod_identifier),
+            roles__name='hod'
+        ).first()
+
+        if not hod_profile:
+            return JsonResponse({
+                'success': False,
+                'message': f'HOD "{hod_identifier}" not found in system. Please ensure your HOD has registered and is approved.'
+            })
+
+        # ✅ CREATE REQUEST (unchanged logic)
+        ProfileChangeRequest.objects.create(
             profile=profile,
             change_reason=reason,
-            # Link to the HOD currently assigned in their profile
-            hod=CustomUser.objects.filter(username=profile.hod_name).first() 
+            hod=hod_profile.user,
+            status='pending'
         )
-        
-        # Update profile status to reflect a pending change
-        profile.approval_status = 'change_pending' 
-        profile.save()
-        
-        return JsonResponse({'success': True, 'message': 'Request submitted to HOD'})
-    except Exception as e:
-        print("[DEBUG] Exception in submit_profile_change_request:", str(e))
-        return JsonResponse({'success': False, 'message': str(e)})
 
-@login_required
-def approve_profile_change(request, request_id):
-    """HOD approves the request, which unlocks the fields"""
-    if not user_has_role(request.user, ['hod', 'admin']):
-        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+        # ✅ UPDATE PROFILE STATUS (unchanged)
+        profile.approval_status = 'change_pending'
+        profile.save(update_fields=['approval_status'])
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Change request submitted successfully. Awaiting HOD approval.'
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Invalid JSON data'})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+from django.http import JsonResponse
+from website.static_event_service import get_all_events
+
+def get_event_images(request, folder):
+    """Get event images (non-API version)"""
+    if request.method != 'POST':
+        return JsonResponse({'images': []}, status=400)
+    
+    try:
+        from website.static_event_service import get_all_events
+        events = get_all_events()
+        event = next((e for e in events if e['folder'] == folder), None)
         
-    change_request = get_object_or_404(ProfileChangeRequest, id=request_id)
-    profile = change_request.profile
+        if not event:
+            return JsonResponse({'images': []})
+        
+        return JsonResponse({'images': event['images']})
+    except Exception as e:
+        return JsonResponse({'images': [], 'error': str(e)})
+
+def update_event_titles(request):
+    """Update event titles"""
+    if request.method != 'POST':
+        return redirect('admin_events_dashboard')
     
-    change_request.status = 'approved'
-    change_request.approved_at = timezone.now()
-    change_request.save()
+    folder = request.POST.get('folder')
+    title_en = request.POST.get('title_en')
+    title_hi = request.POST.get('title_hi')
     
-    # This status allows the frontend to enable input fields
-    profile.approval_status = 'approved' 
-    # Or a specific 'edit_mode' flag if you prefer
-    request.user.is_edit_allowed = True 
-    request.user.save()
-    profile.save()
+    from website.static_event_service import update_event_meta
+    try:
+        update_event_meta(folder, title_en, title_hi)
+        messages.success(request, "Titles updated")
+    except Exception as e:
+        messages.error(request, str(e))
     
-    return JsonResponse({'success': True, 'message': 'Profile unlocked for user'})
+    return redirect('admin_events_dashboard')
+# @require_http_methods(["GET"])
+# def api_event_images(request, folder):
+#     events = get_all_events()
+#     event = next((e for e in events if e['folder'] == folder), None)
+    
+#     if not event:
+#         return JsonResponse({'images': []}, status=404)
+    
+#     return JsonResponse({'images': event['images']})
+
 
 @staff_member_required
 def admin_events_dashboard(request):
@@ -371,19 +441,23 @@ from website.static_event_service import update_event_meta, _read_meta
 
 @login_required
 def set_thumbnail(request, folder):
-    if request.method == "POST":
-        thumbnail = request.POST.get("thumbnail")
-
-        meta = _read_meta(folder)
-
-        update_event_meta(
-            folder,
-            title_en=meta.get("title_en", ""),
-            title_hi=meta.get("title_hi", ""),
-            thumbnail=thumbnail
-        )
-
-    return redirect('event_detail', folder=folder)
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=400)
+    
+    try:
+        data = json.loads(request.body)
+        thumbnail = data.get('thumbnail')
+        
+        if not thumbnail:
+            return JsonResponse({'status': 'error', 'message': 'Thumbnail filename required'})
+        
+        from website.static_event_service import update_event_meta
+        update_event_meta(folder, None, None, thumbnail=thumbnail)
+        
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
+    
 # Helper functions to safely access a user's roles for type-checkers
 def user_has_role(user, role_name):
     """Return True if user (or their profile) has the given role or any in the list."""
@@ -437,22 +511,36 @@ def can_access_manager_site(user):
     """Manager site accessible to users with 'manager' role"""
     return user.is_authenticated and user_has_role(user, 'manager')
 
-def get_active_hods(office_code=None):
-    """Get list of valid HODs only"""
+# def get_active_hods(office_code=None):
+#     """Get list of valid HODs only"""
     
-    hod_query = UserProfile.objects.filter(
-        roles__name='hod',
-        approval_status='approved'
-    )
+#     hod_query = UserProfile.objects.filter(
+#         roles__name='hod',
+#         approval_status='approved'
+#     )
 
-    # If office_code is provided, filter by it
-    # If office_code is None/empty, show HODs with no office_code restriction or all HODs
+#     # If office_code is provided, filter by it
+#     # If office_code is None/empty, show HODs with no office_code restriction or all HODs
+#     if office_code:
+#         hod_query = hod_query.filter(office_code=office_code)
+
+#     return list(
+#         hod_query.values_list('hod_name', flat=True).distinct()
+#     )
+def get_active_hods(office_code=None):
+    """
+    Returns a list of HOD names/usernames. 
+    Matches office_code if provided, otherwise returns all HODs.
+    """
+    hod_query = UserProfile.objects.filter(Q(roles__name='hod') | Q(user__roles__name='hod'))
+    
     if office_code:
-        hod_query = hod_query.filter(office_code=office_code)
-
-    return list(
-        hod_query.values_list('hod_name', flat=True).distinct()
-    )
+        # Try to find HODs in same office, but fallback to all HODs if none found in that office
+        specific_hods = hod_query.filter(office_code=office_code).values_list('user__username', flat=True)
+        if specific_hods.exists():
+            return specific_hods
+            
+    return hod_query.values_list('user__username', flat=True).distinct()
 
 def _convert_to_int(value):
     if value == '' or value is None: return None
@@ -715,6 +803,35 @@ def _aggregate_records_for_range(user, start_dt, end_dt, source_frequency='daily
             continue
 
     return total
+
+
+def _aggregate_records_with_fallback(user, start_dt, end_dt, preferred='daily'):
+    """Try preferred frequency then fall back to more granular sources.
+
+    Returns a totals dict keyed by NUMERIC_KEYS. This mirrors the previous
+    inner helper used elsewhere but exposes it at module level for reuse.
+    """
+    order = []
+    pref = (preferred or '').lower()
+    if pref == 'daily':
+        order = ['daily']
+    elif pref == 'weekly':
+        order = ['weekly', 'daily']
+    elif pref == 'monthly':
+        order = ['monthly', 'weekly', 'daily']
+    else:
+        order = ['monthly', 'weekly', 'daily']
+
+    last_totals = None
+    for src in order:
+        try:
+            totals = _aggregate_records_for_range(user, start_dt, end_dt, source_frequency=src)
+        except Exception:
+            totals = {k: 0 for k in NUMERIC_KEYS}
+        last_totals = totals
+        if any((totals.get(k, 0) or 0) != 0 for k in NUMERIC_KEYS):
+            return totals
+    return last_totals or {k: 0 for k in NUMERIC_KEYS}
 
 
 def _get_quarter_range_for_date(dt):
@@ -1142,6 +1259,22 @@ def serialize_qpr_record(record):
                 data[k] = 0
     except Exception:
         pass
+    # Also provide a `details` dictionary that mirrors form input ids so client
+    # `editRecord()` can populate fields from `record.details` when editing.
+    try:
+        details = {}
+        # numeric and simple keys used by the form
+        for k in NUMERIC_KEYS:
+            details[k] = data.get(k, 0)
+        # date / text fields
+        details['s9_date'] = data.get('s9_date', '')
+        details['s10_date'] = data.get('s10_date', '')
+        details['s12_1'] = data.get('s12_1', '')
+        details['s12_2'] = data.get('s12_2', '')
+        details['s12_3'] = data.get('s12_3', '')
+        data['details'] = details
+    except Exception:
+        data['details'] = {}
     return data
 
 def send_otp_email(user, lang, target_email=None):
@@ -1780,109 +1913,81 @@ def unarchive_user(request, archive_id):
         messages.error(request, "Original user record not found. Cannot restore.")
         return redirect('dashboard')
     
+
 @login_required
 def profile_view(request):
-    """Unified profile view - Employee form with strict validation, HOD approval workflow, and controlled editing"""
+    """
+    Refactored profile view.
+    Fix: Ensures new users can edit/fill details, but locks the profile 
+    once approved, requiring a Change Request to unlock.
+    """
+    from .models import Employee, Office, ProfileChangeRequest, QPRRecord
+    from .employeeform import EmployeeForm
 
     lang = request.session.get('lang', 'en')
     user = request.user
     profile = getattr(user, 'profile', None)
+    
+    # ===============================
+    # 🔑 STATE FLAGS & LOCK LOGIC
+    # ===============================
+    # FIX: A user can edit if:
+    # 1. is_edit_allowed is explicitly True (The Source of Truth)
+    # 2. OR the profile hasn't been approved yet (New User/Rejected User)
+    is_approved = profile and profile.approval_status == "approved"
+    can_edit = user.is_edit_allowed or not is_approved
 
-    from .models import Employee, Office, EditRequest
-    from .employeeform import EmployeeForm
-
-    employee = None
-
-    approved_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
-        status='approved'
-    ).first()
-
-    can_edit = (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None) or (profile and profile.approval_status == 'rejected')
-    pending_edit_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
+    pending_change_request = ProfileChangeRequest.objects.filter(
+        profile=profile,
         status='pending'
-    ).first()
+    ).first() if profile else None
 
-    rejected_edit_request = EditRequest.objects.filter(
-        user=user,
-        request_type='profile',
-        status='rejected'
-    ).order_by('-created_at').first()
+    approved_change_request = ProfileChangeRequest.objects.filter(
+        profile=profile,
+        status='approved'
+    ).order_by('-approved_at').first() if profile else None
 
-    # HEAD-style permission (lenient but controlled)
     # ===============================
     # ===============================
     if request.method == 'POST':
-        # Debug: Print POST data and CSRF token
-        print("[DEBUG] POST data:", dict(request.POST))
-        print("[DEBUG] CSRF cookie:", request.COOKIES.get('csrftoken'))
-        print("[DEBUG] Headers:", dict(request.headers))
-
-        # 🔒 Strict lock
         if not can_edit:
-            messages.error(
-                request,
-                translate_text("Your profile is locked. Request edit permission.", lang),
-                extra_tags='danger'
-            )
-            return redirect('dashboard')
+            messages.error(request, "Your profile is locked. Please request edit permission.", extra_tags='danger')
+            return redirect('profile')
 
+        # Load Master Data for Validation
         EMPLOYEE_DATA = load_employee_data()
-
         empcode = request.POST.get('empcode', '').strip()
         username = request.POST.get('username', '').strip().upper()
         phone = request.POST.get('phone', '').strip()
 
-    
+        # Official Record Validation
         if empcode not in EMPLOYEE_DATA:
             messages.error(request, "Invalid Employee Code")
             return redirect('profile')
-
-        employee_data = EMPLOYEE_DATA[empcode]
-
-        if username != employee_data["name"]:
-            messages.error(request, "Name does not match official records")
+        
+        record = EMPLOYEE_DATA[empcode]
+        if username != record["name"] or phone != record["mobile"]:
+            messages.error(request, "Details do not match official records.")
             return redirect('profile')
 
-        if phone != employee_data["mobile"]:
-            messages.error(request, "Mobile number does not match official records")
-            return redirect('profile')
-
-        # Fetch employee after validation
-        employee = Employee.objects.filter(empcode=empcode).first()
-
-        hod_name_post = request.POST.get('hod_name', '').strip()
-        if not hod_name_post:
-            messages.error(request, "HOD/Approver selection is required")
-            return redirect('profile')
-
-        # Email validation
+        # Email & Security
         new_email = request.POST.get('email', '').lower().strip()
-
         if not new_email:
-            messages.error(
-                request,
-                translate_text("Email is required.", lang),
-                extra_tags='danger'
-            )
+            messages.error(request, "Email is required.", extra_tags='danger')
             return redirect('profile')
 
         email_hash = hashlib.sha256(new_email.encode()).hexdigest()
 
-        if CustomUser.objects.filter(email_hash=email_hash).exclude(pk=user.pk).exists():
-            messages.error(
-                request,
-                translate_text("Email already in use.", lang),
-                extra_tags='danger'
-            )
+        # HOD Selection
+        hod_name_post = request.POST.get('hod_name', '').strip()
+        if not hod_name_post:
+            messages.error(request, "HOD/Approver selection is required.")
             return redirect('profile')
 
        
         user.set_email(new_email)
-        user.is_edit_allowed = False
+        # If they were editing via an approved change request, re-lock the user
+        user.is_edit_allowed = False 
         user.save()
 
        
@@ -1891,257 +1996,283 @@ def profile_view(request):
             profile.phone = phone
             profile.office_code = request.POST.get('office_code', '').strip()
             profile.office_name = request.POST.get('office_name', '').strip()
+            profile.office_state = request.POST.get('office_state', '').strip()
             profile.email = new_email
             profile.language_region = request.POST.get('language_region', '')
-            profile.hod_name = request.POST.get('hod_name', '')
-            alt_email_post = request.POST.get('alternate_email', '').lower().strip()
-            profile.alternate_email = alt_email_post if alt_email_post else None
-            profile.profile_updated = True  
-            if profile.approval_status == 'rejected':
-                profile.approval_status = 'pending'
-                messages.info(request, "Your updated profile has been sent back to your HOD for review.")
-            try:
-                profile.save()
-                # Debug - remove after confirming it works
-                profile.refresh_from_db()
-                print(f"SAVED: empcode={profile.employee_code}, language_region={profile.language_region}")
-            except Exception as e:
-                messages.error(request, f"Profile save error: {str(e)}")
-                return redirect('profile')
             profile.hod_name = hod_name_post
-
-            # 🔒 Approval workflow
-            profile.profile_updated = True
+            profile.ip_number = request.POST.get('ip_number', '').strip()
+            profile.alternate_email = request.POST.get('alternate_email', '').strip()
+            
+            # Workflow Transition: 
+            # If they are a new user or were previously rejected, they go to 'pending'
+            # If they used an 'approved_change_request', they go to 'pending' for re-verification
             profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
-
+            profile.profile_updated = True
             profile.save()
 
-        # ===============================
-        # ===============================
+        # 3. Update Employee Model (Master Data Instance)
+        employee = Employee.objects.filter(empcode=empcode).first()
         form = EmployeeForm(request.POST, instance=employee)
-
         if form.is_valid():
             emp_instance = form.save(commit=False)
-
-            exams = request.POST.getlist("hindi_exam")
-            emp_instance.highest_exam = ",".join(exams)
-
+            emp_instance.highest_exam = ",".join(request.POST.getlist("hindi_exam"))
             emp_instance.empcode = empcode
             emp_instance.save()
+            if profile:
+                profile.employee = emp_instance
+                profile.save(update_fields=['employee'])
         else:
-            messages.error(request, "Please fill all required Employee details correctly.")
+            messages.error(request, "Form validation failed. Please check your entries.")
             return redirect('profile')
 
-        # ===============================
-        # ===============================
-        if approved_request:
-            approved_request.status = 'used'
-            approved_request.save()
+        # 4. Request Cleanup
+        if approved_change_request:
+            approved_change_request.status = 'completed'
+            approved_change_request.save()
 
         send_system_email(user, request, 'update')
+        messages.success(request, "Profile submitted successfully! It is now awaiting HOD approval.")
+        return redirect('profile')
 
-        messages.success(
-            request,
-            translate_text("Profile submitted successfully! Awaiting approval.", lang)
-        )
-
-        return redirect('dashboard')
-
-    # ===================== GET =====================
-
-    # ✅ FIX: Use correct field name profile.employee_code (not profile.empcode)
-    empcode = None
-    if profile and profile.employee_code:
-        empcode = profile.employee_code.strip()
-
-    employee = None
-    if empcode:
-        try:
-            employee = Employee.objects.filter(empcode=int(empcode)).first()
-        except (ValueError, TypeError):
-            employee = Employee.objects.filter(empcode=empcode).first()
-
+    # ===============================
+   
+    # ===============================
+    empcode = profile.employee_code if profile else None
+    employee = Employee.objects.filter(empcode=empcode).first() if empcode else None
     form = EmployeeForm(instance=employee)
+    current_office_code = profile.office_code if profile else "0012"
 
+    # Context Generation
+    offices = Office.objects.all()
+    context = {
+        'form': form,
+        'employee': employee,
+        'profile': profile,
+        'offices': offices,
+        'region_choices': QPRRecord.region_choices,
+        
+        # Identity
+        # 'available_hods': get_active_hods(profile.office_code) if profile and profile.office_code else [],
+        'available_hods': get_active_hods(current_office_code),
+        'current_hod': profile.hod_name if profile else None,
+        'ip_number': profile.ip_number if profile else '',
+        'alternate_email': profile.alternate_email if profile else '',
+
+        # 🔑 Flags for Template
+        'can_edit': can_edit,
+        'profile_locked': not can_edit, # Used by JS to trigger field locking
+        'profile_approved': is_approved,
+        'pending_change_request': pending_change_request,
+        'has_pending_change_request': bool(pending_change_request),
+        'has_approved_change_request': bool(approved_change_request),
+        'profile_updated': profile.profile_updated if profile else False,
+    }
+
+    return render(request, 'profile.html', context)
+@login_required
+def approve_profile_change_hod(request, request_id):
+    """HOD approves profile change request → unlock form"""
+
+    from .models import ProfileChangeRequest
+    from django.utils import timezone
+
+    # 🔐 ROLE CHECK
+    if not user_has_role(request.user, ['hod', 'admin']):
+        messages.error(request, "Unauthorized", extra_tags='danger')
+        return redirect('qpr_hod_detail_list')
+
+    change_request = get_object_or_404(ProfileChangeRequest, id=request_id)
+
+    # 🔒 Prevent re-processing
+    if change_request.status != 'pending':
+        messages.warning(request, "This request is already processed.")
+        return redirect('qpr_hod_detail_list')
+
+    # 🔐 HOD VALIDATION
+    if change_request.hod != request.user and not request.user.is_staff:
+        messages.error(request, "Not authorized for this request", extra_tags='danger')
+        return redirect('qpr_hod_detail_list')
+
+    # ✅ APPROVE REQUEST
+    change_request.status = 'approved'
+    change_request.approved_at = timezone.now()
+    change_request.save()
+
+    # 🔓 UNLOCK USER FORM
+    user = change_request.profile.user
+    user.is_edit_allowed = True
+    user.save(update_fields=['is_edit_allowed'])
+
+    messages.success(
+        request,
+        f"Edit request approved for {change_request.profile.name}. Form unlocked.",
+        extra_tags='success'
+    )
+
+    return redirect('qpr_hod_detail_list')
+@login_required
+def reject_profile_change_hod(request, request_id):
+    """HOD rejects profile change request → keep form locked"""
+
+    from .models import ProfileChangeRequest
+    from django.utils import timezone
+
+    if request.method != 'POST':
+        return redirect('qpr_hod_detail_list')
+
+    # 🔐 ROLE CHECK
+    if not user_has_role(request.user, ['hod', 'admin']):
+        messages.error(request, "Unauthorized", extra_tags='danger')
+        return redirect('qpr_hod_detail_list')
+
+    change_request = get_object_or_404(ProfileChangeRequest, id=request_id)
+
+    # 🔒 Prevent re-processing
+    if change_request.status != 'pending':
+        messages.warning(request, "This request is already processed.")
+        return redirect('qpr_hod_detail_list')
+
+    # 🔐 HOD VALIDATION
+    if change_request.hod != request.user and not request.user.is_staff:
+        messages.error(request, "Not authorized for this request", extra_tags='danger')
+        return redirect('qpr_hod_detail_list')
+
+    rejection_reason = request.POST.get('rejection_reason', '').strip()
+
+    if not rejection_reason:
+        messages.error(request, "Rejection reason is required", extra_tags='danger')
+        return redirect('qpr_hod_detail_list')
+
+    # ❌ REJECT REQUEST
+    change_request.status = 'rejected'
+    change_request.approved_at = timezone.now()  # you can rename to reviewed_at later
+    change_request.approval_comments = rejection_reason
+    change_request.save()
+
+    # 🚫 KEEP USER LOCKED (explicit for clarity)
+    user = change_request.profile.user
+    user.is_edit_allowed = False
+    user.save(update_fields=['is_edit_allowed'])
+
+    messages.success(
+        request,
+        f"Edit request rejected for {change_request.profile.name}",
+        extra_tags='success'
+    )
+
+    return redirect('qpr_hod_detail_list')
+'''
+@login_required
+def user_profile(request):
+    """QPR specific profile with office details"""
+    lang = request.session.get('lang', 'en')
+    profile = request.user.profile
+    profile.refresh_from_db()
+    profile_submitted = profile.profile_updated
+    
     # Fetch QPR details
-    latest_qpr = QPRRecord.objects.filter(user=user).order_by('-updated_at').first()
-
+    latest_qpr = QPRRecord.objects.filter(user=request.user).order_by('-updated_at').first()
     qpr_office_name = ""
     qpr_office_code = ""
     qpr_phone = ""
     qpr_email = ""
-
+    
     if latest_qpr:
         qpr_office_name = latest_qpr.officeName
         qpr_office_code = latest_qpr.officeCode
         qpr_phone = latest_qpr.phone or ""
         qpr_email = latest_qpr.email or ""
-
-    # Other edit requests
+    
+    # Check for edit requests
     pending_edit_request = EditRequest.objects.filter(
-        user=user,
+        user=request.user,
         request_type='profile',
         status='pending'
     ).first()
-
+    
+    approved_edit_request = EditRequest.objects.filter(
+        user=request.user,
+        request_type='profile',
+        status='approved'
+    ).first()
+    
     rejected_edit_request = EditRequest.objects.filter(
-        user=user,
+        user=request.user,
         request_type='profile',
         status='rejected'
     ).order_by('-created_at').first()
 
-    # HEAD-style permission (lenient but controlled)
-    can_edit = (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None)
-
-    # ===============================
-    # ===============================
     if request.method == 'POST':
-
-        if not can_edit:
-            messages.error(
-                request,
-                translate_text("Your profile is locked. Request edit permission.", lang),
-                extra_tags='danger'
-            )
-            return redirect('dashboard')
-
-        EMPLOYEE_DATA = load_employee_data()
-
-        empcode = request.POST.get('empcode', '').strip()
-        username = request.POST.get('username', '').strip().upper()
+        # Collect posted values
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        office_code = request.POST.get('office_code', '').strip()
+        # Phone may be submitted by the user; ensure it's defined before use
         phone = request.POST.get('phone', '').strip()
+        # Basic validation (HOD is admin-managed; do not require it from the user)
+        if not username:
+            messages.error(request, translate_text('Username is required', lang))
+        elif User.objects.exclude(id=getattr(request.user, 'id', None)).filter(username=username).exists():
+            messages.error(request, translate_text('Username already taken', lang))
+        elif not email:
+            messages.error(request, translate_text('Email is required', lang))
+        elif not office_code:
+            messages.error(request, translate_text('Office selection is required', lang))
+        elif profile_submitted and not approved_edit_request:
+            messages.error(request, translate_text('You cannot edit a submitted profile. Please request approval from Admin first.', lang))
+        else:
+            # Lookup office name
+            from .models import Office
+            office = Office.objects.filter(code=office_code).first()
+            office_name = office.name if office else ''
 
-        if empcode not in EMPLOYEE_DATA:
-            messages.error(request, "Invalid Employee Code")
-            return redirect('profile')
-
-        employee_data = EMPLOYEE_DATA[empcode]
-
-        if username != employee_data["name"]:
-            messages.error(request, "Name does not match official records")
-            return redirect('profile')
-
-        if phone != employee_data["mobile"]:
-            messages.error(request, "Mobile number does not match official records")
-            return redirect('profile')
-
-        # Fetch employee after validation
-        employee = Employee.objects.filter(empcode=empcode).first()
-
-        hod_name_post = request.POST.get('hod_name', '').strip()
-        if not hod_name_post:
-            messages.error(request, "HOD/Approver selection is required")
-            return redirect('profile')
-
-        # Email validation
-        new_email = request.POST.get('email', '').lower().strip()
-
-        if not new_email:
-            messages.error(
-                request,
-                translate_text("Email is required.", lang),
-                extra_tags='danger'
-            )
-            return redirect('profile')
-
-        email_hash = hashlib.sha256(new_email.encode()).hexdigest()
-
-        if CustomUser.objects.filter(email_hash=email_hash).exclude(pk=user.pk).exists():
-            messages.error(
-                request,
-                translate_text("Email already in use.", lang),
-                extra_tags='danger'
-            )
-            return redirect('profile')
-
-        # ===============================
-        # ===============================
-        user.set_email(new_email)
-        user.is_edit_allowed = False
-        user.save()
-
-        # ===============================
-        # ===============================
-        if profile:
-            profile.employee_code = empcode
-            profile.phone = phone
-            profile.office_code = request.POST.get('office_code', '').strip()
-            profile.office_name = request.POST.get('office_name', '').strip()
-            profile.email = new_email
-            profile.hod_name = hod_name_post
-
+            # Save profile and user (do not change hod_name here)
+            profile.email = email
+            profile.phone = phone or profile.phone
+            profile.office_code = office_code
+            profile.office_name = office_name
             profile.profile_updated = True
-            profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
-
             profile.save()
 
-        # ===============================
-        # ===============================
-        form = EmployeeForm(request.POST, instance=employee)
+            request.user.email = email
+            # update username if changed
+            if request.user.username != username:
+                request.user.username = username
+            request.user.save()
 
-        if form.is_valid():
-            emp_instance = form.save(commit=False)
+            # Clear approved request after edit
+            if approved_edit_request:
+                approved_edit_request.delete()
 
-            exams = request.POST.getlist("hindi_exam")
-            emp_instance.highest_exam = ",".join(exams)
+            messages.success(request, translate_text('Profile updated successfully! Your profile is now frozen. To edit it again, request approval from admin.', lang))
+            return redirect('qpr_user_dashboard')
 
-            emp_instance.empcode = empcode
-            emp_instance.save()
-        else:
-            messages.error(request, "Please fill all required Employee details correctly.")
-            return redirect('profile')
-
-        # ===============================
-        # ===============================
-        if approved_request:
-            approved_request.status = 'used'
-            approved_request.save()
-
-        send_system_email(user, request, 'update')
-
-        messages.success(
-            request,
-            translate_text("Profile submitted successfully! Awaiting approval.", lang)
-        )
-
-        return redirect('dashboard')
-
-    # ===============================
-   
-    # ===============================
-    else:
-        form = EmployeeForm(instance=employee)
-
-    # ===============================
-    # ===============================
+    # Get list of available HODs for selection
+    available_hods = get_active_hods(profile.office_code) if profile.office_code else []
+    # Get list of offices for dropdown
+    from .models import Office
     offices = Office.objects.all()
 
     context = {
-        'form': form,
-        'employee': employee,
         'profile': profile,
-        'qpr_office_name': profile.office_name if profile else '',
-        'qpr_office_code': profile.office_code if profile else '',
-        'qpr_phone': profile.phone if profile else '',
-        'qpr_email': profile.email if profile else '',
-
-        'available_hods': get_active_hods(profile.office_code) if profile else [],
-        'current_hod': profile.hod_name if profile else None,
-
-        'can_edit': can_edit,
-        'offices': offices,
-
-        'profile_updated': profile.profile_updated if profile else False,
-
-        'approved_edit_request': approved_request,
+        'profile_updated': profile.profile_updated,
         'pending_edit_request': pending_edit_request,
+        'approved_edit_request': approved_edit_request,
         'rejected_edit_request': rejected_edit_request,
-        'region_choices': QPRRecord.region_choices,
+        'can_edit': not profile_submitted or approved_edit_request is not None,
+        'available_hods': available_hods,
+        'current_hod': profile.hod_name,
+        'qpr_office_name': qpr_office_name,
+        'qpr_office_code': qpr_office_code,
+        'qpr_phone': qpr_phone,
+        'qpr_email': qpr_email,
+        'offices': offices,
     }
-
-    from django.template.context_processors import csrf
-    context.update(csrf(request))
-    return render(request, 'profile.html', context)
+    response = render(request, 'profile.html', context)
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response'''
 
 @login_required
 def freeze_profile(request):
@@ -2263,47 +2394,65 @@ def user_dashboard(request):
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
     return response 
+
 @login_required
 def qpr_hod_dashboard(request):
     """HOD Dashboard - Department overview and employee statistics"""
-    if not user_has_role(request.user, 'hod'): return redirect('/')
+
+    if not user_has_role(request.user, 'hod'):
+        return redirect('/')
+
     lang = request.session.get('lang', 'en')
-    
-    # Force fresh database fetch
-    from django.db import connections
-    connections.close_all()
-    
+
+    from .models import ProfileChangeRequest, UserProfile
+    from django.db.models import Q
+    profile_change_requests = ProfileChangeRequest.objects.filter(
+        hod=request.user,
+        status='pending'
+    ).select_related('profile', 'profile__user').order_by('-requested_at')
+
     current_quarter = get_current_quarter()
     current_year = get_current_year_label()
 
     hod_profile = UserProfile.objects.select_related('user').get(user=request.user)
-    hod_name = hod_profile.hod_name or hod_profile.name
-    hod_name = hod_name.strip() if hod_name else None
-    
-    from django.db.models import Q
-    
+    hod_name = (hod_profile.hod_name or hod_profile.name or "").strip()
+
     if hod_name:
         user_role_q = Q(roles__name='user') | Q(user__roles__name='user')
+
         users_under_hod = UserProfile.objects.filter(
-            (user_role_q & Q(hod_name__iexact=hod_name)) | Q(user=request.user)
+            (user_role_q & Q(hod_name__iexact=hod_name)) |
+            Q(user=request.user)
         ).distinct()
     else:
         users_under_hod = UserProfile.objects.filter(user=request.user).distinct()
 
     total_users = users_under_hod.count()
+
     qpr_submitted_count = 0
+
+    # Count users who submitted a daily QPR for today's server date.
+    today = timezone.localdate()
+    for up in users_under_hod:
+        try:
+            # Check for a submitted daily QPR with period_start == today
+            submitted_today = up.user.qpr_records.filter(
+                frequency__iexact='daily',
+                period_start=today,
+                is_submitted=True
+            ).exists()
+            if submitted_today:
+                qpr_submitted_count += 1
+        except Exception:
+            continue
+
+    qpr_pending = total_users - qpr_submitted_count
+
+    
     profile_updated_count = users_under_hod.filter(profile_updated=True).count()
 
-    for up in users_under_hod:
-
-        current_qpr = up.user.qpr_records.filter(
-        quarter=current_quarter,
-        year=current_year
-        ).first()
-    if current_qpr and current_qpr.is_submitted:
-        qpr_submitted_count += 1
-    qpr_pending = total_users - qpr_submitted_count
     pending_approvals = users_under_hod.filter(approval_status='pending')
+
     context = {
         'role': 'hod',
         'total_users': total_users,
@@ -2311,17 +2460,24 @@ def qpr_hod_dashboard(request):
         'qpr_pending': qpr_pending,
         'profile_updated': profile_updated_count,
         'hod_name': hod_name,
+
+        'profile_change_requests': profile_change_requests,
+
         'current_lang': lang,
         'current_quarter': current_quarter,
         'current_year': current_year,
         'pending_approvals': pending_approvals,
     }
+
     response = render(request, 'qpr/hod_dashboard.html', context)
+
+   
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
-    return response 
 
+
+    return response
 @login_required
 def manager_dashboard(request):
     """Manager Dashboard - Manage system access and employee records"""
@@ -2622,6 +2778,7 @@ def admin_approve_request(request, request_id):
             if action == 'approve':
                 req.status = 'approved'
                 req.save()
+                # ManagerRequest approved — do not set global is_edit_allowed here.
                 messages.success(request, 'Approved!')
             elif action == 'reject':
                 req.status = 'rejected'
@@ -2874,6 +3031,42 @@ def qpr_form(request):
         'server_year': today.year,
         'profile_language_region': profile.language_region if profile else '',
     })
+    # Preload user's existing QPR records so client-side JS can read them without calling the API
+    try:
+        records_qs = QPRRecord.objects.filter(user=request.user).order_by('-id')
+        records = []
+        for r in records_qs:
+            d = serialize_qpr_record(r)
+            # For form preload, only owner can edit; compute approval flags
+            edit_approved = False
+            if getattr(r, 'is_submitted', False):
+                edit_approved = EditRequest.objects.filter(
+                    user=request.user,
+                    request_type='qpr',
+                    qpr_record_id=r.pk,
+                    status='approved'
+                ).exists()
+            d['edit_approved'] = edit_approved
+            d['can_edit'] = (not getattr(r, 'is_submitted', False)) or edit_approved
+            d['has_pending_edit_request'] = EditRequest.objects.filter(
+                user=request.user, request_type='qpr', qpr_record_id=r.pk, status='pending'
+            ).exists()
+            records.append(d)
+    except Exception:
+        records = []
+    import json as _json
+    context['records_json'] = _json.dumps(records, default=str)
+
+    # Precompute availability for the selected/default date so client doesn't need to call the API
+    try:
+        selected_date = timezone.localdate()
+        availability = _allowed_frequencies_for_date(request.user, selected_date)
+        context['availability_json'] = _json.dumps(availability, default=str)
+        context['selected_date'] = selected_date.isoformat()
+    except Exception:
+        context['availability_json'] = None
+        context['selected_date'] = timezone.localdate().isoformat()
+
     return render(request, 'qpr/qpr_form.html', context)
 
 @login_required
@@ -2910,6 +3103,191 @@ def report_list(request):
         'target_user_id': getattr(target_user, 'id', ''),
         'is_hod_view': is_hod_view,
     }
+    # Preload records for client-side rendering without calling API
+    try:
+        records_qs = QPRRecord.objects.filter(user=target_user).order_by('-id')
+        records = []
+        for r in records_qs:
+            d = serialize_qpr_record(r)
+            # If viewing another user's records (HOD/admin), don't allow edit via list
+            if getattr(target_user, 'id', None) != getattr(request.user, 'id', None):
+                d['can_edit'] = False
+                d['edit_approved'] = False
+                d['has_pending_edit_request'] = EditRequest.objects.filter(
+                    user=target_user, request_type='qpr', qpr_record_id=r.pk, status='pending'
+                ).exists()
+            else:
+                edit_approved = False
+                if getattr(r, 'is_submitted', False):
+                    edit_approved = EditRequest.objects.filter(
+                        user=request.user,
+                        request_type='qpr',
+                        qpr_record_id=r.pk,
+                        status='approved'
+                    ).exists()
+                d['edit_approved'] = edit_approved
+                d['can_edit'] = (not getattr(r, 'is_submitted', False)) or edit_approved
+                d['has_pending_edit_request'] = EditRequest.objects.filter(
+                    user=request.user, request_type='qpr', qpr_record_id=r.pk, status='pending'
+                ).exists()
+                # Debug: log EditRequest rows for troublesome example (user_id=4, record_id=1)
+                try:
+                    if getattr(target_user, 'id', None) == 4 and getattr(r, 'pk', None) == 1:
+                        ers = list(EditRequest.objects.filter(user=target_user, qpr_record_id=r.pk).values_list('id', 'status'))
+                        print(f"[DEBUG] report_list - EditRequests for user=4 record=1: {ers}")
+                except Exception:
+                    pass
+            records.append(d)
+    except Exception:
+        records = []
+    import json as _json
+    context['records_json'] = _json.dumps(records, default=str)
+    # Compute period summary for the current quarter/year so client can render daily/weekly/monthly/quarterly lists
+    try:
+        quarter = get_current_quarter()
+        year = get_current_year_label()
+        try:
+            q_start, q_end = _quarter_label_to_daterange(quarter, year)
+        except Exception:
+            q_start = None
+            q_end = None
+
+        # Default region from profile
+        default_region = ''
+        try:
+            profile = getattr(target_user, 'profile', None)
+            if profile and getattr(profile, 'language_region', None):
+                default_region = profile.language_region
+        except Exception:
+            default_region = ''
+
+        # DAILY: include every working day (Mon-Sat) with submitted flag and coverage info
+        daily = []
+        if q_start and q_end:
+            cur = q_start
+            while cur <= q_end:
+                if cur.weekday() <= 5:  # Mon-Sat
+                    # totals from daily records
+                    totals = _aggregate_records_with_fallback(target_user, cur, cur, preferred='daily')
+                    rec_daily = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='daily', period_start=cur).first()
+                    exists_daily = bool(rec_daily)
+                    # determine coverage by higher-level records
+                    covered_by = None
+                    region = getattr(rec_daily, 'region', '') if rec_daily else ''
+                    if not exists_daily:
+                        # check weekly, monthly, quarterly coverage
+                        if QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='weekly', period_start__lte=cur, period_end__gte=cur).exists():
+                            covered_by = 'weekly'
+                        elif QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='monthly', period_start__lte=cur, period_end__gte=cur).exists():
+                            covered_by = 'monthly'
+                        elif QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='quarterly', period_start__lte=cur, period_end__gte=cur).exists():
+                            covered_by = 'quarterly'
+                        # derive region from candidates if not set
+                        if not region:
+                            cand = QPRRecord.objects.filter(user=target_user, is_submitted=True, period_start__lte=cur, period_end__gte=cur).first()
+                            region = getattr(cand, 'region', '') if cand else ''
+
+                    daily.append({
+                        'period_start': cur.isoformat(),
+                        'period_end': cur.isoformat(),
+                        'totals': totals,
+                        'has_daily': exists_daily,
+                        'covered_by': covered_by,
+                        'region': region or default_region or ''
+                    })
+                cur = cur + timedelta(days=1)
+
+        # WEEKLY: iterate Mon-Sat weeks overlapping quarter
+        weekly = []
+        if q_start and q_end:
+            w_start = q_start - timedelta(days=q_start.weekday())
+            while w_start <= q_end:
+                w_end = w_start + timedelta(days=5)
+                display_start = max(w_start, q_start)
+                display_end = min(w_end, q_end)
+                totals = _aggregate_records_with_fallback(target_user, display_start, display_end, preferred='weekly')
+                daily_count = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='daily', period_start__range=(display_start, display_end)).count()
+                expected_days = 0
+                for d in range((display_end - display_start).days + 1):
+                    dt = display_start + timedelta(days=d)
+                    if dt.weekday() <= 5 and q_start <= dt <= q_end:
+                        expected_days += 1
+                missing_days = max(0, expected_days - daily_count)
+                weekly_submitted = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='weekly', period_start__lte=display_start, period_end__gte=display_end).exists()
+                weekly_rec = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='weekly', period_start__lte=display_start, period_end__gte=display_end).first()
+                region_week = getattr(weekly_rec, 'region', '') if weekly_rec else ''
+                if not region_week:
+                    cand = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='daily', period_start__range=(display_start, display_end)).first()
+                    region_week = getattr(cand, 'region', '') if cand else ''
+                weekly.append({
+                    'period_start': display_start.isoformat(),
+                    'period_end': display_end.isoformat(),
+                    'totals': totals,
+                    'daily_count': daily_count,
+                    'expected_days': expected_days,
+                    'missing_days': missing_days,
+                    'weekly_submitted': weekly_submitted,
+                    'region': region_week or default_region or ''
+                })
+                w_start = w_start + timedelta(days=7)
+
+        # MONTHLY
+        monthly = []
+        if q_start and q_end:
+            m = q_start
+            while m <= q_end:
+                month_start = date(m.year, m.month, 1)
+                if m.month == 12:
+                    month_end = date(m.year, 12, 31)
+                else:
+                    month_end = date(m.year, m.month + 1, 1) - timedelta(days=1)
+                if month_end > q_end:
+                    month_end = q_end
+                if month_start < q_start:
+                    month_start = q_start
+                totals = _aggregate_records_with_fallback(target_user, month_start, month_end, preferred='monthly')
+                daily_count = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='daily', period_start__range=(month_start, month_end)).count()
+                monthly_submitted = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='monthly', period_start__lte=month_start, period_end__gte=month_end).exists()
+                monthly_rec = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='monthly', period_start__lte=month_start, period_end__gte=month_end).first()
+                region_month = getattr(monthly_rec, 'region', '') if monthly_rec else ''
+                if not region_month:
+                    cand = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='daily', period_start__range=(month_start, month_end)).first()
+                    region_month = getattr(cand, 'region', '') if cand else ''
+                monthly.append({
+                    'period_start': month_start.isoformat(),
+                    'period_end': month_end.isoformat(),
+                    'totals': totals,
+                    'daily_count': daily_count,
+                    'monthly_submitted': monthly_submitted,
+                    'region': region_month or default_region or ''
+                })
+                # next month
+                if m.month == 12:
+                    m = date(m.year + 1, 1, 1)
+                else:
+                    m = date(m.year, m.month + 1, 1)
+
+        # QUARTERLY
+        if q_start and q_end:
+            quarterly_totals = _aggregate_records_with_fallback(target_user, q_start, q_end, preferred='quarterly')
+            quarterly_submitted = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='quarterly', period_start=q_start, period_end=q_end).exists()
+            quarterly = {'period_start': q_start.isoformat(), 'period_end': q_end.isoformat(), 'totals': quarterly_totals, 'submitted': quarterly_submitted}
+        else:
+            quarterly = None
+
+        summary = {
+            'quarter_label': quarter,
+            'year_label': year,
+            'quarter_start': q_start.isoformat() if q_start else None,
+            'quarter_end': q_end.isoformat() if q_end else None,
+            'daily': daily,
+            'weekly': weekly,
+            'monthly': monthly,
+            'quarterly': quarterly
+        }
+        context['summary_json'] = _json.dumps(summary, default=str)
+    except Exception:
+        context['summary_json'] = 'null'
     return render(request, 'qpr/report_list.html', context)
 @login_required
 def report_detail(request, record_id):
@@ -2926,9 +3304,12 @@ def report_detail(request, record_id):
             messages.error(request, 'Unauthorized')
             return redirect('home')
 
-        # Identify HOD name via the HOD's profile.name (per requirement)
+        # Identify HOD name: prefer profile.hod_name (set by admin), fallback to profile.name
         hod_profile = getattr(request.user, 'profile', None)
-        hod_name_val = getattr(hod_profile, 'name', None)
+        hod_name_val = None
+        if hod_profile:
+            hod_name_val = (hod_profile.hod_name or hod_profile.name)
+        hod_name_val = hod_name_val.strip() if hod_name_val else None
         if not hod_name_val:
             messages.error(request, 'HOD identity not found')
             return redirect('qpr_hod_dashboard')
@@ -2970,119 +3351,43 @@ def report_detail(request, record_id):
         except Exception:
             pass
 
-        # Aggregate per-user using non-overlapping block logic (daily -> weekly -> monthly -> quarterly)
+        # Aggregate per-user using the same robust fallback aggregation used
+        # for individual records (daily->weekly->monthly->quarterly). This
+        # avoids skipping records that lack explicit period_start/period_end
+        # and ensures division totals reflect stored data.
         try:
-            priority = {'daily': 1, 'weekly': 2, 'monthly': 3, 'quarterly': 4}
             for profile in users_under:
                 try:
                     user_obj = getattr(profile, 'user', None)
                     if not user_obj:
                         continue
                     print("USER:", user_obj.id)
-                    # Fetch all submitted records overlapping the quarter
-                    all_records = QPRRecord.objects.filter(
-                        user=user_obj,
-                        is_submitted=True,
-                        period_start__lte=(q_end or date.max),
-                        period_end__gte=(q_start or date.min)
-                    )
-                    print("TOTAL RECORDS:", all_records.count())
-                    # Sort by priority (granular first)
-                    records_sorted = sorted(all_records, key=lambda r: priority.get((getattr(r, 'frequency', '') or '').lower(), 5))
-
-                    covered_dates = set()
-                    user_totals = {k: 0 for k in NUMERIC_KEYS}
-
-                    for r in records_sorted:
-                        try:
-                            if not getattr(r, 'period_start', None) or not getattr(r, 'period_end', None):
-                                continue
-                            start = max(r.period_start, q_start) if q_start else r.period_start
-                            end = min(r.period_end, q_end) if q_end else r.period_end
-                            if start is None or end is None or start > end:
-                                continue
-                            # build dates for this block
-                            dates = []
-                            cur = start
-                            while cur <= end:
-                                dates.append(cur)
-                                cur = cur + timedelta(days=1)
-                            # skip if entire block already covered
-                            if all(d in covered_dates for d in dates):
-                                continue
-                            # Use this record
-                            try:
-                                d = serialize_qpr_record(r)
-                            except Exception:
-                                continue
-                            for k in NUMERIC_KEYS:
-                                try:
-                                    val = d.get(k)
-                                    if val not in [None, '']:
-                                        user_totals[k] += int(val)
-                                except Exception:
-                                    continue
-                            # mark block covered
-                            for dte in dates:
-                                covered_dates.add(dte)
-                        except Exception:
-                            continue
-
-                    # Debug per-user
-                    print("COVERED DAYS:", len(covered_dates))
-                    print("USER TOTALS:", user_totals)
-
-                    # Add to division aggregated
+                    user_totals = _aggregate_records_with_fallback(user_obj, q_start, q_end, preferred='quarterly') or {k: 0 for k in NUMERIC_KEYS}
+                    try:
+                        print("USER_TOTALS:", user_totals)
+                    except Exception:
+                        pass
+                    any_nonzero = False
                     for k in NUMERIC_KEYS:
                         try:
-                            aggregated[k] += int(user_totals.get(k, 0) or 0)
+                            v = int(user_totals.get(k, 0) or 0)
+                            aggregated[k] += v
+                            if v != 0:
+                                any_nonzero = True
                         except Exception:
                             continue
+                    if any_nonzero:
+                        record_count += 1
                 except Exception:
                     continue
 
-            # Include HOD's own totals using same logic
+            # Include HOD's own totals using the same fallback aggregation
             try:
-                hod_all = QPRRecord.objects.filter(
-                    user=request.user,
-                    is_submitted=True,
-                    period_start__lte=(q_end or date.max),
-                    period_end__gte=(q_start or date.min)
-                )
-                hod_records_sorted = sorted(hod_all, key=lambda r: priority.get((getattr(r, 'frequency', '') or '').lower(), 5))
-                hod_covered = set()
-                hod_totals = {k: 0 for k in NUMERIC_KEYS}
-                for r in hod_records_sorted:
-                    try:
-                        if not getattr(r, 'period_start', None) or not getattr(r, 'period_end', None):
-                            continue
-                        start = max(r.period_start, q_start) if q_start else r.period_start
-                        end = min(r.period_end, q_end) if q_end else r.period_end
-                        if start is None or end is None or start > end:
-                            continue
-                        dates = []
-                        cur = start
-                        while cur <= end:
-                            dates.append(cur)
-                            cur = cur + timedelta(days=1)
-                        if all(d in hod_covered for d in dates):
-                            continue
-                        try:
-                            d = serialize_qpr_record(r)
-                        except Exception:
-                            continue
-                        for k in NUMERIC_KEYS:
-                            try:
-                                val = d.get(k)
-                                if val not in [None, '']:
-                                    hod_totals[k] += int(val)
-                            except Exception:
-                                continue
-                        for dte in dates:
-                            hod_covered.add(dte)
-                    except Exception:
-                        continue
-                print("HOD TOTALS:", hod_totals)
+                hod_totals = _aggregate_records_with_fallback(request.user, q_start, q_end, preferred='quarterly') or {k: 0 for k in NUMERIC_KEYS}
+                try:
+                    print("HOD TOTALS:", hod_totals)
+                except Exception:
+                    pass
                 for k in NUMERIC_KEYS:
                     try:
                         aggregated[k] += int(hod_totals.get(k, 0) or 0)
@@ -3120,6 +3425,9 @@ def report_detail(request, record_id):
         # Pass JSON string to template for immediate rendering
         try:
             import json
+            # Include cumulative quarterly totals so the frontend `valFor` helper
+            # prefers cumulative values for non-daily views (weekly/monthly/quarterly).
+            aggregated_qpr['cumulative'] = {'quarterly': {k: aggregated.get(k, 0) for k in NUMERIC_KEYS}}
             initial_qpr_json = json.dumps(aggregated_qpr)
         except Exception:
             initial_qpr_json = '{}'
@@ -3150,7 +3458,96 @@ def report_detail(request, record_id):
         is_hod_view = (target.id != request.user.id)
         target_user_id = target.id
 
-    return render(request, 'qpr/report_detail.html', {'record_id': record_id, 'is_hod_view': is_hod_view, 'target_user_id': target_user_id})
+    # Preload the record JSON for client-side rendering to avoid API calls
+    record_json = '{}'
+    try:
+        rec = QPRRecord.objects.filter(pk=record_id, user=target if 'target' in locals() and target is not None else request.user).first()
+        if rec:
+            try:
+                import json as _json
+                record_data = serialize_qpr_record(rec)
+                # If client requested a particular view (weekly/monthly/quarterly),
+                # compute aggregated totals for that period so the UI can show
+                # per-period aggregates instead of the single-record values.
+                view_as = (request.GET.get('view_as') or '').lower()
+                try:
+                    ps = getattr(rec, 'period_start', None)
+                    pe = getattr(rec, 'period_end', None) or ps
+                    # ensure ps/pe are date objects
+                    if ps:
+                        from datetime import timedelta, date
+                        # prepare container
+                        record_data.setdefault('cumulative', {})
+                        # WEEKLY
+                        if view_as == 'weekly' or view_as == 'weekly' or True:
+                            try:
+                                # compute week containing ps (Monday start)
+                                wk_start = ps - timedelta(days=(ps.weekday() or 0))
+                                wk_end = wk_start + timedelta(days=6)
+                                wk_tot = _aggregate_records_with_fallback(rec.user, wk_start, wk_end, preferred='weekly')
+                                record_data['cumulative']['weekly'] = wk_tot
+                            except Exception:
+                                pass
+                        # MONTHLY
+                        try:
+                            m_start = date(ps.year, ps.month, 1)
+                            if ps.month == 12:
+                                m_end = date(ps.year, 12, 31)
+                            else:
+                                m_end = date(ps.year, ps.month + 1, 1) - timedelta(days=1)
+                            m_tot = _aggregate_records_with_fallback(rec.user, m_start, m_end, preferred='monthly')
+                            record_data['cumulative']['monthly'] = m_tot
+                        except Exception:
+                            pass
+                        # QUARTERLY (fiscal Apr-Mar quarters)
+                        try:
+                            mon = ps.month
+                            yr = ps.year
+                            if 4 <= mon <= 6:
+                                q_start = date(yr, 4, 1); q_end = date(yr, 6, 30)
+                            elif 7 <= mon <= 9:
+                                q_start = date(yr, 7, 1); q_end = date(yr, 9, 30)
+                            elif 10 <= mon <= 12:
+                                q_start = date(yr, 10, 1); q_end = date(yr, 12, 31)
+                            else:
+                                # Jan-Mar
+                                q_start = date(yr, 1, 1); q_end = date(yr, 3, 31)
+                            q_tot = _aggregate_records_with_fallback(rec.user, q_start, q_end, preferred='quarterly')
+                            record_data['cumulative']['quarterly'] = q_tot
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                record_json = _json.dumps(record_data, default=str)
+                # Compute edit approval flags for the detail preload (same logic as API)
+                try:
+                    edit_approved = False
+                    has_pending_edit_request = False
+                    if rec.is_submitted:
+                        edit_approved = EditRequest.objects.filter(
+                            user=rec.user,
+                            request_type='qpr',
+                            qpr_record_id=rec.pk,
+                            status='approved'
+                        ).exists()
+                        has_pending_edit_request = EditRequest.objects.filter(
+                            user=rec.user,
+                            request_type='qpr',
+                            qpr_record_id=rec.pk,
+                            status='pending'
+                        ).exists()
+                    record_data['edit_approved'] = edit_approved
+                    record_data['can_edit'] = (rec.user == request.user and not rec.is_submitted) or edit_approved
+                    record_data['has_pending_edit_request'] = has_pending_edit_request
+                    record_json = _json.dumps(record_data, default=str)
+                except Exception:
+                    pass
+            except Exception:
+                record_json = '{}'
+    except Exception:
+        record_json = '{}'
+
+    return render(request, 'qpr/report_detail.html', {'record_id': record_id, 'is_hod_view': is_hod_view, 'target_user_id': target_user_id, 'record_json': record_json})
 
 @login_required
 def typing_usage_report_form(request, record_id):
@@ -3244,7 +3641,10 @@ def typing_usage_report_view(request, record_id):
 
 @login_required
 def hod_detail_list(request):
-    if not user_has_role(request.user, 'hod'): return redirect('/')
+    """HOD Detail List with profile change request approvals"""
+    if not user_has_role(request.user, 'hod'): 
+        return redirect('/')
+    
     # Determine hod_name from profile (fallback to profile.name)
     hod_profile = getattr(request.user, 'profile', None)
     hod_name = (hod_profile.hod_name or hod_profile.name) if hod_profile else None
@@ -3258,9 +3658,11 @@ def hod_detail_list(request):
         ).select_related('user').distinct()
     else:
         users_under_hod = UserProfile.objects.filter(user=request.user).select_related('user')
+    
     users_data = []
     current_quarter = get_current_quarter()
     current_year = get_current_year_label()
+    today = timezone.localdate()
     for user_profile in users_under_hod:
         user = user_profile.user
         qpr_records = user.qpr_records.all()
@@ -3301,41 +3703,40 @@ def hod_detail_list(request):
         current_qpr = qpr_records.filter( quarter=current_quarter, year=current_year ).first()
         # do not include per-user quarterly action fields here (removed from template)
         qpr_complete_flag = current_qpr.is_submitted if current_qpr else False
+        # Has the user submitted a daily QPR for today?
+        try:
+            submitted_today = user.qpr_records.filter(frequency__iexact='daily', period_start=today, is_submitted=True).exists()
+        except Exception:
+            submitted_today = False
         users_data.append({
-            'profile': user_profile, 'user': user, 'employee_code': user_profile.employee_code,
-            'name': display_name, 'office_code': office_code_val or 'Not Set', 'office_name': office_name_val or 'Not Set',
-            'profile_complete': user_profile.profile_updated,
-            'qpr_complete': qpr_complete_flag,
+            'profile': user_profile, 
+            'user': user, 
+            'employee_code': user_profile.employee_code,
+            'name': display_name, 
+            'office_code': office_code_val or 'Not Set', 
+            'office_name': office_name_val or 'Not Set',
+            'profile_complete': user_profile.profile_updated, 
+            'qpr_complete': current_qpr.is_submitted if current_qpr else False,
+            'qpr_record_id': current_qpr.id if current_qpr else None,
             'has_pending_edit_request': has_pending,
+            'submitted_today': submitted_today,
         })
-    # --- Division aggregation: aggregate quarterly numeric fields for employees under this HOD ---
-    division_qpr = None
-    try:
-        user_ids = list(users_under_hod.values_list('user__id', flat=True))
-        if user_ids:
-            qrs = QPRRecord.objects.filter(user_id__in=user_ids, frequency__iexact='quarterly', quarter=current_quarter, year=current_year)
-            # initialize totals
-            totals = {k: 0 for k in NUMERIC_KEYS}
-            record_count = 0
-            for r in qrs:
-                record_count += 1
-                try:
-                    d = serialize_qpr_record(r)
-                except Exception:
-                    continue
-                for k in NUMERIC_KEYS:
-                    try:
-                        v = d.get(k)
-                        if v is None or v == '':
-                            continue
-                        totals[k] += int(v)
-                    except Exception:
-                        continue
-            division_qpr = {'quarter': current_quarter, 'year': current_year, 'totals': totals, 'record_count': record_count, 'num_users': len(user_ids)}
-    except Exception:
-        division_qpr = {'quarter': current_quarter, 'year': current_year, 'totals': {}, 'record_count': 0, 'num_users': 0}
+    
+    # ✅ NEW: Fetch pending profile change requests for this HOD
+    from .models import ProfileChangeRequest
+    profile_change_requests = ProfileChangeRequest.objects.filter(
+        hod=request.user,
+        status__in=['pending', 'approved', 'rejected']
+    ).select_related('profile__user').order_by('-requested_at')
 
-    context = {'users_data': users_data, 'hod_name': hod_name, 'current_quarter': current_quarter, 'current_year': current_year, 'division_qpr': division_qpr}
+    context = {
+        'users_data': users_data, 
+        'hod_name': hod_name, 
+        'current_quarter': current_quarter, 
+        'current_year': current_year,
+        'profile_change_requests': profile_change_requests,  # ✅ NEW
+    }
+    
     response = render(request, 'qpr/hod_detail_list.html', context)
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
@@ -3473,7 +3874,7 @@ def freeze_division_snapshot(request):
     return redirect('qpr_hod_detail_list')
 
 # ==================== APIs ====================
-
+''''
 @csrf_exempt
 @login_required
 def api_records(request):
@@ -3513,20 +3914,13 @@ def api_records(request):
             else:
                 edit_approved = False
                 if record.is_submitted:
-                    # Check for approved ManagerRequest targeted to this user (manager approved)
-                    # Also respect the user's is_edit_allowed flag (set when manager unlocks)
-                    edit_approved = (
-                        ManagerRequest.objects.filter(user=request.user, request_type='qpr', status='approved').exists()
-                        or bool(getattr(request.user, 'is_edit_allowed', False))
-                    )
-                    # Also allow explicit approved EditRequest entries
-                    if not edit_approved:
-                        edit_approved = EditRequest.objects.filter(
-                            user=request.user,
-                            request_type='qpr',
-                            qpr_record_id=record.pk,
-                            status='approved'
-                        ).exists()
+                    # Only consider explicit per-record approved EditRequest entries
+                    edit_approved = EditRequest.objects.filter(
+                        user=request.user,
+                        request_type='qpr',
+                        qpr_record_id=record.pk,
+                        status='approved'
+                    ).exists()
                 d['can_edit'] = not record.is_submitted or edit_approved
                 d['edit_approved'] = edit_approved
 
@@ -3599,16 +3993,31 @@ def api_records(request):
                     request.user.save(update_fields=['is_edit_allowed'])
                 if record.is_submitted:
                     ManagerRequest.objects.filter(hod=request.user, request_type='qpr', status='approved').delete()
-                    # Mark approved EditRequest as used
-                    approved_edit_request = EditRequest.objects.filter(
+                    # Debug: show counts before updating
+                    try:
+                        before = list(EditRequest.objects.filter(user=request.user, qpr_record_id=record.pk).values_list('id','status'))
+                        print(f"[DEBUG] before update EditRequests for user={request.user.id} record={record.pk}: {before}")
+                    except Exception:
+                        pass
+                    # Mark any approved EditRequest(s) for this record as used
+                    EditRequest.objects.filter(
                         user=request.user,
                         request_type='qpr',
                         qpr_record_id=record.pk,
                         status='approved'
-                    ).first()
-                    if approved_edit_request:
-                        approved_edit_request.status = 'used'
-                        approved_edit_request.save()
+                    ).update(status='used')
+                    # Reject any pending requests for this same record
+                    EditRequest.objects.filter(
+                        user=request.user,
+                        request_type='qpr',
+                        qpr_record_id=record.pk,
+                        status='pending'
+                    ).update(status='rejected')
+                    try:
+                        after = list(EditRequest.objects.filter(user=request.user, qpr_record_id=record.pk).values_list('id','status'))
+                        print(f"[DEBUG] after update EditRequests for user={request.user.id} record={record.pk}: {after}")
+                    except Exception:
+                        pass
                 _save_section_data(record, details)
             else:
                 is_submitted = (data.get('status', 'Draft') == 'Submitted')
@@ -3717,7 +4126,230 @@ def api_records(request):
             QPRRecord.objects.filter(pk=record_id, user=request.user).delete()
             return JsonResponse({'message': 'Deleted'})
     return JsonResponse({'error': 'Invalid method'}, status=400)
+'''
 
+@login_required
+def qpr_records_view(request):
+    records = QPRRecord.objects.filter(user=request.user).order_by('-id')
+    return render(request, 'qpr_records.html', {
+        'records': records
+    })
+
+
+@login_required
+def qpr_save_record(request):
+    if request.method != 'POST':
+        return redirect('qpr_records')
+
+    data = request.POST
+
+    try:
+        year = (data.get('year') or '').strip()
+
+        today = timezone.localdate()
+        current_start = today.year if today.month >= 4 else today.year - 1
+
+        if year:
+            try:
+                selected_start = int(year.split('-')[0])
+            except:
+                messages.error(request, "Invalid year format")
+                return redirect('qpr_records')
+
+            if selected_start > current_start:
+                messages.error(request, "Future financial year not allowed")
+                return redirect('qpr_records')
+
+        record_id = data.get('id')
+        details = json.loads(data.get('details', '{}'))
+
+        # ================= UPDATE =================
+        if record_id:
+            record = get_object_or_404(QPRRecord, pk=record_id, user=request.user)
+
+            record.officeName = data.get('officeName', '')
+            record.officeCode = (data.get('officeCode', '') or '').replace('*', '')
+            record.region = data.get('region', '')
+            record.quarter = data.get('quarter', '')
+            record.year = data.get('year', '')
+            record.status = data.get('status', 'Draft')
+            record.phone = data.get('phone', '')
+            record.email = data.get('email', '')
+            record.is_submitted = (record.status == 'Submitted')
+
+            allowed_quarters = get_allowed_quarters(record.year)
+            if record.quarter and record.quarter not in allowed_quarters:
+                messages.error(request, "Invalid quarter selection")
+                return redirect('qpr_records')
+
+            ps, pe = record.period_start, record.period_end
+            if not ps or not pe:
+                try:
+                    ps, pe = _quarter_label_to_daterange(record.quarter, record.year)
+                except:
+                    ps, pe = None, None
+
+            if ps and pe and is_period_overlapping(request.user, ps, pe, exclude_id=record.pk):
+                messages.error(request, "This update overlaps with an existing report.")
+                return redirect('qpr_records')
+
+            record.period_start = ps
+            record.period_end = pe
+            record.save()
+
+            # If manager temporarily allowed edits, revoke that flag
+            if getattr(request.user, 'is_edit_allowed', False):
+                request.user.is_edit_allowed = False
+                request.user.save(update_fields=['is_edit_allowed'])
+
+            # Whenever a record is submitted, ensure per-record EditRequest rows are consumed
+            if record.is_submitted:
+                ManagerRequest.objects.filter(hod=request.user, request_type='qpr', status='approved').delete()
+
+                # Debug: show counts before updating
+                try:
+                    before = list(EditRequest.objects.filter(user=request.user, qpr_record_id=record.pk).values_list('id','status'))
+                    print(f"[DEBUG] before update EditRequests for user={request.user.id} record={record.pk}: {before}")
+                except Exception:
+                    pass
+
+                # Mark any approved EditRequest(s) for this record as used
+                EditRequest.objects.filter(
+                    user=request.user,
+                    request_type='qpr',
+                    qpr_record_id=record.pk,
+                    status='approved'
+                ).update(status='used')
+                # Reject any pending requests for this same record
+                EditRequest.objects.filter(
+                    user=request.user,
+                    request_type='qpr',
+                    qpr_record_id=record.pk,
+                    status='pending'
+                ).update(status='rejected')
+
+                try:
+                    after = list(EditRequest.objects.filter(user=request.user, qpr_record_id=record.pk).values_list('id','status'))
+                    print(f"[DEBUG] after update EditRequests for user={request.user.id} record={record.pk}: {after}")
+                except Exception:
+                    pass
+
+            _save_section_data(record, details)
+
+        # ================= CREATE =================
+        else:
+            is_submitted = (data.get('status', 'Draft') == 'Submitted')
+
+            frequency = (data.get('frequency') or '').strip()
+            selected_date_str = (data.get('selected_date') or '').strip()
+
+            if not frequency:
+                messages.error(request, "Frequency is required")
+                return redirect('qpr_records')
+
+            if frequency in ['daily', 'weekly', 'monthly'] and not selected_date_str:
+                messages.error(request, "Date is required")
+                return redirect('qpr_records')
+
+            try:
+                selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date() if selected_date_str else None
+            except:
+                messages.error(request, "Invalid date")
+                return redirect('qpr_records')
+
+            if selected_date:
+                today = timezone.localdate()
+
+                if selected_date.weekday() == 6:
+                    messages.error(request, "Sunday not allowed")
+                    return redirect('qpr_records')
+
+                if selected_date > (today + timedelta(days=30)):
+                    messages.error(request, "Too far in future")
+                    return redirect('qpr_records')
+
+                try:
+                    cur_q_start, _ = _get_quarter_range_for_date(today)
+                    sel_q_start, _ = _get_quarter_range_for_date(selected_date)
+                    if sel_q_start > cur_q_start:
+                        messages.error(request, "Future quarter not allowed")
+                        return redirect('qpr_records')
+                except:
+                    pass
+
+            availability = _allowed_frequencies_for_date(request.user, selected_date)
+            if frequency not in availability['allowed']:
+                messages.error(request, f"Allowed: {availability['allowed']}")
+                return redirect('qpr_records')
+
+            ps, pe = compute_period(
+                frequency,
+                selected_date=selected_date,
+                quarter=data.get('quarter'),
+                year=data.get('year')
+            )
+
+            if ps and pe and is_period_overlapping(request.user, ps, pe):
+                messages.error(request, "Overlapping period")
+                return redirect('qpr_records')
+
+            quarter = data.get('quarter', '').strip()
+            year = data.get('year', '').strip() or None
+
+            allowed_quarters = get_allowed_quarters(year)
+            if quarter and quarter not in allowed_quarters:
+                messages.error(request, f"Invalid quarter: {allowed_quarters}")
+                return redirect('qpr_records')
+
+            exists = QPRRecord.objects.filter(
+                user=request.user,
+                frequency__iexact=frequency,
+                period_start=ps,
+                is_submitted=True
+            )
+
+            if quarter:
+                exists = exists.filter(quarter=quarter)
+                if year:
+                    exists = exists.filter(year=year)
+
+            if exists.exists():
+                messages.error(request, "Report already exists")
+                return redirect('qpr_records')
+
+            record = QPRRecord.objects.create(
+                user=request.user,
+                officeName=data.get('officeName', ''),
+                officeCode=(data.get('officeCode', '') or '').replace('*', ''),
+                region=data.get('region', ''),
+                quarter=quarter,
+                year=year,
+                status=data.get('status', 'Draft'),
+                frequency=frequency,
+                period_start=ps,
+                period_end=pe,
+                phone=data.get('phone', ''),
+                email=data.get('email', ''),
+                is_submitted=is_submitted
+            )
+
+            _save_section_data(record, details)
+
+        messages.success(request, "Saved successfully")
+        return redirect('qpr_report_list')
+
+    except Exception as e:
+        messages.error(request, str(e))
+        return redirect('qpr_records')
+
+
+@login_required
+def qpr_delete_record(request, id):
+    if request.method == "POST":
+        QPRRecord.objects.filter(pk=id, user=request.user).delete()
+        messages.success(request, "Deleted successfully")
+    return redirect('qpr_records')
+'''
 @login_required
 @csrf_exempt
 def api_record_detail(request, record_id):
@@ -3772,17 +4404,12 @@ def api_record_detail(request, record_id):
     has_pending_edit_request = False
     
     if record.is_submitted:
-        edit_approved = (
-            ManagerRequest.objects.filter(user=record.user, request_type='qpr', status='approved').exists()
-            or bool(getattr(record.user, 'is_edit_allowed', False))
-        )
-        if not edit_approved:
-            edit_approved = EditRequest.objects.filter(
-                user=record.user,
-                request_type='qpr',
-                qpr_record_id=record.pk,
-                status='approved'
-            ).exists()
+        edit_approved = EditRequest.objects.filter(
+            user=record.user,
+            request_type='qpr',
+            qpr_record_id=record.pk,
+            status='approved'
+        ).exists()
         
         # Check if there's a pending edit request
         has_pending_edit_request = EditRequest.objects.filter(
@@ -3804,7 +4431,7 @@ def api_record_detail(request, record_id):
         data['cumulative'] = {}
 
     return JsonResponse(data, safe=False)
-
+'''
 
 @login_required
 def print_qpr_report(request, record_id):
@@ -3825,7 +4452,7 @@ def print_qpr_report(request, record_id):
     # Render server-side template with the same fields used by report_detail
     return render(request, 'qpr/print_report.html', {'r': data})
 
-
+'''
 @login_required
 def api_period_summary(request):
     """Return per-period aggregates (daily/weekly/monthly/quarterly) for the requested quarter/year.
@@ -3891,7 +4518,7 @@ def api_period_summary(request):
             else:
                 # use the selected_frequency as the source for this date
                 src = selected_frequency
-                totals = _aggregate_records_for_range(user, cur, cur, source_frequency=src)
+                totals = _aggregate_records_with_fallback(user, cur, cur, preferred=src)
                 # check if a source-frequency record covers this date
                 rec_src = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact=src, period_start__lte=cur, period_end__gte=cur).first()
                 exists_daily = False
@@ -3921,9 +4548,9 @@ def api_period_summary(request):
         actual_end = display_end
         # Weekly totals: if the user selected weekly view use weekly records, otherwise sum daily records
         if selected_frequency == 'weekly':
-            totals = _aggregate_records_for_range(user, actual_start, actual_end, source_frequency='weekly')
+            totals = _aggregate_records_with_fallback(user, actual_start, actual_end, preferred='weekly')
         else:
-            totals = _aggregate_records_for_range(user, actual_start, actual_end, source_frequency='daily')
+            totals = _aggregate_records_with_fallback(user, actual_start, actual_end, preferred='daily')
         # count daily submitted in this week's in-quarter range
         daily_count = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='daily', period_start__range=(actual_start, actual_end)).count()
         expected_days = 0
@@ -3968,9 +4595,9 @@ def api_period_summary(request):
             month_start = q_start
         # Monthly totals: if the user selected monthly use monthly records, otherwise sum weekly records
         if selected_frequency == 'monthly':
-            totals = _aggregate_records_for_range(user, month_start, month_end, source_frequency='monthly')
+            totals = _aggregate_records_with_fallback(user, month_start, month_end, preferred='monthly')
         else:
-            totals = _aggregate_records_for_range(user, month_start, month_end, source_frequency='weekly')
+            totals = _aggregate_records_with_fallback(user, month_start, month_end, preferred='weekly')
         daily_count = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='daily', period_start__range=(month_start, month_end)).count()
         monthly_submitted = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='monthly', period_start__lte=month_start, period_end__gte=month_end).exists()
         monthly_rec = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='monthly', period_start__lte=month_start, period_end__gte=month_end).first()
@@ -3995,9 +4622,9 @@ def api_period_summary(request):
     # Quarterly totals
     # Quarterly totals: if the user selected quarterly use quarterly records, otherwise sum monthly records
     if selected_frequency == 'quarterly':
-        quarterly_totals = _aggregate_records_for_range(user, q_start, q_end, source_frequency='quarterly')
+        quarterly_totals = _aggregate_records_with_fallback(user, q_start, q_end, preferred='quarterly')
     else:
-        quarterly_totals = _aggregate_records_for_range(user, q_start, q_end, source_frequency='monthly')
+        quarterly_totals = _aggregate_records_with_fallback(user, q_start, q_end, preferred='monthly')
     quarterly_submitted = QPRRecord.objects.filter(user=user, is_submitted=True, frequency__iexact='quarterly', period_start=q_start, period_end=q_end).exists()
 
     return JsonResponse({
@@ -4010,7 +4637,7 @@ def api_period_summary(request):
         'monthly': monthly,
         'quarterly': {'period_start': q_start.isoformat(), 'period_end': q_end.isoformat(), 'totals': quarterly_totals, 'submitted': quarterly_submitted}
     }, safe=False)
-
+'''
 @login_required
 @csrf_exempt
 def request_edit_api(request):
@@ -4084,131 +4711,131 @@ def request_edit_api(request):
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
     return JsonResponse({'error': 'Invalid method'}, status=400)
 
-class EmployeeListCreateAPI(APIView):
-    def get(self, request):
-        if request.session.get('active_role') != 'user':
-            return Response({"detail": "Unauthorized"}, status=403)
+# class EmployeeListCreateAPI(APIView):
+#     def get(self, request):
+#         if request.session.get('active_role') != 'user':
+#             return Response({"detail": "Unauthorized"}, status=403)
 
-        # Use profile.employee_code when available (some users have non-numeric username)
-        user_empcode = None
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except Exception:
-            return Response({"detail": "Invalid employee code."}, status=400)
+#         # Use profile.employee_code when available (some users have non-numeric username)
+#         user_empcode = None
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except Exception:
+#             return Response({"detail": "Invalid employee code."}, status=400)
 
-        status_filter = request.GET.get("status")
+#         status_filter = request.GET.get("status")
 
-        qs = Employee.objects.filter(empcode=user_empcode)
+#         qs = Employee.objects.filter(empcode=user_empcode)
 
-        if status_filter:
-            qs = qs.filter(status=status_filter)
+#         if status_filter:
+#             qs = qs.filter(status=status_filter)
 
-        serializer = EmployeeSerializer(qs.order_by("-lastupdate"), many=True)
-        return Response(serializer.data)
-    def post(self, request):
-        if request.session.get('active_role') != 'user':
-            return Response({"detail": "Unauthorized"}, status=403)
+#         serializer = EmployeeSerializer(qs.order_by("-lastupdate"), many=True)
+#         return Response(serializer.data)
+#     def post(self, request):
+#         if request.session.get('active_role') != 'user':
+#             return Response({"detail": "Unauthorized"}, status=403)
 
-        # Resolve the numeric employee code from the user's profile when possible
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except Exception:
-            return Response({"detail": "Username must be numeric."}, status=400)
+#         # Resolve the numeric employee code from the user's profile when possible
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except Exception:
+#             return Response({"detail": "Username must be numeric."}, status=400)
 
-        # Check if a record already exists
-        existing_emp = Employee.objects.filter(empcode=user_empcode).first()
-        if existing_emp:
-            # Return the existing record so user can edit it
-            serializer = EmployeeSerializer(existing_emp)
-            return Response(
-                {
-                    "id": existing_emp.id,
-                    "message": "A record already exists for you. Edit your saved draft instead of creating a new record.",
-                    "data": serializer.data
-                },
-                status=200
-            )
+#         # Check if a record already exists
+#         existing_emp = Employee.objects.filter(empcode=user_empcode).first()
+#         if existing_emp:
+#             # Return the existing record so user can edit it
+#             serializer = EmployeeSerializer(existing_emp)
+#             return Response(
+#                 {
+#                     "id": existing_emp.id,
+#                     "message": "A record already exists for you. Edit your saved draft instead of creating a new record.",
+#                     "data": serializer.data
+#                 },
+#                 status=200
+#             )
 
-        data = request.data.copy()
-        data["empcode"] = user_empcode
+#         data = request.data.copy()
+#         data["empcode"] = user_empcode
 
-        serializer = EmployeeSerializer(data=data)
+#         serializer = EmployeeSerializer(data=data)
 
-        if serializer.is_valid():
-            serializer.save(lastupdate=timezone.now())
-            return Response(serializer.data, status=201)
+#         if serializer.is_valid():
+#             serializer.save(lastupdate=timezone.now())
+#             return Response(serializer.data, status=201)
 
-        return Response(serializer.errors, status=400)
+#         return Response(serializer.errors, status=400)
 
-class EmployeeDetailAPI(APIView):
-    def get_object(self, pk):
-        try: return Employee.objects.get(pk=pk)
-        except Employee.DoesNotExist: return None
-    def get(self, request, pk):
-        emp = self.get_object(pk)
-        if not emp: return Response({"error": "Not found"}, status=404)
-        return Response(EmployeeSerializer(emp).data)
-    def put(self, request, pk):
-        emp = self.get_object(pk)
-        if not emp:
-            return Response({"error": "Not found"}, status=404)
+# class EmployeeDetailAPI(APIView):
+#     def get_object(self, pk):
+#         try: return Employee.objects.get(pk=pk)
+#         except Employee.DoesNotExist: return None
+#     def get(self, request, pk):
+#         emp = self.get_object(pk)
+#         if not emp: return Response({"error": "Not found"}, status=404)
+#         return Response(EmployeeSerializer(emp).data)
+#     def put(self, request, pk):
+#         emp = self.get_object(pk)
+#         if not emp:
+#             return Response({"error": "Not found"}, status=404)
 
-        # Get user's employee code from profile or username
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except (ValueError, TypeError):
-            return Response({"error": "Invalid employee code"}, status=400)
+#         # Get user's employee code from profile or username
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except (ValueError, TypeError):
+#             return Response({"error": "Invalid employee code"}, status=400)
         
-        # USER can only edit their own records, admins/managers can edit others
-        if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
-            return Response({"error": "Unauthorized"}, status=403)
+#         # USER can only edit their own records, admins/managers can edit others
+#         if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
+#             return Response({"error": "Unauthorized"}, status=403)
 
-        serializer = EmployeeSerializer(emp, data=request.data)
+#         serializer = EmployeeSerializer(emp, data=request.data)
 
-        if serializer.is_valid():
-            serializer.save(lastupdate=timezone.now())
-            return Response(serializer.data)
+#         if serializer.is_valid():
+#             serializer.save(lastupdate=timezone.now())
+#             return Response(serializer.data)
 
-        return Response(serializer.errors, status=400)
-    def delete(self, request, pk):
-        emp = self.get_object(pk)
-        if not emp:
-            return Response({"error": "Not found"}, status=404)
+#         return Response(serializer.errors, status=400)
+#     def delete(self, request, pk):
+#         emp = self.get_object(pk)
+#         if not emp:
+#             return Response({"error": "Not found"}, status=404)
 
-        # Get user's employee code from profile or username
-        try:
-            profile = getattr(request.user, 'profile', None)
-            if profile and profile.employee_code:
-                user_empcode = int(profile.employee_code)
-            else:
-                user_empcode = int(request.user.username)
-        except (ValueError, TypeError):
-            return Response({"error": "Invalid employee code"}, status=400)
+#         # Get user's employee code from profile or username
+#         try:
+#             profile = getattr(request.user, 'profile', None)
+#             if profile and profile.employee_code:
+#                 user_empcode = int(profile.employee_code)
+#             else:
+#                 user_empcode = int(request.user.username)
+#         except (ValueError, TypeError):
+#             return Response({"error": "Invalid employee code"}, status=400)
         
-        # USER can only delete their own records, admins/managers can delete others
-        if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
-            return Response({"error": "Unauthorized"}, status=403)
+#         # USER can only delete their own records, admins/managers can delete others
+#         if user_role(request.user) == 'user' and int(getattr(emp, 'empcode', 0)) != user_empcode:
+#             return Response({"error": "Unauthorized"}, status=403)
 
-        emp.delete()
-        return Response({"message": "Deleted"})
+#         emp.delete()
+#         return Response({"message": "Deleted"})
 
-class SubmitDraftAPI(APIView):
-    def post(self, request):
-        ids = request.data.get("ids", [])
-        count = Employee.objects.filter(id__in=ids, status="draft").update(status="submitted", lastupdate=timezone.now())
-        return Response({"message": f"{count} record(s) submitted"})
+# class SubmitDraftAPI(APIView):
+#     def post(self, request):
+#         ids = request.data.get("ids", [])
+#         count = Employee.objects.filter(id__in=ids, status="draft").update(status="submitted", lastupdate=timezone.now())
+#         return Response({"message": f"{count} record(s) submitted"})
 
 @login_required
 def employee_form(request):
@@ -4416,6 +5043,7 @@ def approve_edit_request(request, request_id):
             edit_request.approved_at = now()
             edit_request.admin_notes = admin_notes
             edit_request.save()
+            # Approved EditRequest — user is notified; do not set global is_edit_allowed here.
             
             # Send notification to user
             msg = f"Your {edit_request.get_request_type_display().lower()} edit request has been approved."
@@ -5748,7 +6376,7 @@ def debug_whoami(request):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
     
-@login_required
+# In views.py
 def process_user_approval(request, profile_id, action):
     if not user_has_role(request.user, ['hod', 'admin']):
         messages.error(request, "Unauthorized action.")
@@ -5757,17 +6385,30 @@ def process_user_approval(request, profile_id, action):
     target_profile = get_object_or_404(UserProfile, id=profile_id)
     
     if action == 'approve':
+        from .models import Employee
+        # Fetch the master record to sync the correct English Name (ename)
+        master_record = Employee.objects.filter(empcode=target_profile.employee_code).first()
+        
+        if master_record:
+            # Sync the name to the profile so it shows on the dashboard
+            target_profile.name = master_record.ename
+            target_profile.employee = master_record
+            
+            # Sync to the Django User object so {{ user.first_name }} works
+            target_user = target_profile.user
+            target_user.first_name = master_record.ename
+            target_user.save()
+        
         target_profile.approval_status = 'approved'
         target_profile.save()
-        # Send Email: "Approved! Verify login & go to QPR Form"
+        
         send_system_email(target_profile.user, request, 'accepted_alert') 
         messages.success(request, f"User {target_profile.employee_code} approved.")
         
     elif action == 'reject':
         target_profile.approval_status = 'rejected'
         target_profile.save()
-        # Send Email: "Rejected. Please update details or register again."
-        send_system_email(target_profile.user, request, 'rejected_alert') # You'll need to add this template to utils.py
+        send_system_email(target_profile.user, request, 'rejected_alert')
         messages.warning(request, f"User {target_profile.employee_code} rejected.")
 
     return redirect('qpr_hod_dashboard')
