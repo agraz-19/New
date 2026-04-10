@@ -1980,9 +1980,14 @@ def unarchive_user(request, archive_id):
 @login_required
 def profile_view(request):
     """
-    Refactored profile view.
-    Fix: Ensures new users can edit/fill details, but locks the profile 
-    once approved, requiring a Change Request to unlock.
+    Refactored profile view with proper lock/unlock workflow.
+    
+    Flow:
+    1. New user → can edit freely
+    2. User saves → profile locked, NO request box appears yet
+    3. HOD approves profile → request box appears (only for previously approved users making changes)
+    4. User fills reason → submits change request
+    5. HOD approves change request → form unlocks
     """
     from .models import Employee, Office, ProfileChangeRequest, QPRRecord
     from .employeeform import EmployeeForm
@@ -1994,8 +1999,8 @@ def profile_view(request):
     # ===============================
     # 🔑 STATE FLAGS & LOCK LOGIC
     # ===============================
-    # FIX: A user can edit if:
-    # 1. is_edit_allowed is explicitly True (The Source of Truth)
+    # A user can edit if:
+    # 1. is_edit_allowed is explicitly True (after HOD approves change request)
     # 2. OR the profile hasn't been approved yet (New User/Rejected User)
     is_approved = profile and profile.approval_status == "approved"
     can_edit = user.is_edit_allowed or not is_approved
@@ -2048,10 +2053,9 @@ def profile_view(request):
             messages.error(request, "HOD/Approver selection is required.")
             return redirect('profile')
 
-        # 1. Update User & Initial Lock
+        # 1. Update User & Lock Immediately
         user.set_email(new_email)
-        # If they were editing via an approved change request, re-lock the user
-        user.is_edit_allowed = False 
+        user.is_edit_allowed = False  # ✅ LOCK user immediately after save
         user.save()
 
         # 2. Update Profile
@@ -2067,14 +2071,14 @@ def profile_view(request):
             profile.ip_number = request.POST.get('ip_number', '').strip()
             profile.alternate_email = request.POST.get('alternate_email', '').strip()
             
-            # Workflow Transition: 
-            # If they are a new user or were previously rejected, they go to 'pending'
-            # If they used an 'approved_change_request', they go to 'pending' for re-verification
+            # Workflow Transition:
+            # If new user or rejected → pending for HOD approval
+            # If previously approved → pending for re-verification
             profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
             profile.profile_updated = True
             profile.save()
 
-        # 3. Update Employee Model (Master Data Instance)
+        # 3. Update Employee Model
         employee = Employee.objects.filter(empcode=empcode).first()
         form = EmployeeForm(request.POST, instance=employee)
         if form.is_valid():
@@ -2089,7 +2093,7 @@ def profile_view(request):
             messages.error(request, "Form validation failed. Please check your entries.")
             return redirect('profile')
 
-        # 4. Request Cleanup
+        # 4. Cleanup: Mark approved change request as completed
         if approved_change_request:
             approved_change_request.status = 'completed'
             approved_change_request.save()
@@ -2115,17 +2119,16 @@ def profile_view(request):
         'offices': offices,
         'region_choices': QPRRecord.region_choices,
         
-        # Identity
-        # 'available_hods': get_active_hods(profile.office_code) if profile and profile.office_code else [],
+        # HOD/Approver info
         'available_hods': get_active_hods(current_office_code),
         'current_hod': profile.hod_name if profile else None,
         'ip_number': profile.ip_number if profile else '',
         'alternate_email': profile.alternate_email if profile else '',
 
-        # 🔑 Flags for Template
+        # 🔑 Flags for Template (controls UI behavior)
         'can_edit': can_edit,
-        'profile_locked': not can_edit, # Used by JS to trigger field locking
-        'profile_approved': is_approved,
+        'profile_locked': not can_edit,  # Used by JS to lock form fields
+        'profile_approved': is_approved,  # Profile was previously approved
         'pending_change_request': pending_change_request,
         'has_pending_change_request': bool(pending_change_request),
         'has_approved_change_request': bool(approved_change_request),

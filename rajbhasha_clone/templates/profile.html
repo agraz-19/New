@@ -22,61 +22,45 @@
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
             {% endif %}
-
-            <!-- Profile Locked Alert -->
-            <div id="profileLockedAlert" class="alert alert-warning alert-dismissible fade show mb-4" role="alert" style="display:none;">
-                <i class="fas fa-lock"></i> 
-                <strong>{{ "Profile Locked"|t:current_lang }}</strong> — {{ "Your profile has been approved. To make changes, please submit a request below."|t:current_lang }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-
-            <!-- Pending Change Request Alert -->
-            <div id="pendingChangeAlert" class="alert alert-warning alert-dismissible fade show mb-4" role="alert" style="display:none;">
-                <i class="fas fa-hourglass-half"></i>
-                <strong>{{ "Request Pending"|t:current_lang }}</strong> — {{ "Your edit request is awaiting HOD approval. No changes can be made until approved."|t:current_lang }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-
-            <!-- Request for Change Section -->
-            <div id="requestChangeSection" class="card shadow-lg border-0 mb-4"{% if profile_approved %}style="display:block;"{% else %}style="display:none;"{% endif %}>
-                <div class="card-header bg-light border-bottom">
-                    <h5 class="fw-bold text-primary mb-0">
-                        <i class="fas fa-edit"></i> {{ "Request Change to Profile"|t:current_lang }}
-                    </h5>
+            {% if profile_approved and not can_edit and not has_pending_change_request %}
+                <div id="profileLockedAlert" class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
+                    <i class="fas fa-lock"></i> 
+                    <strong>{{ "Profile Locked"|t:current_lang }}</strong> — {{ "Your profile has been approved. To make changes, please submit a request below."|t:current_lang }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
-                <div class="card-body p-4">
-                    <p class="text-muted mb-3">{{ "Your profile is locked. To make changes, please describe why you need to update your information."|t:current_lang }}</p>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold" for="changeReason">{{ "Reason for Change"|t:current_lang }} <span class="text-danger">*</span></label>
-                        <textarea 
-                        id="changeReason" 
-                        name="change_reason" 
-                        class="form-control" 
-                        rows="4"
-                        placeholder="{{ 'Describe why you need to make these changes...'|t:current_lang }}"
-                        {% if pending_change_request %}disabled{% endif %}
-                        required></textarea>
-                        <small id="reasonStatus" class="d-block mt-2{% if pending_change_request %}text-warning{% else %}text-muted{% endif %}">
-                            {% if pending_change_request %}
-                                {{ "Request already sent, waiting for approval..."|t:current_lang }}
-                            {% else %}
-                                {{ "This will be sent to your HOD for approval."|t:current_lang }}
-                            {% endif %}
-                        </small>
-                    </div>
 
-                    <div class="d-flex gap-2">
-                        <button type="button" id="submitChangeRequest" class="btn btn-warning btn-lg"{% if pending_change_request %}disabled{% endif %}>
-                            <i class="fas fa-paper-plane"></i> {{ "Submit Request for Change"|t:current_lang }}
-                        </button>
-                        <button type="button" id="cancelChangeRequest" class="btn btn-outline-secondary btn-lg">
-                            {{ "Cancel"|t:current_lang }}
-                        </button>
+                <div id="requestChangeSection" class="card shadow-lg border-0 mb-4">
+                    <div class="card-header bg-light border-bottom">
+                        <h5 class="fw-bold text-primary mb-0">
+                            <i class="fas fa-edit"></i> {{ "Request Change to Profile"|t:current_lang }}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">
+                            {{ "Your profile is locked. To make changes, please describe why you need to update your information."|t:current_lang }}
+                        </p>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">{{ "Reason for Change"|t:current_lang }} <span class="text-danger">*</span></label>
+                            <textarea id="changeReason" class="form-control" rows="3" placeholder="{{ 'Describe why you need to make these changes...'|t:current_lang }}"></textarea>
+                        </div>
+                        <p class="text-muted small"><i>{{ "This will be sent to your HOD for approval."|t:current_lang }}</i></p>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-warning px-4" onclick="submitChangeRequest()">
+                                {{ "Submit Request for Change"|t:current_lang }}
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="window.location.reload()">
+                                {{ "Cancel"|t:current_lang }}
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            {% endif %}
 
+            {% if profile.approval_status == 'pending' and not can_edit %}
+                <div class="alert alert-info mb-4">
+                    <i class="fas fa-clock"></i> {{ "Your registration is currently pending HOD approval. Your form is locked until you are verified."|t:current_lang }}
+                </div>
+            {% endif %}
             <div class="card shadow-lg border-0">
                 <div class="card-body p-5">
                     <form method="post" id="employeeForm" class="needs-validation" novalidate>
