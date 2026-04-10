@@ -236,20 +236,12 @@ if os.path.exists(FONT_PATH):
 #             "message": "Empcode required"
 #         })
 
-<<<<<<< HEAD
-    EMPLOYEE_DATA = load_employee_data()
-
-   
-    # print("Searching emp_code:", emp_code)
-    # print("Available keys sample:", list(EMPLOYEE_DATA.keys())[:10])
-=======
 #     # 🔥 LOAD EXCEL DATA
 #     EMPLOYEE_DATA = load_employee_data()
 
 #     # # 🔥 DEBUG (temporary)
 #     # print("Searching emp_code:", emp_code)
 #     # print("Available keys sample:", list(EMPLOYEE_DATA.keys())[:10])
->>>>>>> origin/main
 
 #     if emp_code not in EMPLOYEE_DATA:
 #         return JsonResponse({

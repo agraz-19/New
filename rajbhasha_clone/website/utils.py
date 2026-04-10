@@ -107,7 +107,7 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
         'otp': {
             'subject': translate_text("Password Reset OTP", lang),
             'headline': translate_text("Verify Your Identity", lang),
-            'body': translate_text("Your One-Time Password (OTP) is below. It is valid for 10 minutes.", lang),
+            'body': translate_text("Your One-Time Password (OTP) is below. It is valid for 5 minutes.", lang),
             'details': {translate_text('OTP Code', lang): extra_context.get('otp')},
             'is_alert': True
         },
@@ -123,7 +123,7 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
             'headline': "New Login Detected",
             'body': "We noticed a new login to your account. If this was you, you can ignore this.",
             'details': {
-                'Time': timezone.now().strftime('%Y-%m-%d %H:%M'),
+                'Time': timezone.localtime().strftime('%Y-%m-%d %H:%M'),
                 'Role': translated_role
             },
             'is_alert': True
@@ -132,7 +132,7 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
             'subject': "Data Export Initiated",
             'headline': "Data Export Alert",
             'body': "A copy of your personal data has been exported from your dashboard.",
-            'details': {'Date': timezone.now().strftime('%Y-%m-%d')},
+            'details': {'Date': timezone.localtime().strftime('%Y-%m-%d')},
             'is_alert': True
         },
         'update': {
@@ -184,7 +184,7 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
     'body': "For your security, your profile has been frozen. You will need manager approval for future modifications.",
     'details': {
         'Status': translate_text("Frozen", lang),
-        'Time': timezone.now().strftime('%Y-%m-%d %H:%M')
+        'Time': timezone.localtime().strftime('%Y-%m-%d %H:%M')
     },
     'is_alert': True
 }

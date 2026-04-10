@@ -8,6 +8,7 @@ from django.utils import timezone
 import hashlib
 from captcha.fields import CaptchaField
 from django.contrib.auth import authenticate
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 
 class CustomUserCreationForm(UserCreationForm):
@@ -180,6 +181,15 @@ class CustomLoginForm(AuthenticationForm):
 
         if not emp_code or not password:
             return cleaned_data
+        
+        cache_key = f"login_attempts_{emp_code}"
+        attempts = cache.get(cache_key, 0)
+
+        if attempts >= 3:
+            raise ValidationError(
+                translate_text("Account locked due to 3 incorrect attempts. Please try again after 2 hours.", self.lang), 
+                code='locked'
+            )
 
         from .models import UserProfile
 
@@ -188,6 +198,8 @@ class CustomLoginForm(AuthenticationForm):
                 employee_code=emp_code
             )
         except UserProfile.DoesNotExist:
+            # Increment failed attempts even for invalid users to prevent brute-force enumeration
+            cache.set(cache_key, attempts + 1, 7200 if attempts + 1 >= 3 else 3600)
             raise ValidationError("Invalid Employee Code")
         
         
@@ -198,8 +210,20 @@ class CustomLoginForm(AuthenticationForm):
         )
 
         if user is None:
-            raise ValidationError(self.error_messages['invalid_login'], code='invalid_login')
-
+            attempts += 1
+            if attempts >= 3:
+                cache.set(cache_key, attempts, 7200) # Lock for 2 hours (7200 seconds)
+                raise ValidationError(
+                    translate_text("Account locked for 2 hours due to 3 incorrect attempts.", self.lang), 
+                    code='locked'
+                )
+            else:
+                cache.set(cache_key, attempts, 3600) # Remember the attempt for 1 hour
+                raise ValidationError(
+                    translate_text(f"Invalid login. {3 - attempts} attempts remaining.", self.lang), 
+                    code='invalid_login'
+                )
+        cache.delete(cache_key)
         self.confirm_login_allowed(user)
         self.user_cache = user
 
