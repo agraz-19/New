@@ -174,7 +174,7 @@ class CustomLoginForm(AuthenticationForm):
     def clean(self):
         """Authenticate using ONLY employee code"""
         
-        cleaned_data = super().clean()
+        cleaned_data = super(AuthenticationForm, self).clean()
 
         emp_code = cleaned_data.get('username')
         password = cleaned_data.get('password')
@@ -186,7 +186,7 @@ class CustomLoginForm(AuthenticationForm):
         attempts = cache.get(cache_key, 0)
 
         if attempts >= 3:
-            raise ValidationError(
+            raise forms.ValidationError(
                 translate_text("Account locked due to 3 incorrect attempts. Please try again after 2 hours.", self.lang), 
                 code='locked'
             )
@@ -199,8 +199,8 @@ class CustomLoginForm(AuthenticationForm):
             )
         except UserProfile.DoesNotExist:
             # Increment failed attempts even for invalid users to prevent brute-force enumeration
-            cache.set(cache_key, attempts + 1, 7200 if attempts + 1 >= 3 else 3600)
-            raise ValidationError("Invalid Employee Code")
+            cache.set(cache_key, attempts + 1, 7200)
+            raise forms.ValidationError("Invalid Employee Code")
         
         
         user = authenticate(
@@ -211,15 +211,14 @@ class CustomLoginForm(AuthenticationForm):
 
         if user is None:
             attempts += 1
+            cache.set(cache_key, attempts, 7200)
             if attempts >= 3:
-                cache.set(cache_key, attempts, 7200) # Lock for 2 hours (7200 seconds)
-                raise ValidationError(
+                raise forms.ValidationError(
                     translate_text("Account locked for 2 hours due to 3 incorrect attempts.", self.lang), 
                     code='locked'
                 )
             else:
-                cache.set(cache_key, attempts, 3600) # Remember the attempt for 1 hour
-                raise ValidationError(
+                raise forms.ValidationError(
                     translate_text(f"Invalid login. {3 - attempts} attempts remaining.", self.lang), 
                     code='invalid_login'
                 )
