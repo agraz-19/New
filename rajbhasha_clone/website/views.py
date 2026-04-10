@@ -226,10 +226,9 @@ def api_get_employee_details(request):
             "message": "Empcode required"
         })
 
-    # 🔥 LOAD EXCEL DATA
     EMPLOYEE_DATA = load_employee_data()
 
-    # # 🔥 DEBUG (temporary)
+   
     # print("Searching emp_code:", emp_code)
     # print("Available keys sample:", list(EMPLOYEE_DATA.keys())[:10])
 
@@ -375,7 +374,6 @@ def set_thumbnail(request, folder):
     if request.method == "POST":
         thumbnail = request.POST.get("thumbnail")
 
-        # 🔥 Get existing meta so titles don’t get erased
         meta = _read_meta(folder)
 
         update_event_meta(
@@ -647,8 +645,6 @@ def _aggregate_records_for_range(user, start_dt, end_dt, source_frequency='daily
     if not start_dt or not end_dt:
         return total
 
-    # Base queryset: filter by user, submission state and frequency only.
-    # We intentionally avoid requiring explicit period_start/period_end here so
     # older records that may miss one of those fields are still considered.
     qs = QPRRecord.objects.filter(
         user=user,
@@ -1702,7 +1698,7 @@ def download_db_backup(request):
 
 @login_required
 @user_passes_test(is_admin)  # This checks user.role == 'admin', so NO Superuser required
-def archive_user(request, user_id):  # ✅ FIXED: Added 'request' argument
+def archive_user(request, user_id):  
     # 1. Fetch User
     user_to_archive = get_object_or_404(CustomUser, id=user_id)
     
@@ -1759,7 +1755,7 @@ def archive_user(request, user_id):  # ✅ FIXED: Added 'request' argument
 
     # 6. Success Message & Redirect
     messages.success(request, f"User {user_to_archive.username} has been archived successfully.")
-    return redirect('dashboard')  # ✅ FIXED: Added return statement
+    return redirect('dashboard')  
 
 @login_required
 @user_passes_test(is_admin)
@@ -1797,9 +1793,6 @@ def profile_view(request):
 
     employee = None
 
-    # ===============================
-    # 🔐 EDIT REQUESTS & PERMISSIONS
-    # ===============================
     approved_request = EditRequest.objects.filter(
         user=user,
         request_type='profile',
@@ -1821,7 +1814,6 @@ def profile_view(request):
 
     # HEAD-style permission (lenient but controlled)
     # ===============================
-    # 📩 POST LOGIC
     # ===============================
     if request.method == 'POST':
         # Debug: Print POST data and CSRF token
@@ -1844,19 +1836,17 @@ def profile_view(request):
         username = request.POST.get('username', '').strip().upper()
         phone = request.POST.get('phone', '').strip()
 
-        # ❌ Validate empcode
+    
         if empcode not in EMPLOYEE_DATA:
             messages.error(request, "Invalid Employee Code")
             return redirect('profile')
 
         employee_data = EMPLOYEE_DATA[empcode]
 
-        # ❌ Validate name
         if username != employee_data["name"]:
             messages.error(request, "Name does not match official records")
             return redirect('profile')
 
-        # ❌ Validate phone
         if phone != employee_data["mobile"]:
             messages.error(request, "Mobile number does not match official records")
             return redirect('profile')
@@ -1864,7 +1854,6 @@ def profile_view(request):
         # Fetch employee after validation
         employee = Employee.objects.filter(empcode=empcode).first()
 
-        # 🔥 HOD mandatory
         hod_name_post = request.POST.get('hod_name', '').strip()
         if not hod_name_post:
             messages.error(request, "HOD/Approver selection is required")
@@ -1891,28 +1880,23 @@ def profile_view(request):
             )
             return redirect('profile')
 
-        # ===============================
-        # ✅ SAVE USER
-        # ===============================
+       
         user.set_email(new_email)
         user.is_edit_allowed = False
         user.save()
 
-        # ===============================
-        # ✅ SAVE PROFILE
-        # ===============================
+       
         if profile:
             profile.employee_code = empcode
             profile.phone = phone
             profile.office_code = request.POST.get('office_code', '').strip()
             profile.office_name = request.POST.get('office_name', '').strip()
             profile.email = new_email
-            # ✅ FIX: was profile.region = ... (wrong field name), now correct:
             profile.language_region = request.POST.get('language_region', '')
             profile.hod_name = request.POST.get('hod_name', '')
             alt_email_post = request.POST.get('alternate_email', '').lower().strip()
             profile.alternate_email = alt_email_post if alt_email_post else None
-            profile.profile_updated = True  # ✅ FIX: mark as updated so user isn't redirected to profile again
+            profile.profile_updated = True  
             if profile.approval_status == 'rejected':
                 profile.approval_status = 'pending'
                 messages.info(request, "Your updated profile has been sent back to your HOD for review.")
@@ -1920,7 +1904,7 @@ def profile_view(request):
                 profile.save()
                 # Debug - remove after confirming it works
                 profile.refresh_from_db()
-                print(f"✅ SAVED: empcode={profile.employee_code}, language_region={profile.language_region}")
+                print(f"SAVED: empcode={profile.employee_code}, language_region={profile.language_region}")
             except Exception as e:
                 messages.error(request, f"Profile save error: {str(e)}")
                 return redirect('profile')
@@ -1933,7 +1917,6 @@ def profile_view(request):
             profile.save()
 
         # ===============================
-        # ✅ EMPLOYEE FORM
         # ===============================
         form = EmployeeForm(request.POST, instance=employee)
 
@@ -1950,7 +1933,6 @@ def profile_view(request):
             return redirect('profile')
 
         # ===============================
-        # 🔄 CLEANUP
         # ===============================
         if approved_request:
             approved_request.status = 'used'
@@ -2012,11 +1994,9 @@ def profile_view(request):
     can_edit = (not user.is_frozen) or user.is_edit_allowed or (approved_request is not None)
 
     # ===============================
-    # 📩 POST LOGIC
     # ===============================
     if request.method == 'POST':
 
-        # 🔒 Strict lock
         if not can_edit:
             messages.error(
                 request,
@@ -2031,19 +2011,16 @@ def profile_view(request):
         username = request.POST.get('username', '').strip().upper()
         phone = request.POST.get('phone', '').strip()
 
-        # ❌ Validate empcode
         if empcode not in EMPLOYEE_DATA:
             messages.error(request, "Invalid Employee Code")
             return redirect('profile')
 
         employee_data = EMPLOYEE_DATA[empcode]
 
-        # ❌ Validate name
         if username != employee_data["name"]:
             messages.error(request, "Name does not match official records")
             return redirect('profile')
 
-        # ❌ Validate phone
         if phone != employee_data["mobile"]:
             messages.error(request, "Mobile number does not match official records")
             return redirect('profile')
@@ -2051,7 +2028,6 @@ def profile_view(request):
         # Fetch employee after validation
         employee = Employee.objects.filter(empcode=empcode).first()
 
-        # 🔥 HOD mandatory
         hod_name_post = request.POST.get('hod_name', '').strip()
         if not hod_name_post:
             messages.error(request, "HOD/Approver selection is required")
@@ -2079,14 +2055,12 @@ def profile_view(request):
             return redirect('profile')
 
         # ===============================
-        # ✅ SAVE USER
         # ===============================
         user.set_email(new_email)
         user.is_edit_allowed = False
         user.save()
 
         # ===============================
-        # ✅ SAVE PROFILE
         # ===============================
         if profile:
             profile.employee_code = empcode
@@ -2096,14 +2070,12 @@ def profile_view(request):
             profile.email = new_email
             profile.hod_name = hod_name_post
 
-            # 🔒 Approval workflow
             profile.profile_updated = True
             profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
 
             profile.save()
 
         # ===============================
-        # ✅ EMPLOYEE FORM
         # ===============================
         form = EmployeeForm(request.POST, instance=employee)
 
@@ -2120,7 +2092,6 @@ def profile_view(request):
             return redirect('profile')
 
         # ===============================
-        # 🔄 CLEANUP
         # ===============================
         if approved_request:
             approved_request.status = 'used'
@@ -2136,13 +2107,12 @@ def profile_view(request):
         return redirect('dashboard')
 
     # ===============================
-    # 📄 GET LOGIC
+   
     # ===============================
     else:
         form = EmployeeForm(instance=employee)
 
     # ===============================
-    # 📦 CONTEXT
     # ===============================
     offices = Office.objects.all()
 
@@ -2172,119 +2142,6 @@ def profile_view(request):
     from django.template.context_processors import csrf
     context.update(csrf(request))
     return render(request, 'profile.html', context)
-
-'''
-@login_required
-def user_profile(request):
-    """QPR specific profile with office details"""
-    lang = request.session.get('lang', 'en')
-    profile = request.user.profile
-    profile.refresh_from_db()
-    profile_submitted = profile.profile_updated
-    
-    # Fetch QPR details
-    latest_qpr = QPRRecord.objects.filter(user=request.user).order_by('-updated_at').first()
-    qpr_office_name = ""
-    qpr_office_code = ""
-    qpr_phone = ""
-    qpr_email = ""
-    
-    if latest_qpr:
-        qpr_office_name = latest_qpr.officeName
-        qpr_office_code = latest_qpr.officeCode
-        qpr_phone = latest_qpr.phone or ""
-        qpr_email = latest_qpr.email or ""
-    
-    # Check for edit requests
-    pending_edit_request = EditRequest.objects.filter(
-        user=request.user,
-        request_type='profile',
-        status='pending'
-    ).first()
-    
-    approved_edit_request = EditRequest.objects.filter(
-        user=request.user,
-        request_type='profile',
-        status='approved'
-    ).first()
-    
-    rejected_edit_request = EditRequest.objects.filter(
-        user=request.user,
-        request_type='profile',
-        status='rejected'
-    ).order_by('-created_at').first()
-
-    if request.method == 'POST':
-        # Collect posted values
-        username = request.POST.get('username', '').strip()
-        email = request.POST.get('email', '').strip()
-        office_code = request.POST.get('office_code', '').strip()
-        # Phone may be submitted by the user; ensure it's defined before use
-        phone = request.POST.get('phone', '').strip()
-        # Basic validation (HOD is admin-managed; do not require it from the user)
-        if not username:
-            messages.error(request, translate_text('Username is required', lang))
-        elif User.objects.exclude(id=getattr(request.user, 'id', None)).filter(username=username).exists():
-            messages.error(request, translate_text('Username already taken', lang))
-        elif not email:
-            messages.error(request, translate_text('Email is required', lang))
-        elif not office_code:
-            messages.error(request, translate_text('Office selection is required', lang))
-        elif profile_submitted and not approved_edit_request:
-            messages.error(request, translate_text('You cannot edit a submitted profile. Please request approval from Admin first.', lang))
-        else:
-            # Lookup office name
-            from .models import Office
-            office = Office.objects.filter(code=office_code).first()
-            office_name = office.name if office else ''
-
-            # Save profile and user (do not change hod_name here)
-            profile.email = email
-            profile.phone = phone or profile.phone
-            profile.office_code = office_code
-            profile.office_name = office_name
-            profile.profile_updated = True
-            profile.save()
-
-            request.user.email = email
-            # update username if changed
-            if request.user.username != username:
-                request.user.username = username
-            request.user.save()
-
-            # Clear approved request after edit
-            if approved_edit_request:
-                approved_edit_request.delete()
-
-            messages.success(request, translate_text('Profile updated successfully! Your profile is now frozen. To edit it again, request approval from admin.', lang))
-            return redirect('qpr_user_dashboard')
-
-    # Get list of available HODs for selection
-    available_hods = get_active_hods(profile.office_code) if profile.office_code else []
-    # Get list of offices for dropdown
-    from .models import Office
-    offices = Office.objects.all()
-
-    context = {
-        'profile': profile,
-        'profile_updated': profile.profile_updated,
-        'pending_edit_request': pending_edit_request,
-        'approved_edit_request': approved_edit_request,
-        'rejected_edit_request': rejected_edit_request,
-        'can_edit': not profile_submitted or approved_edit_request is not None,
-        'available_hods': available_hods,
-        'current_hod': profile.hod_name,
-        'qpr_office_name': qpr_office_name,
-        'qpr_office_code': qpr_office_code,
-        'qpr_phone': qpr_phone,
-        'qpr_email': qpr_email,
-        'offices': offices,
-    }
-    response = render(request, 'profile.html', context)
-    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response['Pragma'] = 'no-cache'
-    response['Expires'] = '0'
-    return response'''
 
 @login_required
 def freeze_profile(request):
@@ -2705,28 +2562,7 @@ def admin_create_manager(request):
                 messages.error(request, 'User has not registered or entered employee code is incorrect')
     return render(request, 'qpr/admin_create_manager.html')
 
-# def api_get_employee_details(request):
-#     """API endpoint to fetch employee details by employee code"""
-#     emp_code = request.GET.get('emp_code', '').strip()
-    
-#     if not emp_code:
-#         return JsonResponse({'error': 'Employee code is required'}, status=400)
-    
-#     try:
-#         profile = UserProfile.objects.get(employee_code=emp_code)
-#         # Return profile display name and existing roles so admin UI can decide actions.
-#         roles = list(profile.roles.values_list('name', flat=True))
-#         display_name = profile.name or profile.user.get_full_name() or profile.user.username
-#         return JsonResponse({
-#             'success': True,
-#             'name': display_name,
-#             'employee_code': profile.employee_code,
-#             'roles': roles or ['user']
-#         })
-#     except UserProfile.DoesNotExist:
-#         return JsonResponse({
-#             'error': 'User has not registered or entered employee code is incorrect'
-#         }, status=404)
+
 def admin_api_get_employee_details(request):
     """API endpoint to fetch employee details by employee code"""
     emp_code = request.GET.get('emp_code', '').strip()
@@ -2912,7 +2748,6 @@ def manage_user_action(request, user_id, action):
     for the special-case action 'unlock_qpr'. We handle 'unlock_qpr' first to
     avoid attempting to resolve a CustomUser for a QPR id (which caused 404s).
     """
-    # Special-case: treat provided id as QPR id when unlocking a QPR
     if action == 'unlock_qpr':
         if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
             messages.error(request, translate_text("Unauthorized", request.session.get('lang', 'en')))

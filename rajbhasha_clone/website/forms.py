@@ -74,11 +74,7 @@ class CustomUserCreationForm(UserCreationForm):
             "The two password fields didn't match.", lang
         )
 
-    # def clean_username(self):
-    #     username = self.cleaned_data.get('username')
-    #     if not username.isdigit():
-    #         raise forms.ValidationError(translate_text("Username must contain only integers.", self.lang))
-    #     return username
+
     def clean_username(self):
         username = self.cleaned_data.get('username')
         from .models import CustomUser, UserProfile
