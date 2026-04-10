@@ -422,47 +422,52 @@
             ? selectElement.options[selectElement.selectedIndex].text.trim()
             : "";
     }
-
-    function checkProfileLockState() {
-    const profileStatus = "{{ profile.approval_status|default:'' }}";
-    const isEditAllowed = {{ user.is_edit_allowed|yesno:"true,false" }};
-    const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
-
-    console.log("STATE CHECK:", { profileStatus, isEditAllowed, hasPendingRequest });
-
-    // 🔒 STEP 1: pending profile → LOCK
-    if (profileStatus === 'pending') {
-        isProfileLocked = true;
-        lockAllFormFields();
-        showProfileLockedUI();
-        return;
-    }
-
-    // 🔒 STEP 2: approved but no edit permission → LOCK
-    if (profileStatus === 'approved' && !isEditAllowed) {
-        isProfileLocked = true;
-        lockAllFormFields();
-        showProfileLockedUI();
-        return;
-    }
-
-    // 🔒 STEP 3: pending change request → LOCK
-    if (hasPendingRequest) {
-        isProfileLocked = true;
-        lockAllFormFields();
-        return;
-    }
-
-    // 🔓 STEP 4: approved request → UNLOCK
-    if (isEditAllowed) {
-        isProfileLocked = false;
-        unlockFormFields();
-        return;
-    }
-
-    // 🔓 default (new user)
+    if (!profileStatus || profileStatus === '' || profileStatus === null) {
     isProfileLocked = false;
     unlockFormFields();
+    return;
+}
+
+    function checkProfileLockState() {
+        const profileStatus = "{{ profile.approval_status|default:'' }}";
+        const isEditAllowed = {{ user.is_edit_allowed|yesno:"true,false" }};
+        const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
+
+        console.log("STATE CHECK:", { profileStatus, isEditAllowed, hasPendingRequest });
+
+        // 🔒 STEP 1: pending profile → LOCK
+        if (profileStatus === 'pending') {
+            isProfileLocked = true;
+            lockAllFormFields();
+            showProfileLockedUI();
+            return;
+        }
+
+        // 🔒 STEP 2: approved but no edit permission → LOCK
+        if (profileStatus === 'approved' && !isEditAllowed) {
+            isProfileLocked = true;
+            lockAllFormFields();
+            showProfileLockedUI();
+            return;
+        }
+
+        // 🔒 STEP 3: pending change request → LOCK
+        if (hasPendingRequest) {
+            isProfileLocked = true;
+            lockAllFormFields();
+            return;
+        }
+
+        // 🔓 STEP 4: approved request → UNLOCK
+        if (isEditAllowed) {
+            isProfileLocked = false;
+            unlockFormFields();
+            return;
+        }
+
+        // 🔓 default (new user)
+        isProfileLocked = false;
+        unlockFormFields();
 
     }
     function lockAllFormFields() {
@@ -491,8 +496,31 @@
         });
         
         const submitBtn = document.getElementById("submitBtn");
+        if (submitBtn) submitBtn.disabled = false;}
+    
+
+    function unlockFormFields() {
+        const form = document.getElementById("employeeForm");
+        if (!form) return;
+        
+        // Select all inputs, selects, and textareas
+        const allControls = form.querySelectorAll("input, select, textarea");
+        allControls.forEach(el => {
+            // Keep standard Django CSRF or hidden fields as they are
+            if (el.name === 'csrfmiddlewaretoken' || el.type === 'hidden') return;
+            
+            // Remove the disabled attribute from every field
+            el.disabled = false;
+            
+            // Optional: Remove any readonly attributes if you used them
+            el.readOnly = false;
+        });
+        
+        // Ensure the main save button is active
+        const submitBtn = document.getElementById("submitBtn");
         if (submitBtn) submitBtn.disabled = false;
     }
+    
 
     function showProfileLockedUI() {
         document.getElementById("profileLockedAlert").style.display = "block";
@@ -509,7 +537,17 @@
         const requestChangeSection = document.getElementById('requestChangeSection');
 
         // ✅ CORRECTED LOGIC: Only show request box if profile was previously approved
-        if (hasApprovedRequest) {
+        if (profileStatus === '') {
+            isProfileLocked = false;
+            unlockFormFields();
+            // Hide all lock-related UI elements
+            const lockAlert = document.getElementById("profileLockedAlert");
+            const reqSection = document.getElementById("requestChangeSection");
+            if (lockAlert) lockAlert.style.display = "none";
+            if (reqSection) reqSection.style.display = "none";
+            return;
+        }
+        else if (hasApprovedRequest) {
             // Profile was approved before, now user wants to change it
             requestChangeSection.style.display = 'block';
             unlockFormFields();
