@@ -235,11 +235,8 @@ if os.path.exists(FONT_PATH):
 #             "status": "error",
 #             "message": "Empcode required"
 #         })
-
-#     # 🔥 LOAD EXCEL DATA
 #     EMPLOYEE_DATA = load_employee_data()
 
-#     # # 🔥 DEBUG (temporary)
 #     # print("Searching emp_code:", emp_code)
 #     # print("Available keys sample:", list(EMPLOYEE_DATA.keys())[:10])
 
@@ -342,7 +339,6 @@ def submit_profile_change_request(request):
                 'message': 'HOD is not assigned to your profile.'
             })
 
-        # 🔴 PREVENT DUPLICATE REQUESTS
         existing_request = ProfileChangeRequest.objects.filter(
             profile=profile,
             status='pending'
@@ -354,7 +350,6 @@ def submit_profile_change_request(request):
                 'message': 'You already have a pending request. Please wait for approval.'
             })
 
-        # 🔍 Find HOD (same logic, untouched)
         hod_profile = UserProfile.objects.filter(
             Q(employee_code=hod_identifier) |
             Q(name__iexact=hod_identifier) |
@@ -368,7 +363,6 @@ def submit_profile_change_request(request):
                 'message': f'HOD "{hod_identifier}" not found in system. Please ensure your HOD has registered and is approved.'
             })
 
-        # ✅ CREATE REQUEST (unchanged logic)
         ProfileChangeRequest.objects.create(
             profile=profile,
             change_reason=reason,
@@ -376,7 +370,6 @@ def submit_profile_change_request(request):
             status='pending'
         )
 
-        # ✅ UPDATE PROFILE STATUS (unchanged)
         profile.approval_status = 'change_pending'
         profile.save(update_fields=['approval_status'])
 
@@ -1974,18 +1967,17 @@ def unarchive_user(request, archive_id):
         messages.error(request, "Original user record not found. Cannot restore.")
         return redirect('dashboard')
     
-
 @login_required
 def profile_view(request):
     """
-    Refactored profile view with proper lock/unlock workflow.
+    Profile view with correct lock/unlock workflow.
     
     Flow:
-    1. New user → can edit freely
-    2. User saves → profile locked, NO request box appears yet
-    3. HOD approves profile → request box appears (only for previously approved users making changes)
-    4. User fills reason → submits change request
-    5. HOD approves change request → form unlocks
+    1. NEW USER → form UNLOCKED, can fill and save
+    2. After save → form UNLOCKED (status=pending, no request box yet)
+    3. HOD approves → form UNLOCKED (status=approved, request box appears)
+    4. User requests change → form LOCKED (pending_change_request exists)
+    5. HOD approves change → form UNLOCKED (is_edit_allowed=True)
     """
     from .models import Employee, Office, ProfileChangeRequest, QPRRecord
     from .employeeform import EmployeeForm
@@ -1994,15 +1986,7 @@ def profile_view(request):
     user = request.user
     profile = getattr(user, 'profile', None)
     
-    # ===============================
-    # 🔑 STATE FLAGS & LOCK LOGIC
-    # ===============================
-    # A user can edit if:
-    # 1. is_edit_allowed is explicitly True (after HOD approves change request)
-    # 2. OR the profile hasn't been approved yet (New User/Rejected User)
-    is_approved = profile and profile.approval_status == "approved"
-    can_edit = user.is_edit_allowed or not is_approved
-
+    # Get change requests
     pending_change_request = ProfileChangeRequest.objects.filter(
         profile=profile,
         status='pending'
@@ -2014,6 +1998,18 @@ def profile_view(request):
     ).order_by('-approved_at').first() if profile else None
 
     # ===============================
+    # 🔑 STATE FLAGS & LOCK LOGIC
+    # ===============================
+    is_approved = profile and profile.approval_status == "approved"
+    
+    # ✅ CORRECTED: User can edit if:
+    # 1. Profile is NOT approved yet (new user, pending, or rejected)
+    # 2. is_edit_allowed is True (HOD approved their change request)
+    # 3. Profile is approved BUT no pending change request (they can make one)
+    can_edit = (not is_approved) or user.is_edit_allowed or (is_approved and not pending_change_request)
+
+    # ===============================
+    # 📩 POST LOGIC (SAVE CHANGES)
     # ===============================
     if request.method == 'POST':
         if not can_edit:
@@ -2052,7 +2048,9 @@ def profile_view(request):
 
        
         user.set_email(new_email)
-        user.is_edit_allowed = False  # ✅ LOCK user immediately after save
+        # ✅ Only lock if they just used an approved change request
+        if approved_change_request:
+            user.is_edit_allowed = False
         user.save()
 
        
@@ -2068,10 +2066,10 @@ def profile_view(request):
             profile.ip_number = request.POST.get('ip_number', '').strip()
             profile.alternate_email = request.POST.get('alternate_email', '').strip()
             
-            # Workflow Transition:
-            # If new user or rejected → pending for HOD approval
-            # If previously approved → pending for re-verification
-            profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
+            # Only change status if coming from pending/rejected, not if already approved
+            if profile.approval_status != "approved":
+                profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
+            
             profile.profile_updated = True
             profile.save()
 
@@ -2122,10 +2120,10 @@ def profile_view(request):
         'ip_number': profile.ip_number if profile else '',
         'alternate_email': profile.alternate_email if profile else '',
 
-        # 🔑 Flags for Template (controls UI behavior)
+        # 🔑 Flags for Template
         'can_edit': can_edit,
-        'profile_locked': not can_edit,  # Used by JS to lock form fields
-        'profile_approved': is_approved,  # Profile was previously approved
+        'profile_locked': not can_edit,
+        'profile_approved': is_approved,
         'pending_change_request': pending_change_request,
         'has_pending_change_request': bool(pending_change_request),
         'has_approved_change_request': bool(approved_change_request),
