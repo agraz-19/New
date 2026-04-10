@@ -26,30 +26,47 @@ def get_allowed_quarters(selected_year):
     today = timezone.localdate()
     current_start = today.year if today.month >= 4 else today.year - 1
 
+    # Debug: record incoming year and computed current start
+    print(f"[get_allowed_quarters] received selected_year={selected_year!r}, today={today}, current_start={current_start}")
+
     if not selected_year:
         selected_year = f"{current_start}-{current_start+1}"
 
     try:
         selected_start = int(selected_year.split('-')[0])
-    except:
+    except Exception as e:
+        print(f"[get_allowed_quarters] failed to parse selected_year={selected_year!r}: {e}")
         return []
 
     if selected_start < current_start:
         return [q[0] for q in QUARTERS]
 
     if selected_start > current_start:
+        print(f"[get_allowed_quarters] selected_start {selected_start} > current_start {current_start} -> returning []")
         return []
 
-    allowed = []
     month = today.month
 
-    for name, end_month in QUARTERS:
-        if end_month == 3:
-            if month <= 3:
-                allowed.append(name)
-        elif month >= end_month:
-            allowed.append(name)
+    # Determine current quarter number based on server month using the same
+    # mapping as the frontend: Apr-Jun -> 1, Jul-Sep -> 2, Oct-Dec -> 3, Jan-Mar -> 4
+    if month <= 3:
+        current_q = 4
+    elif month <= 6:
+        current_q = 1
+    elif month <= 9:
+        current_q = 2
+    else:
+        current_q = 3
 
+    # Allow all quarters from start up to and including the current ongoing quarter
+    # This keeps past quarters allowed, includes the ongoing quarter, and excludes future quarters.
+    allowed = [q[0] for q in QUARTERS[:current_q]]
+
+    # Defensive: if somehow allowed is empty for same-year, include first quarter
+    if not allowed and selected_start == current_start:
+        allowed = [QUARTERS[0][0]]
+
+    print(f"[get_allowed_quarters] month={month}, current_q={current_q}, allowed_quarters={allowed}")
     return allowed
 
 def get_current_financial_year():
@@ -235,39 +252,3 @@ def load_employee_data():
         }
 
     return employee_dict
-QUARTERS = [
-    ("30 जून / Jun 30", 6),
-    ("30 सितंबर / Sep 30", 9),
-    ("31 दिसंबर / Dec 31", 12),
-    ("31 मार्च / Mar 31", 3),
-]
-
-def get_allowed_quarters(selected_year):
-    today = timezone.localdate()
-    current_start = today.year if today.month >= 4 else today.year - 1
-
-    if not selected_year:
-        selected_year = f"{current_start}-{current_start+1}"
-
-    try:
-        selected_start = int(selected_year.split('-')[0])
-    except:
-        return []
-
-    if selected_start < current_start:
-        return [q[0] for q in QUARTERS]
-
-    if selected_start > current_start:
-        return []
-
-    allowed = []
-    month = today.month
-
-    for name, end_month in QUARTERS:
-        if end_month == 3:
-            if month <= 3:
-                allowed.append(name)
-        elif month >= end_month:
-            allowed.append(name)
-
-    return allowed

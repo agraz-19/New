@@ -3,8 +3,8 @@ from django.urls import path, include
 from captcha import views as captcha_views
 from website import views
 from website.views import (
-    CustomLoginView, signup, ForgotPasswordView, VerifyOTPView, ResetPasswordView,
-     custom_logout,approve_profile_change_hod, reject_profile_change_hod,submit_profile_change_request
+    CustomLoginView, LoginOTPView, signup, ForgotPasswordView, VerifyOTPView, ResetPasswordView,
+    custom_logout
 )
 
 urlpatterns = [
@@ -15,6 +15,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'), # Central Router
     
     path('login/', CustomLoginView.as_view(), name='login'),
+    path('login/verify-otp/', LoginOTPView.as_view(), name='login_otp_step'),
     path('signup/', signup, name='signup'),
     path('logout/', custom_logout, name='logout'),
 
@@ -67,6 +68,7 @@ urlpatterns = [
     # --- HOD WORKFLOW ---
     path('qpr/hod/details/', views.hod_detail_list, name='qpr_hod_detail_list'),
     path('qpr/hod/freeze/<int:qpr_record_id>/', views.toggle_freeze_qpr, name='toggle_freeze_qpr'),
+    path('qpr/hod/freeze_division/', views.freeze_division_snapshot, name='freeze_division_snapshot'),
     path('qpr/hod/send-reminder/<int:user_id>/', views.send_reminder_email, name='send_reminder_email'),
     path('qpr/admin/employees/', views.admin_employee_list, name='qpr_admin_employee_list'),
     path('qpr/admin/create-hod/', views.admin_create_hod, name='qpr_admin_create_hod'),
@@ -82,19 +84,24 @@ urlpatterns = [
     path('update-designation/<int:user_id>/', views.update_designation, name='update_designation'),
     path('action/<int:user_id>/<str:action>/', views.manage_user_action, name='manage_user_action'),
 
-    path('qpr/api/records/', views.api_records, name='qpr_api_records'), 
-    path('qpr/api/records/<int:record_id>/', views.api_record_detail, name='api_record_detail'),
+    # API endpoint for QPR records was removed in favor of POST-based views.
+    # Keep the route here as a comment in case it's needed again later.
+    # path('qpr/api/records/', views.api_records, name='qpr_api_records'),
+    path('qpr/records/', views.qpr_records_view, name='qpr_records'),
+    path('qpr/records/save/', views.qpr_save_record, name='qpr_save_record'),
+    path('qpr/records/delete/<int:id>/', views.qpr_delete_record, name='qpr_delete_record'),
+    #path('qpr/api/records/<int:record_id>/', views.api_record_detail, name='api_record_detail'),
     path('qpr/api/availability/', views.api_qpr_availability, name='qpr_api_availability'),
-    path('qpr/api/period-summary/', views.api_period_summary, name='api_period_summary'),
+    #path('qpr/api/period-summary/', views.api_period_summary, name='api_period_summary'),
     path('qpr/api/request-edit/', views.request_edit_api, name='request_edit_api'),
     path('qpr/api/update-hod/', views.api_update_hod, name='api_update_hod'),
     path('qpr/api/user-change-hod/', views.api_user_change_hod, name='api_user_change_hod'),
 
-    # path('employee-form/', views.employee_form, name='employee_form'),
-    # path('employee/export-pdf/', views.export_employee_pdf, name='export_employee_pdf'), 
-    # path('api/employees/', EmployeeListCreateAPI.as_view(), name='employee_list_create_api'),
-    # path('api/employees/<int:pk>/', EmployeeDetailAPI.as_view(), name='employee_detail_api'),
-    # path('api/employees/submit/', SubmitDraftAPI.as_view(), name='submit_draft_api'),
+    #path('employee-form/', views.employee_form, name='employee_form'),
+    #path('employee/export-pdf/', views.export_employee_pdf, name='export_employee_pdf'), 
+    #path('api/employees/', EmployeeListCreateAPI.as_view(), name='employee_list_create_api'),
+    #path('api/employees/<int:pk>/', EmployeeDetailAPI.as_view(), name='employee_detail_api'),
+    #path('api/employees/submit/', SubmitDraftAPI.as_view(), name='submit_draft_api'),
 
     path('download-backup/', views.download_db_backup, name='download_db_backup'),
     path('perform/archive/<int:user_id>/', views.archive_user, name='archive_user'),
@@ -102,6 +109,7 @@ urlpatterns = [
 
     path('manager/report/<str:year>/<path:quarter>/print-all/', views.print_all_qpr_reports, name='print_all_qpr_reports'),
     path('manager/report/<str:year>/<path:quarter>/', views.manager_report_detail, name='manager_report_detail'),
+    path('manager/state-qpr/', views.manager_state_qpr, name='manager_state_qpr'),
     path("event/<str:folder>/", views.event_detail, name="event_detail"),
     path("events-admin/", views.admin_events_dashboard, name="admin_events_dashboard"),
     path("events-admin/upload/", views.admin_upload_event, name="admin_upload_event"),
@@ -111,7 +119,7 @@ urlpatterns = [
     path("events-admin/edit-titles/", views.admin_edit_event_titles, name="admin_edit_event_titles"),
     path('events-admin/<str:folder>/set-thumbnail/', views.set_thumbnail, name='set_thumbnail'),
     # 🆕 Profile Change Request Workflow
-    path('profile/change-request/reject/<int:request_id>/', reject_profile_change_hod, name='reject_profile_change'),
+    path('profile/change-request/reject/<int:request_id>/', views.reject_profile_change_hod, name='reject_profile_change'),
     path('profile/submit-change/', views.submit_profile_change_request, name='submit_profile_change_request'),
     path('profile/approve-change/<int:request_id>/', views.approve_profile_change_hod, name='approve_profile_change'),
 ]
