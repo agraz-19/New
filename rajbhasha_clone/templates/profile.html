@@ -602,72 +602,59 @@
         }
     }
 
-    function fetchEmployeeData(){
-        let empcode = empcodeField.value.trim();
-        if(!empcode){
-            feedback.innerHTML = "";
-            return;
-        }
-        const url = `/get-employee/?empcode=${empcode}`;
-        fetch(url)
-        .then(res => {
-            if (!res.ok) {
-                throw new Error(`Server returned status ${res.status}`);
-            }
-            return res.json();
-        })
-        .then(data => {
-            if(data.status === "success"){
-                document.getElementById("username").value = data.name || "";
-                document.getElementById("phone").value = data.mobile || "";
-                document.getElementById("ip_number").value = data.ip_number || "";
-                document.getElementById("office_state").value = data.state || "";
-                document.getElementById("name_english").value = data.name || "";
-                document.getElementById("name_hindi").value = data.hindi_name || "";
-                let designationField = document.getElementById("designation");
-                if(data.designation){
-                    for (let option of designationField.options) {
-                        if (option.text.trim() === data.designation.trim()) {
-                            designationField.value = option.value;
-                            break;
-                        }
-                    }
-                } else {
-                    designationField.value = "";
-                }
-                let gazetField = document.querySelector("select[name='gazet']");
-                let designationText = data.designation || "";
-                let nonGazettedList = [
-                    "Senior Secretariate Assistant",
-                    "Scientific/Technical Assistant-A",
-                    "Scientific/Technical Assistant-B"
-                ];
-                if (!designation || nonGazettedList.includes(designation)) {
-                    gazetField.value = "Non-Gazetted";
-                } else {
-                    gazetField.value = "Gazetted";
-                }
-                feedback.innerHTML = "✔ Verified";
-                feedback.style.color = "green";
-            } else {
-                feedback.innerHTML = "✖ Invalid Employee Code";
-                feedback.style.color = "red";
-                document.getElementById("username").value = "";
-                document.getElementById("phone").value = "";
-                document.getElementById("ip_number").value = "";
-                document.getElementById("office_state").value = "";
-                document.getElementById("name_english").value = "";
-                document.getElementById("name_hindi").value = "";
-                document.getElementById("designation").value = "";
-            }
-        })
-        .catch((err) => {
-            feedback.innerHTML = `Error fetching data: ${err.message}`;
-            feedback.style.color = "red";
-            document.getElementById("ip_number").value = "";
-            document.getElementById("office_state").value = "";
-        });
+// In profile.html inside <script>
+function fetchEmployeeData() {
+    let empcode = empcodeField.value.trim();
+    if (!empcode) { 
+        feedback.innerHTML = ""; 
+        return; 
     }
+
+    const csrftoken = document.querySelector('[name="csrfmiddlewaretoken"]').value;
+    const url = "{% url 'get_employee_details_form' %}";
+    
+    console.log("Fetching from URL:", url);
+    console.log("Empcode:", empcode);
+
+    fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-CSRFToken": csrftoken
+        },
+        body: `empcode=${empcode}`
+    })
+    .then(res => {
+        console.log("Response status:", res.status);
+        return res.json();
+    })
+    .then(data => {
+        console.log("Response data:", data);
+        
+        if (data.status === "success") {
+            document.getElementById("username").value = data.name || "";
+            document.getElementById("phone").value = data.mobile || "";
+            document.getElementById("ip_number").value = data.ip_number || "";
+            document.getElementById("office_state").value = data.state || "";
+            document.getElementById("name_english").value = data.name || "";
+            document.getElementById("name_hindi").value = data.hindi_name || "";
+            
+            const designationSelect = document.getElementById("designation");
+            if(designationSelect) designationSelect.value = data.designation || "";
+
+            feedback.innerHTML = "✔ Verified";
+            feedback.style.color = "green";
+        } else {
+            feedback.innerHTML = "✖ " + (data.message || "Invalid Employee Code");
+            feedback.style.color = "red";
+        }
+    })
+    .catch(err => {
+        console.error("Fetch error:", err);
+        feedback.innerHTML = `❌ Error fetching data`;
+        feedback.style.color = "red";
+    });
+}
 
     empcodeField.addEventListener("keydown", function(e){
         if(e.key === "Enter"){

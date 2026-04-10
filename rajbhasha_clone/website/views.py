@@ -227,41 +227,101 @@ from .signals import User
 if os.path.exists(FONT_PATH):
     pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
 
-def api_get_employee_details(request):
-    emp_code = str(request.GET.get('emp_code') or request.GET.get('empcode', '')).strip()
+# def api_get_employee_details(request):
+#     emp_code = str(request.GET.get('emp_code') or request.GET.get('empcode', '')).strip()
 
-    if not emp_code:
-        return JsonResponse({
-            "status": "error",
-            "message": "Empcode required"
-        })
+#     if not emp_code:
+#         return JsonResponse({
+#             "status": "error",
+#             "message": "Empcode required"
+#         })
 
-    # 🔥 LOAD EXCEL DATA
-    EMPLOYEE_DATA = load_employee_data()
+#     # 🔥 LOAD EXCEL DATA
+#     EMPLOYEE_DATA = load_employee_data()
 
-    # # 🔥 DEBUG (temporary)
-    # print("Searching emp_code:", emp_code)
-    # print("Available keys sample:", list(EMPLOYEE_DATA.keys())[:10])
+#     # # 🔥 DEBUG (temporary)
+#     # print("Searching emp_code:", emp_code)
+#     # print("Available keys sample:", list(EMPLOYEE_DATA.keys())[:10])
 
-    if emp_code not in EMPLOYEE_DATA:
-        return JsonResponse({
-            "status": "error",
-            "message": "Invalid Employee Code"
-        })
+#     if emp_code not in EMPLOYEE_DATA:
+#         return JsonResponse({
+#             "status": "error",
+#             "message": "Invalid Employee Code"
+#         })
 
-    data = EMPLOYEE_DATA[emp_code]
+#     data = EMPLOYEE_DATA[emp_code]
 
-    return JsonResponse({
-        "status": "success",
-        "name": data.get("name"),
-        "hindi_name": data.get("hindi_name"),
-        "mobile": data.get("mobile"),
-        'state': data.get('state', ''), # Ensure this col exists in Excel
-        'ip_number': data.get('ip_number', ''), # Ensure this col exists in Excel
-        "designation": data.get("designation")
-    })
-
-# In views.py -> submit_profile_change_request function
+#     return JsonResponse({
+#         "status": "success",
+#         "name": data.get("name"),
+#         "hindi_name": data.get("hindi_name"),
+#         "mobile": data.get("mobile"),
+#         'state': data.get('state', ''), # Ensure this col exists in Excel
+#         'ip_number': data.get('ip_number', ''), # Ensure this col exists in Excel
+#         "designation": data.get("designation")
+#     })
+# In views.py -> get_employee_details_form
+def get_employee_details_form(request):
+    if request.method == "POST":
+        empcode = request.POST.get('empcode', '').strip()
+        
+        if not empcode:
+            return JsonResponse({'status': 'error', 'message': 'Employee code required'})
+        
+        try:
+            import openpyxl
+            import os
+            from django.conf import settings
+            from django.http import JsonResponse
+            
+            # Load Excel file
+            excel_file = os.path.join(settings.MEDIA_ROOT, 'data', 'tg_hod_officers_employee_report.xlsx')
+            
+            if not os.path.exists(excel_file):
+                return JsonResponse({'status': 'error', 'message': 'Employee database file not found'})
+            
+            # Open Excel workbook
+            wb = openpyxl.load_workbook(excel_file)
+            ws = wb.active
+            
+            # Get headers from first row
+            headers = []
+            for cell in ws[1]:
+                headers.append(cell.value)
+            
+            # Search for employee by Empcode
+            found = False
+            row_data = {}
+            
+            for row in range(2, ws.max_row + 1):
+                row_data = {}
+                for col_idx, header in enumerate(headers, 1):
+                    row_data[header] = ws.cell(row=row, column=col_idx).value
+                
+                # Match empcode
+                if str(row_data.get('Empcode', '')).strip() == str(empcode).strip():
+                    found = True
+                    break
+            
+            if not found:
+                return JsonResponse({'status': 'error', 'message': 'Invalid Employee Code'})
+            
+            # Return employee data
+            return JsonResponse({
+                'status': 'success',
+                'name': row_data.get('Name', '') or '',
+                'mobile': row_data.get('Mobile', '') or '',
+                'ip_number': row_data.get('IP Number', '') or '',
+                'state': row_data.get('State', '') or '',
+                'hindi_name': row_data.get('Name in Hindi', '') or '',
+                'designation': row_data.get('Designation', '') or '',
+                'email': '',
+            })
+        
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Error: {str(e)}'})
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'})
 
 @login_required
 @require_http_methods(["POST"])
