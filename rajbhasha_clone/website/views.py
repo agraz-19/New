@@ -377,8 +377,8 @@ def submit_profile_change_request(request):
         )
 
         # ✅ UPDATE PROFILE STATUS (unchanged)
-        profile.approval_status = 'change_pending'
-        profile.save(update_fields=['approval_status'])
+        # profile.approval_status = 'change_pending'
+        # profile.save(update_fields=['approval_status'])
 
         return JsonResponse({
             'success': True,
@@ -2545,8 +2545,13 @@ def qpr_hod_dashboard(request):
     # ===============================
     profile_updated_count = users_under_hod.filter(profile_updated=True).count()
 
-    pending_approvals = users_under_hod.filter(approval_status='pending')
-
+    pending_approvals = UserProfile.objects.filter(
+            approval_status='pending'
+        ).filter(
+            Q(hod_name__iexact=hod_name) |
+            Q(hod_name__iexact=hod_profile.employee_code) |
+            Q(hod_name=str(hod_profile.employee_code))
+        ).select_related('user', 'employee')
     # ===============================
     # 📦 CONTEXT
     # ===============================
@@ -2575,6 +2580,9 @@ def qpr_hod_dashboard(request):
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
+    print("HOD name:", hod_name)
+    print("HOD empcode:", hod_profile.employee_code)
+    print("Pending count:", pending_approvals.count())
 
 
     return response
@@ -2778,7 +2786,7 @@ def admin_create_hod(request):
                         profile.user.save()
                     except Exception:
                         pass
-                    profile.hod_name = display_name
+                    profile.hod_name = emp_code
                     profile.profile_updated = True
                     profile.save()
                     messages.success(request, f'HOD {display_name} created!')
