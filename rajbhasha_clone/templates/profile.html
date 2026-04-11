@@ -419,7 +419,8 @@
     // const hasApprovedRequest = {{ has_approved_change_request|default:"false" }};
     const profileLocked = {{ profile_locked|yesno:"true,false" }};
     const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
-    const hasApprovedRequest = {{ has_approved_change_request|yesno:"true,false" }}
+    const hasApprovedRequest = {{ has_approved_change_request|yesno:"true,false" }};
+    const profileUpdated = {{ profile_updated|yesno:"true,false" }};
     let isProfileLocked = false;
 
     function getSelectedText(selectElement) {
@@ -439,10 +440,10 @@
         const isEditAllowed = {{ user.is_edit_allowed|yesno:"true,false" }};
         const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
 
-        console.log("STATE CHECK:", { profileStatus, isEditAllowed, hasPendingRequest });
+        console.log("STATE CHECK:", { profileStatus, profileUpdated, isEditAllowed, hasPendingRequest });
 
         // 🔓 STEP 1: NEW USER (no profile status) → UNLOCK
-        if (!profileStatus) {
+        if (!profileUpdated) {
             isProfileLocked = false;
             unlockFormFields();
             return;
@@ -556,17 +557,18 @@
         const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
         const hasApprovedRequest = {{ has_approved_change_request|yesno:"true,false" }};
         const profileApproved = {{ profile_approved|yesno:"true,false" }};
+        const profileUpdated = {{ profile_updated|yesno:"true,false" }};
         
         const profileLockedAlert = document.getElementById('profileLockedAlert');
         const pendingChangeAlert = document.getElementById('pendingChangeAlert');
         const requestChangeSection = document.getElementById('requestChangeSection');
 
-        console.log("DOMContentLoaded - Flags:", { profileLocked, hasPendingRequest, hasApprovedRequest, profileApproved });
+        console.log("DOMContentLoaded - Flags:", { profileLocked, hasPendingRequest, hasApprovedRequest, profileApproved, profileUpdated });
 
         // ✅ Case 1: New user (no profile at all) → UNLOCK
-        if (!profileApproved && !hasPendingRequest) {
+        if (!profileUpdated || (!profileApproved && !hasPendingRequest)) {
             const profileStatus = "{{ profile.approval_status|default:'' }}";
-            if (!profileStatus) {
+            if (!profileUpdated) {
                 if (profileLockedAlert) profileLockedAlert.style.display = 'none';
                 if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
                 if (requestChangeSection) requestChangeSection.style.display = 'none';
