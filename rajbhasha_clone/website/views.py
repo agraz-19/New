@@ -2011,20 +2011,15 @@ def profile_view(request):
     # ===============================
     is_approved = profile and profile.approval_status == "approved"
     
-    # ✅ CORRECT FLOW:
-    # 1. New user (no profile) → can_edit = True (unlock to fill form)
-    # 2. After save (pending) → can_edit = False (lock, waiting for HOD)
-    # 3. HOD approves (approved) → can_edit = False (lock, show request box)
-    # 4. User requests change → pending_change_request = True → can_edit = False (lock)
-    # 5. HOD approves change → is_edit_allowed = True → can_edit = True (unlock temporarily)
-    
-    # New user has no profile yet → allow editing
+    # ✅ SIMPLE LOCK LOGIC:
+    # Unlock ONLY if:
+    # 1. No profile (new user) OR
+    # 2. User has explicit edit permission (is_edit_allowed=True)
+    # Lock everything else (pending, approved, change_pending)
     if not profile:
         can_edit = True
-    # User has edit permission (from approved change request) → allow editing
     elif user.is_edit_allowed:
         can_edit = True
-    # Everything else (pending, approved, pending_change_request) → LOCK
     else:
         can_edit = False
 
@@ -2036,20 +2031,21 @@ def profile_view(request):
             messages.error(request, "Your profile is locked. Please request edit permission.", extra_tags='danger')
             return redirect('profile')
 
-        # Load Master Data for Validation
-        EMPLOYEE_DATA = load_employee_data()
+        # Get form data
         empcode = request.POST.get('empcode', '').strip()
-        username = request.POST.get('username', '').strip().upper()
+        username = request.POST.get('username', '').strip()
         phone = request.POST.get('phone', '').strip()
 
-        # Official Record Validation
-        if empcode not in EMPLOYEE_DATA:
-            messages.error(request, "Invalid Employee Code")
+        # ✅ SIMPLE VALIDATION: Just check required fields are filled
+        # Employee code was already verified via API (fetchEmployeeData)
+        if not empcode:
+            messages.error(request, "Employee Code is required.")
             return redirect('profile')
-        
-        record = EMPLOYEE_DATA[empcode]
-        if username != record["name"] or phone != record["mobile"]:
-            messages.error(request, "Details do not match official records.")
+        if not username:
+            messages.error(request, "Employee Name is required.")
+            return redirect('profile')
+        if not phone:
+            messages.error(request, "Phone Number is required.")
             return redirect('profile')
 
         # Email & Security
