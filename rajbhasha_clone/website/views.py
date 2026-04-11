@@ -1893,10 +1893,6 @@ def archive_user(request, user_id):
     if getattr(user_to_archive, 'id', None) == getattr(request.user, 'id', None):
         messages.error(request, "You cannot archive yourself.")
         return redirect('dashboard')
-
-    # 3. Create Snapshot for Archive
-    # Employee.empcode is an IntegerField. Try to resolve a numeric empcode
-    # from the user's username or from their profile.employee_code.
     empcode_val = None
     # Prefer profile.employee_code if available
     profile = getattr(user_to_archive, 'profile', None)
@@ -2000,16 +1996,16 @@ def profile_view(request):
     # ===============================
     # 🔑 STATE FLAGS & LOCK LOGIC
     # ===============================
+
     is_approved = profile and profile.approval_status == "approved"
-    
-    # ✅ SIMPLE LOCK LOGIC:
-    # Unlock ONLY if:
-    # 1. No profile (new user) OR
-    # 2. User has explicit edit permission (is_edit_allowed=True)
-    # Lock everything else (pending, approved, change_pending)
+
     if not profile:
         can_edit = True
-    elif user.is_edit_allowed:
+    elif not profile.profile_updated:
+        # Profile exists but never submitted — still new user
+        can_edit = True
+    elif profile.approval_status == 'approved' and user.is_edit_allowed:
+        # HOD approved change request
         can_edit = True
     else:
         can_edit = False
@@ -2059,6 +2055,10 @@ def profile_view(request):
         if approved_change_request:
             user.is_edit_allowed = False
         user.save()
+        # 2. Update or Create Profile
+        if not profile:
+            from .models import UserProfile
+            profile = UserProfile(user=user)
 
        
         if profile:
@@ -2073,7 +2073,6 @@ def profile_view(request):
             profile.ip_number = request.POST.get('ip_number', '').strip()
             profile.alternate_email = request.POST.get('alternate_email', '').strip()
             
-            # Only change status if coming from pending/rejected, not if already approved
             if profile.approval_status != "approved":
                 profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
             
