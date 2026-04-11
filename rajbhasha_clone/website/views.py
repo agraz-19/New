@@ -377,8 +377,8 @@ def submit_profile_change_request(request):
         )
 
         # ✅ UPDATE PROFILE STATUS (unchanged)
-        profile.approval_status = 'change_pending'
-        profile.save(update_fields=['approval_status'])
+        # profile.approval_status = 'change_pending'
+        # profile.save(update_fields=['approval_status'])
 
         return JsonResponse({
             'success': True,
@@ -2545,8 +2545,13 @@ def qpr_hod_dashboard(request):
     # ===============================
     profile_updated_count = users_under_hod.filter(profile_updated=True).count()
 
-    pending_approvals = users_under_hod.filter(approval_status='pending')
-
+    pending_approvals = UserProfile.objects.filter(
+            approval_status='pending'
+        ).filter(
+            Q(hod_name__iexact=hod_name) |
+            Q(hod_name__iexact=hod_profile.employee_code) |
+            Q(hod_name=str(hod_profile.employee_code))
+        ).select_related('user', 'employee')
     # ===============================
     # 📦 CONTEXT
     # ===============================
@@ -2575,6 +2580,9 @@ def qpr_hod_dashboard(request):
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
+    print("HOD name:", hod_name)
+    print("HOD empcode:", hod_profile.employee_code)
+    print("Pending count:", pending_approvals.count())
 
 
     return response
@@ -2753,6 +2761,7 @@ def admin_dashboard(request):
 @login_required
 def admin_create_hod(request):
     if not user_has_role(request.user, 'admin'): return redirect('/')
+    found_name = ''
     if request.method == 'POST':
         emp_code = request.POST.get('emp_code', '').strip()
         if not emp_code:
@@ -2762,6 +2771,7 @@ def admin_create_hod(request):
             try:
                 profile = UserProfile.objects.get(employee_code=emp_code)
                 display_name = profile.name or profile.user.get_full_name() or profile.user.username
+                found_name = display_name
                 if profile.roles.filter(name='hod').exists():
                     messages.error(request, 'This user is already assigned a HOD role')
                 else:
@@ -2776,18 +2786,19 @@ def admin_create_hod(request):
                         profile.user.save()
                     except Exception:
                         pass
-                    profile.hod_name = display_name
+                    profile.hod_name = emp_code
                     profile.profile_updated = True
                     profile.save()
                     messages.success(request, f'HOD {display_name} created!')
                     return redirect('qpr_admin_dashboard')
             except UserProfile.DoesNotExist:
                 messages.error(request, 'User has not registered or entered employee code is incorrect')
-    return render(request, 'qpr/admin_create_hod.html')
+    return render(request, 'qpr/admin_create_hod.html', {'found_name': found_name})
 
 @login_required
 def admin_create_manager(request):
     if not user_has_role(request.user, 'admin'): return redirect('/')
+    found_name = ''
     if request.method == 'POST':
         emp_code = request.POST.get('emp_code', '').strip()
         if not emp_code:
@@ -2797,6 +2808,7 @@ def admin_create_manager(request):
             try:
                 profile = UserProfile.objects.get(employee_code=emp_code)
                 display_name = profile.name or profile.user.get_full_name() or profile.user.username
+                found_name = display_name
                 if profile.roles.filter(name='manager').exists():
                     messages.error(request, 'This user is already assigned a Manager role')
                 else:
@@ -2816,7 +2828,7 @@ def admin_create_manager(request):
                     return redirect('qpr_admin_dashboard')
             except UserProfile.DoesNotExist:
                 messages.error(request, 'User has not registered or entered employee code is incorrect')
-    return render(request, 'qpr/admin_create_manager.html')
+    return render(request, 'qpr/admin_create_manager.html', {'found_name': found_name})
 
 # def api_get_employee_details(request):
 #     """API endpoint to fetch employee details by employee code"""
@@ -2865,22 +2877,32 @@ def admin_api_get_employee_details(request):
 
 @login_required
 def api_create_office(request):
-    """Admin-only endpoint to create an office (POST)"""
+    """Create an Office via standard form POST and redirect with messages.
+
+    This view replaces the JSON API usage and performs server-side validation
+    and feedback via Django's messages framework.
+    """
+    # Only accept POST from admins; otherwise redirect back to admin dashboard
     if request.method != 'POST':
-        return JsonResponse({'error': 'POST required'}, status=405)
+        return redirect('qpr_admin_dashboard')
     if not user_has_role(request.user, 'admin'):
-        return JsonResponse({'error': 'Permission denied'}, status=403)
+        messages.error(request, 'Permission denied')
+        return redirect('qpr_admin_dashboard')
 
     code = request.POST.get('office_code', '').strip()
     name = request.POST.get('office_name', '').strip()
     if not code or not name:
-        return JsonResponse({'error': 'Office code and name are required'}, status=400)
+        messages.error(request, 'Office code and name are required')
+        return redirect('qpr_admin_dashboard')
 
     from .models import Office
     office, created = Office.objects.get_or_create(code=code, defaults={'name': name})
     if not created:
-        return JsonResponse({'error': 'Office code already exists'}, status=400)
-    return JsonResponse({'success': True, 'code': office.code, 'name': office.name})
+        messages.error(request, 'Office code already exists')
+        return redirect('qpr_admin_dashboard')
+
+    messages.success(request, f'Office {office.code} - {office.name} created')
+    return redirect('qpr_admin_dashboard')
 
 
 def api_list_offices(request):
@@ -5311,43 +5333,66 @@ def api_user_change_hod(request):
     """API endpoint for users to change their assigned HOD"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'POST method required'}, status=405)
-    
+
     try:
-        data = json.loads(request.body)
-        new_hod_name = data.get('hod_name', '').strip()
-        
+        # Support both JSON (AJAX) and standard form POST submissions.
+        is_ajax = False
+        if request.content_type and 'application/json' in request.content_type:
+            data = json.loads(request.body)
+            new_hod_name = data.get('hod_name', '').strip()
+            is_ajax = True
+        else:
+            new_hod_name = request.POST.get('hod_name', '').strip()
+
         if not new_hod_name:
+            if not is_ajax:
+                messages.error(request, 'HOD name is required')
+                return redirect('dashboard')
             return JsonResponse({'success': False, 'error': 'HOD name is required'}, status=400)
-        
+
         # Check if user is HOD or Manager - they shouldn't be able to change HOD
         if user_has_role(request.user, ['hod', 'manager', 'admin']):
+            if not is_ajax:
+                messages.error(request, 'Only users can change their HOD')
+                return redirect('dashboard')
             return JsonResponse({'success': False, 'error': 'Only users can change their HOD'}, status=403)
-        
+
         # Get user's profile
         try:
             profile = UserProfile.objects.get(user=request.user)
         except UserProfile.DoesNotExist:
+            if not is_ajax:
+                messages.error(request, 'User profile not found')
+                return redirect('dashboard')
             return JsonResponse({'success': False, 'error': 'User profile not found'}, status=404)
-        
+
         # Verify the selected HOD exists (check both profile.roles and the user's roles)
         hod_exists = UserProfile.objects.filter(
             Q(roles__name='hod') | Q(user__roles__name='hod'),
             hod_name__iexact=new_hod_name
         ).exists()
         if not hod_exists:
+            if not is_ajax:
+                messages.error(request, 'Selected HOD does not exist')
+                return redirect('dashboard')
             return JsonResponse({'success': False, 'error': 'Selected HOD does not exist'}, status=400)
-        
+
         # Update the HOD
         old_hod = profile.hod_name
         profile.hod_name = new_hod_name
         profile.save()
-        
+
+        # If this was a standard form submit, use messages and redirect back to dashboard
+        if not is_ajax:
+            messages.success(request, f'HOD changed successfully from {old_hod or "None"} to {new_hod_name}')
+            return redirect('dashboard')
+
         return JsonResponse({
-            'success': True, 
+            'success': True,
             'message': f'HOD changed successfully from {old_hod or "None"} to {new_hod_name}',
             'new_hod': new_hod_name
         })
-    
+
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
     except Exception as e:
