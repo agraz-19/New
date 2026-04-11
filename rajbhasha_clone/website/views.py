@@ -2011,11 +2011,22 @@ def profile_view(request):
     # ===============================
     is_approved = profile and profile.approval_status == "approved"
     
-    # ✅ CORRECTED: User can edit if:
-    # 1. Profile is NOT approved yet (new user, pending, or rejected)
-    # 2. is_edit_allowed is True (HOD approved their change request)
-    # 3. Profile is approved BUT no pending change request (they can make one)
-    can_edit = (not is_approved) or user.is_edit_allowed or (is_approved and not pending_change_request)
+    # ✅ CORRECT FLOW:
+    # 1. New user (no profile) → can_edit = True (unlock to fill form)
+    # 2. After save (pending) → can_edit = False (lock, waiting for HOD)
+    # 3. HOD approves (approved) → can_edit = False (lock, show request box)
+    # 4. User requests change → pending_change_request = True → can_edit = False (lock)
+    # 5. HOD approves change → is_edit_allowed = True → can_edit = True (unlock temporarily)
+    
+    # New user has no profile yet → allow editing
+    if not profile:
+        can_edit = True
+    # User has edit permission (from approved change request) → allow editing
+    elif user.is_edit_allowed:
+        can_edit = True
+    # Everything else (pending, approved, pending_change_request) → LOCK
+    else:
+        can_edit = False
 
     # ===============================
     # 📩 POST LOGIC (SAVE CHANGES)

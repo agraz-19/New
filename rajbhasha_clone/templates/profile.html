@@ -595,6 +595,9 @@
                 document.getElementById("requestChangeSection").style.display = "none";
             });
         }
+
+        // ✅ Check lock state LAST after all DOM elements are ready
+        checkProfileLockState();
     });
         
 
@@ -734,7 +737,6 @@ function fetchEmployeeData() {
 
     document.addEventListener("DOMContentLoaded", function(){
         setGazetFromDesignation();
-        checkProfileLockState();
     });
 
     function getTranslatedValue(selectElement) {
