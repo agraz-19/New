@@ -607,34 +607,7 @@
             </div>
         </div>
 
-        <!-- HOD Selection Card - Only for Regular Users (Disabled for HOD/Manager) -->
-        {% if role|default:user.role == 'user' %}
-        <div class="card border-0 shadow-sm mt-4">
-            <div class="card-body d-flex justify-content-between align-items-center flex-wrap">
-                <div>
-                    <h6 class="fw-bold text-primary mb-0"><i class="bi bi-person-badge"></i> {{ "HOD Assignment"|t:current_lang }}</h6>
-                    <small class="text-muted">{{ "Select the HOD you want to work under."|t:current_lang }}</small>
-                    {% if current_hod %}
-                        <div class="mt-2">
-                            <span class="badge bg-info">{{ "Current HOD:"|t:current_lang }} <strong>{{ current_hod }}</strong></span>
-                        </div>
-                    {% endif %}
-                    {% if is_hod_or_manager %}
-                        <div class="mt-2">
-                            <small class="text-danger"><i class="bi bi-exclamation-circle"></i> {{ "HOD and Manager roles cannot change their HOD assignment"|t:current_lang }}</small>
-                        </div>
-                    {% endif %}
-                </div>
-                <div class="d-flex gap-2 mt-2 mt-md-0">
-                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#hodSelectionModal" {% if is_hod_or_manager %}disabled{% endif %}>
-                        <i class="bi bi-pencil-square"></i> {{ "Select / Change HOD"|t:current_lang }}
-                    </button>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        {# Modal removed: profile editing now handled on the dedicated profile page. #}
+        {# HOD assignment removed from user dashboard as requested #}
     {% endif %}
 
     <!-- Office Details Modal -->
@@ -648,7 +621,8 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="officeDetailsForm">
+                    <form id="officeDetailsForm" method="POST" action="{% url 'api_create_office' %}">
+                        {% csrf_token %}
                         <div class="mb-3">
                             <label for="office_code" class="form-label">{{ "Office Code"|t:current_lang }} <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="office_code" name="office_code" required placeholder="{{ 'Enter office code'|t:current_lang }}">
@@ -659,154 +633,19 @@
                         </div>
                     </form>
                 </div>
-                <div class="modal-footer">
+                    <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         {{ "Cancel"|t:current_lang }}
                     </button>
-                    <button type="button" class="btn btn-warning text-white" onclick="submitOfficeDetails()">
+                    <button type="submit" form="officeDetailsForm" class="btn btn-warning text-white">
                         <i class="fas fa-check"></i> {{ "Submit"|t:current_lang }}
                     </button>
                 </div>
             </div>
         </div>
     </div>
-
-    <script>
-        function submitOfficeDetails() {
-            const officeCode = document.getElementById('office_code').value.trim();
-            const officeName = document.getElementById('office_name').value.trim();
-            
-            if (!officeCode) {
-                alert('{{ "Please enter office code"|t:current_lang }}');
-                return;
-            }
-            if (!officeName) {
-                alert('{{ "Please enter office name"|t:current_lang }}');
-                return;
-            }
-            // Submit to server
-            const formData = new FormData();
-            formData.append('office_code', officeCode);
-            formData.append('office_name', officeName);
-
-            fetch('{% url "api_create_office" %}', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': (function(){
-                        return document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
-                    })()
-                },
-                body: formData
-            }).then(r => r.json()).then(data => {
-                if (data.success) {
-                    alert('{{ "Office Details Submitted"|t:current_lang }}\n\n{{ "Code"|t:current_lang }}: ' + data.code + '\n{{ "Name"|t:current_lang }}: ' + data.name);
-                    document.getElementById('officeDetailsForm').reset();
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('officeDetailsModal'));
-                    modal.hide();
-                    // reload to ensure new office appears in profile dropdowns
-                    setTimeout(() => { location.reload(); }, 500);
-                } else {
-                    alert(data.error || '{{ "Error saving office"|t:current_lang }}');
-                }
-            }).catch(err => {
-                console.error(err);
-                alert('{{ "Error saving office"|t:current_lang }}');
-            });
-        }
-
-        <!-- HOD Selection Modal -->
-        function openHodSelectionModal() {
-            document.getElementById('hodSelectionDropdown').focus();
-        }
-
-        function submitHodSelection() {
-            const hodDropdown = document.getElementById('hodSelectionDropdown');
-            const selectedHod = hodDropdown.value.trim();
-
-            if (!selectedHod) {
-                alert('{{ "Please select a HOD"|t:current_lang }}');
-                return;
-            }
-
-            const currentHod = '{{ current_hod }}';
-            if (selectedHod === currentHod) {
-                alert('{{ "You are already assigned to this HOD"|t:current_lang }}');
-                return;
-            }
-
-            // Show warning if changing HOD
-            if (currentHod) {
-                if (!confirm('{{ "You are about to change your HOD from"|t:current_lang }} "' + currentHod + '" {{ "to"|t:current_lang }} "' + selectedHod + '". {{ "This change will be effective immediately."|t:current_lang }}\n\n{{ "Continue?"|t:current_lang }}')) {
-                    return;
-                }
-            }
-
-            // Submit HOD change
-            fetch('{% url "api_user_change_hod" %}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': (function(){
-                        return document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
-                    })()
-                },
-                body: JSON.stringify({
-                    hod_name: selectedHod
-                })
-            }).then(r => r.json()).then(data => {
-                if (data.success) {
-                    alert('{{ "HOD changed successfully!"|t:current_lang }}\n' + data.message);
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('hodSelectionModal'));
-                    modal.hide();
-                    // Reload page to reflect changes
-                    setTimeout(() => { location.reload(); }, 500);
-                } else {
-                    alert(data.error || '{{ "Error changing HOD"|t:current_lang }}');
-                }
-            }).catch(err => {
-                console.error(err);
-                alert('{{ "Error changing HOD"|t:current_lang }}');
-            });
-        }
-    </script>
-
-    <!-- HOD Selection Modal -->
-    <div class="modal fade" id="hodSelectionModal" tabindex="-1" aria-labelledby="hodSelectionModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="hodSelectionModalLabel">
-                        <i class="bi bi-person-badge"></i> {{ "Select / Change HOD"|t:current_lang }}
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="hodSelectionForm">
-                        <div class="mb-3">
-                            <label for="hodSelectionDropdown" class="form-label fw-bold">{{ "HOD Name"|t:current_lang }} <span class="text-danger">*</span></label>
-                            <select class="form-select" id="hodSelectionDropdown" name="hod_name" required>
-                                <option value="">-- {{ "Select a HOD"|t:current_lang }} --</option>
-                                {% for hod in available_hods %}
-                                    <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>{{ hod }}</option>
-                                {% endfor %}
-                            </select>
-                            {% if not available_hods %}
-                                <small class="text-danger">{{ "No HODs available for selection"|t:current_lang }}</small>
-                            {% endif %}
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        {{ "Cancel"|t:current_lang }}
-                    </button>
-                    <button type="button" class="btn btn-primary" onclick="submitHodSelection()" {% if not available_hods %}disabled{% endif %}>
-                        <i class="bi bi-check-circle"></i> {{ "Confirm Selection"|t:current_lang }}
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+    
+    {# HOD selection removed #}
 
 </div>
 {% endblock %}
