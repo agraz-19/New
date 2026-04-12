@@ -333,7 +333,18 @@ def submit_profile_change_request(request):
         if not reason:
             return JsonResponse({'success': False, 'message': 'Reason is required'})
 
-        profile = request.user.profile
+        profile = getattr(request.user, 'profile', None)
+        if (
+            profile is None
+            or not profile.profile_updated
+            or profile.approval_status != 'approved'
+            or request.user.is_edit_allowed
+        ):
+            return JsonResponse({
+                'success': False,
+                'message': 'Profile change requests are only allowed for locked, approved profiles.'
+            }, status=403)
+
         hod_identifier = (profile.hod_name or "").strip()
 
         if not hod_identifier:
@@ -1976,6 +1987,20 @@ def unarchive_user(request, archive_id):
         messages.error(request, "Original user record not found. Cannot restore.")
         return redirect('dashboard')
     
+def _can_edit_profile(user, profile, pending_change_request=None):
+    """Server-side authority for whether profile data may be changed."""
+    if profile is None:
+        return True
+
+    if not profile.profile_updated:
+        return True
+
+    if pending_change_request is not None:
+        return False
+
+    return profile.approval_status == 'approved' and user.is_edit_allowed
+
+
 @login_required
 def profile_view(request):
     """
@@ -1983,10 +2008,11 @@ def profile_view(request):
     
     Flow:
     1. NEW USER → form UNLOCKED, can fill and save
-    2. After save → form UNLOCKED (status=pending, no request box yet)
-    3. HOD approves → form UNLOCKED (status=approved, request box appears)
+    2. After save -> form LOCKED (status=pending, no request box yet)
+    3. HOD approves -> form LOCKED (status=approved, request box appears)
     4. User requests change → form LOCKED (pending_change_request exists)
-    5. HOD approves change → form UNLOCKED (is_edit_allowed=True)
+    5. HOD approves change -> form UNLOCKED (is_edit_allowed=True)
+    6. User saves approved changes -> form LOCKED again
     """
     from .models import Employee, Office, ProfileChangeRequest, QPRRecord
     from .employeeform import EmployeeForm
@@ -2006,22 +2032,14 @@ def profile_view(request):
         status='approved'
     ).order_by('-approved_at').first() if profile else None
 
+    can_edit = _can_edit_profile(user, profile, pending_change_request)
+
     # ===============================
     # 🔑 STATE FLAGS & LOCK LOGIC
     # ===============================
 
     is_approved = profile and profile.approval_status == "approved"
 
-    if not profile:
-        can_edit = True
-    elif not profile.profile_updated:
-        # Profile exists but never submitted — still new user
-        can_edit = True
-    elif profile.approval_status == 'approved' and user.is_edit_allowed:
-        # HOD approved change request
-        can_edit = True
-    else:
-        can_edit = False
 
     # ===============================
     # 📩 POST LOGIC (SAVE CHANGES)
