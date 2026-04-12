@@ -236,10 +236,10 @@ if os.path.exists(FONT_PATH):
 #             "message": "Empcode required"
 #         })
 
-#     # 🔥 LOAD EXCEL DATA
+#     # LOAD EXCEL DATA
 #     EMPLOYEE_DATA = load_employee_data()
 
-#     # # 🔥 DEBUG (temporary)
+#     # # dEBUG (temporary)
 #     # print("Searching emp_code:", emp_code)
 #     # print("Available keys sample:", list(EMPLOYEE_DATA.keys())[:10])
 
@@ -342,7 +342,7 @@ def submit_profile_change_request(request):
                 'message': 'HOD is not assigned to your profile.'
             })
 
-        # 🔴 PREVENT DUPLICATE REQUESTS
+        # PREVENT DUPLICATE REQUESTS
         existing_request = ProfileChangeRequest.objects.filter(
             profile=profile,
             status='pending'
@@ -368,7 +368,7 @@ def submit_profile_change_request(request):
                 'message': f'HOD "{hod_identifier}" not found in system. Please ensure your HOD has registered and is approved.'
             })
 
-        # ✅ CREATE REQUEST (unchanged logic)
+        # CREATE REQUEST (unchanged logic)
         ProfileChangeRequest.objects.create(
             profile=profile,
             change_reason=reason,
@@ -376,9 +376,9 @@ def submit_profile_change_request(request):
             status='pending'
         )
 
-        # ✅ UPDATE PROFILE STATUS (unchanged)
-        profile.approval_status = 'change_pending'
-        profile.save(update_fields=['approval_status'])
+        # UPDATE PROFILE STATUS (unchanged)
+        # profile.approval_status = 'change_pending'
+        # profile.save(update_fields=['approval_status'])
 
         return JsonResponse({
             'success': True,
@@ -874,27 +874,129 @@ def _aggregate_records_with_fallback(user, start_dt, end_dt, preferred='daily'):
     Returns a totals dict keyed by NUMERIC_KEYS. This mirrors the previous
     inner helper used elsewhere but exposes it at module level for reuse.
     """
-    order = []
     pref = (preferred or '').lower()
-    if pref == 'daily':
-        order = ['daily']
-    elif pref == 'weekly':
-        order = ['weekly', 'daily']
-    elif pref == 'monthly':
-        order = ['monthly', 'weekly', 'daily']
-    else:
-        order = ['monthly', 'weekly', 'daily']
 
-    last_totals = None
-    for src in order:
+    # Helper: check if totals dict has any non-zero numeric keys
+    def _has_nonzero(tot):
+        return any((tot.get(k, 0) or 0) != 0 for k in NUMERIC_KEYS)
+
+    # 1) Daily: trivial
+    if pref == 'daily':
         try:
-            totals = _aggregate_records_for_range(user, start_dt, end_dt, source_frequency=src)
+            return _aggregate_records_for_range(user, start_dt, end_dt, source_frequency='daily')
+        except Exception:
+            return {k: 0 for k in NUMERIC_KEYS}
+
+    # 2) Weekly: prefer weekly for the entire range, else fall back to daily
+    if pref == 'weekly':
+        try:
+            totals = _aggregate_records_for_range(user, start_dt, end_dt, source_frequency='weekly')
         except Exception:
             totals = {k: 0 for k in NUMERIC_KEYS}
-        last_totals = totals
-        if any((totals.get(k, 0) or 0) != 0 for k in NUMERIC_KEYS):
+        if _has_nonzero(totals):
             return totals
-    return last_totals or {k: 0 for k in NUMERIC_KEYS}
+        try:
+            return _aggregate_records_for_range(user, start_dt, end_dt, source_frequency='daily')
+        except Exception:
+            return {k: 0 for k in NUMERIC_KEYS}
+
+    # 3) Monthly: Prefer a monthly record for the whole month; otherwise iterate weeks
+    if pref == 'monthly':
+        try:
+            monthly_tot = _aggregate_records_for_range(user, start_dt, end_dt, source_frequency='monthly')
+        except Exception:
+            monthly_tot = {k: 0 for k in NUMERIC_KEYS}
+        if _has_nonzero(monthly_tot):
+            return monthly_tot
+
+        # iterate Mon-Sat weeks within [start_dt,end_dt]
+        acc = {k: 0 for k in NUMERIC_KEYS}
+        w_start = start_dt - timedelta(days=start_dt.weekday())
+        # ensure we start from the Monday on/ before start_dt and iterate weeks
+        cur = w_start
+        while cur <= end_dt:
+            week_start = cur
+            week_end = cur + timedelta(days=5)
+            # clip to requested month range
+            actual_start = max(week_start, start_dt)
+            actual_end = min(week_end, end_dt)
+            if actual_start <= actual_end:
+                # try weekly for that week, else daily
+                try:
+                    wtot = _aggregate_records_for_range(user, actual_start, actual_end, source_frequency='weekly')
+                except Exception:
+                    wtot = {k: 0 for k in NUMERIC_KEYS}
+                if not _has_nonzero(wtot):
+                    try:
+                        wtot = _aggregate_records_for_range(user, actual_start, actual_end, source_frequency='daily')
+                    except Exception:
+                        wtot = {k: 0 for k in NUMERIC_KEYS}
+                for k in NUMERIC_KEYS:
+                    acc[k] += int(wtot.get(k, 0) or 0)
+            cur = cur + timedelta(days=7)
+        return acc
+
+    # 4) Quarterly or other: prefer quarterly then per-month breakdown
+    # Attempt quarterly first
+    try:
+        qtot = _aggregate_records_for_range(user, start_dt, end_dt, source_frequency='quarterly')
+    except Exception:
+        qtot = {k: 0 for k in NUMERIC_KEYS}
+    if _has_nonzero(qtot):
+        return qtot
+
+    # otherwise iterate months inside [start_dt,end_dt]
+    acc = {k: 0 for k in NUMERIC_KEYS}
+    m = start_dt
+    while m <= end_dt:
+        month_start = date(m.year, m.month, 1)
+        if m.month == 12:
+            month_end = date(m.year, 12, 31)
+        else:
+            month_end = date(m.year, m.month + 1, 1) - timedelta(days=1)
+        if month_end > end_dt:
+            month_end = end_dt
+        if month_start < start_dt:
+            month_start = start_dt
+
+        # prefer monthly record for this month
+        try:
+            mtot = _aggregate_records_for_range(user, month_start, month_end, source_frequency='monthly')
+        except Exception:
+            mtot = {k: 0 for k in NUMERIC_KEYS}
+        if _has_nonzero(mtot):
+            for k in NUMERIC_KEYS:
+                acc[k] += int(mtot.get(k, 0) or 0)
+        else:
+            # iterate weeks in this month
+            w_start = month_start - timedelta(days=month_start.weekday())
+            cur = w_start
+            while cur <= month_end:
+                week_start = cur
+                week_end = cur + timedelta(days=5)
+                actual_start = max(week_start, month_start)
+                actual_end = min(week_end, month_end)
+                if actual_start <= actual_end:
+                    try:
+                        wtot = _aggregate_records_for_range(user, actual_start, actual_end, source_frequency='weekly')
+                    except Exception:
+                        wtot = {k: 0 for k in NUMERIC_KEYS}
+                    if not _has_nonzero(wtot):
+                        try:
+                            wtot = _aggregate_records_for_range(user, actual_start, actual_end, source_frequency='daily')
+                        except Exception:
+                            wtot = {k: 0 for k in NUMERIC_KEYS}
+                    for k in NUMERIC_KEYS:
+                        acc[k] += int(wtot.get(k, 0) or 0)
+                cur = cur + timedelta(days=7)
+
+        # move to next month
+        if m.month == 12:
+            m = date(m.year + 1, 1, 1)
+        else:
+            m = date(m.year, m.month + 1, 1)
+
+    return acc
 
 
 def _get_quarter_range_for_date(dt):
@@ -1011,14 +1113,55 @@ def compute_period(frequency, selected_date=None, quarter=None, year=None):
     return (selected_date, selected_date)
 
 
-def is_period_overlapping(user, start, end, exclude_id=None):
-    """Return True if any submitted QPRRecord for user overlaps [start,end]."""
+def is_period_overlapping(user, start, end, exclude_id=None, new_frequency=None):
+    """Return True if a submitted QPRRecord for user conflicts with [start,end].
+
+    Behaviour:
+    - By default (new_frequency is None) returns True if any submitted record
+      overlaps the range (preserves original strict behaviour).
+    - If `new_frequency=='weekly'` then:
+        * overlapping records with frequency != 'daily' (weekly/monthly/quarterly)
+          are considered conflicts (e.g. another weekly already exists).
+        * daily records are allowed to partially overlap unless they fully
+          cover every working day in [start,end], in which case the week is
+          considered already covered and this is a conflict.
+    """
     if not start or not end:
         return False
-    qs = QPRRecord.objects.filter(user=user, is_submitted=True)
+
+    base_qs = QPRRecord.objects.filter(user=user, is_submitted=True)
     if exclude_id:
-        qs = qs.exclude(pk=exclude_id)
-    return qs.filter(period_start__lte=end, period_end__gte=start).exists()
+        base_qs = base_qs.exclude(pk=exclude_id)
+
+    # Default strict behaviour: any overlap is a conflict
+    if not new_frequency:
+        return base_qs.filter(period_start__lte=end, period_end__gte=start).exists()
+
+    # Special-case: creating a weekly record — allow partial overlap with daily
+    if str(new_frequency).lower() == 'weekly':
+        # 1) If any non-daily submitted record overlaps, treat as conflict
+        non_daily_conflict = base_qs.exclude(frequency__iexact='daily').filter(period_start__lte=end, period_end__gte=start).exists()
+        if non_daily_conflict:
+            return True
+
+        # 2) Count submitted daily records within [start,end] and compare to expected working days
+        daily_count = base_qs.filter(frequency__iexact='daily', period_start__range=(start, end)).count()
+        expected_days = 0
+        d = start
+        while d <= end:
+            if d.weekday() <= 5:  # Mon-Sat are working days
+                expected_days += 1
+            d = d + timedelta(days=1)
+
+        # If all working days already have daily submissions, it's a conflict
+        if expected_days > 0 and daily_count >= expected_days:
+            return True
+
+        # Otherwise allow weekly creation (no conflict)
+        return False
+
+    # Fallback to strict behaviour for other frequencies
+    return base_qs.filter(period_start__lte=end, period_end__gte=start).exists()
 
 
 def _allowed_frequencies_for_date(user, selected_date):
@@ -1115,8 +1258,9 @@ def _allowed_frequencies_for_date(user, selected_date):
     month_last = _last_working_before(month_end)
     quarter_last = _last_working_before(q_end)
     
-    # weekly allowed if there are missing working days in the week
-    if len(missing_week) > 0:
+    # weekly allowed only for fully completed past weeks (Mon-Sat) that have missing working days.
+    # Do not allow weekly for current ongoing week or any future weeks.
+    if len(missing_week) > 0 and week_end <= today:
         allowed.append('weekly')
     # monthly allowed only at month end if there are missing working days in the month
     if len(missing_month) > 0 and selected_date >= month_last:
@@ -1135,7 +1279,7 @@ def _allowed_frequencies_for_date(user, selected_date):
         'default_date': timezone.localdate().isoformat()
     }
 
-
+'''
 @login_required
 def api_qpr_availability(request):
     """Return allowed frequencies and missing days for a given date."""
@@ -1148,7 +1292,7 @@ def api_qpr_availability(request):
         return JsonResponse({'error': 'Invalid date param'}, status=400)
     data = _allowed_frequencies_for_date(request.user, sel)
     return JsonResponse(data)
-
+'''
 
 def compute_cumulative_for_record(record):
     """Return dict with daily/weekly/monthly/quarterly aggregates for the given record."""
@@ -1669,7 +1813,6 @@ class VerifyOTPView(View):
             if otp_input == signup_data['otp']:
                 if (timezone.now().timestamp() - signup_data['otp_time']) < 300: # 5 min expiry
                     try:
-                        # 💥 NEW ATOMIC BLOCK 💥
                         with transaction.atomic():
                             # Safely get or create to handle race conditions
                             user, created = CustomUser.objects.get_or_create(
@@ -2449,7 +2592,9 @@ def user_dashboard(request):
     if not profile.profile_updated:
         return redirect('qpr_user_profile')
     qpr_records = QPRRecord.objects.filter(user=request.user)
-    submitted_qprs = qpr_records.filter(is_submitted=True).count()
+    # Consider 'submitted' on dashboard only when user has submitted a DAILY QPR for today
+    today = timezone.localdate()
+    submitted_qprs = QPRRecord.objects.filter(user=request.user, is_submitted=True, frequency__iexact='daily', period_start=today).count()
     
     # Get list of available HODs for dropdown
     available_hods = get_active_hods(profile.office_code)
@@ -2461,7 +2606,7 @@ def user_dashboard(request):
         'role': 'user',  # Explicitly set role for template to avoid showing other roles' content
         'profile': profile,
         'profile_status': 'Updated' if profile.profile_updated else 'Needs Update',
-        'qpr_submitted': submitted_qprs > 0, 
+        'qpr_submitted': submitted_qprs > 0,
         'qpr_count': qpr_records.count(),
         'user': request.user,
         'available_hods': available_hods,
@@ -2545,8 +2690,13 @@ def qpr_hod_dashboard(request):
     # ===============================
     profile_updated_count = users_under_hod.filter(profile_updated=True).count()
 
-    pending_approvals = users_under_hod.filter(approval_status='pending')
-
+    pending_approvals = UserProfile.objects.filter(
+            approval_status='pending'
+        ).filter(
+            Q(hod_name__iexact=hod_name) |
+            Q(hod_name__iexact=hod_profile.employee_code) |
+            Q(hod_name=str(hod_profile.employee_code))
+        ).select_related('user', 'employee')
     # ===============================
     # 📦 CONTEXT
     # ===============================
@@ -2575,6 +2725,9 @@ def qpr_hod_dashboard(request):
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
+    print("HOD name:", hod_name)
+    print("HOD empcode:", hod_profile.employee_code)
+    print("Pending count:", pending_approvals.count())
 
 
     return response
@@ -2778,7 +2931,7 @@ def admin_create_hod(request):
                         profile.user.save()
                     except Exception:
                         pass
-                    profile.hod_name = display_name
+                    profile.hod_name = emp_code
                     profile.profile_updated = True
                     profile.save()
                     messages.success(request, f'HOD {display_name} created!')
@@ -3222,18 +3375,34 @@ def report_list(request):
         target_user = profile.user
         is_hod_view = (getattr(target_user, 'id', None) != getattr(request.user, 'id', None))
 
-        # Authorization: only allow when requester is admin/superuser or HOD of the employee
+        # Authorization: allow admin/superuser, HODs (for their employees), and Managers for same office
         if is_hod_view:
-            if not (user_has_role(request.user, 'admin') or request.user.is_superuser or user_has_role(request.user, 'hod')):
-                messages.error(request, "Unauthorized to view other user's reports.")
-                return redirect('home')
-            # If requester is HOD, enforce same hod_name when available
-            if user_has_role(request.user, 'hod'):
+            allowed = False
+            # Admins and superusers always allowed
+            if user_has_role(request.user, 'admin') or request.user.is_superuser:
+                allowed = True
+
+            # HODs: allowed but enforce same hod_name scope
+            if not allowed and user_has_role(request.user, 'hod'):
+                allowed = True
                 requester_hod = (getattr(request.user.profile, 'hod_name', None) or getattr(request.user.profile, 'name', None))
                 target_hod = (getattr(target_user, 'profile', None) and (getattr(target_user.profile, 'hod_name', None) or getattr(target_user.profile, 'name', None)))
                 if requester_hod and target_hod and str(requester_hod).strip().lower() != str(target_hod).strip().lower():
                     messages.error(request, "Unauthorized to view reports for this employee.")
                     return redirect('qpr_hod_dashboard')
+
+            # Managers: allow if same office_code
+            if not allowed and user_has_role(request.user, 'manager'):
+                mgr_profile = getattr(request.user, 'userprofile', None) or getattr(request.user, 'profile', None)
+                mgr_office = getattr(mgr_profile, 'office_code', None)
+                tgt_profile = getattr(target_user, 'profile', None)
+                tgt_office = getattr(tgt_profile, 'office_code', None)
+                if mgr_office and tgt_office and str(mgr_office).strip() == str(tgt_office).strip():
+                    allowed = True
+
+            if not allowed:
+                messages.error(request, "Unauthorized to view other user's reports.")
+                return redirect('home')
 
     context = {
         'target_user_id': getattr(target_user, 'id', ''),
@@ -3435,10 +3604,43 @@ def report_detail(request, record_id):
     # division mode: render aggregated quarterly report for HOD
     division_flag = request.GET.get('division')
     if division_flag == '1':
-        # Only allow HODs to access division aggregation
-        if not user_has_role(request.user, 'hod'):
+        # Allow HODs, admins/superusers, and Managers (subject to office match) to access division aggregation
+        if not (user_has_role(request.user, 'hod') or user_has_role(request.user, 'admin') or request.user.is_superuser or user_has_role(request.user, 'manager')):
             messages.error(request, 'Unauthorized')
             return redirect('home')
+
+        # If a snapshot record id was passed (report_detail/<id>/?division=1), prefer loading that snapshot
+        hod_profile = None
+        try:
+            # record_id comes from the URL path; try fetching a frozen quarterly snapshot
+            if record_id:
+                rec = QPRRecord.objects.filter(id=record_id, frequency__iexact='quarterly', is_quarterly_frozen=True).select_related('user').first()
+            else:
+                rec = None
+        except Exception:
+            rec = None
+
+        if rec:
+            # Authorization: HODs/admins/superusers allowed; Managers allowed only if office matches
+            if user_has_role(request.user, 'manager') and not (user_has_role(request.user, 'hod') or user_has_role(request.user, 'admin') or request.user.is_superuser):
+                mgr_profile = getattr(request.user, 'userprofile', None) or getattr(request.user, 'profile', None)
+                mgr_office = getattr(mgr_profile, 'office_code', None)
+                # prefer officeCode stored on the snapshot if present
+                rec_office = getattr(rec, 'officeCode', None) or (getattr(rec.user, 'profile', None) and getattr(rec.user.profile, 'office_code', None))
+                if not (mgr_office and rec_office and str(mgr_office).strip() == str(rec_office).strip()):
+                    messages.error(request, 'Unauthorized')
+                    return redirect('home')
+
+            # Serialize snapshot and render directly (no recomputation)
+            try:
+                import json as _json
+                snap = serialize_qpr_record(rec)
+                # Ensure top-level fields present for report_detail loader
+                initial_qpr_json = _json.dumps(snap, default=str)
+            except Exception:
+                initial_qpr_json = '{}'
+
+            return render(request, 'qpr/report_detail.html', {'qpr': snap, 'initial_qpr_json': initial_qpr_json, 'is_division': True})
 
         # Identify HOD name: prefer profile.hod_name (set by admin), fallback to profile.name
         hod_profile = getattr(request.user, 'profile', None)
@@ -3449,6 +3651,15 @@ def report_detail(request, record_id):
         if not hod_name_val:
             messages.error(request, 'HOD identity not found')
             return redirect('qpr_hod_dashboard')
+
+        # If requester is a Manager (not a HOD/admin), enforce same office_code as the HOD
+        if user_has_role(request.user, 'manager') and not user_has_role(request.user, 'hod') and not (user_has_role(request.user, 'admin') or request.user.is_superuser):
+            mgr_profile = getattr(request.user, 'userprofile', None) or getattr(request.user, 'profile', None)
+            mgr_office = getattr(mgr_profile, 'office_code', None)
+            hod_office = getattr(hod_profile, 'office_code', None)
+            if not (mgr_office and hod_office and str(mgr_office).strip() == str(hod_office).strip()):
+                messages.error(request, 'Unauthorized')
+                return redirect('home')
 
         # Get users under this HOD by matching UserProfile.hod_name == hod_profile.name
         users_under = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_name_val).select_related('user')
@@ -3492,11 +3703,17 @@ def report_detail(request, record_id):
         # avoids skipping records that lack explicit period_start/period_end
         # and ensures division totals reflect stored data.
         try:
+            processed_user_ids = set()
             for profile in users_under:
                 try:
                     user_obj = getattr(profile, 'user', None)
                     if not user_obj:
                         continue
+                    # track processed user ids to avoid double-counting HOD later
+                    try:
+                        processed_user_ids.add(int(user_obj.id))
+                    except Exception:
+                        pass
                     print("USER:", user_obj.id)
                     user_totals = _aggregate_records_with_fallback(user_obj, q_start, q_end, preferred='quarterly') or {k: 0 for k in NUMERIC_KEYS}
                     try:
@@ -3519,16 +3736,24 @@ def report_detail(request, record_id):
 
             # Include HOD's own totals using the same fallback aggregation
             try:
-                hod_totals = _aggregate_records_with_fallback(request.user, q_start, q_end, preferred='quarterly') or {k: 0 for k in NUMERIC_KEYS}
-                try:
-                    print("HOD TOTALS:", hod_totals)
-                except Exception:
-                    pass
-                for k in NUMERIC_KEYS:
+                hod_user_id = getattr(request.user, 'id', None)
+                # If the HOD was already included in users_under aggregation, skip adding again
+                if hod_user_id and hod_user_id in processed_user_ids:
                     try:
-                        aggregated[k] += int(hod_totals.get(k, 0) or 0)
+                        print("HOD already included in user list; skipping additional aggregation for HOD:", hod_user_id)
                     except Exception:
-                        continue
+                        pass
+                else:
+                    hod_totals = _aggregate_records_with_fallback(request.user, q_start, q_end, preferred='quarterly') or {k: 0 for k in NUMERIC_KEYS}
+                    try:
+                        print("HOD TOTALS:", hod_totals)
+                    except Exception:
+                        pass
+                    for k in NUMERIC_KEYS:
+                        try:
+                            aggregated[k] += int(hod_totals.get(k, 0) or 0)
+                        except Exception:
+                            continue
             except Exception:
                 pass
 
@@ -3580,17 +3805,34 @@ def report_detail(request, record_id):
         if not target:
             messages.error(request, 'User not found')
             return redirect('qpr_report_list')
-        # Authorization same as report_list
+        # Authorization: match logic in `report_list` so Managers in the same office can view
         if target.id != request.user.id:
-            if not (user_has_role(request.user, 'admin') or request.user.is_superuser or user_has_role(request.user, 'hod')):
-                messages.error(request, 'Unauthorized')
-                return redirect('home')
-            if user_has_role(request.user, 'hod'):
+            allowed = False
+            # Admins and superusers always allowed
+            if user_has_role(request.user, 'admin') or request.user.is_superuser:
+                allowed = True
+
+            # HODs: allowed but enforce same hod_name scope
+            if not allowed and user_has_role(request.user, 'hod'):
+                allowed = True
                 requester_hod = (getattr(request.user.profile, 'hod_name', None) or getattr(request.user.profile, 'name', None))
                 target_hod = (getattr(target, 'profile', None) and (getattr(target.profile, 'hod_name', None) or getattr(target.profile, 'name', None)))
                 if requester_hod and target_hod and str(requester_hod).strip().lower() != str(target_hod).strip().lower():
                     messages.error(request, 'Unauthorized')
                     return redirect('qpr_hod_dashboard')
+
+            # Managers: allow if same office_code
+            if not allowed and user_has_role(request.user, 'manager'):
+                mgr_profile = getattr(request.user, 'userprofile', None) or getattr(request.user, 'profile', None)
+                mgr_office = getattr(mgr_profile, 'office_code', None)
+                tgt_profile = getattr(target, 'profile', None)
+                tgt_office = getattr(tgt_profile, 'office_code', None)
+                if mgr_office and tgt_office and str(mgr_office).strip() == str(tgt_office).strip():
+                    allowed = True
+
+            if not allowed:
+                messages.error(request, 'Unauthorized')
+                return redirect('home')
         is_hod_view = (target.id != request.user.id)
         target_user_id = target.id
 
@@ -3960,28 +4202,49 @@ def freeze_division_snapshot(request):
 
     user_ids = list(users_under_hod.values_list('user__id', flat=True))
 
-    # Aggregate from stored quarterly QPRRecords for those users
+    # Compute aggregated totals for the quarter by summing per-user cumulative totals
     totals = {k: 0 for k in NUMERIC_KEYS}
     record_count = 0
-    if user_ids:
-        qrs = QPRRecord.objects.filter(user_id__in=user_ids, frequency__iexact='quarterly', quarter=current_quarter, year=current_year)
-        for r in qrs:
-            try:
-                d = serialize_qpr_record(r)
-            except Exception:
-                continue
-            record_count += 1
-            for k in NUMERIC_KEYS:
+    try:
+        # Determine quarter date range
+        try:
+            q_start, q_end = _quarter_label_to_daterange(current_quarter, current_year)
+        except Exception:
+            q_start = None
+            q_end = None
+
+        if user_ids and q_start and q_end:
+            for uid in user_ids:
                 try:
-                    v = d.get(k)
-                    if v is None or v == '':
+                    u = CustomUser.objects.filter(id=uid).first()
+                    if not u:
                         continue
-                    totals[k] += int(v)
+                    # Use fallback aggregation to compute this user's totals for the quarter
+                    user_totals = _aggregate_records_with_fallback(u, q_start, q_end, preferred='quarterly') or {k: 0 for k in NUMERIC_KEYS}
+                    any_nonzero = False
+                    for k in NUMERIC_KEYS:
+                        try:
+                            v = int(user_totals.get(k, 0) or 0)
+                            totals[k] += v
+                            if v != 0:
+                                any_nonzero = True
+                        except Exception:
+                            continue
+                    if any_nonzero:
+                        record_count += 1
                 except Exception:
                     continue
+    except Exception:
+        totals = {k: 0 for k in NUMERIC_KEYS}
 
     officeName = getattr(hod_profile, 'office_name', '') or ''
     officeCode = getattr(hod_profile, 'office_code', '') or ''
+
+    # DEBUG: log totals before creating snapshot
+    try:
+        print("[DEBUG] freeze_division_snapshot - TOTALS BEFORE SAVE:", totals)
+    except Exception:
+        pass
 
     # Create snapshot record (header only) and persist section data
     qpr_fields = {
@@ -3997,6 +4260,12 @@ def freeze_division_snapshot(request):
 
     new_rec = QPRRecord.objects.create(**qpr_fields)
 
+    # DEBUG: log snapshot id after create
+    try:
+        print(f"[DEBUG] freeze_division_snapshot - Created snapshot id={getattr(new_rec, 'id', None)}")
+    except Exception:
+        pass
+
     # Save section-level aggregated totals into related Section models
     try:
         _save_section_data(new_rec, totals)
@@ -4006,6 +4275,21 @@ def freeze_division_snapshot(request):
         except Exception:
             pass
         return JsonResponse({'error': 'Failed to save aggregated section data'}, status=500)
+
+    # DEBUG: verify saved snapshot sections
+    try:
+        # reload record and related sections
+        nr = QPRRecord.objects.filter(id=new_rec.id).first()
+        from .models import Section1FilesData, Section2MeetingsData
+        s1 = Section1FilesData.objects.filter(qpr_record=nr).first()
+        s2 = Section2MeetingsData.objects.filter(qpr_record=nr).first()
+        print("[DEBUG] freeze_division_snapshot - SNAPSHOT SAVED id=", getattr(nr, 'id', None))
+        if s1:
+            print("[DEBUG] SNAPSHOT S1:", getattr(s1, 'total_files', None), getattr(s1, 'hindi_files', None))
+        if s2:
+            print("[DEBUG] SNAPSHOT S2:", getattr(s2, 'meetings_count', None), getattr(s2, 'hindi_minutes', None))
+    except Exception:
+        pass
 
     return redirect('qpr_hod_detail_list')
 
@@ -4425,7 +4709,7 @@ def qpr_save_record(request):
                 year=data.get('year')
             )
 
-            if ps and pe and is_period_overlapping(request.user, ps, pe):
+            if ps and pe and is_period_overlapping(request.user, ps, pe, new_frequency=frequency):
                 messages.error(request, "Overlapping period")
                 return redirect('qpr_records')
 
@@ -5645,46 +5929,86 @@ def manager_report(request):
 
         for hod_profile in hod_profiles:
             try:
-                hod_name_raw = (hod_profile.name or '').strip()
+                # Use robust display name for HOD: prefer profile.name, then user full name, then username
+                user_obj = getattr(hod_profile, 'user', None)
+                hod_display_name = (hod_profile.name or '').strip()
+                # If hod_profile.name looks like an empcode (numeric) or is missing,
+                # prefer profile-linked employee name or user's full name
+                def _looks_like_empcode(s):
+                    try:
+                        return str(s).strip().isdigit()
+                    except Exception:
+                        return False
+
+                if (not hod_display_name or _looks_like_empcode(hod_display_name)) and user_obj:
+                    # try Employee record linked to profile
+                    emp_rec = None
+                    try:
+                        emp_rec = getattr(hod_profile, 'employee', None)
+                    except Exception:
+                        emp_rec = None
+                    if emp_rec and getattr(emp_rec, 'ename', None):
+                        hod_display_name = emp_rec.ename.strip()
+                    else:
+                        try:
+                            hod_display_name = (user_obj.get_full_name() or user_obj.username or '').strip()
+                        except Exception:
+                            hod_display_name = (getattr(user_obj, 'username', '') or '').strip()
+
+                # Find employees that report to this HOD. Try multiple matching keys because
+                # different records may store HOD identifier as name, empcode, or username.
                 employees_qs = UserProfile.objects.filter(
-                    hod_name__iexact=hod_name_raw,
-                    approval_status='approved'
+                    approval_status='approved',
                 ).select_related('user')
 
-                employees_list = [hod_profile] + list(employees_qs)
+                match_keys = []
+                if hod_profile.name:
+                    match_keys.append(hod_profile.name)
+                if getattr(hod_profile, 'employee_code', None):
+                    match_keys.append(str(hod_profile.employee_code))
+                if user_obj and getattr(user_obj, 'username', None):
+                    match_keys.append(user_obj.username)
 
-                unique = {}
-                final_profiles = []
-                for emp in employees_list:
-                    try:
-                        key = getattr(emp, 'id', None)
-                        if key is None:
-                            continue
-                        if key in unique:
-                            continue
-                        unique[key] = True
-                        final_profiles.append(emp)
-                    except Exception:
-                        continue
+                # Build OR query across possible hod_name variants
+                if match_keys:
+                    q = Q()
+                    for key in set(match_keys):
+                        if key and str(key).strip():
+                            q |= Q(hod_name__iexact=str(key).strip())
+                    if q:
+                        employees_qs = employees_qs.filter(q)
 
+                # Build employee dicts. We'll ensure the HOD appears as the first entry
                 emp_dicts = []
-                for p in final_profiles:
+                for p in employees_qs:
                     try:
-                        user_obj = getattr(p, 'user', None)
-                        uid = getattr(user_obj, 'id', None)
-                        name = getattr(p, 'name', '') or (getattr(user_obj, 'username', None) or '')
-                        empcode = getattr(p, 'employee_code', '')
-                        if not empcode:
-                            empcode = getattr(user_obj, 'username', '')
-                        empcode = str(empcode) if empcode is not None else ''
+                        u = getattr(p, 'user', None)
+                        uid = getattr(u, 'id', None)
                         if uid is None:
                             continue
-                        emp_dicts.append({'id': uid, 'name': name, 'empcode': empcode})
+                        name = (p.name or '') or (getattr(u, 'get_full_name', lambda: None)() or getattr(u, 'username', ''))
+                        empcode = getattr(p, 'employee_code', '') or getattr(u, 'username', '') or ''
+                        empcode = str(empcode)
+                        ipnum = getattr(p, 'ip_number', '') or ''
+                        emp_dicts.append({'id': uid, 'name': name, 'empcode': empcode, 'ip': ipnum})
                     except Exception:
                         continue
 
+                # Ensure HOD is present at the top of the employees list
+                try:
+                    hod_user_id = getattr(user_obj, 'id', None)
+                    hod_empcode = getattr(hod_profile, 'employee_code', '') or (getattr(user_obj, 'username', '') or '')
+                    hod_ip = getattr(hod_profile, 'ip_number', '') or ''
+                    hod_entry = {'id': hod_user_id, 'name': hod_display_name, 'empcode': str(hod_empcode), 'ip': hod_ip}
+                    # remove existing occurrence of HOD if present
+                    emp_dicts = [e for e in emp_dicts if e.get('id') != hod_user_id]
+                    emp_dicts.insert(0, hod_entry)
+                except Exception:
+                    pass
+
                 manager_data.append({
-                    'hod_name': hod_profile.name,
+                    'hod_name': hod_display_name,
+                    'hod_id': getattr(user_obj, 'id', None),
                     'employees': emp_dicts,
                     'division_frozen': False,
                     'division_qpr_id': None,
@@ -5694,13 +6018,14 @@ def manager_report(request):
 
     # Detect frozen division QPR per HOD and compute state totals (current quarter/year)
     try:
+        # Build mapping from hod user id -> index in manager_data for reliable lookup
         hod_user_map = {}
-        for i, hod in enumerate(hod_profiles):
-            uid = getattr(hod.user, 'id', None)
-            if uid is not None and i < len(manager_data):
-                hod_user_map[uid] = i
-
-        hod_user_ids = [getattr(h.user, 'id', None) for h in hod_profiles if getattr(h.user, 'id', None) is not None]
+        hod_user_ids = []
+        for idx, entry in enumerate(manager_data):
+            hid = entry.get('hod_id')
+            if hid is not None:
+                hod_user_map[hid] = idx
+                hod_user_ids.append(hid)
 
         current_quarter = get_current_quarter()
         current_year = get_current_year_label()

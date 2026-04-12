@@ -93,11 +93,9 @@ urlpatterns = [
     path('qpr/records/save/', views.qpr_save_record, name='qpr_save_record'),
     path('qpr/records/delete/<int:id>/', views.qpr_delete_record, name='qpr_delete_record'),
     #path('qpr/api/records/<int:record_id>/', views.api_record_detail, name='api_record_detail'),
-    path('qpr/api/availability/', views.api_qpr_availability, name='qpr_api_availability'),
+    #path('qpr/api/availability/', views.api_qpr_availability, name='qpr_api_availability'),
     #path('qpr/api/period-summary/', views.api_period_summary, name='api_period_summary'),
     path('qpr/api/request-edit/', views.request_edit_api, name='request_edit_api'),
-    path('qpr/api/update-hod/', views.api_update_hod, name='api_update_hod'),
-    path('qpr/api/user-change-hod/', views.api_user_change_hod, name='api_user_change_hod'),
 
     #path('employee-form/', views.employee_form, name='employee_form'),
     #path('employee/export-pdf/', views.export_employee_pdf, name='export_employee_pdf'), 

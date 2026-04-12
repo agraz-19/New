@@ -56,6 +56,12 @@
                 </div>
             {% endif %}
 
+            {% if has_pending_change_request %}
+                <div id="pendingChangeAlert" class="alert alert-info mb-4">
+                    <i class="fas fa-clock"></i> {{ "Your change request is pending HOD approval. Form is locked until approved."|t:current_lang }}
+                </div>
+            {% endif %}
+
             {% if profile.approval_status == 'pending' and not can_edit %}
                 <div class="alert alert-info mb-4">
                     <i class="fas fa-clock"></i> {{ "Your registration is currently pending HOD approval. Your form is locked until you are verified."|t:current_lang }}
@@ -413,7 +419,8 @@
     // const hasApprovedRequest = {{ has_approved_change_request|default:"false" }};
     const profileLocked = {{ profile_locked|yesno:"true,false" }};
     const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
-    const hasApprovedRequest = {{ has_approved_change_request|yesno:"true,false" }}
+    const hasApprovedRequest = {{ has_approved_change_request|yesno:"true,false" }};
+    const profileUpdated = {{ profile_updated|yesno:"true,false" }};
     let isProfileLocked = false;
 
     function getSelectedText(selectElement) {
@@ -433,19 +440,19 @@
         const isEditAllowed = {{ user.is_edit_allowed|yesno:"true,false" }};
         const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
 
-        console.log("STATE CHECK:", { profileStatus, isEditAllowed, hasPendingRequest });
+        console.log("STATE CHECK:", { profileStatus, profileUpdated, isEditAllowed, hasPendingRequest });
 
         // 🔓 STEP 1: NEW USER (no profile status) → UNLOCK
-        if (!profileStatus) {
+        if (!profileUpdated) {
             isProfileLocked = false;
             unlockFormFields();
             return;
         }
 
-        // 🔓 STEP 2: Pending profile (new user who saved) → UNLOCK
+        // 🔒 STEP 2: Pending profile → LOCK
         if (profileStatus === 'pending' || profileStatus === 'pending_admin') {
-            isProfileLocked = false;
-            unlockFormFields();
+            isProfileLocked = true;
+            lockAllFormFields();
             return;
         }
 
@@ -463,10 +470,10 @@
             return;
         }
 
-        // 🔓 STEP 5: Approved profile with no pending request → UNLOCK (user can request change)
+        // 🔒 STEP 5: Approved profile with no pending request → LOCK (user must request change)
         if (profileStatus === 'approved' && !hasPendingRequest) {
-            isProfileLocked = false;
-            unlockFormFields();
+            isProfileLocked = true;
+            lockAllFormFields();
             return;
         }
 
@@ -518,45 +525,82 @@
         document.getElementById("requestChangeSection").style.display = "block";
     }
 
+    function submitChangeRequest() {
+        const reason = document.getElementById("changeReason").value.trim();
+        if (!reason) {
+            alert("Please provide a reason.");
+            return;
+        }
+        const csrftoken = document.querySelector('[name="csrfmiddlewaretoken"]').value;
+        fetch("{% url 'submit_profile_change_request' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrftoken
+            },
+            body: JSON.stringify({ change_reason: reason })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert("Request submitted. Awaiting approval.");
+                location.reload();
+            } else {
+                alert("Failed: " + (data.error || "Unknown error"));
+            }
+        })
+        .catch(err => alert("Error: " + err));
+    }
+
     document.addEventListener("DOMContentLoaded", function() {
         const profileLocked = {{ profile_locked|yesno:"true,false" }};
         const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
         const hasApprovedRequest = {{ has_approved_change_request|yesno:"true,false" }};
         const profileApproved = {{ profile_approved|yesno:"true,false" }};
+        const profileUpdated = {{ profile_updated|yesno:"true,false" }};
         
         const profileLockedAlert = document.getElementById('profileLockedAlert');
         const pendingChangeAlert = document.getElementById('pendingChangeAlert');
         const requestChangeSection = document.getElementById('requestChangeSection');
 
-        console.log("DOMContentLoaded - Flags:", { profileLocked, hasPendingRequest, hasApprovedRequest, profileApproved });
+        console.log("DOMContentLoaded - Flags:", { profileLocked, hasPendingRequest, hasApprovedRequest, profileApproved, profileUpdated });
 
-        // ✅ Case 1: New user (no profile approved, no pending request) → UNLOCK
-        if (!profileApproved && !hasPendingRequest) {
-            profileLockedAlert.style.display = 'none';
-            pendingChangeAlert.style.display = 'none';
-            requestChangeSection.style.display = 'none';
-            unlockFormFields();
+        // ✅ Case 1: New user (no profile at all) → UNLOCK
+        if (!profileUpdated || (!profileApproved && !hasPendingRequest)) {
+            const profileStatus = "{{ profile.approval_status|default:'' }}";
+            if (!profileUpdated) {
+                if (profileLockedAlert) profileLockedAlert.style.display = 'none';
+                if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
+                if (requestChangeSection) requestChangeSection.style.display = 'none';
+                unlockFormFields();
+            } else {
+                // pending/rejected — keep locked
+                if (profileLockedAlert) profileLockedAlert.style.display = 'none';
+                if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
+                if (requestChangeSection) requestChangeSection.style.display = 'none';
+                lockAllFormFields();
+            }
         } 
         // ✅ Case 2: Profile approved with pending change request → LOCK
         else if (profileApproved && hasPendingRequest) {
-            profileLockedAlert.style.display = 'none';
-            pendingChangeAlert.style.display = 'block';
-            requestChangeSection.style.display = 'none';
+            if (profileLockedAlert) profileLockedAlert.style.display = 'none';
+            if (pendingChangeAlert) pendingChangeAlert.style.display = 'block';
+            if (requestChangeSection) requestChangeSection.style.display = 'none';
             lockAllFormFields();
         }
-        // ✅ Case 3: Profile approved, NO pending request → UNLOCK, show request box
-        else if (profileApproved && !hasPendingRequest) {
-            profileLockedAlert.style.display = 'none';
-            pendingChangeAlert.style.display = 'none';
-            requestChangeSection.style.display = 'block';
+        // ✅ Case 3: HOD approved change request → UNLOCK (must check BEFORE case 4)
+        else if (profileApproved && hasApprovedRequest) {
+            if (profileLockedAlert) profileLockedAlert.style.display = 'none';
+            if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
+            if (requestChangeSection) requestChangeSection.style.display = 'none';
             unlockFormFields();
         }
-        // ✅ Case 4: Change request approved → UNLOCK
-        else if (hasApprovedRequest) {
-            profileLockedAlert.style.display = 'none';
-            pendingChangeAlert.style.display = 'none';
-            requestChangeSection.style.display = 'none';
-            unlockFormFields();
+        // ✅ Case 4: Profile approved, NO pending request, NO approved request → LOCK, show request box
+        else if (profileApproved && !hasPendingRequest) {
+            if (profileLockedAlert) profileLockedAlert.style.display = 'none';
+            if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
+            if (requestChangeSection) requestChangeSection.style.display = 'block';
+            lockAllFormFields();
         }
 
         const submitChangeBtn = document.getElementById("submitChangeRequest");

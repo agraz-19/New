@@ -255,6 +255,8 @@
             <tr>
                 <th>HOD NAME</th>
                 <th>EMP CODE</th>
+                <th>NAME</th>
+                <th>IP NUMBER</th>
                 <th>VIEW</th>
                 <th>DIVISION QPR</th>
             </tr>
@@ -262,24 +264,49 @@
         <tbody>
             {% if manager_data %}
                 {% for group in manager_data %}
-                    {% for emp in group.employees %}
+                    {% if group.employees and group.employees|length > 0 %}
+                        {% for emp in group.employees %}
+                            <tr>
+                                {% if forloop.first %}
+                                    <td rowspan="{{ group.employees|length }}">{{ group.hod_name }}</td>
+                                {% endif %}
+                                <td>{{ emp.empcode }}</td>
+                                <td>{{ emp.name }}</td>
+                                <td>{{ emp.ip }}</td>
+                                <td><a class="action-link" href="{% url 'qpr_report_list' %}?emp_code={{ emp.empcode }}">View</a></td>
+                                {% if forloop.first %}
+                                    <td rowspan="{{ group.employees|length }}">
+                                        {% if group.division_frozen and group.division_qpr_id %}
+                                            <a class="action-link" href="{% url 'qpr_report_detail' group.division_qpr_id %}?division=1">View</a>
+                                        {% else %}
+                                            <span class="text-muted">Not Frozen</span>
+                                        {% endif %}
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    {% else %}
                         <tr>
-                            {% if forloop.first %}
-                                <td rowspan="{{ group.employees|length }}">{{ group.hod_name }}</td>
-                            {% endif %}
-                            <td>{% if emp.empcode %}{{ emp.empcode }}{% else %}{{ emp.name }}{% endif %}</td>
-                            <td><a class="action-link" href="{% url 'qpr_report_detail' emp.id %}">View</a></td>
-                            {% if forloop.first %}
-                                <td rowspan="{{ group.employees|length }}">
-                                    {% if group.division_frozen and group.division_qpr_id %}
-                                        <a class="action-link" href="{% url 'qpr_report_detail' group.division_qpr_id %}?division=1">View</a>
-                                    {% else %}
-                                        <span class="text-muted">Not Frozen</span>
-                                    {% endif %}
-                                </td>
-                            {% endif %}
+                            <td>{{ group.hod_name }}</td>
+                            <td class="text-muted">-</td>
+                            <td class="text-muted">-</td>
+                            <td class="text-muted">-</td>
+                            <td>
+                                {% if group.employees and group.employees|length > 0 %}
+                                    <a class="action-link" href="{% url 'qpr_report_list' %}?emp_code={{ group.employees.0.empcode }}">View</a>
+                                {% else %}
+                                    <a class="action-link" href="{% url 'qpr_report_list' %}">View</a>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if group.division_frozen and group.division_qpr_id %}
+                                    <a class="action-link" href="{% url 'qpr_report_detail' group.division_qpr_id %}?division=1">View</a>
+                                {% else %}
+                                    <span class="text-muted">Not Frozen</span>
+                                {% endif %}
+                            </td>
                         </tr>
-                    {% endfor %}
+                    {% endif %}
                 {% endfor %}
             {% else %}
                 <tr>
@@ -299,22 +326,7 @@
                 <a href="{% url 'manager_state_qpr' %}" class="btn btn-sm btn-primary">View State QPR</a>
             </div>
         </div>
-        <table class="report-table" style="margin-top:10px;">
-            <thead>
-                <tr>
-                    <th>Metric</th>
-                    <th>Value</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for k,v in state_qpr_items %}
-                <tr>
-                    <td>{{ k }}</td>
-                    <td>{{ v }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <!-- Metric/Value table removed per UX request -->
     </div>
     {% endif %}
 
