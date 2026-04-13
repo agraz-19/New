@@ -253,12 +253,12 @@
     <table class="report-table">
         <thead>
             <tr>
-                <th>HOD NAME</th>
-                <th>EMP CODE</th>
-                <th>NAME</th>
-                <th>IP NUMBER</th>
-                <th>VIEW</th>
-                <th>DIVISION QPR</th>
+                <th>{{ "HOD NAME"|t:current_lang }}</th>
+                <th>{{ "EMP CODE"|t:current_lang }}</th>
+                <th>{{ "NAME"|t:current_lang }}</th>
+                <th>{{ "IP NUMBER"|t:current_lang }}</th>
+                <th>{{ "VIEW"|t:current_lang }}</th>
+                <th>{{ "DIVISION QPR"|t:current_lang }}</th>
             </tr>
         </thead>
         <tbody>
@@ -268,18 +268,30 @@
                         {% for emp in group.employees %}
                             <tr>
                                 {% if forloop.first %}
-                                    <td rowspan="{{ group.employees|length }}">{{ group.hod_name }}</td>
-                                {% endif %}
+                                            <td rowspan="{{ group.employees|length }}">
+                                                {% if current_lang == 'hi' %}
+                                                    {{ group.hod_hname }}
+                                                {% else %}
+                                                    {{ group.hod_name }}
+                                                {% endif %}
+                                            </td>
+                                        {% endif %}
                                 <td>{{ emp.empcode }}</td>
-                                <td>{{ emp.name }}</td>
+                                <td>
+                                    {% if current_lang == 'hi' %}
+                                        {{ emp.hname }}
+                                    {% else %}
+                                        {{ emp.name }}
+                                    {% endif %}
+                                </td>
                                 <td>{{ emp.ip }}</td>
-                                <td><a class="action-link" href="{% url 'qpr_report_list' %}?emp_code={{ emp.empcode }}">View</a></td>
+                                <td><a class="action-link" href="{% url 'qpr_report_list' %}?emp_code={{ emp.empcode }}">{{ "View"|t:current_lang }}</a></td>
                                 {% if forloop.first %}
                                     <td rowspan="{{ group.employees|length }}">
                                         {% if group.division_frozen and group.division_qpr_id %}
-                                            <a class="action-link" href="{% url 'qpr_report_detail' group.division_qpr_id %}?division=1">View</a>
+                                            <a class="action-link" href="{% url 'qpr_report_detail' group.division_qpr_id %}?division=1">{{ "View"|t:current_lang }}</a>
                                         {% else %}
-                                            <span class="text-muted">Not Frozen</span>
+                                            <span class="text-muted">{{ "Not Frozen"|t:current_lang }}</span>
                                         {% endif %}
                                     </td>
                                 {% endif %}
@@ -318,12 +330,12 @@
 
     {% if state_qpr_items %}
     <div style="margin-top:20px;">
-        <h5>State QPR (Aggregated frozen division snapshots)</h5>
+        <h5>{{ "State QPR (Aggregated frozen division snapshots)"|t:current_lang }}</h5>
         <div style="display:flex; gap:12px; align-items:center;">
-            <div>Quarter: {{ state_qpr.quarter }} — Year: {{ state_qpr.year }}</div>
-            <div>Frozen HODs: {{ frozen_count }} / {{ total_hods }}</div>
+            <div>{{ "Quarter:"|t:current_lang }} {{ state_qpr.quarter }} — {{ "Year:"|t:current_lang }} {{ state_qpr.year }}</div>
+            <div>{{ "Frozen HODs:"|t:current_lang }} {{ frozen_count }} / {{ total_hods }}</div>
             <div>
-                <a href="{% url 'manager_state_qpr' %}" class="btn btn-sm btn-primary">View State QPR</a>
+                <a href="{% url 'manager_state_qpr' %}" class="btn btn-sm btn-primary">{{ "View State QPR"|t:current_lang }}</a>
             </div>
         </div>
         <!-- Metric/Value table removed per UX request -->

@@ -37,16 +37,16 @@ def _meta_path(folder):
 def _read_meta(folder):
     path = _meta_path(folder)
 
-    # ✅ If path doesn't exist → return empty
+    # If path doesn't exist → return empty
     if not os.path.exists(path):
         return {}
 
-    # 🔥 CRITICAL FIX: ensure it's a FILE, not a folder
+    # CRITICAL FIX: ensure it's a FILE, not a folder
     if not os.path.isfile(path):
         print(f"[ERROR] meta.json is not a file: {path}")
         return {}
 
-    # ✅ Safe read with error handling
+    # Safe read with error handling
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -88,7 +88,7 @@ def update_event_meta(folder, title_en, title_hi, thumbnail=None):
     if title_hi:
         meta["title_hi"] = (title_hi or title_en).strip()
 
-    # 🔥 Thumbnail support
+    # Thumbnail support
     if thumbnail:
         if thumbnail in os.listdir(folder_path):
             meta["thumbnail"] = thumbnail
@@ -128,7 +128,7 @@ def get_all_events():
             if os.path.splitext(fname)[1].lower() in IMAGE_EXTS
         ]
 
-        # ✅ Sort by creation time (upload order)
+        # Sort by creation time (upload order)
         image_files.sort(
             key=lambda x: os.path.getctime(os.path.join(folder_path, x))
         )

@@ -2037,7 +2037,7 @@ def download_db_backup(request):
 
 @login_required
 @user_passes_test(is_admin)  # This checks user.role == 'admin', so NO Superuser required
-def archive_user(request, user_id):  # ✅ FIXED: Added 'request' argument
+def archive_user(request, user_id):  # FIXED: Added 'request' argument
     # 1. Fetch User
     user_to_archive = get_object_or_404(CustomUser, id=user_id)
     
@@ -2094,7 +2094,7 @@ def archive_user(request, user_id):  # ✅ FIXED: Added 'request' argument
 
     # 6. Success Message & Redirect
     messages.success(request, f"User {user_to_archive.username} has been archived successfully.")
-    return redirect('dashboard')  # ✅ FIXED: Added return statement
+    return redirect('dashboard')  # FIXED: Added return statement
 
 @login_required
 @user_passes_test(is_admin)
@@ -2150,7 +2150,7 @@ def profile_view(request):
     ).order_by('-approved_at').first() if profile else None
 
     # ===============================
-    # 🔑 STATE FLAGS & LOCK LOGIC
+    # STATE FLAGS & LOCK LOGIC
     # ===============================
 
     is_approved = profile and profile.approval_status == "approved"
@@ -2167,7 +2167,7 @@ def profile_view(request):
         can_edit = False
 
     # ===============================
-    # 📩 POST LOGIC (SAVE CHANGES)
+    # POST LOGIC (SAVE CHANGES)
     # ===============================
     if request.method == 'POST':
         if not can_edit:
@@ -2179,7 +2179,7 @@ def profile_view(request):
         username = request.POST.get('username', '').strip()
         phone = request.POST.get('phone', '').strip()
 
-        # ✅ SIMPLE VALIDATION: Just check required fields are filled
+        # SIMPLE VALIDATION: Just check required fields are filled
         # Employee code was already verified via API (fetchEmployeeData)
         if not empcode:
             messages.error(request, "Employee Code is required.")
@@ -2207,7 +2207,7 @@ def profile_view(request):
 
         # 1. Update User
         user.set_email(new_email)
-        # ✅ Only lock if they just used an approved change request
+        # Only lock if they just used an approved change request
         if approved_change_request:
             user.is_edit_allowed = False
         user.save()
@@ -2258,7 +2258,7 @@ def profile_view(request):
         return redirect('profile')
 
     # ===============================
-    # 📥 GET LOGIC (PAGE LOAD)
+    # gET LOGIC (PAGE LOAD)
     # ===============================
     empcode = profile.employee_code if profile else None
     employee = Employee.objects.filter(empcode=empcode).first() if empcode else None
@@ -2280,7 +2280,7 @@ def profile_view(request):
         'ip_number': profile.ip_number if profile else '',
         'alternate_email': profile.alternate_email if profile else '',
 
-        # 🔑 Flags for Template
+        # Flags for Template
         'can_edit': can_edit,
         'profile_locked': not can_edit,
         'profile_approved': is_approved,
@@ -2298,29 +2298,29 @@ def approve_profile_change_hod(request, request_id):
     from .models import ProfileChangeRequest
     from django.utils import timezone
 
-    # 🔐 ROLE CHECK
+    # ROLE CHECK
     if not user_has_role(request.user, ['hod', 'admin']):
         messages.error(request, "Unauthorized", extra_tags='danger')
         return redirect('qpr_hod_detail_list')
 
     change_request = get_object_or_404(ProfileChangeRequest, id=request_id)
 
-    # 🔒 Prevent re-processing
+    # Prevent re-processing
     if change_request.status != 'pending':
         messages.warning(request, "This request is already processed.")
         return redirect('qpr_hod_detail_list')
 
-    # 🔐 HOD VALIDATION
+    #  HOD VALIDATION
     if change_request.hod != request.user and not request.user.is_staff:
         messages.error(request, "Not authorized for this request", extra_tags='danger')
         return redirect('qpr_hod_detail_list')
 
-    # ✅ APPROVE REQUEST
+    # APPROVE REQUEST
     change_request.status = 'approved'
     change_request.approved_at = timezone.now()
     change_request.save()
 
-    # 🔓 UNLOCK USER FORM
+    #  UNLOCK USER FORM
     user = change_request.profile.user
     user.is_edit_allowed = True
     user.save(update_fields=['is_edit_allowed'])
@@ -2342,19 +2342,19 @@ def reject_profile_change_hod(request, request_id):
     if request.method != 'POST':
         return redirect('qpr_hod_detail_list')
 
-    # 🔐 ROLE CHECK
+    #  ROLE CHECK
     if not user_has_role(request.user, ['hod', 'admin']):
         messages.error(request, "Unauthorized", extra_tags='danger')
         return redirect('qpr_hod_detail_list')
 
     change_request = get_object_or_404(ProfileChangeRequest, id=request_id)
 
-    # 🔒 Prevent re-processing
+    #  Prevent re-processing
     if change_request.status != 'pending':
         messages.warning(request, "This request is already processed.")
         return redirect('qpr_hod_detail_list')
 
-    # 🔐 HOD VALIDATION
+    #  HOD VALIDATION
     if change_request.hod != request.user and not request.user.is_staff:
         messages.error(request, "Not authorized for this request", extra_tags='danger')
         return redirect('qpr_hod_detail_list')
@@ -2365,13 +2365,13 @@ def reject_profile_change_hod(request, request_id):
         messages.error(request, "Rejection reason is required", extra_tags='danger')
         return redirect('qpr_hod_detail_list')
 
-    # ❌ REJECT REQUEST
+    #  REJECT REQUEST
     change_request.status = 'rejected'
     change_request.approved_at = timezone.now()  # you can rename to reviewed_at later
     change_request.approval_comments = rejection_reason
     change_request.save()
 
-    # 🚫 KEEP USER LOCKED (explicit for clarity)
+    # KEEP USER LOCKED (explicit for clarity)
     user = change_request.profile.user
     user.is_edit_allowed = False
     user.save(update_fields=['is_edit_allowed'])
@@ -2632,7 +2632,7 @@ def qpr_hod_dashboard(request):
     from django.db.models import Q
 
     # ===============================
-    # 🔥 CHANGE REQUESTS (FOR DASHBOARD)
+    # CHANGE REQUESTS (FOR DASHBOARD)
     # ===============================
     profile_change_requests = ProfileChangeRequest.objects.filter(
         hod=request.user,
@@ -2640,7 +2640,7 @@ def qpr_hod_dashboard(request):
     ).select_related('profile', 'profile__user').order_by('-requested_at')
 
     # ===============================
-    # 📊 BASIC INFO
+    # BASIC INFO
     # ===============================
     current_quarter = get_current_quarter()
     current_year = get_current_year_label()
@@ -2649,7 +2649,7 @@ def qpr_hod_dashboard(request):
     hod_name = (hod_profile.hod_name or hod_profile.name or "").strip()
 
     # ===============================
-    # 👥 USERS UNDER HOD
+    # USERS UNDER HOD
     # ===============================
     if hod_name:
         user_role_q = Q(roles__name='user') | Q(user__roles__name='user')
@@ -2664,7 +2664,7 @@ def qpr_hod_dashboard(request):
     total_users = users_under_hod.count()
 
     # ===============================
-    # 📈 QPR COUNTS (FIXED LOOP)
+    # QPR COUNTS (FIXED LOOP)
     # ===============================
     qpr_submitted_count = 0
 
@@ -2686,7 +2686,7 @@ def qpr_hod_dashboard(request):
     qpr_pending = total_users - qpr_submitted_count
 
     # ===============================
-    # 📊 PROFILE STATUS
+    # PROFILE STATUS
     # ===============================
     profile_updated_count = users_under_hod.filter(profile_updated=True).count()
 
@@ -2698,7 +2698,7 @@ def qpr_hod_dashboard(request):
             Q(hod_name=str(hod_profile.employee_code))
         ).select_related('user', 'employee')
     # ===============================
-    # 📦 CONTEXT
+    # CONTEXT
     # ===============================
     context = {
         'role': 'hod',
@@ -2708,7 +2708,7 @@ def qpr_hod_dashboard(request):
         'profile_updated': profile_updated_count,
         'hod_name': hod_name,
 
-        # 🔥 IMPORTANT (for dashboard UI)
+        # IMPORTANT (for dashboard UI)
         'profile_change_requests': profile_change_requests,
 
         'current_lang': lang,
@@ -2720,7 +2720,7 @@ def qpr_hod_dashboard(request):
     response = render(request, 'qpr/hod_dashboard.html', context)
 
     # ===============================
-    # 🚫 NO CACHE
+    # NO CACHE
     # ===============================
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
@@ -4100,7 +4100,7 @@ def hod_detail_list(request):
             'submitted_today': submitted_today,
         })
     
-    # ✅ NEW: Fetch pending profile change requests for this HOD
+    # NEW: Fetch pending profile change requests for this HOD
     from .models import ProfileChangeRequest
     profile_change_requests = ProfileChangeRequest.objects.filter(
         hod=request.user,
@@ -4112,7 +4112,7 @@ def hod_detail_list(request):
         'hod_name': hod_name, 
         'current_quarter': current_quarter, 
         'current_year': current_year,
-        'profile_change_requests': profile_change_requests,  # ✅ NEW
+        'profile_change_requests': profile_change_requests,
     }
     
     response = render(request, 'qpr/hod_detail_list.html', context)
@@ -5987,10 +5987,16 @@ def manager_report(request):
                         if uid is None:
                             continue
                         name = (p.name or '') or (getattr(u, 'get_full_name', lambda: None)() or getattr(u, 'username', ''))
+                        # try to get Hindi name from linked Employee record if available
+                        try:
+                            emp_obj = getattr(p, 'employee', None)
+                            hname_val = getattr(emp_obj, 'hname', '') if emp_obj is not None else ''
+                        except Exception:
+                            hname_val = ''
                         empcode = getattr(p, 'employee_code', '') or getattr(u, 'username', '') or ''
                         empcode = str(empcode)
                         ipnum = getattr(p, 'ip_number', '') or ''
-                        emp_dicts.append({'id': uid, 'name': name, 'empcode': empcode, 'ip': ipnum})
+                        emp_dicts.append({'id': uid, 'name': name, 'hname': hname_val or name, 'empcode': empcode, 'ip': ipnum})
                     except Exception:
                         continue
 
@@ -5999,7 +6005,13 @@ def manager_report(request):
                     hod_user_id = getattr(user_obj, 'id', None)
                     hod_empcode = getattr(hod_profile, 'employee_code', '') or (getattr(user_obj, 'username', '') or '')
                     hod_ip = getattr(hod_profile, 'ip_number', '') or ''
-                    hod_entry = {'id': hod_user_id, 'name': hod_display_name, 'empcode': str(hod_empcode), 'ip': hod_ip}
+                    # also store Hindi name for HOD (if linked employee exists)
+                    try:
+                        hod_emp_obj = getattr(hod_profile, 'employee', None)
+                        hod_hname = getattr(hod_emp_obj, 'hname', '') if hod_emp_obj is not None else ''
+                    except Exception:
+                        hod_hname = ''
+                    hod_entry = {'id': hod_user_id, 'name': hod_display_name, 'hname': hod_hname or hod_display_name, 'empcode': str(hod_empcode), 'ip': hod_ip}
                     # remove existing occurrence of HOD if present
                     emp_dicts = [e for e in emp_dicts if e.get('id') != hod_user_id]
                     emp_dicts.insert(0, hod_entry)
@@ -6008,6 +6020,7 @@ def manager_report(request):
 
                 manager_data.append({
                     'hod_name': hod_display_name,
+                    'hod_hname': (getattr(hod_profile, 'employee', None) and getattr(hod_profile.employee, 'hname', '')) or hod_display_name,
                     'hod_id': getattr(user_obj, 'id', None),
                     'employees': emp_dicts,
                     'division_frozen': False,
@@ -6083,6 +6096,7 @@ def manager_report(request):
         'state_qpr_items': state_qpr_items,
         'frozen_count': frozen_count,
         'total_hods': total_hods,
+        'current_lang': request.session.get('lang', 'en'),
     })
 
 
@@ -6189,8 +6203,18 @@ def manager_report_detail(request, year, quarter):
         hod = up.hod_name or 'Unassigned'
         if hod not in grouped:
             grouped[hod] = []
+        # Provide both English and Hindi names so templates can choose by language
+        try:
+            emp_hname = ''
+            emp_obj = getattr(up, 'employee', None)
+            if emp_obj is not None:
+                emp_hname = getattr(emp_obj, 'hname', '') or ''
+        except Exception:
+            emp_hname = ''
+
         grouped[hod].append({
-            'name': up.name or user.username,
+            'name': up.name or getattr(user, 'username', ''),
+            'hname': emp_hname or (up.name or getattr(user, 'username', '')),
             'empcode': up.employee_code,
             'email': up.email or '',
             'submitted': bool(rec),
@@ -6206,6 +6230,7 @@ def manager_report_detail(request, year, quarter):
         'all_submitted': all_submitted,
         'submitted_users_count': submitted_users_count,
         'total_users': total_users,
+        'current_lang': request.session.get('lang', 'en'),
     }
     
     return render(request, 'qpr/manager_report_detail.html', context)
