@@ -12,8 +12,7 @@ from datetime import date
 from .models import FinancialYear
 from django.conf import settings
 from zoneinfo import ZoneInfo
-# def send_system_email(user, request, email_type, extra_context=None):
-#     # Attempting to send system email
+
     
 
 QUARTERS = [
