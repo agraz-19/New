@@ -329,9 +329,18 @@ def submit_profile_change_request(request):
     try:
         data = json.loads(request.body)
         reason = data.get('change_reason', '').strip()
+        allowed_fields = {'alternate_email', 'designation', 'highest_exam'}
+        requested_fields = data.get('requested_fields') or []
+        requested_fields = [
+            field for field in requested_fields
+            if isinstance(field, str) and field in allowed_fields
+        ]
 
         if not reason:
             return JsonResponse({'success': False, 'message': 'Reason is required'})
+
+        if not requested_fields:
+            return JsonResponse({'success': False, 'message': 'Please select at least one field to edit.'})
 
         profile = getattr(request.user, 'profile', None)
         if (
@@ -383,6 +392,7 @@ def submit_profile_change_request(request):
         ProfileChangeRequest.objects.create(
             profile=profile,
             change_reason=reason,
+            requested_fields=requested_fields,
             hod=hod_profile.user,
             status='pending'
         )
@@ -2020,6 +2030,7 @@ def profile_view(request):
     lang = request.session.get('lang', 'en')
     user = request.user
     profile = getattr(user, 'profile', None)
+    scoped_profile_fields = {'alternate_email', 'designation', 'highest_exam'}
     
     # Get change requests
     pending_change_request = ProfileChangeRequest.objects.filter(
@@ -2033,6 +2044,12 @@ def profile_view(request):
     ).order_by('-approved_at').first() if profile else None
 
     can_edit = _can_edit_profile(user, profile, pending_change_request)
+    approved_fields = []
+    if approved_change_request:
+        approved_fields = [
+            field for field in (approved_change_request.requested_fields or [])
+            if field in scoped_profile_fields
+        ]
 
     # ===============================
     # 🔑 STATE FLAGS & LOCK LOGIC
@@ -2047,6 +2064,36 @@ def profile_view(request):
     if request.method == 'POST':
         if not can_edit:
             messages.error(request, "Your profile is locked. Please request edit permission.", extra_tags='danger')
+            return redirect('profile')
+
+        if approved_change_request and approved_fields:
+            if 'alternate_email' in approved_fields:
+                profile.alternate_email = request.POST.get('alternate_email', '').strip()
+                profile.save(update_fields=['alternate_email'])
+
+            if 'designation' in approved_fields or 'highest_exam' in approved_fields:
+                employee = Employee.objects.filter(empcode=profile.employee_code).first()
+                if not employee:
+                    messages.error(request, "Employee record not found. Please contact admin.")
+                    return redirect('profile')
+
+                update_fields = []
+                if 'designation' in approved_fields:
+                    employee.designation = request.POST.get('designation') or employee.designation
+                    update_fields.append('designation')
+
+                if 'highest_exam' in approved_fields:
+                    employee.highest_exam = ",".join(request.POST.getlist("hindi_exam"))
+                    update_fields.append('highest_exam')
+
+                if update_fields:
+                    employee.save(update_fields=update_fields)
+
+            user.is_edit_allowed = False
+            user.save(update_fields=['is_edit_allowed'])
+            approved_change_request.status = 'completed'
+            approved_change_request.save(update_fields=['status'])
+            messages.success(request, "Approved profile changes saved successfully. Your profile is locked again.")
             return redirect('profile')
 
         # Get form data
@@ -2162,6 +2209,8 @@ def profile_view(request):
         'pending_change_request': pending_change_request,
         'has_pending_change_request': bool(pending_change_request),
         'has_approved_change_request': bool(approved_change_request),
+        'approved_profile_fields': approved_fields,
+        'approved_profile_fields_json': json.dumps(approved_fields),
         'profile_updated': profile.profile_updated if profile else False,
     }
 
@@ -4161,13 +4210,13 @@ def api_records(request):
                         print(f"[DEBUG] before update EditRequests for user={request.user.id} record={record.pk}: {before}")
                     except Exception:
                         pass
-                    # Mark any approved EditRequest(s) for this record as used
+                    # Mark any approved EditRequest(s) for this record as temp use
                     EditRequest.objects.filter(
                         user=request.user,
                         request_type='qpr',
                         qpr_record_id=record.pk,
                         status='approved'
-                    ).update(status='used')
+                    ).update(status='temp use')
                     # Reject any pending requests for this same record
                     EditRequest.objects.filter(
                         user=request.user,
@@ -4375,13 +4424,13 @@ def qpr_save_record(request):
                 except Exception:
                     pass
 
-                # Mark any approved EditRequest(s) for this record as used
+                # Mark any approved EditRequest(s) for this record as temp use
                 EditRequest.objects.filter(
                     user=request.user,
                     request_type='qpr',
                     qpr_record_id=record.pk,
                     status='approved'
-                ).update(status='used')
+                ).update(status='temp use')
                 # Reject any pending requests for this same record
                 EditRequest.objects.filter(
                     user=request.user,
@@ -5176,7 +5225,7 @@ def admin_edit_requests(request):
         'edit_requests': edit_requests,
         'status_filter': status_filter,
         'request_type_filter': request_type_filter,
-        'statuses': [('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected'), ('used', 'Used')],
+        'statuses': [('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected'), ('temp use', 'Temp Use')],
         'types': [('profile', 'Profile'), ('qpr', 'QPR')],
         'current_lang': lang,
     }

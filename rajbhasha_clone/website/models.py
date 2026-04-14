@@ -158,6 +158,16 @@ class Employee(models.Model):
         ("Non-Gazetted", "Non-Gazetted"),
     ]
     gazet = models.CharField(max_length=50, choices=GAZET_CHOICES)
+    YES_NO_CHOICES = [
+        ("Yes", "Yes"),
+        ("No", "No"),
+    ]
+    stenographer = models.CharField(
+        max_length=5,
+        choices=YES_NO_CHOICES,
+        blank=True,
+        null=True
+    )
     Hindiexam_choices=[
             ("Prabodh", "Prabodh"),
             ("Praveen", "Praveen"),
@@ -177,10 +187,7 @@ class Employee(models.Model):
 
     hindiproficiency = models.CharField(
         max_length=5,
-        choices=[
-            ("Yes", "Yes"),
-            ("No", "No")
-        ],
+        choices=YES_NO_CHOICES,
         blank=True,
         null=True)
     OLIC_AFFILIATE_CHOICES = [
@@ -330,6 +337,7 @@ class ProfileChangeRequest(models.Model):
     # Link to the HOD (CustomUser)
     hod = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='pending_profile_changes')
     change_reason = models.TextField() 
+    requested_fields = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=20, choices=REQUEST_STATUS_CHOICES, default='pending')
     requested_at = models.DateTimeField(auto_now_add=True)
     approved_at = models.DateTimeField(null=True, blank=True)
@@ -337,6 +345,15 @@ class ProfileChangeRequest(models.Model):
     
     def __str__(self):
         return f"Change Request - {self.profile.user.username} ({self.status})"
+
+    @property
+    def requested_field_labels(self):
+        labels = {
+            'alternate_email': 'Alternate Email',
+            'designation': 'Designation',
+            'highest_exam': 'Highest Hindi Exam',
+        }
+        return [labels.get(field, field) for field in self.requested_fields or []]
 
 
 class ManagerRequest(models.Model):
@@ -379,7 +396,7 @@ class EditRequest(models.Model):
         ('pending', 'Pending'),
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
-        ('used', 'Used'),
+        ('temp use', 'Temp Use'),
     ]
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='edit_requests')

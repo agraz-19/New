@@ -31,6 +31,7 @@ class EmployeeForm(forms.ModelForm):
             "typing": "Typing",
             "hindiproficiency": "Hindi Proficiency",
             "gazet": "Gazet",
+            "stenographer": "Stenographer",
             "highest_hindi_exam_passed": "Highest Hindi Exam Passed",
         }
 
@@ -62,6 +63,10 @@ class EmployeeForm(forms.ModelForm):
             ),
 
             "gazet": forms.Select(
+                attrs={"class": "form-select"}
+            ),
+
+            "stenographer": forms.Select(
                 attrs={"class": "form-select"}
             ),
 
