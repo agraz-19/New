@@ -478,6 +478,7 @@
                         <tr>
                             <th>Emp Code</th>
                             <th>Name</th>
+                            <th>Fields</th>
                             <th>Reason</th>
                             <th>Requested On</th>
                             <th>Actions</th>
@@ -488,6 +489,13 @@
                         <tr>
                             <td><strong>{{ req.profile.employee_code }}</strong></td>
                             <td>{{ req.profile.name }}</td>
+                            <td>
+                                {% if req.requested_field_labels %}
+                                    <small>{{ req.requested_field_labels|join:", " }}</small>
+                                {% else %}
+                                    <small>All fields</small>
+                                {% endif %}
+                            </td>
                             <td style="max-width:250px;">{{ req.change_reason }}</td>
                             <td>{{ req.requested_at|date:"d M Y, H:i" }}</td>
                             <td>
