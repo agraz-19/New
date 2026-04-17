@@ -36,7 +36,13 @@
                 <tbody>
                     {% for u in users %}
                     <tr>
-                        <td>{{ u.name }}</td>
+                        <td>
+                            {% if current_lang == 'hi' %}
+                                {{ u.hname }}
+                            {% else %}
+                                {{ u.name }}
+                            {% endif %}
+                        </td>
                         <td>{{ u.empcode }}</td>
                         <td>
                             {% if u.submitted %}

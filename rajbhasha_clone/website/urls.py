@@ -74,7 +74,6 @@ urlpatterns = [
     path('qpr/admin/create-hod/', views.admin_create_hod, name='qpr_admin_create_hod'),
     path('qpr/admin/create-manager/', views.admin_create_manager, name='qpr_admin_create_manager'),
     path('get-employee-form/', views.get_employee_details_form, name='get_employee_details_form'),
-    # path('qpr/admin/api/employee-details/', views.admin_api_get_employee_details, name='api_get_employee_details'),
 
     path('qpr/admin/api/office-create/', views.api_create_office, name='api_create_office'),
     path('qpr/api/offices/', views.api_list_offices, name='api_list_offices'),
@@ -86,24 +85,12 @@ urlpatterns = [
     path('update-designation/<int:user_id>/', views.update_designation, name='update_designation'),
     path('action/<int:user_id>/<str:action>/', views.manage_user_action, name='manage_user_action'),
 
-    # API endpoint for QPR records was removed in favor of POST-based views.
-    # Keep the route here as a comment in case it's needed again later.
-    # path('qpr/api/records/', views.api_records, name='qpr_api_records'),
+
     path('qpr/records/', views.qpr_records_view, name='qpr_records'),
     path('qpr/records/save/', views.qpr_save_record, name='qpr_save_record'),
     path('qpr/records/delete/<int:id>/', views.qpr_delete_record, name='qpr_delete_record'),
-    #path('qpr/api/records/<int:record_id>/', views.api_record_detail, name='api_record_detail'),
-    path('qpr/api/availability/', views.api_qpr_availability, name='qpr_api_availability'),
-    #path('qpr/api/period-summary/', views.api_period_summary, name='api_period_summary'),
     path('qpr/api/request-edit/', views.request_edit_api, name='request_edit_api'),
-    path('qpr/api/update-hod/', views.api_update_hod, name='api_update_hod'),
-    path('qpr/api/user-change-hod/', views.api_user_change_hod, name='api_user_change_hod'),
 
-    #path('employee-form/', views.employee_form, name='employee_form'),
-    #path('employee/export-pdf/', views.export_employee_pdf, name='export_employee_pdf'), 
-    #path('api/employees/', EmployeeListCreateAPI.as_view(), name='employee_list_create_api'),
-    #path('api/employees/<int:pk>/', EmployeeDetailAPI.as_view(), name='employee_detail_api'),
-    #path('api/employees/submit/', SubmitDraftAPI.as_view(), name='submit_draft_api'),
 
     path('download-backup/', views.download_db_backup, name='download_db_backup'),
     path('perform/archive/<int:user_id>/', views.archive_user, name='archive_user'),
@@ -118,13 +105,11 @@ urlpatterns = [
     path("events-admin/delete/<str:folder>/", views.admin_delete_event, name="admin_delete_event"),
     path('events-admin/get-images/<str:folder>/', views.get_event_images, name='get_event_images'),
     path('events-admin/update-titles/', views.update_event_titles, name='update_event_titles'),
-    # path('api/event-images/<str:folder>/', views.api_event_images, name='api_event_images'),
-    # path('get-employee/', views.get_employee_details_form, name='get_employee'),
     path('get-employee-form/', views.get_employee_details_form, name='get_employee_details_form'),
     path('qpr/hod/approval/<int:profile_id>/<str:action>/', views.process_user_approval, name='process_user_approval'),
     path("events-admin/edit-titles/", views.admin_edit_event_titles, name="admin_edit_event_titles"),
     path('events-admin/<str:folder>/set-thumbnail/', views.set_thumbnail, name='set_thumbnail'),
-    # 🆕 Profile Change Request Workflow
+    # Profile Change Request Workflow
     path('profile/change-request/reject/<int:request_id>/', views.reject_profile_change_hod, name='reject_profile_change'),
     path('profile/submit-change/', views.submit_profile_change_request, name='submit_profile_change_request'),
     path('profile/approve-change/<int:request_id>/', views.approve_profile_change_hod, name='approve_profile_change'),

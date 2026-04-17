@@ -169,7 +169,7 @@
 
                         <div class="row mb-4">
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">Name in English</label>
+                                <label class="form-label fw-bold">{{ "Name in English"|t:current_lang }}</label>
                                 <input type="text"
                                 name="ename"
                                 id="name_english"
@@ -178,7 +178,7 @@
                                 {% if not can_edit %}disabled{% endif %}>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">Name in Hindi</label>
+                                <label class="form-label fw-bold">{{ "Name in Hindi"|t:current_lang }}</label>
                                 <input type="text"
                                 name="hname"
                                 id="name_hindi"
@@ -190,7 +190,7 @@
 
                         <div class="row mb-4">
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">Designation</label>
+                                <label class="form-label fw-bold">{{ "Designation"|t:current_lang }}</label>
                                 <select name="designation"
                                 id="designation"
                                 class="form-select"
@@ -205,7 +205,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">Highest Hindi Exam Passed</label>
+                                <label class="form-label fw-bold">{{ "Highest Hindi Exam Passed (*Select if any applicable)"|t:current_lang }}</label>
                                 <div class="d-flex flex-wrap gap-2">
                                     <input type="checkbox" class="btn-check" id="prabodh" name="hindi_exam" value="Prabodh"
                                     {% if employee.highest_exam and "Prabodh" in employee.highest_exam %}checked{% endif %}>
@@ -228,7 +228,7 @@
 
                         <div class="row mb-4">
                             <div class="col-md-4">
-                                <label class="form-label fw-bold">Typing</label>
+                                <label class="form-label fw-bold">{{ "Typing"|t:current_lang }}</label>
                                 <select name="typing"
                                 class="form-select"
                                 {% if not can_edit %}disabled{% endif %}>
@@ -243,7 +243,7 @@
                             </div>
 
                             <div class="col-md-4">
-                                <label class="form-label fw-bold">Hindi Proficiency</label>
+                                <label class="form-label fw-bold">{{ "Hindi Proficiency"|t:current_lang }}</label>
                                 <select name="hindiproficiency"
                                 class="form-select"
                                 {% if not can_edit %}disabled{% endif %}>
@@ -258,7 +258,7 @@
                             </div>
 
                             <div class="col-md-4">
-                                <label class="form-label fw-bold">Gazet</label>
+                                <label class="form-label fw-bold">{{ "Gazet"|t:current_lang }}</label>
                                 <select name="gazet"
                                 class="form-select"
                                 {% if not can_edit %}disabled{% endif %}>
@@ -275,7 +275,7 @@
 
                         <div class="row mb-4">
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">OLIC Affiliate</label>
+                                <label class="form-label fw-bold">{{ "OLIC Affiliate"|t:current_lang }}</label>
                                 <select name="olic_affiliate"
                                 class="form-select"
                                 {% if not can_edit %}disabled{% endif %}>
@@ -290,7 +290,7 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">Superannuation Date</label>
+                                <label class="form-label fw-bold">{{ "Superannuation Date"|t:current_lang }}</label>
                                 <input type="date"
                                 name="super_annuation_date"
                                 class="form-control"
@@ -442,42 +442,42 @@
 
         console.log("STATE CHECK:", { profileStatus, profileUpdated, isEditAllowed, hasPendingRequest });
 
-        // 🔓 STEP 1: NEW USER (no profile status) → UNLOCK
+        // STEP 1: NEW USER (no profile status) → UNLOCK
         if (!profileUpdated) {
             isProfileLocked = false;
             unlockFormFields();
             return;
         }
 
-        // 🔒 STEP 2: Pending profile → LOCK
+        //  STEP 2: Pending profile → LOCK
         if (profileStatus === 'pending' || profileStatus === 'pending_admin') {
             isProfileLocked = true;
             lockAllFormFields();
             return;
         }
 
-        // 🔒 STEP 3: Approved profile with pending change request → LOCK
+        // STEP 3: Approved profile with pending change request → LOCK
         if (profileStatus === 'approved' && hasPendingRequest) {
             isProfileLocked = true;
             lockAllFormFields();
             return;
         }
 
-        // 🔓 STEP 4: Approved profile with edit permission (from HOD approval) → UNLOCK
+        // STEP 4: Approved profile with edit permission (from HOD approval) → UNLOCK
         if (profileStatus === 'approved' && isEditAllowed) {
             isProfileLocked = false;
             unlockFormFields();
             return;
         }
 
-        // 🔒 STEP 5: Approved profile with no pending request → LOCK (user must request change)
+        // STEP 5: Approved profile with no pending request → LOCK (user must request change)
         if (profileStatus === 'approved' && !hasPendingRequest) {
             isProfileLocked = true;
             lockAllFormFields();
             return;
         }
 
-        // 🔓 DEFAULT: Allow editing
+        // DEFAULT: Allow editing
         isProfileLocked = false;
         unlockFormFields();
     }
@@ -565,7 +565,7 @@
 
         console.log("DOMContentLoaded - Flags:", { profileLocked, hasPendingRequest, hasApprovedRequest, profileApproved, profileUpdated });
 
-        // ✅ Case 1: New user (no profile at all) → UNLOCK
+        // Case 1: New user (no profile at all) → UNLOCK
         if (!profileUpdated || (!profileApproved && !hasPendingRequest)) {
             const profileStatus = "{{ profile.approval_status|default:'' }}";
             if (!profileUpdated) {
@@ -581,21 +581,21 @@
                 lockAllFormFields();
             }
         } 
-        // ✅ Case 2: Profile approved with pending change request → LOCK
+        // Case 2: Profile approved with pending change request → LOCK
         else if (profileApproved && hasPendingRequest) {
             if (profileLockedAlert) profileLockedAlert.style.display = 'none';
             if (pendingChangeAlert) pendingChangeAlert.style.display = 'block';
             if (requestChangeSection) requestChangeSection.style.display = 'none';
             lockAllFormFields();
         }
-        // ✅ Case 3: HOD approved change request → UNLOCK (must check BEFORE case 4)
+        // Case 3: HOD approved change request → UNLOCK (must check BEFORE case 4)
         else if (profileApproved && hasApprovedRequest) {
             if (profileLockedAlert) profileLockedAlert.style.display = 'none';
             if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
             if (requestChangeSection) requestChangeSection.style.display = 'none';
             unlockFormFields();
         }
-        // ✅ Case 4: Profile approved, NO pending request, NO approved request → LOCK, show request box
+        // Case 4: Profile approved, NO pending request, NO approved request → LOCK, show request box
         else if (profileApproved && !hasPendingRequest) {
             if (profileLockedAlert) profileLockedAlert.style.display = 'none';
             if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
@@ -640,7 +640,7 @@
             });
         }
 
-        // ✅ Check lock state LAST after all DOM elements are ready
+        // Check lock state LAST after all DOM elements are ready
         checkProfileLockState();
     });
         

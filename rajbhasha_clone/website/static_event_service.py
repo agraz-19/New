@@ -1,18 +1,3 @@
-"""
-static_event_service.py
-Replaces minio_service.py — events are stored as static files + a JSON config.
-
-Folder structure:
-    static/
-        images/
-            events/
-                2025-09-14_Hindi-Diwas/
-                    img1.jpg
-                    img2.jpg
-                meta.json   ← auto-created, holds title_en + title_hi
-
-events.json path: static/data/events.json  (auto-synced from folder scan)
-"""
 
 import json
 import os
@@ -232,13 +217,3 @@ def delete_event(folder):
     folder_path = os.path.join(EVENTS_ROOT, folder)
     if os.path.exists(folder_path):
         shutil.rmtree(folder_path)
-
-
-# def update_event_meta(folder, title_en, title_hi):
-#     """
-#     Update just the titles of an existing event (used by edit view).
-#     """
-#     meta = _read_meta(folder)
-#     meta["title_en"] = title_en.strip()
-#     meta["title_hi"] = (title_hi or title_en).strip()
-#     _write_meta(folder, meta)
