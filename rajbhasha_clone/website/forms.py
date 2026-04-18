@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from .models import CustomUser
 from .templatetags.translate_tags import translate_text
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html
 from django.urls import reverse
 from django.utils import timezone
 import hashlib
@@ -38,7 +38,12 @@ class CustomUserCreationForm(UserCreationForm):
         policy_url = reverse('privacy_policy')
         link_text = translate_text("Privacy Policy", lang)
         consent_text = translate_text("I agree to the processing of my personal data as per the", lang)
-        full_label = mark_safe(f'{consent_text} <a href="{policy_url}" target="_blank">{link_text}</a>')
+        full_label = format_html(
+            '{} <a href="{}" target="_blank" rel="noopener noreferrer">{}</a>',
+            consent_text,
+            policy_url,
+            link_text
+        )
         self.fields['consent'].label = full_label
         self.fields['username'].help_text = ""
         self.fields['password1'].help_text = ""

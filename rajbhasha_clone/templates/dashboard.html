@@ -478,6 +478,7 @@
                         <tr>
                             <th>Emp Code</th>
                             <th>Name</th>
+                            <th>Fields</th>
                             <th>Reason</th>
                             <th>Requested On</th>
                             <th>Actions</th>
@@ -488,6 +489,13 @@
                         <tr>
                             <td><strong>{{ req.profile.employee_code }}</strong></td>
                             <td>{{ req.profile.name }}</td>
+                            <td>
+                                {% if req.requested_field_labels %}
+                                    <small>{{ req.requested_field_labels|join:", " }}</small>
+                                {% else %}
+                                    <small>All fields</small>
+                                {% endif %}
+                            </td>
                             <td style="max-width:250px;">{{ req.change_reason }}</td>
                             <td>{{ req.requested_at|date:"d M Y, H:i" }}</td>
                             <td>
@@ -561,8 +569,13 @@
                             {% endif %}
                         </div>
                         <div class="d-grid gap-2">
-                            <a href="{% url 'qpr_form' %}" class="btn btn-outline-primary"><i class="fas fa-edit"></i> {{ "Fill Report"|t:current_lang }}</a>
-                            <a href="{% url 'qpr_report_list' %}" class="btn btn-outline-secondary"><i class="fas fa-history"></i> {{ "View History"|t:current_lang }}</a>
+                            {% if disable_user_dashboard_actions %}
+                                <button class="btn btn-outline-primary" disabled><i class="fas fa-edit"></i> {{ "Fill Report"|t:current_lang }}</button>
+                                <button class="btn btn-outline-secondary" disabled><i class="fas fa-history"></i> {{ "View History"|t:current_lang }}</button>
+                            {% else %}
+                                <a href="{% url 'qpr_form' %}" class="btn btn-outline-primary"><i class="fas fa-edit"></i> {{ "Fill Report"|t:current_lang }}</a>
+                                <a href="{% url 'qpr_report_list' %}" class="btn btn-outline-secondary"><i class="fas fa-history"></i> {{ "View History"|t:current_lang }}</a>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

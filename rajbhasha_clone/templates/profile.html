@@ -40,6 +40,30 @@
                             {{ "Your profile is locked. To make changes, please describe why you need to update your information."|t:current_lang }}
                         </p>
                         <div class="mb-3">
+                            <label class="form-label fw-bold">{{ "Fields You Want to Edit"|t:current_lang }} <span class="text-danger">*</span></label>
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input profile-change-field" type="checkbox" value="alternate_email" id="requestAlternateEmail">
+                                        <label class="form-check-label" for="requestAlternateEmail">{{ "Alternate Email"|t:current_lang }}</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input profile-change-field" type="checkbox" value="designation" id="requestDesignation">
+                                        <label class="form-check-label" for="requestDesignation">{{ "Designation"|t:current_lang }}</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input profile-change-field" type="checkbox" value="highest_exam" id="requestHighestExam">
+                                        <label class="form-check-label" for="requestHighestExam">{{ "Highest Hindi Exam"|t:current_lang }}</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-text">{{ "Only the approved selected fields will unlock for editing."|t:current_lang }}</div>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label fw-bold">{{ "Reason for Change"|t:current_lang }} <span class="text-danger">*</span></label>
                             <textarea id="changeReason" class="form-control" rows="3" placeholder="{{ 'Describe why you need to make these changes...'|t:current_lang }}"></textarea>
                         </div>
@@ -205,7 +229,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">{{ "Highest Hindi Exam Passed (*Select if any applicable)"|t:current_lang }}</label>
+                                <label class="form-label fw-bold">Highest Hindi Exam Passed <span class="text-muted fw-normal">(select the applicable)</span></label>
                                 <div class="d-flex flex-wrap gap-2">
                                     <input type="checkbox" class="btn-check" id="prabodh" name="hindi_exam" value="Prabodh"
                                     {% if employee.highest_exam and "Prabodh" in employee.highest_exam %}checked{% endif %}>
@@ -227,8 +251,8 @@
                         </div>
 
                         <div class="row mb-4">
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">{{ "Typing"|t:current_lang }}</label>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Typing</label>
                                 <select name="typing"
                                 class="form-select"
                                 {% if not can_edit %}disabled{% endif %}>
@@ -242,8 +266,8 @@
                                 </select>
                             </div>
 
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">{{ "Hindi Proficiency"|t:current_lang }}</label>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Hindi Proficiency</label>
                                 <select name="hindiproficiency"
                                 class="form-select"
                                 {% if not can_edit %}disabled{% endif %}>
@@ -257,8 +281,8 @@
                                 </select>
                             </div>
 
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">{{ "Gazet"|t:current_lang }}</label>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Gazet</label>
                                 <select name="gazet"
                                 class="form-select"
                                 {% if not can_edit %}disabled{% endif %}>
@@ -266,6 +290,20 @@
                                 {% for value,label in form.fields.gazet.choices %}
                                 <option value="{{ value }}"
                                 {% if employee.gazet == value %}selected{% endif %}>
+                                {{ label }}
+                                </option>
+                                {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Stenographer</label>
+                                <select name="stenographer"
+                                class="form-select"
+                                {% if not can_edit %}disabled{% endif %}>
+                                <option value="">--Select--</option>
+                                {% for value,label in form.fields.stenographer.choices %}
+                                <option value="{{ value }}"
+                                {% if employee.stenographer == value %}selected{% endif %}>
                                 {{ label }}
                                 </option>
                                 {% endfor %}
@@ -410,6 +448,18 @@
         opacity: 0.6 !important;
         cursor: not-allowed !important;
     }
+
+    .profile-change-field {
+        width: 16px !important;
+        height: 16px !important;
+        min-width: 16px !important;
+        min-height: 16px !important;
+        padding: 0 !important;
+        margin-top: 0.2em;
+        aspect-ratio: 1 / 1;
+        border-radius: 3px;
+    }
+
 </style>
 
 <script>
@@ -421,6 +471,7 @@
     const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
     const hasApprovedRequest = {{ has_approved_change_request|yesno:"true,false" }};
     const profileUpdated = {{ profile_updated|yesno:"true,false" }};
+    const approvedProfileFields = {{ approved_profile_fields_json|default:"[]"|safe }};
     let isProfileLocked = false;
 
     function getSelectedText(selectElement) {
@@ -442,14 +493,14 @@
 
         console.log("STATE CHECK:", { profileStatus, profileUpdated, isEditAllowed, hasPendingRequest });
 
-        // STEP 1: NEW USER (no profile status) → UNLOCK
+        // 🔓 STEP 1: NEW USER (no profile status) → UNLOCK
         if (!profileUpdated) {
             isProfileLocked = false;
             unlockFormFields();
             return;
         }
 
-        //  STEP 2: Pending profile → LOCK
+        // 🔒 STEP 2: Pending profile → LOCK
         if (profileStatus === 'pending' || profileStatus === 'pending_admin') {
             isProfileLocked = true;
             lockAllFormFields();
@@ -466,11 +517,11 @@
         // STEP 4: Approved profile with edit permission (from HOD approval) → UNLOCK
         if (profileStatus === 'approved' && isEditAllowed) {
             isProfileLocked = false;
-            unlockFormFields();
+            unlockApprovedProfileFields();
             return;
         }
 
-        // STEP 5: Approved profile with no pending request → LOCK (user must request change)
+        // 🔒 STEP 5: Approved profile with no pending request → LOCK (user must request change)
         if (profileStatus === 'approved' && !hasPendingRequest) {
             isProfileLocked = true;
             lockAllFormFields();
@@ -518,6 +569,36 @@
         const submitBtn = document.getElementById("submitBtn");
         if (submitBtn) submitBtn.disabled = false;
     }
+
+    function unlockApprovedProfileFields() {
+        if (!Array.isArray(approvedProfileFields) || approvedProfileFields.length === 0) {
+            unlockFormFields();
+            return;
+        }
+
+        lockAllFormFields();
+
+        approvedProfileFields.forEach(field => {
+            if (field === "alternate_email") {
+                const alternateEmail = document.querySelector('[name="alternate_email"]');
+                if (alternateEmail) alternateEmail.disabled = false;
+            }
+
+            if (field === "designation") {
+                const designation = document.querySelector('[name="designation"]');
+                if (designation) designation.disabled = false;
+            }
+
+            if (field === "highest_exam") {
+                document.querySelectorAll('[name="hindi_exam"]').forEach(el => {
+                    el.disabled = false;
+                });
+            }
+        });
+
+        const submitBtn = document.getElementById("submitBtn");
+        if (submitBtn) submitBtn.disabled = false;
+    }
     
 
     function showProfileLockedUI() {
@@ -527,6 +608,14 @@
 
     function submitChangeRequest() {
         const reason = document.getElementById("changeReason").value.trim();
+        const requestedFields = Array.from(document.querySelectorAll(".profile-change-field:checked"))
+            .map(field => field.value);
+
+        if (requestedFields.length === 0) {
+            alert("Please select at least one field to edit.");
+            return;
+        }
+
         if (!reason) {
             alert("Please provide a reason.");
             return;
@@ -538,7 +627,7 @@
                 "Content-Type": "application/json",
                 "X-CSRFToken": csrftoken
             },
-            body: JSON.stringify({ change_reason: reason })
+            body: JSON.stringify({ change_reason: reason, requested_fields: requestedFields })
         })
         .then(r => r.json())
         .then(data => {
@@ -546,7 +635,7 @@
                 alert("Request submitted. Awaiting approval.");
                 location.reload();
             } else {
-                alert("Failed: " + (data.error || "Unknown error"));
+                alert("Failed: " + (data.message || data.error || "Unknown error"));
             }
         })
         .catch(err => alert("Error: " + err));
@@ -565,7 +654,7 @@
 
         console.log("DOMContentLoaded - Flags:", { profileLocked, hasPendingRequest, hasApprovedRequest, profileApproved, profileUpdated });
 
-        // Case 1: New user (no profile at all) → UNLOCK
+        // ✅ Case 1: New user (no profile at all) → UNLOCK
         if (!profileUpdated || (!profileApproved && !hasPendingRequest)) {
             const profileStatus = "{{ profile.approval_status|default:'' }}";
             if (!profileUpdated) {
@@ -588,14 +677,14 @@
             if (requestChangeSection) requestChangeSection.style.display = 'none';
             lockAllFormFields();
         }
-        // Case 3: HOD approved change request → UNLOCK (must check BEFORE case 4)
+        // ✅ Case 3: HOD approved change request → UNLOCK (must check BEFORE case 4)
         else if (profileApproved && hasApprovedRequest) {
             if (profileLockedAlert) profileLockedAlert.style.display = 'none';
             if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
             if (requestChangeSection) requestChangeSection.style.display = 'none';
-            unlockFormFields();
+            unlockApprovedProfileFields();
         }
-        // Case 4: Profile approved, NO pending request, NO approved request → LOCK, show request box
+        // ✅ Case 4: Profile approved, NO pending request, NO approved request → LOCK, show request box
         else if (profileApproved && !hasPendingRequest) {
             if (profileLockedAlert) profileLockedAlert.style.display = 'none';
             if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
@@ -608,6 +697,12 @@
             submitChangeBtn.addEventListener("click", function(e) {
                 e.preventDefault();
                 const reason = document.getElementById("changeReason").value.trim();
+                const requestedFields = Array.from(document.querySelectorAll(".profile-change-field:checked"))
+                    .map(field => field.value);
+                if (requestedFields.length === 0) {
+                    alert("Please select at least one field to edit.");
+                    return;
+                }
                 if (!reason) {
                     alert("Please provide a reason.");
                     return;
@@ -619,7 +714,7 @@
                         "Content-Type": "application/json",
                         "X-CSRFToken": csrftoken
                     },
-                    body: JSON.stringify({ change_reason: reason })
+                    body: JSON.stringify({ change_reason: reason, requested_fields: requestedFields })
                 })
                 .then(r => r.json())
                 .then(data => {
@@ -857,6 +952,10 @@ function fetchEmployeeData() {
             ]
         ];
 
+        data[0].splice(17, 0, "Stenographer");
+        data[1].splice(17, 0, getTranslatedValue(document.querySelector('[name="stenographer"]')));
+        data[1][18] = Array.from(document.querySelectorAll('[name="hindi_exam"]:checked')).map(el => el.value).join(", ");
+
         const ws = XLSX.utils.aoa_to_sheet(data);
 
         ws['!cols'] = [
@@ -865,6 +964,7 @@ function fetchEmployeeData() {
             { wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 15 }, { wch: 18 },
             { wch: 18 }, { wch: 25 }, { wch: 20 }
         ];
+        ws['!cols'].splice(17, 0, { wch: 18 });
 
         const range = XLSX.utils.decode_range(ws['!ref']);
 

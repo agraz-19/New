@@ -21,7 +21,7 @@ from pypdf import PdfWriter, PdfReader
 from django.template.loader import render_to_string
 import tempfile
 from django.urls import reverse
-from django.http import HttpResponse, FileResponse, Http404, JsonResponse
+from django.http import HttpResponse, FileResponse, Http404, JsonResponse, HttpResponseForbidden, HttpResponseNotAllowed
 from django.core.exceptions import PermissionDenied
 from django.conf import settings
 from django.db.models import Q
@@ -295,11 +295,31 @@ def submit_profile_change_request(request):
     try:
         data = json.loads(request.body)
         reason = data.get('change_reason', '').strip()
+        allowed_fields = {'alternate_email', 'designation', 'highest_exam'}
+        requested_fields = data.get('requested_fields') or []
+        requested_fields = [
+            field for field in requested_fields
+            if isinstance(field, str) and field in allowed_fields
+        ]
 
         if not reason:
             return JsonResponse({'success': False, 'message': 'Reason is required'})
 
-        profile = request.user.profile
+        if not requested_fields:
+            return JsonResponse({'success': False, 'message': 'Please select at least one field to edit.'})
+
+        profile = getattr(request.user, 'profile', None)
+        if (
+            profile is None
+            or not profile.profile_updated
+            or profile.approval_status != 'approved'
+            or request.user.is_edit_allowed
+        ):
+            return JsonResponse({
+                'success': False,
+                'message': 'Profile change requests are only allowed for locked, approved profiles.'
+            }, status=403)
+
         hod_identifier = (profile.hod_name or "").strip()
 
         if not hod_identifier:
@@ -338,6 +358,7 @@ def submit_profile_change_request(request):
         ProfileChangeRequest.objects.create(
             profile=profile,
             change_reason=reason,
+            requested_fields=requested_fields,
             hod=hod_profile.user,
             status='pending'
         )
@@ -2048,6 +2069,20 @@ def unarchive_user(request, archive_id):
         messages.error(request, "Original user record not found. Cannot restore.")
         return redirect('dashboard')
     
+def _can_edit_profile(user, profile, pending_change_request=None):
+    """Server-side authority for whether profile data may be changed."""
+    if profile is None:
+        return True
+
+    if not profile.profile_updated:
+        return True
+
+    if pending_change_request is not None:
+        return False
+
+    return profile.approval_status == 'approved' and user.is_edit_allowed
+
+
 @login_required
 def profile_view(request):
     """
@@ -2055,10 +2090,11 @@ def profile_view(request):
     
     Flow:
     1. NEW USER → form UNLOCKED, can fill and save
-    2. After save → form UNLOCKED (status=pending, no request box yet)
-    3. HOD approves → form UNLOCKED (status=approved, request box appears)
+    2. After save -> form LOCKED (status=pending, no request box yet)
+    3. HOD approves -> form LOCKED (status=approved, request box appears)
     4. User requests change → form LOCKED (pending_change_request exists)
-    5. HOD approves change → form UNLOCKED (is_edit_allowed=True)
+    5. HOD approves change -> form UNLOCKED (is_edit_allowed=True)
+    6. User saves approved changes -> form LOCKED again
     """
     from .models import Employee, Office, ProfileChangeRequest, QPRRecord
     from .employeeform import EmployeeForm
@@ -2066,6 +2102,7 @@ def profile_view(request):
     lang = request.session.get('lang', 'en')
     user = request.user
     profile = getattr(user, 'profile', None)
+    scoped_profile_fields = {'alternate_email', 'designation', 'highest_exam'}
     
     # Get change requests
     pending_change_request = ProfileChangeRequest.objects.filter(
@@ -2078,22 +2115,20 @@ def profile_view(request):
         status='approved'
     ).order_by('-approved_at').first() if profile else None
 
+    can_edit = _can_edit_profile(user, profile, pending_change_request)
+    approved_fields = []
+    if approved_change_request:
+        approved_fields = [
+            field for field in (approved_change_request.requested_fields or [])
+            if field in scoped_profile_fields
+        ]
+
     # ===============================
     # STATE FLAGS & LOCK LOGIC
     # ===============================
 
     is_approved = profile and profile.approval_status == "approved"
 
-    if not profile:
-        can_edit = True
-    elif not profile.profile_updated:
-        # Profile exists but never submitted — still new user
-        can_edit = True
-    elif profile.approval_status == 'approved' and user.is_edit_allowed:
-        # HOD approved change request
-        can_edit = True
-    else:
-        can_edit = False
 
     # ===============================
     # POST LOGIC (SAVE CHANGES)
@@ -2101,6 +2136,36 @@ def profile_view(request):
     if request.method == 'POST':
         if not can_edit:
             messages.error(request, "Your profile is locked. Please request edit permission.", extra_tags='danger')
+            return redirect('profile')
+
+        if approved_change_request and approved_fields:
+            if 'alternate_email' in approved_fields:
+                profile.alternate_email = request.POST.get('alternate_email', '').strip()
+                profile.save(update_fields=['alternate_email'])
+
+            if 'designation' in approved_fields or 'highest_exam' in approved_fields:
+                employee = Employee.objects.filter(empcode=profile.employee_code).first()
+                if not employee:
+                    messages.error(request, "Employee record not found. Please contact admin.")
+                    return redirect('profile')
+
+                update_fields = []
+                if 'designation' in approved_fields:
+                    employee.designation = request.POST.get('designation') or employee.designation
+                    update_fields.append('designation')
+
+                if 'highest_exam' in approved_fields:
+                    employee.highest_exam = ",".join(request.POST.getlist("hindi_exam"))
+                    update_fields.append('highest_exam')
+
+                if update_fields:
+                    employee.save(update_fields=update_fields)
+
+            user.is_edit_allowed = False
+            user.save(update_fields=['is_edit_allowed'])
+            approved_change_request.status = 'completed'
+            approved_change_request.save(update_fields=['status'])
+            messages.success(request, "Approved profile changes saved successfully. Your profile is locked again.")
             return redirect('profile')
 
         # Get form data
@@ -2216,6 +2281,8 @@ def profile_view(request):
         'pending_change_request': pending_change_request,
         'has_pending_change_request': bool(pending_change_request),
         'has_approved_change_request': bool(approved_change_request),
+        'approved_profile_fields': approved_fields,
+        'approved_profile_fields_json': json.dumps(approved_fields),
         'profile_updated': profile.profile_updated if profile else False,
     }
 
@@ -2418,7 +2485,18 @@ def user_dashboard(request):
     
     # Check if user has HOD or Manager roles (disable HOD selection if they do)
     is_hod_or_manager = user_has_role(request.user, ['hod', 'manager'])
-    
+    # Compute role-based UI controls without changing any role models/permissions.
+    roles = set(user_get_all_roles(request.user))
+    roles_up = {r.upper() for r in roles}
+    has_user = 'USER' in roles_up
+    has_manager = 'MANAGER' in roles_up
+    has_admin = 'ADMIN' in roles_up
+    has_hod = 'HOD' in roles_up
+
+    disable_user_dashboard_actions = (
+        has_user and (has_manager or has_admin) and (not has_hod)
+    )
+
     context = {
         'role': 'user',  # Explicitly set role for template to avoid showing other roles' content
         'profile': profile,
@@ -2428,7 +2506,8 @@ def user_dashboard(request):
         'user': request.user,
         'available_hods': available_hods,
         'current_hod': profile.hod_name or '',
-        'is_hod_or_manager': is_hod_or_manager
+        'is_hod_or_manager': is_hod_or_manager,
+        'disable_user_dashboard_actions': disable_user_dashboard_actions,
     }
     response = render(request, 'dashboard.html', context)
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -2652,7 +2731,7 @@ def manager_dashboard(request):
                 emp['approved_edit_request'] = req
     
     context = {
-        'users': users, 
+        'users': users,
         'employees': employee_data,
         'pending_profile_requests': pending_profile_requests,
         'pending_qpr_edits': pending_qpr_edits,
@@ -4177,13 +4256,13 @@ def qpr_save_record(request):
                 except Exception:
                     pass
 
-                # Mark any approved EditRequest(s) for this record as used
+                # Mark any approved EditRequest(s) for this record as temp use
                 EditRequest.objects.filter(
                     user=request.user,
                     request_type='qpr',
                     qpr_record_id=record.pk,
                     status='approved'
-                ).update(status='used')
+                ).update(status='temp use')
                 # Reject any pending requests for this same record
                 EditRequest.objects.filter(
                     user=request.user,
@@ -4584,7 +4663,7 @@ def admin_edit_requests(request):
         'edit_requests': edit_requests,
         'status_filter': status_filter,
         'request_type_filter': request_type_filter,
-        'statuses': [('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected'), ('used', 'Used')],
+        'statuses': [('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected'), ('temp use', 'Temp Use')],
         'types': [('profile', 'Profile'), ('qpr', 'QPR')],
         'current_lang': lang,
     }
@@ -5443,7 +5522,7 @@ def certificate_form_view(request, record_id):
     )
     
     # Redirect to Part II form view (manager fills Part II here)
-    return redirect('certificate_part2', record_id=record.id)
+    return redirect('certificate_part2')
 
 
 
@@ -5475,111 +5554,21 @@ def certificate_display_view(request, record_id):
 
 
 @login_required
-def certificate_part2_view(request, record_id):
-    """Render and save Part II of QPR (manager-facing form).
-    GET: render the `certificate_part2.html` form pre-filled when data exists.
-    POST: accept JSON payload and create/update QPRPartTwo + related rows.
-    Enforce at most 2 manager edits for existing records (uses QPRRecord.cert_edit_count).
+def certificate_part2_view(request):
+    """Standalone Certificate Part II view.
+    Accessible only to users with the 'manager' role. Not linked to any QPR records.
+    GET: render the `certificate_part2.html` form.
+    Other methods: return 405.
     """
-    try:
-        record = QPRRecord.objects.get(pk=record_id)
-    except QPRRecord.DoesNotExist:
-        return redirect('manager_report')
+    # Enforce manager-only access
+    if not user_has_role(request.user, 'manager'):
+        return HttpResponseForbidden('Forbidden')
 
-    # Permission: only manager/admin
-    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
-        return redirect('/')
+    if request.method != 'GET':
+        return HttpResponseNotAllowed(['GET'])
 
-    if request.method == 'GET':
-        part2 = getattr(record, 'part2', None)
-
-        # Prepare JSON payload for client-side prefill, include all scalar fields
-        part2_data = {}
-        if part2:
-            part2_data = {
-                'financial_year': part2.financial_year,
-                'is_notified_rule_10_4': bool(part2.is_notified_rule_10_4),
-                'total_sub_offices': part2.total_sub_offices,
-                'notified_sub_offices': part2.notified_sub_offices,
-                'computer_training_total_staff': part2.computer_training_total_staff,
-                'computer_training_trained': part2.computer_training_trained,
-                'computer_training_working': part2.computer_training_working,
-                'total_computers': part2.total_computers,
-                'hindi_enabled_computers': part2.hindi_enabled_computers,
-                'officials_issued_rule_8_4_orders': part2.officials_issued_rule_8_4_orders,
-                'training_total_duration_hours': part2.training_total_duration_hours,
-                'training_imparted_hindi': part2.training_imparted_hindi,
-                'training_imparted_english': part2.training_imparted_english,
-                'training_imparted_mixed': part2.training_imparted_mixed,
-                'sec8_total_sections': part2.sec8_total_sections,
-                'sec8_inspected_sections': part2.sec8_inspected_sections,
-                'sec8_total_sub_offices': part2.sec8_total_sub_offices,
-                'sec8_inspected_sub_offices': part2.sec8_inspected_sub_offices,
-                'magazines_total': part2.magazines_total,
-                'magazines_hindi': part2.magazines_hindi,
-                'magazines_english': part2.magazines_english,
-                'expenditure_total_books': str(part2.expenditure_total_books),
-                'expenditure_hindi_books': str(part2.expenditure_hindi_books),
-                'hindi_event_start_date': part2.hindi_event_start_date.isoformat() if part2.hindi_event_start_date else '',
-                'hindi_event_end_date': part2.hindi_event_end_date.isoformat() if part2.hindi_event_end_date else '',
-                'seminar_date': part2.seminar_date.isoformat() if part2.seminar_date else '',
-                'seminar_subject': part2.seminar_subject,
-                'other_activities_date': part2.other_activities_date.isoformat() if part2.other_activities_date else '',
-                'other_activities_subject': part2.other_activities_subject,
-                'staff_knowledge': list(part2.staff_knowledge.values('category', 'officers_count', 'employees_count', 'total_count')),
-                'hindi_posts': list(part2.hindi_posts.values('designation', 'sanctioned', 'vacant')),
-                'typing_knowledge': list(part2.typing_knowledge.values('category', 'total_no', 'trained_in_hindi', 'work_in_hindi', 'yet_to_be_trained')),
-                'translation_knowledge': list(part2.translation_knowledge.values('category', 'officers_count', 'employees_count', 'total_count')),
-                'code_manuals': list(part2.codes_manuals.values('category', 'total_no', 'bilingual_no')),
-                'officers_work': list(part2.officers_work.values('level', 'total_officers', 'knowledge_of_hindi', 'not_doing', 'doing_upto_25', 'doing_26_to_50', 'doing_51_to_75', 'doing_more_76', 'doing_cent_percent')),
-                'websites': list(part2.websites.values('url', 'status')),
-                'chairperson': {
-                    'name': part2.chairperson_name or '',
-                    'designation': part2.chairperson_designation or '',
-                    'phone': part2.chairperson_phone or '',
-                    'fax': part2.chairperson_fax or '',
-                    'email': part2.chairperson_email or ''
-                }
-            }
-
-        context = {
-            'record': record,
-            'part2': part2,
-            'part2_json': json.dumps(part2_data)
-        }
-        return render(request, 'qpr/certificate_part2.html', context)
-
-    # POST - save JSON payload
-    try:
-        payload = json.loads(request.body)
-    except Exception:
-        return JsonResponse({'success': False, 'error': 'Invalid JSON payload'}, status=400)
-    # Determine action: 'save' or 'submit'
-    action = payload.get('action', 'save')
-
-    existing = getattr(record, 'part2', None)
-    if existing:
-        part2 = existing
-        # If already submitted and not unlocked for editing, block edits (except admins)
-        if part2.is_submitted and not record.is_editing_allowed and not (user_has_role(request.user, ['admin']) or request.user.is_superuser):
-            return JsonResponse({'success': False, 'error': 'This Part II has been submitted and is locked for editing.'}, status=403)
-    else:
-        from decimal import Decimal
-        part2 = QPRPartTwo.objects.create(qpr_record=record, financial_year=payload.get('financial_year', record.year or ''))
-
-    # Update scalar fields on part2
-    # Map known scalar fields if present
-    if 'financial_year' in payload:
-        part2.financial_year = payload.get('financial_year')
-    if 'is_notified_rule_10_4' in payload:
-        part2.is_notified_rule_10_4 = bool(payload.get('is_notified_rule_10_4'))
-    if 'total_sub_offices' in payload:
-        part2.total_sub_offices = int(payload.get('total_sub_offices') or 0)
-    if 'notified_sub_offices' in payload:
-        part2.notified_sub_offices = int(payload.get('notified_sub_offices') or 0)
-    # Additional scalar fields
-    if 'computer_training_total_staff' in payload:
-        part2.computer_training_total_staff = int(payload.get('computer_training_total_staff') or 0)
+    # Render the standalone form (no QPR/record context)
+    return render(request, 'qpr/certificate_part2.html', {})
     if 'computer_training_trained' in payload:
         part2.computer_training_trained = int(payload.get('computer_training_trained') or 0)
     if 'computer_training_working' in payload:

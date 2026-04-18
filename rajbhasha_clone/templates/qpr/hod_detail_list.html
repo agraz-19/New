@@ -215,6 +215,7 @@
                         <tr>
                             <th>{{ "Employee Code"|t:current_lang }}</th>
                             <th>{{ "Employee Name"|t:current_lang }}</th>
+                            <th>{{ "Requested Fields"|t:current_lang }}</th>
                             <th>{{ "Reason for Change"|t:current_lang }}</th>
                             <th>{{ "Requested On"|t:current_lang }}</th>
                             <th>{{ "Status"|t:current_lang }}</th>
@@ -229,6 +230,13 @@
                         <tr>
                             <td class="fw-bold">{{ req.profile.employee_code }}</td>
                             <td>{{ req.profile.name|default:req.profile.user.username }}</td>
+                            <td>
+                                {% if req.requested_field_labels %}
+                                    <small class="text-muted">{{ req.requested_field_labels|join:", " }}</small>
+                                {% else %}
+                                    <small class="text-muted">All fields</small>
+                                {% endif %}
+                            </td>
                             <td>
                                 <div style="max-width: 300px; word-wrap: break-word;">
                                     {{ req.change_reason }}
