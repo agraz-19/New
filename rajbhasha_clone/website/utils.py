@@ -11,8 +11,8 @@ import os
 from datetime import date
 from .models import FinancialYear
 from django.conf import settings
-# def send_system_email(user, request, email_type, extra_context=None):
-#     # Attempting to send system email
+from zoneinfo import ZoneInfo
+
     
 
 QUARTERS = [
@@ -123,7 +123,8 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
             'headline': "New Login Detected",
             'body': "We noticed a new login to your account. If this was you, you can ignore this.",
             'details': {
-                'Time': timezone.now().strftime('%Y-%m-%d %H:%M'),
+                # Present the time in IST explicitly for security alerts
+                'Time': timezone.now().astimezone(ZoneInfo("Asia/Kolkata")).strftime('%Y-%m-%d %H:%M'),
                 'Role': translated_role
             },
             'is_alert': True
@@ -184,7 +185,7 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
     'body': "For your security, your profile has been frozen. You will need manager approval for future modifications.",
     'details': {
         'Status': translate_text("Frozen", lang),
-        'Time': timezone.now().strftime('%Y-%m-%d %H:%M')
+        'Time': timezone.now().astimezone(ZoneInfo("Asia/Kolkata")).strftime('%Y-%m-%d %H:%M')
     },
     'is_alert': True
 }

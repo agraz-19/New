@@ -325,7 +325,7 @@ class UserProfile(models.Model):
         ordering = ['-id']
         
 class ProfileChangeRequest(models.Model):
-    """🆕 New model to store change requests from employees"""
+    """New model to store change requests from employees"""
     REQUEST_STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('approved', 'Approved'),

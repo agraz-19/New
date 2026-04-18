@@ -88,9 +88,35 @@
                 <div class="border-start ps-3">
                     {% if user.is_authenticated %}
                         <div class="d-flex align-items-center gap-2">
-                            <a href="{% url 'dashboard' %}" class="text-white small fw-bold text-decoration-none">
-                                {{ "Hi"|t:current_lang }}, {{ user.username }}
-                            </a>
+                                    <a href="{% url 'dashboard' %}" class="text-white small fw-bold text-decoration-none">
+                                        {{ "Hi"|t:current_lang }},
+                                        {% comment %}Prefer Employee name: hname for Hindi, ename for English. Fallback to profile.name, full name, then username.{% endcomment %}
+                                        {% if user.profile %}
+                                            {% if current_lang == 'hi' %}
+                                                {% if user.profile.employee and user.profile.employee.hname %}
+                                                    {{ user.profile.employee.hname }}
+                                                {% elif user.profile.name %}
+                                                    {{ user.profile.name }}
+                                                {% elif user.get_full_name %}
+                                                    {{ user.get_full_name }}
+                                                {% else %}
+                                                    {{ user.username }}
+                                                {% endif %}
+                                            {% else %}
+                                                {% if user.profile.employee and user.profile.employee.ename %}
+                                                    {{ user.profile.employee.ename }}
+                                                {% elif user.profile.name %}
+                                                    {{ user.profile.name }}
+                                                {% elif user.get_full_name %}
+                                                    {{ user.get_full_name }}
+                                                {% else %}
+                                                    {{ user.username }}
+                                                {% endif %}
+                                            {% endif %}
+                                        {% else %}
+                                            {{ user.get_full_name|default:user.username }}
+                                        {% endif %}
+                                    </a>
                             <form method="post" action="{% url 'logout' %}" class="m-0">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-danger btn-sm py-0">
@@ -137,6 +163,47 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js" integrity="sha384-GbQVk5KsTZEMJtvSbtmGpderuiERKpKVVFucxROOKnIXvtg03h3pORjyyGlPD6UO" crossorigin="anonymous"></script>
 
 {% bootstrap_javascript %}
+<!-- Under-development toast -->
+<div id="underDevToastContainer" style="position:fixed; top:80px; right:20px; z-index:2000;">
+    <div id="underDevToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3500">
+        <div class="toast-header">
+            <strong class="me-auto">Info</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">This page is currently under development.</div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        const selector = 'a[href="/about/"], a[href="/products/"], a[href="/schemes/"], a[href="/programme/"], a[href="/downloads/"]';
+        const links = document.querySelectorAll(selector);
+        const toastEl = document.getElementById('underDevToast');
+        let bsToast = null;
+        if (toastEl && typeof bootstrap !== 'undefined') {
+            bsToast = new bootstrap.Toast(toastEl);
+        }
+
+        function showUnderDev(msg){
+            try{
+                if (toastEl){
+                    toastEl.querySelector('.toast-body').textContent = msg || 'This page is currently under development.';
+                    if (bsToast) bsToast.show();
+                    else alert(msg || 'This page is currently under development.');
+                } else {
+                    alert(msg || 'This page is currently under development.');
+                }
+            }catch(e){ console.error('underDev toast error', e); }
+        }
+
+        links.forEach(a=>{
+            a.addEventListener('click', function(ev){
+                ev.preventDefault();
+                showUnderDev('This page is currently under development.');
+            });
+        });
+    })();
+</script>
 
 <script src="{% static 'js/script.js' %}"></script>
 
