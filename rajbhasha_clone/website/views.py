@@ -397,8 +397,11 @@ def get_event_images(request, folder):
     except Exception as e:
         return JsonResponse({'images': [], 'error': str(e)})
 
+@login_required
 def update_event_titles(request):
     """Update event titles"""
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return redirect('/')
     if request.method != 'POST':
         return redirect('admin_events_dashboard')
     
@@ -417,14 +420,18 @@ def update_event_titles(request):
 
 
 
-@staff_member_required
+@login_required
 def admin_events_dashboard(request):
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return redirect('/')
     events = get_all_events()
     return render(request, "admin_events_dashboard.html", {"events": events})
  
  
-@staff_member_required
+@login_required
 def admin_upload_event(request):
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return redirect('/')
     folder = request.GET.get("folder")
  
     if request.method == "POST":
@@ -447,8 +454,10 @@ def admin_upload_event(request):
     return render(request, "admin_upload_event.html", {"folder": folder})
  
  
-@staff_member_required
+@login_required
 def admin_delete_event(request, folder):
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return redirect('/')
     try:
         delete_event(folder)
         messages.success(request, "Event deleted successfully")
@@ -457,8 +466,11 @@ def admin_delete_event(request, folder):
     return redirect("admin_events_dashboard")
  
  
-@staff_member_required
+@login_required
 def admin_edit_event_titles(request):
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return JsonResponse({"status": "error", "message": "Unauthorized"}, status=403)
+
     """AJAX endpoint — update title_en and title_hi in an event's meta.json"""
     if request.method == "POST":
         try:
@@ -481,6 +493,9 @@ from website.static_event_service import update_event_meta, _read_meta
 
 @login_required
 def set_thumbnail(request, folder):
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=400)
     
