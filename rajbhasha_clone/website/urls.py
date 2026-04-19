@@ -45,7 +45,7 @@ urlpatterns = [
     path('qpr/certificate/<int:record_id>/', views.qpr_certificate, name='qpr_certificate'),
     path('qpr/certificate/<int:record_id>/form/', views.certificate_form_view, name='certificate_form'),
     path('qpr/certificate/<int:record_id>/display/', views.certificate_display_view, name='certificate_display'),
-    path('qpr/certificate/<int:record_id>/part2/', views.certificate_part2_view, name='certificate_part2'),
+    path('certificate-part2/', views.certificate_part2_view, name='certificate_part2'),
     path('qpr/certificate/<int:record_id>/part2/print/', views.certificate_part2_print_view, name='certificate_part2_print'),
     
     # Debug
