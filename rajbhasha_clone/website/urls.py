@@ -10,9 +10,8 @@ from website.views import (
 urlpatterns = [
     path('captcha/', include('captcha.urls')),
     path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),    
-    # Core & Auth
     path('', views.home, name='home'),
-    path('dashboard/', views.dashboard, name='dashboard'), # Central Router
+    path('dashboard/', views.dashboard, name='dashboard'),
     
     path('login/', CustomLoginView.as_view(), name='login'),
     path('login/verify-otp/', LoginOTPView.as_view(), name='login_otp_step'),
@@ -25,7 +24,6 @@ urlpatterns = [
     path('reset-password/', ResetPasswordView.as_view(), name='reset_password'),
     path('change-password/', views.change_password, name='change_password'),
 
-    # User Profile & Privacy
     path('profile/', views.profile_view, name='profile'),
     path('toggle-language/', views.toggle_language, name='toggle_language'),
     path('export-data/', views.export_user_data, name='export_data'),
@@ -36,7 +34,6 @@ urlpatterns = [
     path('profile/freeze/', views.freeze_profile, name='freeze_profile'),
     path('profile/request-edit/', views.request_edit, name='request_edit'),
 
-    # --- UNIFIED DASHBOARDS ---
     path('qpr/admin/dashboard/', views.admin_dashboard, name='qpr_admin_dashboard'),
     path('manager/dashboard/', views.manager_dashboard, name='manager_dashboard'),
     path('manager/report/', views.manager_report, name='manager_report'),
@@ -53,7 +50,6 @@ urlpatterns = [
     path('qpr/hod/dashboard/', views.qpr_hod_dashboard, name='qpr_hod_dashboard'),
     path('qpr/user/dashboard/', views.user_dashboard, name='qpr_user_dashboard'),
 
-    # --- USER QPR WORKFLOW ---
     path('qpr/profile/update/', views.profile_view, name='qpr_user_profile'),
     path('qpr/profile/request-edit/', views.request_profile_edit, name='request_profile_edit'),
     path('qpr/office/', views.user_office_form, name='qpr_user_office'),
@@ -65,7 +61,6 @@ urlpatterns = [
     path('qpr/reports/<int:record_id>/typing-usage-report/view/', views.typing_usage_report_view, name='typing_usage_report_view'),
     path('qpr/reports/<int:record_id>/request-edit/', views.request_qpr_edit, name='request_qpr_edit'),
 
-    # --- HOD WORKFLOW ---
     path('qpr/hod/details/', views.hod_detail_list, name='qpr_hod_detail_list'),
     path('qpr/hod/freeze/<int:qpr_record_id>/', views.toggle_freeze_qpr, name='toggle_freeze_qpr'),
     path('qpr/hod/freeze_division/', views.freeze_division_snapshot, name='freeze_division_snapshot'),
@@ -109,7 +104,6 @@ urlpatterns = [
     path('qpr/hod/approval/<int:profile_id>/<str:action>/', views.process_user_approval, name='process_user_approval'),
     path("events-admin/edit-titles/", views.admin_edit_event_titles, name="admin_edit_event_titles"),
     path('events-admin/<str:folder>/set-thumbnail/', views.set_thumbnail, name='set_thumbnail'),
-    # Profile Change Request Workflow
     path('profile/change-request/reject/<int:request_id>/', views.reject_profile_change_hod, name='reject_profile_change'),
     path('profile/submit-change/', views.submit_profile_change_request, name='submit_profile_change_request'),
     path('profile/approve-change/<int:request_id>/', views.approve_profile_change_hod, name='approve_profile_change'),
