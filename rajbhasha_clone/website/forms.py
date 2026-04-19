@@ -203,11 +203,7 @@ class CustomLoginForm(AuthenticationForm):
             raise forms.ValidationError("Invalid Employee Code")
         
         
-        user = authenticate(
-            request=self.request,
-            username=profile.user.username,
-            password=password
-        )
+        user = authenticate(request=self.request,username=profile.user.username,password=password)
 
         if user is None:
             attempts += 1

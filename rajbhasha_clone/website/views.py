@@ -85,7 +85,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from website.static_event_service import get_all_events, EVENTS_ROOT, STATIC_URL_PREFIX
 import os
-# Third-party / Django Imports
+import subprocess
 from captcha.models import CaptchaStore, logger
 from deep_translator import GoogleTranslator
 from django.conf import settings
@@ -1946,7 +1946,7 @@ def privacy_audit_report(request):
     lang = request.session.get('lang', 'en')
     return render(request, 'privacy_audit.html', {'logs': logs, 'current_lang': lang})
 
-@login_required
+'''@login_required
 def download_db_backup(request):
     if request.session.get('active_role') != 'backup_user':
         messages.error(request, "Unauthorized access.")
@@ -1955,9 +1955,38 @@ def download_db_backup(request):
     if os.path.exists(db_path):
         return FileResponse(open(db_path, 'rb'), as_attachment=True, filename='backup_RajyaBhasha.sqlite3')
     messages.error(request, "Database file not found.")
-    return redirect('dashboard')
+    return redirect('dashboard')'''
 
-# ==================== ARCHIVE HELPERS (RESTORED) ====================
+@login_required
+def download_db_backup(request):
+    if request.session.get('active_role') != 'backup_user':
+        return JsonResponse({"status": "error", "message": "Unauthorized access."}, status=403)
+        
+    try:
+        host = os.getenv("POSTGRES_HOST")
+        db = os.getenv("DB_NAME")
+        db_user = os.getenv("DB_USER")
+        
+        if not all([host, db, db_user]):
+            return JsonResponse({"status": "error", "message": "Database environment variables are missing."}, status=500)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        filename = f"~/backup_{timestamp}.sql"
+        cmd = [
+            "ssh",
+            f"shannu-1@{host}",
+            f"pg_dump -U {db_user} {db} -f {filename}"
+        ]
+        subprocess.run(cmd, check=True)
+        return JsonResponse({
+            "status": "success", 
+            "message": f"Database backup created successfully at {filename}"
+        })
+
+    except subprocess.CalledProcessError as e:
+        return JsonResponse({"status": "error", "message": "Backup command failed on the remote server."}, status=500)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
 
 @login_required
 @user_passes_test(is_admin)  # This checks user.role == 'admin', so NO Superuser required
