@@ -2025,17 +2025,13 @@ def download_db_backup(request):
 
 
 @login_required
-@user_passes_test(is_admin)  # This checks user.role == 'admin', so NO Superuser required
+@user_passes_test(is_admin)
 def archive_user(request, user_id):  
-    # 1. Fetch User
     user_to_archive = get_object_or_404(CustomUser, id=user_id)
-    
-    # 2. Prevent archiving yourself
     if getattr(user_to_archive, 'id', None) == getattr(request.user, 'id', None):
         messages.error(request, "You cannot archive yourself.")
         return redirect('dashboard')
     empcode_val = None
-    # Prefer profile.employee_code if available
     profile = getattr(user_to_archive, 'profile', None)
     if profile and getattr(profile, 'employee_code', None):
         try:
@@ -2043,7 +2039,6 @@ def archive_user(request, user_id):
         except (TypeError, ValueError):
             empcode_val = None
 
-    # Fallback: try to use username if it's numeric
     if empcode_val is None:
         try:
             empcode_val = int(user_to_archive.username)
@@ -2063,7 +2058,6 @@ def archive_user(request, user_id):
             "last_updated": str(employee.lastupdate)
         }
 
-    # 4. Create Archive Record
     ArchivedUser.objects.create(
         username=user_to_archive.username,
         email_hash=user_to_archive.email_hash,
@@ -2071,13 +2065,9 @@ def archive_user(request, user_id):
         original_user_id=user_to_archive.pk,
         employee_snapshot=json.dumps(snapshot) 
     )
-    
-    # 5. Soft Delete (Deactivate)
     user_to_archive.is_active = False    
     user_to_archive.is_archived = True
     user_to_archive.save()
-
-    # 6. Success Message & Redirect
     messages.success(request, f"User {user_to_archive.username} has been archived successfully.")
     return redirect('dashboard')  
 
@@ -2092,15 +2082,11 @@ def unarchive_user(request, archive_id):
         user_to_restore.is_active = True
         user_to_restore.is_archived = False
         user_to_restore.save()
-        
-        # Cleanup Archive Record
         archived_record.delete()
-        
         messages.success(request, f"User {user_to_restore.username} has been unarchived/restored.")
         return redirect('dashboard')
         
     except CustomUser.DoesNotExist:
-        # Fallback if the original user was actually deleted
         messages.error(request, "Original user record not found. Cannot restore.")
         return redirect('dashboard')
     
