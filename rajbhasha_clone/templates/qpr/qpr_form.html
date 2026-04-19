@@ -69,10 +69,12 @@
         </div>
 
         <div class="card-body">
-            <form id="qprForm" method="POST" action="{% url 'qpr_save_record' %}">
+            <form id="qprForm" method="POST" action="{% block qpr_form_action %}{% url 'qpr_save_record' %}{% endblock %}">
                 {% csrf_token %}
                 <input type="hidden" id="recordId" name="id">
                 <input type="hidden" name="details" id="detailsField">
+
+                {% block qpr_form_inner %}
 
                 <div id="tab1">
                     
@@ -128,7 +130,7 @@
                     <hr>
 
                     <div class="row">
-                        {% if user_role == 'hod' %}
+                        {% if active_role == 'hod' %}
                         <div class="col-md-6 section-box">
                             <div class="section-title">1. माननीय मंत्री जी को भेजी गयी फाइलों का ब्यौरा <span class="d-block small text-muted">(Details Of Files Sent To The Minister)</span></div>
                             
@@ -166,7 +168,7 @@
                     </div>
 
                     <div class="row">
-                        {% if user_role == 'admin' %}
+                        {% if active_role == 'admin' %}
                         <div class="col-md-6 section-box">
                             <div class="section-title">3. राजभाषा अधिनियम 1963 की धारा 3(3) के अंतर्गत जारी कागजात <span class="d-block small text-muted">(Documents issued under Section 3(3) of the Official Languages Act, 1963)</span></div>
                             
@@ -288,7 +290,7 @@
                             </div>
                                 </div>
 
-                                {% if user_role == 'manager' %}
+                                {% if active_role == 'manager' %}
                                  <div class="col-md-6 section-box">
                             <div class="section-title">8. तिमाही में आयोजित हिंदी कार्यशालाएं <span class="d-block small text-muted">(Hindi Workshops in this Quarter)</span></div>
                             <div class="lbl-row">
@@ -317,7 +319,7 @@
 
                 <div id="tab3" class="d-none">
 
-                    {% if user_role == 'manager' %}
+                    {% if active_role == 'manager' %}
                     <div class="row">
                         <div class="col-md-6 section-box">
                             <div class="section-title">9. विभागीय/संगठनीय राजभाषा कार्यान्वयन समिति की बैठक... <span class="d-block small text-muted">(Date of the meeting of the Departmental/Organizational Official Language Implementation Committee)</span></div>
@@ -355,7 +357,7 @@
                     </div>
                     {% endif %}
 
-                    {% if user_role == 'manager' %}
+                    {% if active_role == 'manager' %}
                     <div class="section-box">
                         <div class="section-title">11. तिमाही के दौरान विशिष्ट उपलब्धियां (अधिकतम सीमा- 500 अक्षर) <span class="d-block small text-muted">(specific achievements during quarter)</span></div>
                         
@@ -381,15 +383,19 @@
                     </div>
                 </div>
 
+                {% endblock %}
+
             </form>
         </div>
     </div>
 
+    {% block qpr_report_list %}
     <div class="card shadow-sm mt-5">
         <div class="card-body text-center">
             <a href="{% url 'qpr_report_list' %}" class="btn btn-outline-primary">{{ "Report List"|t:current_lang }}</a>
         </div>
     </div>
+    {% endblock %}
 </div>
 
 <button id="hindiToggle" class="btn btn-outline-secondary btn-sm">{{ "Hindi Keyboard"|t:current_lang }}</button>

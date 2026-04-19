@@ -2508,12 +2508,116 @@ def user_dashboard(request):
         'current_hod': profile.hod_name or '',
         'is_hod_or_manager': is_hod_or_manager,
         'disable_user_dashboard_actions': disable_user_dashboard_actions,
+        'has_manager': has_manager,
+        'has_admin': has_admin,
     }
     response = render(request, 'dashboard.html', context)
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
     return response 
+
+
+@login_required
+def manager_qpr_view(request, id=None):
+    # Role check
+    if not user_has_role(request.user, 'manager'):
+        return HttpResponseForbidden("Manager role required")
+
+    from .forms import ManagerQPRForm
+    from .models import ManagerQPR
+
+    instance = None
+    if id:
+        instance = get_object_or_404(ManagerQPR, pk=id)
+
+    if request.method == 'POST':
+        if instance:
+            form = ManagerQPRForm(request.POST, instance=instance)
+        else:
+            form = ManagerQPRForm(request.POST)
+
+        if form.is_valid():
+            quarter = form.cleaned_data.get('quarter')
+            # Prevent duplicate submission per user per quarter when creating new
+            if not instance and ManagerQPR.objects.filter(user=request.user, quarter=quarter).exists():
+                existing = ManagerQPR.objects.filter(user=request.user, quarter=quarter).first()
+                messages.error(request, "You have already submitted Manager QPR for this quarter.")
+                return redirect('manager_qpr_detail', id=existing.id)
+
+            obj = form.save(commit=False)
+            obj.user = request.user
+            # Ensure submitted flag/time on save
+            obj.is_submitted = True
+            obj.submitted_at = timezone.now()
+            obj.save()
+            messages.success(request, "Manager QPR saved successfully.")
+            return redirect('manager_qpr_detail', id=obj.id)
+    else:
+        if instance:
+            form = ManagerQPRForm(instance=instance)
+        else:
+            form = ManagerQPRForm()
+
+    return render(request, 'qpr/manager_qpr_form.html', {'form': form, 'instance': instance})
+
+
+@login_required
+def manager_qpr_detail(request, id):
+    from .forms import ManagerQPRForm
+    from .models import ManagerQPR
+    obj = get_object_or_404(ManagerQPR, id=id)
+    # Only owner or staff can view
+    if obj.user != request.user and not (request.user.is_staff or user_has_role(request.user, 'admin')):
+        return HttpResponseForbidden()
+
+    # Build a form populated with the instance and disable all inputs for readonly view
+    form = ManagerQPRForm(instance=obj)
+    for name in form.fields:
+        try:
+            form.fields[name].widget.attrs['disabled'] = 'disabled'
+        except Exception:
+            pass
+
+    return render(request, 'qpr/manager_qpr_form.html', {'form': form, 'instance': obj, 'readonly': True})
+
+
+@login_required
+def admin_qpr_view(request):
+    if not user_has_role(request.user, 'admin'):
+        return HttpResponseForbidden("Admin role required")
+
+    from .forms import AdminQPRForm
+    from .models import AdminQPR
+    if request.method == 'POST':
+        form = AdminQPRForm(request.POST)
+        if form.is_valid():
+            quarter = form.cleaned_data.get('quarter')
+            if AdminQPR.objects.filter(user=request.user, quarter=quarter).exists():
+                existing = AdminQPR.objects.filter(user=request.user, quarter=quarter).first()
+                messages.error(request, "You have already submitted Admin QPR for this quarter.")
+                return redirect('admin_qpr_detail', id=existing.id)
+
+            instance = form.save(commit=False)
+            instance.user = request.user
+            instance.is_submitted = True
+            instance.submitted_at = timezone.now()
+            instance.save()
+            messages.success(request, "Admin QPR submitted successfully.")
+            return redirect('admin_qpr_detail', id=instance.id)
+    else:
+        form = AdminQPRForm()
+
+    return render(request, 'qpr/admin_qpr_form.html', {'form': form})
+
+
+@login_required
+def admin_qpr_detail(request, id):
+    from .models import AdminQPR
+    obj = get_object_or_404(AdminQPR, id=id)
+    if obj.user != request.user and not (request.user.is_staff or user_has_role(request.user, 'manager')):
+        return HttpResponseForbidden()
+    return render(request, 'qpr/admin_qpr_detail.html', {'record': obj})
 
 @login_required
 def qpr_hod_dashboard(request):
@@ -3191,6 +3295,7 @@ def qpr_form(request):
         'current_year': current_financial_year,
         'financial_years': financial_years,
         'user_role': getattr(request.user, 'role', None),
+        'active_role': request.session.get('active_role', getattr(request.user, 'role', None)),
         'server_month': today.month,
         'server_year': today.year,
         'profile_language_region': profile.language_region if profile else '',
@@ -4180,11 +4285,47 @@ def qpr_records_view(request):
 
 
 @login_required
+def qpr_user_report_list(request):
+    """List the current user's quarterly QPRs with Edit/View actions."""
+    records = QPRRecord.objects.filter(user=request.user, frequency__iexact='quarterly').order_by('-period_start')
+    return render(request, 'qpr/user_report_list.html', {
+        'records': records
+    })
+
+
+@login_required
+def manager_qpr_list(request):
+    """List ManagerQPR records created by the current user."""
+    from .models import ManagerQPR
+    records = ManagerQPR.objects.filter(user=request.user).order_by('-created_at')
+    return render(request, 'qpr/manager_qpr_list.html', {'records': records})
+
+
+@login_required
+def admin_qpr_list(request):
+    """List AdminQPR records created by the current user."""
+    from .models import AdminQPR
+    records = AdminQPR.objects.filter(user=request.user).order_by('-created_at')
+    return render(request, 'qpr/admin_qpr_list.html', {'records': records})
+
+
+@login_required
 def qpr_save_record(request):
     if request.method != 'POST':
         return redirect('qpr_records')
 
     data = request.POST
+
+    # Ignore accidental posts from role-specific QPR forms (manager/admin)
+    role_form = (data.get('role_form') or '').strip().lower()
+    if role_form:
+        try:
+            if role_form == 'manager':
+                return redirect('manager_qpr_form')
+            if role_form == 'admin':
+                return redirect('admin_qpr_form')
+        except Exception:
+            return redirect('qpr_records')
 
     try:
         year = (data.get('year') or '').strip()
@@ -4294,36 +4435,42 @@ def qpr_save_record(request):
                 messages.error(request, "Date is required")
                 return redirect('qpr_records')
 
-            try:
-                selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date() if selected_date_str else None
-            except:
-                messages.error(request, "Invalid date")
-                return redirect('qpr_records')
-
-            if selected_date:
-                today = timezone.localdate()
-
-                if selected_date.weekday() == 6:
-                    messages.error(request, "Sunday not allowed")
-                    return redirect('qpr_records')
-
-                if selected_date > (today + timedelta(days=30)):
-                    messages.error(request, "Too far in future")
-                    return redirect('qpr_records')
-
+            # Parse and validate selected_date only for non-quarterly frequencies
+            selected_date = None
+            if frequency != 'quarterly':
                 try:
-                    cur_q_start, _ = _get_quarter_range_for_date(today)
-                    sel_q_start, _ = _get_quarter_range_for_date(selected_date)
-                    if sel_q_start > cur_q_start:
-                        messages.error(request, "Future quarter not allowed")
-                        return redirect('qpr_records')
+                    selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date() if selected_date_str else None
                 except:
-                    pass
+                    messages.error(request, "Invalid date")
+                    return redirect('qpr_records')
 
-            availability = _allowed_frequencies_for_date(request.user, selected_date)
-            if frequency not in availability['allowed']:
-                messages.error(request, f"Allowed: {availability['allowed']}")
-                return redirect('qpr_records')
+                if selected_date:
+                    today = timezone.localdate()
+
+                    if selected_date.weekday() == 6:
+                        messages.error(request, "Sunday not allowed")
+                        return redirect('qpr_records')
+
+                    if selected_date > (today + timedelta(days=30)):
+                        messages.error(request, "Too far in future")
+                        return redirect('qpr_records')
+
+                    try:
+                        cur_q_start, _ = _get_quarter_range_for_date(today)
+                        sel_q_start, _ = _get_quarter_range_for_date(selected_date)
+                        if sel_q_start > cur_q_start:
+                            messages.error(request, "Future quarter not allowed")
+                            return redirect('qpr_records')
+                    except:
+                        pass
+
+                availability = _allowed_frequencies_for_date(request.user, selected_date)
+                if frequency not in availability.get('allowed', []):
+                    messages.error(request, f"Allowed: {availability.get('allowed', [])}")
+                    return redirect('qpr_records')
+            else:
+                # Quarterly frequency: no selected_date checks; availability implicitly allowed
+                selected_date = None
 
             ps, pe = compute_period(
                 frequency,
@@ -4379,6 +4526,15 @@ def qpr_save_record(request):
             _save_section_data(record, details)
 
         messages.success(request, "Saved successfully")
+        # Redirect based on the session's active role so HOD/user flows return to report list
+        try:
+            active_role = request.session.get('active_role', getattr(request.user, 'role', None))
+            if active_role == 'manager':
+                return redirect('manager_qpr_list')
+            if active_role == 'admin':
+                return redirect('admin_qpr_list')
+        except Exception:
+            pass
         return redirect('qpr_report_list')
 
     except Exception as e:
