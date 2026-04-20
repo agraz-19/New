@@ -85,7 +85,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from website.static_event_service import get_all_events, EVENTS_ROOT, STATIC_URL_PREFIX
 import os
-# Third-party / Django Imports
+import subprocess
 from captcha.models import CaptchaStore, logger
 from deep_translator import GoogleTranslator
 from django.conf import settings
@@ -328,7 +328,6 @@ def submit_profile_change_request(request):
                 'message': 'HOD is not assigned to your profile.'
             })
 
-        # PREVENT DUPLICATE REQUESTS
         existing_request = ProfileChangeRequest.objects.filter(
             profile=profile,
             status='pending'
@@ -340,7 +339,6 @@ def submit_profile_change_request(request):
                 'message': 'You already have a pending request. Please wait for approval.'
             })
 
-        # 🔍 Find HOD (same logic, untouched)
         hod_profile = UserProfile.objects.filter(
             Q(employee_code=hod_identifier) |
             Q(name__iexact=hod_identifier) |
@@ -354,7 +352,6 @@ def submit_profile_change_request(request):
                 'message': f'HOD "{hod_identifier}" not found in system. Please ensure your HOD has registered and is approved.'
             })
 
-        # CREATE REQUEST (unchanged logic)
         ProfileChangeRequest.objects.create(
             profile=profile,
             change_reason=reason,
@@ -397,8 +394,11 @@ def get_event_images(request, folder):
     except Exception as e:
         return JsonResponse({'images': [], 'error': str(e)})
 
+@login_required
 def update_event_titles(request):
     """Update event titles"""
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return redirect('/')
     if request.method != 'POST':
         return redirect('admin_events_dashboard')
     
@@ -417,14 +417,18 @@ def update_event_titles(request):
 
 
 
-@staff_member_required
+@login_required
 def admin_events_dashboard(request):
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return redirect('/')
     events = get_all_events()
     return render(request, "admin_events_dashboard.html", {"events": events})
  
  
-@staff_member_required
+@login_required
 def admin_upload_event(request):
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return redirect('/')
     folder = request.GET.get("folder")
  
     if request.method == "POST":
@@ -447,8 +451,10 @@ def admin_upload_event(request):
     return render(request, "admin_upload_event.html", {"folder": folder})
  
  
-@staff_member_required
+@login_required
 def admin_delete_event(request, folder):
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return redirect('/')
     try:
         delete_event(folder)
         messages.success(request, "Event deleted successfully")
@@ -457,8 +463,11 @@ def admin_delete_event(request, folder):
     return redirect("admin_events_dashboard")
  
  
-@staff_member_required
+@login_required
 def admin_edit_event_titles(request):
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return JsonResponse({"status": "error", "message": "Unauthorized"}, status=403)
+
     """AJAX endpoint — update title_en and title_hi in an event's meta.json"""
     if request.method == "POST":
         try:
@@ -481,6 +490,9 @@ from website.static_event_service import update_event_meta, _read_meta
 
 @login_required
 def set_thumbnail(request, folder):
+    if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=400)
     
@@ -758,8 +770,6 @@ def _aggregate_records_for_range(user, start_dt, end_dt, source_frequency='daily
     if not start_dt or not end_dt:
         return total
 
-    # Base queryset: filter by user, submission state and frequency only.
-    # We intentionally avoid requiring explicit period_start/period_end here so
     # older records that may miss one of those fields are still considered.
     qs = QPRRecord.objects.filter(
         user=user,
@@ -1972,7 +1982,7 @@ def privacy_audit_report(request):
     lang = request.session.get('lang', 'en')
     return render(request, 'privacy_audit.html', {'logs': logs, 'current_lang': lang})
 
-@login_required
+'''@login_required
 def download_db_backup(request):
     if request.session.get('active_role') != 'backup_user':
         messages.error(request, "Unauthorized access.")
@@ -1981,26 +1991,47 @@ def download_db_backup(request):
     if os.path.exists(db_path):
         return FileResponse(open(db_path, 'rb'), as_attachment=True, filename='backup_RajyaBhasha.sqlite3')
     messages.error(request, "Database file not found.")
-    return redirect('dashboard')
-
-# ==================== ARCHIVE HELPERS (RESTORED) ====================
+    return redirect('dashboard')'''
 
 @login_required
-@user_passes_test(is_admin)  # This checks user.role == 'admin', so NO Superuser required
-def archive_user(request, user_id):  # FIXED: Added 'request' argument
-    # 1. Fetch User
+def download_db_backup(request):
+    if request.session.get('active_role') != 'backup_user':
+        return JsonResponse({"status": "error", "message": "Unauthorized access."}, status=403)
+        
+    try:
+        host = os.getenv("POSTGRES_HOST")
+        db = os.getenv("DB_NAME")
+        db_user = os.getenv("DB_USER")
+        
+        if not all([host, db, db_user]):
+            return JsonResponse({"status": "error", "message": "Database environment variables are missing."}, status=500)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        filename = f"~/backup_{timestamp}.sql"
+        cmd = [
+            "ssh",
+            f"shannu-1@{host}",
+            f"pg_dump -U {db_user} {db} -f {filename}"
+        ]
+        subprocess.run(cmd, check=True)
+        return JsonResponse({
+            "status": "success", 
+            "message": f"Database backup created successfully at {filename}"
+        })
+
+    except subprocess.CalledProcessError as e:
+        return JsonResponse({"status": "error", "message": "Backup command failed on the remote server."}, status=500)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+
+@login_required
+@user_passes_test(is_admin)
+def archive_user(request, user_id):  
     user_to_archive = get_object_or_404(CustomUser, id=user_id)
-    
-    # 2. Prevent archiving yourself
     if getattr(user_to_archive, 'id', None) == getattr(request.user, 'id', None):
         messages.error(request, "You cannot archive yourself.")
         return redirect('dashboard')
-
-    # 3. Create Snapshot for Archive
-    # Employee.empcode is an IntegerField. Try to resolve a numeric empcode
-    # from the user's username or from their profile.employee_code.
     empcode_val = None
-    # Prefer profile.employee_code if available
     profile = getattr(user_to_archive, 'profile', None)
     if profile and getattr(profile, 'employee_code', None):
         try:
@@ -2008,7 +2039,6 @@ def archive_user(request, user_id):  # FIXED: Added 'request' argument
         except (TypeError, ValueError):
             empcode_val = None
 
-    # Fallback: try to use username if it's numeric
     if empcode_val is None:
         try:
             empcode_val = int(user_to_archive.username)
@@ -2028,7 +2058,6 @@ def archive_user(request, user_id):  # FIXED: Added 'request' argument
             "last_updated": str(employee.lastupdate)
         }
 
-    # 4. Create Archive Record
     ArchivedUser.objects.create(
         username=user_to_archive.username,
         email_hash=user_to_archive.email_hash,
@@ -2036,15 +2065,11 @@ def archive_user(request, user_id):  # FIXED: Added 'request' argument
         original_user_id=user_to_archive.pk,
         employee_snapshot=json.dumps(snapshot) 
     )
-    
-    # 5. Soft Delete (Deactivate)
     user_to_archive.is_active = False    
     user_to_archive.is_archived = True
     user_to_archive.save()
-
-    # 6. Success Message & Redirect
     messages.success(request, f"User {user_to_archive.username} has been archived successfully.")
-    return redirect('dashboard')  # FIXED: Added return statement
+    return redirect('dashboard')  
 
 @login_required
 @user_passes_test(is_admin)
@@ -2057,15 +2082,11 @@ def unarchive_user(request, archive_id):
         user_to_restore.is_active = True
         user_to_restore.is_archived = False
         user_to_restore.save()
-        
-        # Cleanup Archive Record
         archived_record.delete()
-        
         messages.success(request, f"User {user_to_restore.username} has been unarchived/restored.")
         return redirect('dashboard')
         
     except CustomUser.DoesNotExist:
-        # Fallback if the original user was actually deleted
         messages.error(request, "Original user record not found. Cannot restore.")
         return redirect('dashboard')
     
@@ -2199,7 +2220,7 @@ def profile_view(request):
             messages.error(request, "HOD/Approver selection is required.")
             return redirect('profile')
 
-        # 1. Update User
+       
         user.set_email(new_email)
         # Only lock if they just used an approved change request
         if approved_change_request:
@@ -2252,7 +2273,7 @@ def profile_view(request):
         return redirect('profile')
 
     # ===============================
-    # gET LOGIC (PAGE LOAD)
+   
     # ===============================
     empcode = profile.employee_code if profile else None
     employee = Employee.objects.filter(empcode=empcode).first() if empcode else None
@@ -2630,27 +2651,17 @@ def qpr_hod_dashboard(request):
 
     from .models import ProfileChangeRequest, UserProfile
     from django.db.models import Q
-
-    # ===============================
-    # CHANGE REQUESTS (FOR DASHBOARD)
-    # ===============================
     profile_change_requests = ProfileChangeRequest.objects.filter(
         hod=request.user,
         status='pending'
     ).select_related('profile', 'profile__user').order_by('-requested_at')
 
-    # ===============================
-    # BASIC INFO
-    # ===============================
     current_quarter = get_current_quarter()
     current_year = get_current_year_label()
 
     hod_profile = UserProfile.objects.select_related('user').get(user=request.user)
     hod_name = (hod_profile.hod_name or hod_profile.name or "").strip()
 
-    # ===============================
-    # USERS UNDER HOD
-    # ===============================
     if hod_name:
         user_role_q = Q(roles__name='user') | Q(user__roles__name='user')
 
@@ -2663,9 +2674,6 @@ def qpr_hod_dashboard(request):
 
     total_users = users_under_hod.count()
 
-    # ===============================
-    # QPR COUNTS (FIXED LOOP)
-    # ===============================
     qpr_submitted_count = 0
 
     # Count users who submitted a daily QPR for today's server date.
@@ -2685,9 +2693,7 @@ def qpr_hod_dashboard(request):
 
     qpr_pending = total_users - qpr_submitted_count
 
-    # ===============================
-    # PROFILE STATUS
-    # ===============================
+    
     profile_updated_count = users_under_hod.filter(profile_updated=True).count()
 
     pending_approvals = UserProfile.objects.filter(
@@ -2708,7 +2714,6 @@ def qpr_hod_dashboard(request):
         'profile_updated': profile_updated_count,
         'hod_name': hod_name,
 
-        # IMPORTANT (for dashboard UI)
         'profile_change_requests': profile_change_requests,
 
         'current_lang': lang,
@@ -2719,9 +2724,7 @@ def qpr_hod_dashboard(request):
 
     response = render(request, 'qpr/hod_dashboard.html', context)
 
-    # ===============================
-    # NO CACHE
-    # ===============================
+   
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
@@ -3172,7 +3175,6 @@ def manage_user_action(request, user_id, action):
     for the special-case action 'unlock_qpr'. We handle 'unlock_qpr' first to
     avoid attempting to resolve a CustomUser for a QPR id (which caused 404s).
     """
-    # Special-case: treat provided id as QPR id when unlocking a QPR
     if action == 'unlock_qpr':
         if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
             messages.error(request, translate_text("Unauthorized", request.session.get('lang', 'en')))

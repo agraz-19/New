@@ -8,6 +8,7 @@ from django.utils import timezone
 import hashlib
 from captcha.fields import CaptchaField
 from django.contrib.auth import authenticate
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 
 class CustomUserCreationForm(UserCreationForm):
@@ -79,11 +80,7 @@ class CustomUserCreationForm(UserCreationForm):
             "The two password fields didn't match.", lang
         )
 
-    # def clean_username(self):
-    #     username = self.cleaned_data.get('username')
-    #     if not username.isdigit():
-    #         raise forms.ValidationError(translate_text("Username must contain only integers.", self.lang))
-    #     return username
+
     def clean_username(self):
         username = self.cleaned_data.get('username')
         from .models import CustomUser, UserProfile
@@ -182,13 +179,22 @@ class CustomLoginForm(AuthenticationForm):
     def clean(self):
         """Authenticate using ONLY employee code"""
         
-        cleaned_data = super().clean()
+        cleaned_data = super(AuthenticationForm, self).clean()
 
         emp_code = cleaned_data.get('username')
         password = cleaned_data.get('password')
 
         if not emp_code or not password:
             return cleaned_data
+        
+        cache_key = f"login_attempts_{emp_code}"
+        attempts = cache.get(cache_key, 0)
+
+        if attempts >= 3:
+            raise forms.ValidationError(
+                translate_text("Account locked due to 3 incorrect attempts. Please try again after 2 hours.", self.lang), 
+                code='locked'
+            )
 
         from .models import UserProfile
 
@@ -197,18 +203,27 @@ class CustomLoginForm(AuthenticationForm):
                 employee_code=emp_code
             )
         except UserProfile.DoesNotExist:
-            raise ValidationError("Invalid Employee Code")
+            # Increment failed attempts even for invalid users to prevent brute-force enumeration
+            cache.set(cache_key, attempts + 1, 7200)
+            raise forms.ValidationError("Invalid Employee Code")
         
         
-        user = authenticate(
-            request=self.request,
-            username=profile.user.username,
-            password=password
-        )
+        user = authenticate(request=self.request,username=profile.user.username,password=password)
 
         if user is None:
-            raise ValidationError(self.error_messages['invalid_login'], code='invalid_login')
-
+            attempts += 1
+            cache.set(cache_key, attempts, 7200)
+            if attempts >= 3:
+                raise forms.ValidationError(
+                    translate_text("Account locked for 2 hours due to 3 incorrect attempts.", self.lang), 
+                    code='locked'
+                )
+            else:
+                raise forms.ValidationError(
+                    translate_text(f"Invalid login. {3 - attempts} attempts remaining.", self.lang), 
+                    code='invalid_login'
+                )
+        cache.delete(cache_key)
         self.confirm_login_allowed(user)
         self.user_cache = user
 

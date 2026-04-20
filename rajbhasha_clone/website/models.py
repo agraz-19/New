@@ -86,7 +86,7 @@ class CustomUser(AbstractUser):
 
     def get_email(self):
         if self.encrypted_email_data:
-            return cipher_suite.decrypt(self.encrypted_email_data).decode()
+            return cipher_suite.decrypt(bytes(self.encrypted_email_data)).decode()
         return None
     @property
     def role(self):
@@ -224,7 +224,7 @@ class Employee(models.Model):
 
     def get_super_annuation_date(self):
         if self.encrypted_super_annuation_date:
-            decrypted_str = cipher_suite.decrypt(self.encrypted_super_annuation_date).decode()
+            decrypted_str = cipher_suite.decrypt(bytes(self.encrypted_super_annuation_date)).decode()
             return datetime.datetime.strptime(decrypted_str, '%Y-%m-%d').date()
         return None
 
@@ -294,7 +294,7 @@ class UserProfile(models.Model):
     @property
     def email(self):
         if self.encrypted_email:
-            return cipher_suite.decrypt(self.encrypted_email).decode()
+            return cipher_suite.decrypt(bytes(self.encrypted_email)).decode()
         return ""
 
     @email.setter
@@ -307,7 +307,7 @@ class UserProfile(models.Model):
     @property
     def phone(self):
         if self.encrypted_phone:
-            return cipher_suite.decrypt(self.encrypted_phone).decode()
+            return cipher_suite.decrypt(bytes(self.encrypted_phone)).decode()
         return ""
 
     @phone.setter

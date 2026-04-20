@@ -107,16 +107,17 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
         'otp': {
             'subject': translate_text("Password Reset OTP", lang),
             'headline': translate_text("Verify Your Identity", lang),
-            'body': translate_text("Your One-Time Password (OTP) is below. It is valid for 10 minutes.", lang),
+            'body': translate_text("Your One-Time Password (OTP) is below. It is valid for 5 minutes.", lang),
             'details': {translate_text('OTP Code', lang): extra_context.get('otp')},
             'is_alert': True
         },
         'welcome': {
-            'subject': "Welcome to Rajya Bhaasha!",
-            'headline': "Welcome Aboard!",
-            'body': "Your account has been created successfully. Your data is now encrypted and DPDP compliant.",
-            'action_text': "Go to Dashboard",
-            'action_url': f"{domain}{reverse('login')}"
+            'subject': "राजभाषा में आपका स्वागत है! | Welcome to Rajya Bhaasha!",
+            'headline': "आपका स्वागत है! | Welcome Aboard!",
+            'body': "आपका खाता सफलतापूर्वक बना लिया गया है। आपका डेटा अब एन्क्रिप्टेड और DPDP के अनुकूल है।\n\nYour account has been created successfully. Your data is now encrypted and DPDP compliant.",
+            'action_text': "डैशबोर्ड पर जाएं | Go to Dashboard",
+            'action_url': f"{domain}{reverse('login')}",
+            'skip_translation': True 
         },
         'login': {
             'subject': "Security Alert: New Login",
@@ -133,7 +134,7 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
             'subject': "Data Export Initiated",
             'headline': "Data Export Alert",
             'body': "A copy of your personal data has been exported from your dashboard.",
-            'details': {'Date': timezone.now().strftime('%Y-%m-%d')},
+            'details': {'Date': timezone.localtime().strftime('%Y-%m-%d')},
             'is_alert': True
         },
         'update': {
@@ -191,6 +192,16 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
 }
     }
     cfg = configs.get(email_type)
+    skip_translation = cfg.get('skip_translation', False)
+    
+    if skip_translation:
+        body_en = cfg.get('body')
+        body_hi = cfg.get('body')
+        subject = cfg['subject']
+    else:
+        body_en = cfg.get('body') 
+        body_hi = translate_text(body_en, 'hi')
+        subject = translate_text(cfg['subject'], lang)
     if not cfg: return
     body_en = cfg.get('body') 
     body_hi = translate_text(body_en, 'hi')
