@@ -61,7 +61,6 @@ urlpatterns = [
     path('qpr/reports/<int:record_id>/typing-usage-report/view/', views.typing_usage_report_view, name='typing_usage_report_view'),
     path('qpr/reports/<int:record_id>/request-edit/', views.request_qpr_edit, name='request_qpr_edit'),
 
-<<<<<<< HEAD
     # Role-based QPR forms (manager/admin)
     path('qpr/manager/form/', views.manager_qpr_view, name='manager_qpr_form'),
     path('qpr/manager/form/<int:id>/', views.manager_qpr_view, name='manager_qpr_form_edit'),
@@ -70,8 +69,6 @@ urlpatterns = [
     path('qpr/admin/<int:id>/', views.admin_qpr_detail, name='admin_qpr_detail'),
 
     # --- HOD WORKFLOW ---
-=======
->>>>>>> origin/preetham
     path('qpr/hod/details/', views.hod_detail_list, name='qpr_hod_detail_list'),
     path('qpr/hod/freeze/<int:qpr_record_id>/', views.toggle_freeze_qpr, name='toggle_freeze_qpr'),
     path('qpr/hod/freeze_division/', views.freeze_division_snapshot, name='freeze_division_snapshot'),
