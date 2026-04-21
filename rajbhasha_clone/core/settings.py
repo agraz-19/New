@@ -149,10 +149,17 @@ SESSION_COOKIE_SECURE = False
 # CACHE (Keeping your DB cache instead of locmem)
 CACHES = {
     'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': os.path.join(BASE_DIR, '.django_cache'),
+    }
+}
+
+'''CACHES = {
+    'default': {
         'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
         'LOCATION': 'my_translation_cache',
     }
-}
+}'''
 
 
 # CAPTCHA

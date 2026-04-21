@@ -86,7 +86,7 @@ class CustomUser(AbstractUser):
 
     def get_email(self):
         if self.encrypted_email_data:
-            return cipher_suite.decrypt(self.encrypted_email_data).decode()
+            return cipher_suite.decrypt(bytes(self.encrypted_email_data)).decode()
         return None
     @property
     def role(self):
@@ -224,7 +224,7 @@ class Employee(models.Model):
 
     def get_super_annuation_date(self):
         if self.encrypted_super_annuation_date:
-            decrypted_str = cipher_suite.decrypt(self.encrypted_super_annuation_date).decode()
+            decrypted_str = cipher_suite.decrypt(bytes(self.encrypted_super_annuation_date)).decode()
             return datetime.datetime.strptime(decrypted_str, '%Y-%m-%d').date()
         return None
 
@@ -294,7 +294,7 @@ class UserProfile(models.Model):
     @property
     def email(self):
         if self.encrypted_email:
-            return cipher_suite.decrypt(self.encrypted_email).decode()
+            return cipher_suite.decrypt(bytes(self.encrypted_email)).decode()
         return ""
 
     @email.setter
@@ -307,7 +307,7 @@ class UserProfile(models.Model):
     @property
     def phone(self):
         if self.encrypted_phone:
-            return cipher_suite.decrypt(self.encrypted_phone).decode()
+            return cipher_suite.decrypt(bytes(self.encrypted_phone)).decode()
         return ""
 
     @phone.setter
@@ -699,6 +699,140 @@ class QPRPartTwo(models.Model):
     chairperson_phone = models.CharField(max_length=50, blank=True, null=True)
     chairperson_fax = models.CharField(max_length=50, blank=True, null=True)
     chairperson_email = models.EmailField(blank=True, null=True)
+
+
+class ManagerQPR(models.Model):
+    """Quarterly snapshot QPR for Managers - non-cumulative, one submission per user per quarter"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='manager_qprs')
+    financial_year = models.CharField(max_length=20)
+    quarter = models.CharField(max_length=50)
+
+    # Base numeric sections (2,4,5,6,7)
+    # Section 2: meetings/files at Secretary level
+    s2_meetings_count = models.IntegerField(null=True, blank=True)
+    s2_hindi_minutes = models.IntegerField(null=True, blank=True)
+    s2_total_papers = models.IntegerField(null=True, blank=True)
+    s2_hindi_papers = models.IntegerField(null=True, blank=True)
+
+    # Section 4: Hindi letters received
+    s4_total_letters = models.IntegerField(null=True, blank=True)
+    s4_no_reply_letters = models.IntegerField(null=True, blank=True)
+    s4_replied_hindi_letters = models.IntegerField(null=True, blank=True)
+    s4_replied_english_letters = models.IntegerField(null=True, blank=True)
+
+    # Section 5: English replied in Hindi (region A example fields)
+    s5_region_a_english_letters = models.IntegerField(null=True, blank=True)
+    s5_region_a_replied_hindi = models.IntegerField(null=True, blank=True)
+    s5_region_a_replied_english = models.IntegerField(null=True, blank=True)
+    s5_region_a_no_reply = models.IntegerField(null=True, blank=True)
+
+    # Section 6: Issued letters (per region totals)
+    s6_region_a_hindi_bilingual = models.IntegerField(null=True, blank=True)
+    s6_region_a_english_only = models.IntegerField(null=True, blank=True)
+    s6_region_a_total = models.IntegerField(null=True, blank=True)
+    s6_region_b_hindi_bilingual = models.IntegerField(null=True, blank=True)
+    s6_region_b_english_only = models.IntegerField(null=True, blank=True)
+    s6_region_b_total = models.IntegerField(null=True, blank=True)
+    s6_region_c_hindi_bilingual = models.IntegerField(null=True, blank=True)
+    s6_region_c_english_only = models.IntegerField(null=True, blank=True)
+    s6_region_c_total = models.IntegerField(null=True, blank=True)
+
+    # Section 7: Notings
+    s7_hindi_pages = models.IntegerField(null=True, blank=True)
+    s7_english_pages = models.IntegerField(null=True, blank=True)
+    s7_total_pages = models.IntegerField(null=True, blank=True)
+    s7_eoffice_notings = models.IntegerField(null=True, blank=True)
+
+    # Section 8: Workshops
+    s8_full_day_workshops = models.IntegerField(null=True, blank=True)
+    s8_officers_trained = models.IntegerField(null=True, blank=True)
+    s8_employees_trained = models.IntegerField(null=True, blank=True)
+
+    # Section 9: Implementation committee
+    s9_meeting_date = models.DateField(null=True, blank=True)
+    s9_sub_committees_count = models.IntegerField(null=True, blank=True)
+    s9_meetings_organized = models.IntegerField(null=True, blank=True)
+    s9_agenda_hindi = models.CharField(max_length=10, null=True, blank=True)
+
+    # Section 10: Hindi advisory committee meeting date
+    s10_meeting_date = models.DateField(null=True, blank=True)
+
+    # Section 11: Specific achievements
+    s11_innovative_work = models.TextField(null=True, blank=True)
+    s11_special_events = models.TextField(null=True, blank=True)
+    s11_hindi_medium_works = models.TextField(null=True, blank=True)
+
+    is_submitted = models.BooleanField(default=False)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Manager QPR - {self.user.username} ({self.quarter})"
+
+    class Meta:
+        unique_together = (('user', 'quarter'),)
+        ordering = ['-created_at']
+
+
+class AdminQPR(models.Model):
+    """Quarterly snapshot QPR for Admins - non-cumulative, one submission per user per quarter"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='admin_qprs')
+    financial_year = models.CharField(max_length=20)
+    quarter = models.CharField(max_length=50)
+
+    # Section 2 fields for AdminQPR
+    a_s2_meetings_count = models.IntegerField(null=True, blank=True)
+    a_s2_hindi_minutes = models.IntegerField(null=True, blank=True)
+    a_s2_total_papers = models.IntegerField(null=True, blank=True)
+    a_s2_hindi_papers = models.IntegerField(null=True, blank=True)
+
+    # Section 3: Official languages documents
+    a_s3_total_documents = models.IntegerField(null=True, blank=True)
+    a_s3_bilingual_documents = models.IntegerField(null=True, blank=True)
+    a_s3_english_only_documents = models.IntegerField(null=True, blank=True)
+    a_s3_hindi_only_documents = models.IntegerField(null=True, blank=True)
+
+    # Section 4 fields
+    a_s4_total_letters = models.IntegerField(null=True, blank=True)
+    a_s4_no_reply_letters = models.IntegerField(null=True, blank=True)
+    a_s4_replied_hindi_letters = models.IntegerField(null=True, blank=True)
+    a_s4_replied_english_letters = models.IntegerField(null=True, blank=True)
+
+    # Section 5
+    a_s5_region_a_english_letters = models.IntegerField(null=True, blank=True)
+    a_s5_region_a_replied_hindi = models.IntegerField(null=True, blank=True)
+    a_s5_region_a_replied_english = models.IntegerField(null=True, blank=True)
+    a_s5_region_a_no_reply = models.IntegerField(null=True, blank=True)
+
+    # Section 6 (issued letters)
+    a_s6_region_a_hindi_bilingual = models.IntegerField(null=True, blank=True)
+    a_s6_region_a_english_only = models.IntegerField(null=True, blank=True)
+    a_s6_region_a_total = models.IntegerField(null=True, blank=True)
+    a_s6_region_b_hindi_bilingual = models.IntegerField(null=True, blank=True)
+    a_s6_region_b_english_only = models.IntegerField(null=True, blank=True)
+    a_s6_region_b_total = models.IntegerField(null=True, blank=True)
+    a_s6_region_c_hindi_bilingual = models.IntegerField(null=True, blank=True)
+    a_s6_region_c_english_only = models.IntegerField(null=True, blank=True)
+    a_s6_region_c_total = models.IntegerField(null=True, blank=True)
+
+    # Section 7 (notings)
+    a_s7_hindi_pages = models.IntegerField(null=True, blank=True)
+    a_s7_english_pages = models.IntegerField(null=True, blank=True)
+    a_s7_total_pages = models.IntegerField(null=True, blank=True)
+    a_s7_eoffice_notings = models.IntegerField(null=True, blank=True)
+
+    is_submitted = models.BooleanField(default=False)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Admin QPR - {self.user.username} ({self.quarter})"
+
+    class Meta:
+        unique_together = (('user', 'quarter'),)
+        ordering = ['-created_at']
     
 class StaffHindiKnowledge(models.Model):
     """Section 2(i): Officers/Employees possessing knowledge of Hindi""" # [cite: 74]
