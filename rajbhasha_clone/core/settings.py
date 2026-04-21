@@ -149,10 +149,17 @@ SESSION_COOKIE_SECURE = False
 # CACHE (Keeping your DB cache instead of locmem)
 CACHES = {
     'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': os.path.join(BASE_DIR, '.django_cache'),
+    }
+}
+
+'''CACHES = {
+    'default': {
         'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
         'LOCATION': 'my_translation_cache',
     }
-}
+}'''
 
 
 # CAPTCHA
@@ -171,7 +178,6 @@ CAPTCHA_FLITE_PATH = os.path.join(BASE_DIR, 'espeak_wrapper.sh')
 # ENCRYPTION
 ENCRYPTION_KEY = 'EOxZWt1RC6O9GKhF8d30FUxyCyjGAz29smC5i8tWA0I='
 CSRF_FAILURE_VIEW = 'website.views.csrf_failure'
-# ---------------- MINIO CONFIG ---------------- #
 
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")

@@ -1,0 +1,30 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+{% block extra_css %}
+<style>
+    .section-box { margin-bottom:20px; padding:15px; background:#f9f9f9; border-radius:8px; border:1px solid #e9ecef; }
+    .section-title { font-weight:bold; margin-bottom:10px; color:#2c5a86 }
+    .lbl-row { display:flex; align-items:center; margin-bottom:10px }
+    .lbl-text { flex:1; padding-right:10px }
+    .lbl-input { width:140px }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="row">
+                    {% block qpr_fields %}{% endblock %}
+                </div>
+                <div class="text-end mt-4">
+                    <button class="btn btn-secondary" type="button" onclick="history.back()">{{ "Cancel"|t:current_lang }}</button>
+                    <button class="btn btn-primary ms-2" type="submit">{{ "Submit"|t:current_lang }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

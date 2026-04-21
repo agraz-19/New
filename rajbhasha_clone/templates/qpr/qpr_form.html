@@ -69,10 +69,12 @@
         </div>
 
         <div class="card-body">
-            <form id="qprForm" method="POST" action="{% url 'qpr_save_record' %}">
+            <form id="qprForm" method="POST" action="{% block qpr_form_action %}{% url 'qpr_save_record' %}{% endblock %}">
                 {% csrf_token %}
                 <input type="hidden" id="recordId" name="id">
                 <input type="hidden" name="details" id="detailsField">
+
+                {% block qpr_form_inner %}
 
                 <div id="tab1">
                     
@@ -107,28 +109,28 @@
                         </div>
                         <div class="row g-2 align-items-center mb-2">
                             <div class="col-md-3 text-end"><span class="lbl-hindi">फोन न.</span><span class="lbl-eng">Phone No.</span></div>
-                            <div class="col-md-5"><input type="text" class="form-control form-control-sm" id="phone" name="phone" value="{{ profile_phone }}" {% if profile_phone_filled %}disabled readonly data-protected="1"{% else %}data-protected="0"{% endif %}></div>
+                            <div class="col-md-5"><input type="text" autocomplete="tel" class="form-control form-control-sm" id="phone" name="phone" value="{{ profile_phone }}" {% if profile_phone_filled %}disabled readonly data-protected="1"{% else %}data-protected="0"{% endif %}></div>
                         </div>
                         <div class="row g-2 align-items-center mb-2">
                             <div class="col-md-3 text-end"><span class="lbl-hindi">भाषा क्षेत्र</span><span class="lbl-eng">Language Region</span></div>
                             <div class="col-md-5">
-                                                            <select class="form-select form-select-sm" id="region" name="region" data-protected="{{ profile_language_region|yesno:'1,0' }}" {% if profile_language_region %}disabled{% endif %}>
+                                                            <select autocomplete="language" class="form-select form-select-sm" id="region" name="region" data-protected="{{ profile_language_region|yesno:'1,0' }}" {% if profile_language_region %}disabled{% endif %}>
                                     <option value="">-- Select Region --</option>
-                                    <option value="भाषा क्षेत्र 'क' / Region A" {% if profile_language_region == "भाषा क्षेत्र 'क' / Region A" %}selected{% endif %}>भाषा क्षेत्र 'क' / Region A</option>
-                                    <option value="भाषा क्षेत्र 'ख' / Region B" {% if profile_language_region == "भाषा क्षेत्र 'ख' / Region B" %}selected{% endif %}>भाषा क्षेत्र 'ख' / Region B</option>
-                                    <option value="भाषा क्षेत्र 'ग' / Region C" {% if profile_language_region == "भाषा क्षेत्र 'ग' / Region C" %}selected{% endif %}>भाषा क्षेत्र 'ग' / Region C</option>
+                                    <option value="Region A" {% if profile_language_region == "Region A" %}selected{% endif %}>भाषा क्षेत्र 'क' / Region A</option>
+                                    <option value="Region B" {% if profile_language_region == "Region B" %}selected{% endif %}>भाषा क्षेत्र 'ख' / Region B</option>
+                                    <option value="Region C" {% if profile_language_region == "Region C" %}selected{% endif %}>भाषा क्षेत्र 'ग' / Region C</option>
                                 </select>
                             </div>
                         </div>
                         <div class="row g-2 align-items-center">
                             <div class="col-md-3 text-end"><span class="lbl-hindi">ई-मेल</span><span class="lbl-eng">(Email ID)</span></div>
-                            <div class="col-md-5"><input type="email" class="form-control form-control-sm" id="email" name="email" value="{{ profile_email }}" {% if profile_email_filled %}disabled readonly data-protected="1"{% else %}data-protected="0"{% endif %}></div>
+                            <div class="col-md-5"><input type="email" autocomplete="email" class="form-control form-control-sm" id="email" name="email" value="{{ profile_email }}" {% if profile_email_filled %}disabled readonly data-protected="1"{% else %}data-protected="0"{% endif %}></div>
                         </div>
                     </div>
                     <hr>
 
                     <div class="row">
-                        {% if user_role == 'hod' %}
+                        {% if active_role == 'hod' %}
                         <div class="col-md-6 section-box">
                             <div class="section-title">1. माननीय मंत्री जी को भेजी गयी फाइलों का ब्यौरा <span class="d-block small text-muted">(Details Of Files Sent To The Minister)</span></div>
                             
@@ -166,7 +168,7 @@
                     </div>
 
                     <div class="row">
-                        {% if user_role == 'admin' %}
+                        {% if active_role == 'admin' %}
                         <div class="col-md-6 section-box">
                             <div class="section-title">3. राजभाषा अधिनियम 1963 की धारा 3(3) के अंतर्गत जारी कागजात <span class="d-block small text-muted">(Documents issued under Section 3(3) of the Official Languages Act, 1963)</span></div>
                             
@@ -288,7 +290,7 @@
                             </div>
                                 </div>
 
-                                {% if user_role == 'manager' %}
+                                {% if active_role == 'manager' %}
                                  <div class="col-md-6 section-box">
                             <div class="section-title">8. तिमाही में आयोजित हिंदी कार्यशालाएं <span class="d-block small text-muted">(Hindi Workshops in this Quarter)</span></div>
                             <div class="lbl-row">
@@ -317,7 +319,7 @@
 
                 <div id="tab3" class="d-none">
 
-                    {% if user_role == 'manager' %}
+                    {% if active_role == 'manager' %}
                     <div class="row">
                         <div class="col-md-6 section-box">
                             <div class="section-title">9. विभागीय/संगठनीय राजभाषा कार्यान्वयन समिति की बैठक... <span class="d-block small text-muted">(Date of the meeting of the Departmental/Organizational Official Language Implementation Committee)</span></div>
@@ -355,7 +357,7 @@
                     </div>
                     {% endif %}
 
-                    {% if user_role == 'manager' %}
+                    {% if active_role == 'manager' %}
                     <div class="section-box">
                         <div class="section-title">11. तिमाही के दौरान विशिष्ट उपलब्धियां (अधिकतम सीमा- 500 अक्षर) <span class="d-block small text-muted">(specific achievements during quarter)</span></div>
                         
@@ -375,21 +377,25 @@
                         <button type="button" class="btn btn-secondary" onclick="showTab(2)">&larr;
                             {{"Previous"|t:current_lang }}</button>
                         <div>
-                            <button type="submit" class="btn btn-info text-white me-2" name="status" value="Draft">{{"Save as Draft"|t:current_lang }}</button>
+                            <button id="saveDraftBtn" type="submit" class="btn btn-info text-white me-2" name="status" value="Draft">{{"Save as Draft"|t:current_lang }}</button>
                             <button type="submit" class="btn btn-primary" style="background-color: #2c5a86;" name="status" value="Submitted">{{ "Submit to HOD"|t:current_lang }}</button>
                         </div>
                     </div>
                 </div>
 
+                {% endblock %}
+
             </form>
         </div>
     </div>
 
+    {% block qpr_report_list %}
     <div class="card shadow-sm mt-5">
         <div class="card-body text-center">
             <a href="{% url 'qpr_report_list' %}" class="btn btn-outline-primary">{{ "Report List"|t:current_lang }}</a>
         </div>
     </div>
+    {% endblock %}
 </div>
 
 <button id="hindiToggle" class="btn btn-outline-secondary btn-sm">{{ "Hindi Keyboard"|t:current_lang }}</button>
