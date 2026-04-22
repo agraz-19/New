@@ -291,3 +291,167 @@ class CertificateDataForm(forms.Form):
         
         self.fields['financial_year'].choices = year_choices
         self.fields['quarter_ending'].choices = quarter_choices
+
+
+from .models import ManagerQPR, AdminQPR, QPRRecord, Section1FilesData, Section2MeetingsData, Section3OfficialLanguagesData, Section4HindiLettersData, Section5EnglishRepliedHindiData, Section6IssuedLettersData, Section7NotingsData
+
+
+class UserQPRForm(forms.Form):
+    # Explicit fields for User (sections 2,4,5,6,7) - using names matching qpr_form inputs
+    s2_meetings = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    s2_minutes = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    s2_papers_total = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    s2_papers_hindi = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+
+    s4_total = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    s4_no_reply = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    s4_replied_hindi = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    s4_replied_eng = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+
+    s5_total = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    s5_hindi = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    s5_english = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    s5_noreply = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+
+    s6_a_hindi = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    s6_a_eng = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    s6_a_total = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    # ... other s6 fields omitted for brevity; they can be added similarly when needed
+
+    s7_hindi = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    s7_eng = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    s7_total = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    s7_eoffice = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+
+
+class HODQPRForm(UserQPRForm):
+    # HOD includes section 1 in addition to User fields
+    s1_total = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+    s1_hindi = forms.IntegerField(required=False, min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm'}))
+
+
+class ManagerQPRForm(forms.ModelForm):
+    class Meta:
+        model = ManagerQPR
+        fields = [
+            'financial_year', 'quarter',
+            # Section 2
+            's2_meetings_count', 's2_hindi_minutes', 's2_total_papers', 's2_hindi_papers',
+            # Section 4
+            's4_total_letters', 's4_no_reply_letters', 's4_replied_hindi_letters', 's4_replied_english_letters',
+            # Section 5 (region A sample)
+            's5_region_a_english_letters', 's5_region_a_replied_hindi', 's5_region_a_replied_english', 's5_region_a_no_reply',
+            # Section 6 (region totals)
+            's6_region_a_hindi_bilingual', 's6_region_a_english_only', 's6_region_a_total',
+            's6_region_b_hindi_bilingual', 's6_region_b_english_only', 's6_region_b_total',
+            's6_region_c_hindi_bilingual', 's6_region_c_english_only', 's6_region_c_total',
+            # Section 7
+            's7_hindi_pages', 's7_english_pages', 's7_total_pages', 's7_eoffice_notings',
+            # Section 8
+            's8_full_day_workshops', 's8_officers_trained', 's8_employees_trained',
+            # Section 9
+            's9_meeting_date', 's9_sub_committees_count', 's9_meetings_organized', 's9_agenda_hindi',
+            # Section 10
+            's10_meeting_date',
+            # Section 11
+            's11_innovative_work', 's11_special_events', 's11_hindi_medium_works'
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Ensure certain fields use appropriate widgets
+        if 's9_meeting_date' in self.fields:
+            self.fields['s9_meeting_date'].widget = forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date'})
+        if 's10_meeting_date' in self.fields:
+            self.fields['s10_meeting_date'].widget = forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date'})
+        if 's9_agenda_hindi' in self.fields:
+            # Represent Yes/No question as a select with Yes/No choices
+            self.fields['s9_agenda_hindi'] = forms.ChoiceField(required=False, choices=[('', ''), ('Yes', 'Yes'), ('No', 'No')], widget=forms.Select())
+        # Auto-fill and lock current financial year and quarter (readonly so value still submits)
+        try:
+            from datetime import date
+            today = date.today()
+            month = today.month
+            # Quarter mapping (Indian FY Apr-Mar)
+            if 4 <= month <= 6:
+                current_quarter = '30 जून / Jun 30'
+            elif 7 <= month <= 9:
+                current_quarter = '30 सितंबर / Sep 30'
+            elif 10 <= month <= 12:
+                current_quarter = '31 दिसंबर / Dec 31'
+            else:
+                current_quarter = '31 मार्च / Mar 31'
+
+            fiscal_year_start = today.year - 1 if month < 4 else today.year
+            current_financial_year = f"{fiscal_year_start}-{fiscal_year_start + 1}"
+
+            if 'financial_year' in self.fields:
+                self.fields['financial_year'].initial = current_financial_year
+                # Use a readonly text input so value is submitted but non-editable
+                self.fields['financial_year'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+            if 'quarter' in self.fields:
+                self.fields['quarter'].initial = current_quarter
+                # Render quarter as readonly text input to prevent selection changes
+                self.fields['quarter'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+        except Exception:
+            pass
+        for name, field in self.fields.items():
+            # add bootstrap small inputs for numeric/text/date fields
+            existing = field.widget.attrs.get('class', '')
+            field.widget.attrs['class'] = (existing + ' form-control form-control-sm').strip()
+
+
+class AdminQPRForm(forms.ModelForm):
+    class Meta:
+        model = AdminQPR
+        fields = [
+            'financial_year', 'quarter',
+            # Section 2
+            'a_s2_meetings_count', 'a_s2_hindi_minutes', 'a_s2_total_papers', 'a_s2_hindi_papers',
+            # Section 3
+            'a_s3_total_documents', 'a_s3_bilingual_documents', 'a_s3_english_only_documents', 'a_s3_hindi_only_documents',
+            # Section 4
+            'a_s4_total_letters', 'a_s4_no_reply_letters', 'a_s4_replied_hindi_letters', 'a_s4_replied_english_letters',
+            # Section 5
+            'a_s5_region_a_english_letters', 'a_s5_region_a_replied_hindi', 'a_s5_region_a_replied_english', 'a_s5_region_a_no_reply',
+            # Section 6
+            'a_s6_region_a_hindi_bilingual', 'a_s6_region_a_english_only', 'a_s6_region_a_total',
+            'a_s6_region_b_hindi_bilingual', 'a_s6_region_b_english_only', 'a_s6_region_b_total',
+            'a_s6_region_c_hindi_bilingual', 'a_s6_region_c_english_only', 'a_s6_region_c_total',
+            # Section 7
+            'a_s7_hindi_pages', 'a_s7_english_pages', 'a_s7_total_pages', 'a_s7_eoffice_notings'
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            existing = field.widget.attrs.get('class', '')
+            field.widget.attrs['class'] = (existing + ' form-control form-control-sm').strip()
+
+        # Auto-fill and lock current financial year and quarter for Admin form too
+        try:
+            from datetime import date
+            today = date.today()
+            month = today.month
+            if 4 <= month <= 6:
+                current_quarter = '30 जून / Jun 30'
+            elif 7 <= month <= 9:
+                current_quarter = '30 सितंबर / Sep 30'
+            elif 10 <= month <= 12:
+                current_quarter = '31 दिसंबर / Dec 31'
+            else:
+                current_quarter = '31 मार्च / Mar 31'
+
+            fiscal_year_start = today.year - 1 if month < 4 else today.year
+            current_financial_year = f"{fiscal_year_start}-{fiscal_year_start + 1}"
+
+            if 'financial_year' in self.fields:
+                self.fields['financial_year'].initial = current_financial_year
+                self.fields['financial_year'].widget = forms.TextInput(attrs={'readonly': 'readonly', 'class': 'form-control form-control-sm'})
+            if 'quarter' in self.fields:
+                self.fields['quarter'].initial = current_quarter
+                self.fields['quarter'].widget = forms.TextInput(attrs={'readonly': 'readonly', 'class': 'form-control form-control-sm'})
+        except Exception:
+            pass
+
+

@@ -61,6 +61,14 @@ urlpatterns = [
     path('qpr/reports/<int:record_id>/typing-usage-report/view/', views.typing_usage_report_view, name='typing_usage_report_view'),
     path('qpr/reports/<int:record_id>/request-edit/', views.request_qpr_edit, name='request_qpr_edit'),
 
+    # Role-based QPR forms (manager/admin)
+    path('qpr/manager/form/', views.manager_qpr_view, name='manager_qpr_form'),
+    path('qpr/manager/form/<int:id>/', views.manager_qpr_view, name='manager_qpr_form_edit'),
+    path('qpr/manager/<int:id>/', views.manager_qpr_detail, name='manager_qpr_detail'),
+    path('qpr/admin/form/', views.admin_qpr_view, name='admin_qpr_form'),
+    path('qpr/admin/<int:id>/', views.admin_qpr_detail, name='admin_qpr_detail'),
+
+    # --- HOD WORKFLOW ---
     path('qpr/hod/details/', views.hod_detail_list, name='qpr_hod_detail_list'),
     path('qpr/hod/freeze/<int:qpr_record_id>/', views.toggle_freeze_qpr, name='toggle_freeze_qpr'),
     path('qpr/hod/freeze_division/', views.freeze_division_snapshot, name='freeze_division_snapshot'),
@@ -82,6 +90,9 @@ urlpatterns = [
 
 
     path('qpr/records/', views.qpr_records_view, name='qpr_records'),
+    path('qpr/my-reports/', views.qpr_user_report_list, name='qpr_user_report_list'),
+    path('qpr/manager/my-reports/', views.manager_qpr_list, name='manager_qpr_list'),
+    path('qpr/admin/my-reports/', views.admin_qpr_list, name='admin_qpr_list'),
     path('qpr/records/save/', views.qpr_save_record, name='qpr_save_record'),
     path('qpr/records/delete/<int:id>/', views.qpr_delete_record, name='qpr_delete_record'),
     path('qpr/api/request-edit/', views.request_edit_api, name='request_edit_api'),

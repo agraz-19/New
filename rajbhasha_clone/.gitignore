@@ -11,7 +11,7 @@ db.sqlite3
 # Environment variables
 .env
 
-
+.django_cache/
 # OS files
 .DS_Store
 Thumbs.db
