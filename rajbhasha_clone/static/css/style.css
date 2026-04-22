@@ -1105,7 +1105,6 @@ textarea:focus {
   background: transparent !important;
 }
 
-<style>
   .custom-btn-group{
     display:flex !important;
     gap:10px !important;
@@ -1266,4 +1265,3 @@ textarea:focus {
     body {
     padding-bottom: 120px; 
 }
-</style>
