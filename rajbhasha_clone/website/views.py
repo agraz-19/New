@@ -276,11 +276,12 @@ def submit_profile_change_request(request):
 
         # 🔍 Find HOD (same logic, untouched)
         hod_profile = UserProfile.objects.filter(
+            Q(roles__name='hod') | Q(user__roles__name='hod'),
             Q(employee_code=hod_identifier) |
             Q(name__iexact=hod_identifier) |
-            Q(hod_name__iexact=hod_identifier),
-            roles__name='hod'
-        ).first()
+            Q(hod_name__iexact=hod_identifier) |
+            Q(user__username__iexact=hod_identifier)
+        ).distinct().first()
 
         if not hod_profile:
             return JsonResponse({
@@ -2198,7 +2199,11 @@ def profile_view(request):
             messages.error(request, "Your profile is locked. Please request edit permission.", extra_tags='danger')
             return redirect('profile')
 
-        if approved_change_request and approved_fields:
+        if approved_change_request:
+            if not approved_fields:
+                messages.error(request, "No approved profile fields are available to edit. Please submit a new change request.", extra_tags='danger')
+                return redirect('profile')
+
             if 'alternate_email' in approved_fields:
                 profile.alternate_email = request.POST.get('alternate_email', '').strip()
                 profile.save(update_fields=['alternate_email'])
@@ -2261,48 +2266,10 @@ def profile_view(request):
             messages.error(request, "HOD/Approver selection is required.")
             return redirect('profile')
 
-        # 1. Update User
-        user.set_email(new_email)
-        # Only lock if they just used an approved change request
-        if approved_change_request:
-            user.is_edit_allowed = False
-        user.save()
-        # 2. Update or Create Profile
-        if not profile:
-            from .models import UserProfile
-            profile = UserProfile(user=user)
-
-        profile.employee_code = empcode
-        profile.phone = phone
-        profile.office_code = request.POST.get('office_code', '').strip()
-        profile.office_name = request.POST.get('office_name', '').strip()
-        profile.office_state = request.POST.get('office_state', '').strip()
-        profile.email = new_email
-        profile.language_region = request.POST.get('language_region', '')
-        profile.hod_name = hod_name_post
-        profile.ip_number = request.POST.get('ip_number', '').strip()
-        profile.alternate_email = request.POST.get('alternate_email', '').strip()
-
-        if not profile_approval_required:
-            profile.approval_status = "approved"
-        elif profile.approval_status != "approved":
-            profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
-
-        profile.profile_updated = True
-        profile.save()
-
-        # 3. Update Employee Model
+        # Validate employee data before changing user/profile state.
         employee = Employee.objects.filter(empcode=empcode).first()
         form = EmployeeForm(request.POST, instance=employee)
-        if form.is_valid():
-            emp_instance = form.save(commit=False)
-            emp_instance.highest_exam = ",".join(request.POST.getlist("hindi_exam"))
-            emp_instance.empcode = empcode
-            emp_instance.save()
-            if profile:
-                profile.employee = emp_instance
-                profile.save(update_fields=['employee'])
-        else:
+        if not form.is_valid():
             error_messages = []
             for field, errors in form.errors.items():
                 label = form.fields[field].label if field in form.fields else field
@@ -2310,6 +2277,44 @@ def profile_view(request):
             details = " ".join(error_messages)
             messages.error(request, f"Form validation failed. {details}", extra_tags='danger')
             return redirect('profile')
+
+        with transaction.atomic():
+            # 1. Update User
+            user.set_email(new_email)
+            user.save()
+
+            # 2. Update or Create Profile
+            if not profile:
+                from .models import UserProfile
+                profile = UserProfile(user=user)
+
+            profile.employee_code = empcode
+            profile.phone = phone
+            profile.office_code = request.POST.get('office_code', '').strip()
+            profile.office_name = request.POST.get('office_name', '').strip()
+            profile.office_state = request.POST.get('office_state', '').strip()
+            profile.email = new_email
+            profile.language_region = request.POST.get('language_region', '')
+            profile.hod_name = hod_name_post
+            profile.ip_number = request.POST.get('ip_number', '').strip()
+            profile.alternate_email = request.POST.get('alternate_email', '').strip()
+
+            if not profile_approval_required:
+                profile.approval_status = "approved"
+            elif profile.approval_status != "approved":
+                profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
+
+            profile.profile_updated = True
+            profile.save()
+
+            # 3. Update Employee Model
+            emp_instance = form.save(commit=False)
+            emp_instance.highest_exam = ",".join(request.POST.getlist("hindi_exam"))
+            emp_instance.empcode = empcode
+            emp_instance.save()
+            if profile:
+                profile.employee = emp_instance
+                profile.save(update_fields=['employee'])
 
         # 4. Cleanup: Mark approved change request as completed
         if approved_change_request:
