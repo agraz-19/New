@@ -21,6 +21,7 @@
     <div class="row align-items-center px-4">
         <div class="col-md-3 text-start">
             <img src="{% static 'images/logos/leftLogo.png' %}" class="logo-img" height="60" alt="Department of Official Language Left Logo">
+            <img src="{% static 'images/logos/leftlogo.jpg' %}" class="logo-img" height="60" alt="Department of Official Language Right Logo">
         </div>
         <div class="col-md-6 text-center header-title-wrapper">
             <div class="header-title d-flex justify-content-center align-items-center gap-3">
@@ -33,7 +34,7 @@
             </div>
         </div>
         <div class="col-md-3 text-end">
-            <img src="{% static 'images/logos/RightLogo.jpg' %}" class="logo-img" height="60" alt="Department of Official Language Right Logo">
+            <img src="{% static 'images/logos/rightlogo.jpg' %}" class="logo-img" height="60" alt="NIC Logo">
         </div>
     </div>
 </header>
@@ -140,12 +141,8 @@
 
 </main>
 
-<footer class="bg-dark text-light py-3 mt-auto">
+<footer class="bg-dark text-light py-3 fixed-bottom">    
     <div class="container text-center small">
-        <div class="mb-3">
-            <img src="{% static 'images/logos/footerlogo.jpg' %}" class="logo-img" height="60" alt="NIC Logo">
-        </div>
-        
         <p class="m-0">&copy; {% now "Y" %} {{ "Department of Official Language (Demo)"|t:current_lang }}</p>
     </div>
 </footer>

@@ -1263,4 +1263,7 @@ textarea:focus {
     [data-bs-theme="dark"] .table-heading {
         color: #f8f9fa !important;
     }
+    body {
+    padding-bottom: 120px; 
+}
 </style>
