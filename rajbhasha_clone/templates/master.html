@@ -17,27 +17,29 @@
 
 <body class="bg-light d-flex flex-column min-vh-100">
 
-<header class="container-fluid py-3 bg-body border-bottom shadow-sm" id="topHeader">
-    <div class="row align-items-center px-4">
-        <div class="col-md-3 text-start">
-            <img src="{% static 'images/logos/leftLogo.png' %}" class="logo-img" height="60" alt="Department of Official Language Left Logo">
-            <img src="{% static 'images/logos/leftlogo.jpg' %}" class="logo-img" height="60" alt="Department of Official Language Right Logo">
-        </div>
-        <div class="col-md-6 text-center header-title-wrapper">
-            <div class="header-title d-flex justify-content-center align-items-center gap-3">
-                <span class="hindi-title fw-bold text-body fs-4">
-                    {{ "राजभाषा विभाग"|t:current_lang }}
-                </span>
-                <span class="english-title text-body-secondary border-start border-secondary ps-3">
-                    DEPARTMENT OF OFFICIAL LANGUAGE
-                </span>
+<div class="sticky-top shadow-sm" style="z-index: 1050;">
+    
+    <header class="container-fluid py-3 bg-body border-bottom" id="topHeader">
+        <div class="row align-items-center px-4">
+            <div class="col-md-3 text-start">
+                <img src="{% static 'images/logos/leftLogo.png' %}" class="logo-img" height="60" alt="Department of Official Language Left Logo">
+                <img src="{% static 'images/logos/leftlogo.jpg' %}" class="logo-img" height="60" alt="Department of Official Language Right Logo">
+            </div>
+            <div class="col-md-6 text-center header-title-wrapper">
+                <div class="header-title d-flex justify-content-center align-items-center gap-3">
+                    <span class="hindi-title fw-bold text-body fs-4">
+                        {{ "राजभाषा विभाग"|t:current_lang }}
+                    </span>
+                    <span class="english-title text-body-secondary border-start border-secondary ps-3">
+                        DEPARTMENT OF OFFICIAL LANGUAGE
+                    </span>
+                </div>
+            </div>
+            <div class="col-md-3 text-end">
+                <img src="{% static 'images/logos/rightlogo.jpg' %}" class="logo-img" height="60" alt="NIC Logo">
             </div>
         </div>
-        <div class="col-md-3 text-end">
-            <img src="{% static 'images/logos/rightlogo.jpg' %}" class="logo-img" height="60" alt="NIC Logo">
-        </div>
-    </div>
-</header>
+    </header>
 
 <nav class="navbar navbar-expand-lg navbar-dark navbar-custom sticky-top shadow-sm">
     <div class="container-fluid px-4">

@@ -5,7 +5,13 @@
 <div class="container-fluid px-4 mt-4">
 
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold text-primary">{{ "Manager Dashboard"|t:current_lang }}</h2>
+        <h2 class="fw-bold text-primary">
+    {% if user.profile.office_name %}
+        {{ user.profile.office_name }} - {{ "Dashboard"|t:current_lang }}
+    {% else %}
+        {{ "Manager Dashboard"|t:current_lang }}
+    {% endif %}
+</h2>
         <div class="d-flex gap-2">
             <span class="badge bg-primary p-3 rounded-pill shadow-sm">
                 <i class="fas fa-file-alt me-2"></i>{{ employees|length }} {{ "Records"|t:current_lang }}

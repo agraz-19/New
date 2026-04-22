@@ -1789,9 +1789,11 @@ class VerifyOTPView(View):
                 user.save(update_fields=['otp'])
                 auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
                 send_system_email(user, request, 'login')
+                
                 request.session.pop('pre_login_user_id', None)
                 request.session.pop('is_login_otp', None)
                 request.session.pop('login_target_email', None)
+                
                 profile = getattr(user, 'profile', None)
                 if user_role(user) == 'user' and profile and not profile.profile_updated:
                     return redirect('qpr_user_profile')
@@ -1811,49 +1813,46 @@ class VerifyOTPView(View):
             att_key, blk_key = f"otp_att_{email_hash}", f"otp_blk_{email_hash}"
             if cache.get(blk_key):
                 return render(request, 'registration/verify_otp.html', {'is_blocked': True, 'current_lang': lang})  
-            
-            if otp_input == signup_data['otp'] and (timezone.now().timestamp() - signup_data['otp_time']) < 300: 
-                try:
-                    with transaction.atomic():
-                        user, created = CustomUser.objects.get_or_create(
-                            username=signup_data['username'],
-                            defaults={
-                                'first_name': signup_data.get('first_name', ''),
-                                'is_active': True,
-                                'consent_given_at': timezone.now()
-                            }
-                        )
-                        user.password = signup_data['password']
-                        user.set_email(signup_data['email'])
-                        user.save()
-                        profile, _ = UserProfile.objects.get_or_create(
-                            user=user,
-                            defaults={"employee_code": user.username}
-                        )
-                        profile.approval_status = 'pending'
-                        profile.profile_updated = False
-                        profile.save()
-                    auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-                    request.session['lang'] = lang
-                    request.session['active_role'] = 'user'
-                    send_system_email(user, request, 'welcome')
-                    request.session.pop('signup_data', None)
-                    request.session.pop('is_signup', None)
-                    messages.success(request, "Email verified! Account created successfully.")
-                    return redirect('dashboard')
-                except Exception as e:
-                    messages.error(request, f"Registration error: {e}")
-                    return redirect('signup')
-            else:
-                attempts = cache.get(att_key, 0) + 1
-                cache.set(att_key, attempts, 600)
-                if attempts >= 5: cache.set(blk_key, True, 600)
-                messages.error(request, translate_text("Invalid or expired OTP.", lang))
-                return render(request, 'registration/verify_otp.html', {'current_lang': lang})
-        else:
+            if otp_input == signup_data['otp']:
+                if (timezone.now().timestamp() - signup_data['otp_time']) < 300: 
+                    try:
+                        with transaction.atomic():
+                            user, created = CustomUser.objects.get_or_create(
+                                username=signup_data['username'],
+                                defaults={
+                                    'first_name': signup_data.get('first_name', ''),
+                                    'is_active': True,
+                                    'consent_given_at': timezone.now()
+                                }
+                            )
+                            user.password = signup_data['password']
+                            user.set_email(signup_data['email'])
+                            user.save()
+                            profile, _ = UserProfile.objects.get_or_create(
+                                user=user,
+                                defaults={"employee_code": user.username}
+                            )
+                            profile.approval_status = 'pending'
+                            profile.profile_updated = False
+                            profile.save()
+                        auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+                        request.session['lang'] = lang
+                        request.session['active_role'] = 'user'
+                        send_system_email(user, request, 'welcome')
+                        request.session.pop('signup_data', None)
+                        request.session.pop('is_signup', None)
+                        messages.success(request, "Email verified! Account created successfully.")
+                        return redirect('dashboard')
+                    except Exception as e:
+                        messages.error(request, f"Registration error: {e}")
+                        return redirect('signup')
+            attempts = cache.get(att_key, 0) + 1
+            cache.set(att_key, attempts, 600)
+            if attempts >= 5: cache.set(blk_key, True, 600)
+            messages.error(request, translate_text("Invalid or expired OTP.", lang))
+            return render(request, 'registration/verify_otp.html', {'current_lang': lang})
+        elif request.session.get('reset_email_hash'):
             email_hash = request.session.get('reset_email_hash')
-            if not email_hash: return redirect('forgot_password')
-            
             att_key, blk_key = f"otp_att_{email_hash}", f"otp_blk_{email_hash}"
             if cache.get(blk_key):
                 return render(request, 'registration/verify_otp.html', {'is_blocked': True, 'current_lang': lang})
@@ -1867,6 +1866,9 @@ class VerifyOTPView(View):
             if attempts >= 5: cache.set(blk_key, True, 600)
             messages.error(request, translate_text("Invalid or expired OTP.", lang))
             return render(request, 'registration/verify_otp.html', {'current_lang': lang})
+            
+        else:
+            return redirect('login')
 
 class ResendOTPView(View):
     def get(self, request):
