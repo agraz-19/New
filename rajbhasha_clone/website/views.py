@@ -314,8 +314,27 @@ def submit_profile_change_request(request):
 from django.http import JsonResponse
 from website.static_event_service import get_all_events
 
+def can_manage_events(user):
+    if not user or not user.is_authenticated:
+        return False
+
+    if user.is_staff or user.is_superuser:
+        return True
+
+    profile = getattr(user, 'profile', None)
+    return (
+        user.roles.filter(name__in=['manager', 'admin']).exists()
+        or (profile and profile.roles.filter(name__in=['manager', 'admin']).exists())
+    )
+
+def require_event_manager(user):
+    if not can_manage_events(user):
+        raise PermissionDenied
+
 def get_event_images(request, folder):
     """Get event images (non-API version)"""
+    require_event_manager(request.user)
+
     if request.method != 'POST':
         return JsonResponse({'images': []}, status=400)
     
@@ -333,6 +352,8 @@ def get_event_images(request, folder):
 
 def update_event_titles(request):
     """Update event titles"""
+    require_event_manager(request.user)
+
     if request.method != 'POST':
         return redirect('admin_events_dashboard')
     
@@ -351,14 +372,18 @@ def update_event_titles(request):
 
 
 
-@staff_member_required
+@login_required
 def admin_events_dashboard(request):
+    require_event_manager(request.user)
+
     events = get_all_events()
     return render(request, "admin_events_dashboard.html", {"events": events})
  
  
-@staff_member_required
+@login_required
 def admin_upload_event(request):
+    require_event_manager(request.user)
+
     folder = request.GET.get("folder")
  
     if request.method == "POST":
@@ -381,8 +406,10 @@ def admin_upload_event(request):
     return render(request, "admin_upload_event.html", {"folder": folder})
  
  
-@staff_member_required
+@login_required
 def admin_delete_event(request, folder):
+    require_event_manager(request.user)
+
     try:
         delete_event(folder)
         messages.success(request, "Event deleted successfully")
@@ -391,8 +418,10 @@ def admin_delete_event(request, folder):
     return redirect("admin_events_dashboard")
  
  
-@staff_member_required
+@login_required
 def admin_edit_event_titles(request):
+    require_event_manager(request.user)
+
     """AJAX endpoint — update title_en and title_hi in an event's meta.json"""
     if request.method == "POST":
         try:
@@ -415,6 +444,8 @@ from website.static_event_service import update_event_meta, _read_meta
 
 @login_required
 def set_thumbnail(request, folder):
+    require_event_manager(request.user)
+
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=400)
     
@@ -492,14 +523,21 @@ def get_active_hods(office_code=None):
     Matches office_code if provided, otherwise returns all HODs.
     """
     hod_query = UserProfile.objects.filter(Q(roles__name='hod') | Q(user__roles__name='hod'))
+    hod_names = lambda qs: list(
+        qs.exclude(user__username__isnull=True)
+          .exclude(user__username='')
+          .values_list('user__username', flat=True)
+          .order_by('user__username')
+          .distinct()
+    )
     
     if office_code:
         # Try to find HODs in same office, but fallback to all HODs if none found in that office
-        specific_hods = hod_query.filter(office_code=office_code).values_list('user__username', flat=True)
-        if specific_hods.exists():
+        specific_hods = hod_names(hod_query.filter(office_code=office_code))
+        if specific_hods:
             return specific_hods
             
-    return hod_query.values_list('user__username', flat=True).distinct()
+    return hod_names(hod_query)
 
 def _convert_to_int(value):
     if value == '' or value is None: return None
@@ -2084,6 +2122,9 @@ def unarchive_user(request, archive_id):
     
 def _can_edit_profile(user, profile, pending_change_request=None):
     """Server-side authority for whether profile data may be changed."""
+    if user_has_role(user, ['manager', 'admin']):
+        return True
+
     if profile is None:
         return True
 
@@ -2121,17 +2162,18 @@ def profile_view(request):
     user = request.user
     profile = getattr(user, 'profile', None)
     scoped_profile_fields = {'alternate_email', 'designation', 'highest_exam'}
+    profile_approval_required = not user_has_role(user, ['manager', 'admin'])
     
     # Get change requests
     pending_change_request = ProfileChangeRequest.objects.filter(
         profile=profile,
         status='pending'
-    ).first() if profile else None
+    ).first() if profile and profile_approval_required else None
 
     approved_change_request = ProfileChangeRequest.objects.filter(
         profile=profile,
         status='approved'
-    ).order_by('-approved_at').first() if profile else None
+    ).order_by('-approved_at').first() if profile and profile_approval_required else None
 
     can_edit = _can_edit_profile(user, profile, pending_change_request)
     approved_fields = []
@@ -2213,7 +2255,9 @@ def profile_view(request):
 
         # HOD Selection
         hod_name_post = request.POST.get('hod_name', '').strip()
-        if not hod_name_post:
+        if not profile_approval_required and not hod_name_post:
+            hod_name_post = "ADMIN"
+        if profile_approval_required and not hod_name_post:
             messages.error(request, "HOD/Approver selection is required.")
             return redirect('profile')
 
@@ -2239,7 +2283,9 @@ def profile_view(request):
         profile.ip_number = request.POST.get('ip_number', '').strip()
         profile.alternate_email = request.POST.get('alternate_email', '').strip()
 
-        if profile.approval_status != "approved":
+        if not profile_approval_required:
+            profile.approval_status = "approved"
+        elif profile.approval_status != "approved":
             profile.approval_status = "pending_admin" if hod_name_post == "ADMIN" else "pending"
 
         profile.profile_updated = True
@@ -2257,7 +2303,12 @@ def profile_view(request):
                 profile.employee = emp_instance
                 profile.save(update_fields=['employee'])
         else:
-            messages.error(request, "Form validation failed. Please check your entries.")
+            error_messages = []
+            for field, errors in form.errors.items():
+                label = form.fields[field].label if field in form.fields else field
+                error_messages.append(f"{label}: {', '.join(errors)}")
+            details = " ".join(error_messages)
+            messages.error(request, f"Form validation failed. {details}", extra_tags='danger')
             return redirect('profile')
 
         # 4. Cleanup: Mark approved change request as completed
@@ -2266,7 +2317,10 @@ def profile_view(request):
             approved_change_request.save()
 
         send_system_email(user, request, 'update')
-        messages.success(request, "Profile submitted successfully! It is now awaiting HOD approval.")
+        if profile_approval_required:
+            messages.success(request, "Profile submitted successfully! It is now awaiting HOD approval.")
+        else:
+            messages.success(request, "Profile saved successfully.")
         return redirect('profile')
 
     # ===============================
@@ -2294,6 +2348,7 @@ def profile_view(request):
 
         # Flags for Template
         'can_edit': can_edit,
+        'profile_approval_required': profile_approval_required,
         'profile_locked': not can_edit,
         'profile_approved': is_approved,
         'pending_change_request': pending_change_request,

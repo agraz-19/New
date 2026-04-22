@@ -22,7 +22,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
             {% endif %}
-            {% if profile_approved and not can_edit and not has_pending_change_request %}
+            {% if profile_approval_required and profile_approved and not can_edit and not has_pending_change_request %}
                 <div id="profileLockedAlert" class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
                     <i class="fas fa-lock"></i> 
                     <strong>{{ "Profile Locked"|t:current_lang }}</strong> — {{ "Your profile has been approved. To make changes, please submit a request below."|t:current_lang }}
@@ -80,13 +80,13 @@
                 </div>
             {% endif %}
 
-            {% if has_pending_change_request %}
+            {% if profile_approval_required and has_pending_change_request %}
                 <div id="pendingChangeAlert" class="alert alert-info mb-4">
                     <i class="fas fa-clock"></i> {{ "Your change request is pending HOD approval. Form is locked until approved."|t:current_lang }}
                 </div>
             {% endif %}
 
-            {% if profile.approval_status == 'pending' and not can_edit %}
+            {% if profile_approval_required and profile.approval_status == 'pending' and not can_edit %}
                 <div class="alert alert-info mb-4">
                     <i class="fas fa-clock"></i> {{ "Your registration is currently pending HOD approval. Your form is locked until you are verified."|t:current_lang }}
                 </div>
@@ -164,15 +164,18 @@
 
                         <div class="row mb-4">
                             <div class="col-md-4">
-                                <label class="form-label fw-bold">{{ "Select HOD"|t:current_lang }} <span class="text-danger">*</span></label>
-                                <select name="hod_name" class="form-select" {% if not can_edit %}disabled{% endif %} required>
+                                <label class="form-label fw-bold">
+                                    {{ "Select HOD"|t:current_lang }}
+                                    {% if profile_approval_required %}<span class="text-danger">*</span>{% endif %}
+                                </label>
+                                <select name="hod_name" class="form-select" {% if not can_edit %}disabled{% endif %} {% if profile_approval_required %}required{% endif %}>
                                     <option value="">-- Select Approver --</option>
                                     {% for hod in available_hods %}
                                         <option value="{{ hod }}" {% if hod == current_hod %}selected{% endif %}>
                                             {{ hod }}
                                         </option>
                                     {% endfor %}
-                                    <option value="ADMIN" {% if current_hod == "ADMIN" %}selected{% endif %}>
+                                    <option value="ADMIN" {% if current_hod == "ADMIN" or not profile_approval_required %}selected{% endif %}>
                                         Request via Admin
                                     </option>
                                 </select>
@@ -471,6 +474,7 @@
     const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
     const hasApprovedRequest = {{ has_approved_change_request|yesno:"true,false" }};
     const profileUpdated = {{ profile_updated|yesno:"true,false" }};
+    const profileApprovalRequired = {{ profile_approval_required|yesno:"true,false" }};
     const approvedProfileFields = {{ approved_profile_fields_json|default:"[]"|safe }};
     let isProfileLocked = false;
 
@@ -492,6 +496,12 @@
         const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
 
         console.log("STATE CHECK:", { profileStatus, profileUpdated, isEditAllowed, hasPendingRequest });
+
+        if (!profileApprovalRequired) {
+            isProfileLocked = false;
+            unlockFormFields();
+            return;
+        }
 
         // 🔓 STEP 1: NEW USER (no profile status) → UNLOCK
         if (!profileUpdated) {
@@ -641,18 +651,60 @@
         .catch(err => alert("Error: " + err));
     }
 
+    function setupExplicitSaveOnly() {
+        const form = document.getElementById("employeeForm");
+        const submitBtn = document.getElementById("submitBtn");
+        if (!form || !submitBtn) return;
+
+        let saveClicked = false;
+
+        form.addEventListener("keydown", function(e) {
+            if (e.key !== "Enter") return;
+            if (e.target && e.target.tagName === "TEXTAREA") return;
+
+            e.preventDefault();
+        }, true);
+
+        submitBtn.addEventListener("click", function() {
+            saveClicked = true;
+            setTimeout(function() {
+                saveClicked = false;
+            }, 0);
+        });
+
+        form.addEventListener("submit", function(e) {
+            if (!saveClicked) {
+                e.preventDefault();
+                return;
+            }
+
+            saveClicked = false;
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", function() {
         const profileLocked = {{ profile_locked|yesno:"true,false" }};
         const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
         const hasApprovedRequest = {{ has_approved_change_request|yesno:"true,false" }};
         const profileApproved = {{ profile_approved|yesno:"true,false" }};
         const profileUpdated = {{ profile_updated|yesno:"true,false" }};
+        const profileApprovalRequired = {{ profile_approval_required|yesno:"true,false" }};
         
         const profileLockedAlert = document.getElementById('profileLockedAlert');
         const pendingChangeAlert = document.getElementById('pendingChangeAlert');
         const requestChangeSection = document.getElementById('requestChangeSection');
 
-        console.log("DOMContentLoaded - Flags:", { profileLocked, hasPendingRequest, hasApprovedRequest, profileApproved, profileUpdated });
+        setupExplicitSaveOnly();
+
+        console.log("DOMContentLoaded - Flags:", { profileLocked, hasPendingRequest, hasApprovedRequest, profileApproved, profileUpdated, profileApprovalRequired });
+
+        if (!profileApprovalRequired) {
+            if (profileLockedAlert) profileLockedAlert.style.display = 'none';
+            if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
+            if (requestChangeSection) requestChangeSection.style.display = 'none';
+            unlockFormFields();
+            return;
+        }
 
         // ✅ Case 1: New user (no profile at all) → UNLOCK
         if (!profileUpdated || (!profileApproved && !hasPendingRequest)) {
