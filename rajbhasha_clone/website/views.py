@@ -2088,14 +2088,12 @@ def archive_user(request, user_id):  # FIXED: Added 'request' argument
         employee_snapshot=json.dumps(snapshot) 
     )
     
-    # 5. Soft Delete (Deactivate)
     user_to_archive.is_active = False    
     user_to_archive.is_archived = True
     user_to_archive.save()
 
-    # 6. Success Message & Redirect
     messages.success(request, f"User {user_to_archive.username} has been archived successfully.")
-    return redirect('dashboard')  # FIXED: Added return statement
+    return redirect('dashboard')
 
 @login_required
 @user_passes_test(is_admin)
@@ -2922,23 +2920,22 @@ def manager_dashboard(request):
 @login_required
 def admin_dashboard(request):
     if user_role(request.user) != 'admin': return redirect('/')
+    admin_state = request.user.profile.office_state
     
-    # --- ACTIVE USERS ---
-    users = CustomUser.objects.filter(is_active=True, is_archived=False).order_by('-date_joined')
+    users = CustomUser.objects.filter(is_active=True, is_archived=False, profile__office_state=admin_state).order_by('-date_joined')
     
-    # --- ARCHIVED USERS ---
     archived_users = ArchivedUser.objects.all().order_by('-archived_at')
 
     current_quarter = get_current_quarter()
     current_year = get_current_year_label()
     
     hod_stats = []
-    hods = UserProfile.objects.filter(roles__name='hod').order_by('name')
+    hods = UserProfile.objects.filter(roles__name='hod', profile__office_state=admin_state).order_by('name')
     for hod_profile in hods:
         hod_key = hod_profile.hod_name or hod_profile.name or hod_profile.employee_code
         hod_display = hod_profile.name or hod_key or 'UNKNOWN'
         # Count only approved users for admin HOD statistics
-        users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_key, approval_status__iexact='approved')
+        users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_key, approval_status__iexact='approved',office_state=admin_state)
         total_users = users_under_hod.count()
         profile_complete = sum(1 for p in users_under_hod if p.profile_updated)
         qpr_complete = sum( 1 for p in users_under_hod if QPRRecord.objects.filter( user=p.user, quarter=current_quarter, year=current_year, is_submitted=True ).exists())
@@ -2951,11 +2948,11 @@ def admin_dashboard(request):
             'completion_percentage': completion_pct,
         })
     # Consider only approved users when deriving unique HOD names
-    unique_hod_names = set(UserProfile.objects.filter(roles__name='user', approval_status__iexact='approved').exclude(hod_name__isnull=True).values_list('hod_name', flat=True))
-    actual_hod_names = set(UserProfile.objects.filter(roles__name='hod').values_list('hod_name', flat=True))
+    unique_hod_names = set(UserProfile.objects.filter(roles__name='user', approval_status__iexact='approved', office_state=admin_state).exclude(hod_name__isnull=True).values_list('hod_name', flat=True))
+    actual_hod_names = set(UserProfile.objects.filter(roles__name='hod', office_state=admin_state).values_list('hod_name', flat=True))
     uncovered = unique_hod_names - actual_hod_names
     for hod_name in sorted(uncovered):
-        users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_name, approval_status__iexact='approved')
+        users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_name, approval_status__iexact='approved', office_state=admin_state)
         total_users = users_under_hod.count()
         qpr_complete = sum(1 for p in users_under_hod if QPRRecord.objects.filter(user=p.user, status='Submitted').exists())
         completion_pct = int((qpr_complete / total_users) * 100) if total_users > 0 else 0
@@ -2967,7 +2964,7 @@ def admin_dashboard(request):
             'completion_percentage': completion_pct,
         })
     # 3. Pending Requests
-    pending_requests = ManagerRequest.objects.filter(status='pending', hod__roles__name='user')
+    pending_requests = ManagerRequest.objects.filter(status='pending', hod__roles__name='user', hod__profile__office_state=admin_state)
     context = {
         'role': 'admin',  # Explicitly set role for template to avoid showing other roles' content
         'hod_stats': hod_stats, 
