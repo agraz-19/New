@@ -178,6 +178,7 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
             'subject': "Your Login OTP | आपका लॉगिन ओटीपी",
             'headline': "Login Verification | लॉगिन सत्यापन",
             'body': "Use the OTP below to securely log into your account. Do not share this code with anyone.\n\nअपने खाते में सुरक्षित रूप से लॉगिन करने के लिए नीचे दिए गए ओटीपी का उपयोग करें। इस कोड को किसी के साथ साझा न करें।",
+            'details': {'OTP | ओटीपी': extra_context.get('otp')},
             'skip_translation': True
         },
         'reset_otp': {

@@ -2930,7 +2930,7 @@ def admin_dashboard(request):
     current_year = get_current_year_label()
     
     hod_stats = []
-    hods = UserProfile.objects.filter(roles__name='hod', profile__office_state=admin_state).order_by('name')
+    hods = UserProfile.objects.filter(roles__name='hod', office_state=admin_state).order_by('name')
     for hod_profile in hods:
         hod_key = hod_profile.hod_name or hod_profile.name or hod_profile.employee_code
         hod_display = hod_profile.name or hod_key or 'UNKNOWN'
