@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from django.db import models
-from django.contrib.auth.models import AbstractUser, UserManager
+from django.contrib.auth.models import AbstractUser, UserManager, User
 from cryptography.fernet import Fernet
 from django.conf import settings
 import hashlib
@@ -633,6 +633,10 @@ class QPRPartTwo(models.Model):
         help_text='Optional link to the main QPRRecord when created from manager UI'
     )
     
+    # Tracking user and quarter for "one per quarter" constraint
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='part2_submissions', null=True, blank=True)
+    quarter = models.CharField(max_length=20, null=True, blank=True)  # Q1, Q2, Q3, Q4
+    year = models.CharField(max_length=20, null=True, blank=True)  # 2024-25
     
     financial_year = models.CharField(max_length=20, help_text="e.g., 2023-24") # [cite: 124]
     
@@ -652,6 +656,7 @@ class QPRPartTwo(models.Model):
     # --- Section 4: Computers/Laptops ---
     total_computers = models.PositiveIntegerField(default=0) # [cite: 82, 83]
     hindi_enabled_computers = models.PositiveIntegerField(default=0) # [cite: 83]
+    hindi_work_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
     # --- Section 6: Rule 8(4) Individual Orders ---
     officials_issued_rule_8_4_orders = models.PositiveIntegerField(default=0) # [cite: 86]
@@ -685,13 +690,12 @@ class QPRPartTwo(models.Model):
     other_activities_date = models.DateField(null=True, blank=True) # [cite: 115]
     other_activities_subject = models.CharField(max_length=255, blank=True) # [cite: 115]
 
-    def __str__(self):
-        return f"QPR Part II - {self.financial_year}"
-    
     # Submission tracking
     is_submitted = models.BooleanField(default=False)
     submitted_at = models.DateTimeField(null=True, blank=True)
     submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='submitted_part2')
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
     
     # --- Section 16: Certificate Contact Info ---
     chairperson_name = models.CharField(max_length=255, blank=True, null=True)
@@ -699,6 +703,15 @@ class QPRPartTwo(models.Model):
     chairperson_phone = models.CharField(max_length=50, blank=True, null=True)
     chairperson_fax = models.CharField(max_length=50, blank=True, null=True)
     chairperson_email = models.EmailField(blank=True, null=True)
+
+    def __str__(self):
+        if self.user and self.quarter:
+            return f"Certificate Part II - {self.user.profile.employee_id} ({self.quarter})"
+        return f"QPR Part II - {self.financial_year}"
+
+    class Meta:
+        # Ensure one certificate per quarter per user
+        unique_together = (('user', 'quarter', 'year'), )
 
 
 class ManagerQPR(models.Model):
@@ -835,17 +848,33 @@ class AdminQPR(models.Model):
         ordering = ['-created_at']
     
 class StaffHindiKnowledge(models.Model):
-    """Section 2(i): Officers/Employees possessing knowledge of Hindi""" # [cite: 74]
+    report = models.ForeignKey(
+        QPRPartTwo,
+        on_delete=models.CASCADE,
+        related_name='staff_knowledge'
+    )
+
     CATEGORY_CHOICES = [
-        ('proficient', 'Proficient'), # 
-        ('working_knowledge', 'Working Knowledge'), # 
-        ('being_trained', 'Being trained in Hindi'), # 
-        ('yet_to_be_trained', 'Yet to be trained in Hindi'), # 
+        ('total', 'Total'),
+        ('secretarial', 'Secretarial'),
+        ('knowledge', 'Knowledge of Hindi'),
+        ('being_trained', 'Being trained'),
+        ('yet_to_be_trained', 'Yet to be trained'),
     ]
-    report = models.ForeignKey(QPRPartTwo, on_delete=models.CASCADE, related_name='staff_knowledge')
+
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
-    officers_count = models.PositiveIntegerField(default=0) # 
-    employees_count = models.PositiveIntegerField(default=0) # 
+
+    # For (a), (b), (d), (e)
+    officers_total = models.PositiveIntegerField(default=0)
+    employees_total = models.PositiveIntegerField(default=0)
+
+    # ONLY for (c)
+    officers_working = models.PositiveIntegerField(default=0)
+    officers_proficient = models.PositiveIntegerField(default=0)
+
+    employees_working = models.PositiveIntegerField(default=0)
+    employees_proficient = models.PositiveIntegerField(default=0)
+
     total_count = models.PositiveIntegerField(default=0)
 
 class TypingStenographyKnowledge(models.Model):
@@ -904,12 +933,18 @@ class OfficersWorkInHindi(models.Model):
     doing_cent_percent = models.PositiveIntegerField(default=0) # [cite: 101, 104]
 
 class HindiPost(models.Model):
-    """Section 13: Hindi Posts""" # [cite: 105]
     report = models.ForeignKey(QPRPartTwo, on_delete=models.CASCADE, related_name='hindi_posts')
-    designation = models.CharField(max_length=150) # [cite: 106]
-    sanctioned = models.PositiveIntegerField(default=0) # [cite: 106]
-    vacant = models.PositiveIntegerField(default=0) # [cite: 106]
 
+    designation = models.CharField(max_length=255)
+
+    # Headquarters
+    hq_sanctioned = models.PositiveIntegerField(default=0)
+    hq_vacant = models.PositiveIntegerField(default=0)
+
+    # Subordinate offices
+    sub_sanctioned = models.PositiveIntegerField(default=0)
+    sub_vacant = models.PositiveIntegerField(default=0)
+    
 class WebsiteDetail(models.Model):
     """Section 14: Website""" # [cite: 107]
     STATUS_CHOICES = [
@@ -920,4 +955,19 @@ class WebsiteDetail(models.Model):
     report = models.ForeignKey(QPRPartTwo, on_delete=models.CASCADE, related_name='websites')
     url = models.URLField(verbose_name="Address of Website") # [cite: 110]
     status = models.CharField(max_length=50, choices=STATUS_CHOICES) # [cite: 110]
+
+
+class QPRFinalization(models.Model):
+    """Track when users finalize their QPR for a given quarter"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='qpr_finalizations')
+    quarter = models.CharField(max_length=50)
+    year = models.CharField(max_length=20)
+    finalized_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('user', 'quarter', 'year')
+        ordering = ['-finalized_at']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.quarter} {self.year}"
 

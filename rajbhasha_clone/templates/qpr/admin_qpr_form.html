@@ -1,6 +1,7 @@
 {% extends "qpr/qpr_form.html" %}
 {% load translate_tags %}
 {% block qpr_form_action %}{% url 'admin_qpr_form' %}{% endblock %}
+{% block qpr_form_type %}<input type="hidden" name="form_type" value="admin">{% endblock %}
 {% block title %}{{ "Admin QPR"|t:current_lang }}{% endblock %}
 {% block qpr_form_inner %}
     <div class="col-12 mb-3">
