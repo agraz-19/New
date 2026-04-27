@@ -2164,13 +2164,32 @@ def privacy_audit_report(request):
 @login_required
 def download_db_backup(request):
     if request.session.get('active_role') != 'backup_user':
-        messages.error(request, "Unauthorized access.")
-        return redirect('dashboard')
-    db_path = settings.DATABASES['default']['NAME']
-    if os.path.exists(db_path):
-        return FileResponse(open(db_path, 'rb'), as_attachment=True, filename='backup_RajyaBhasha.sqlite3')
-    messages.error(request, "Database file not found.")
-    return redirect('dashboard')
+        return JsonResponse({"status": "error", "message": "Unauthorized access."}, status=403)
+
+    try:
+        host = os.getenv("POSTGRES_HOST")
+        db = os.getenv("DB_NAME")
+        db_user = os.getenv("DB_USER")
+
+        if not all([host, db, db_user]):
+            return JsonResponse({"status": "error", "message": "Database environment variables are missing."}, status=500)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        filename = f"~/backup_{timestamp}.sql"
+        cmd = [
+            "ssh",
+            f"shannu-1@{host}",
+            f"pg_dump -U {db_user} {db} -f {filename}"
+        ]
+        subprocess.run(cmd, check=True)
+        return JsonResponse({
+            "status": "success", 
+            "message": f"Database backup created successfully at {filename}"
+        })
+
+    except subprocess.CalledProcessError as e:
+        return JsonResponse({"status": "error", "message": "Backup command failed on the remote server."}, status=500)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
 # ==================== ARCHIVE HELPERS (RESTORED) ====================
 
