@@ -73,6 +73,7 @@ urlpatterns = [
     path('qpr/manager/<int:id>/', views.manager_qpr_detail, name='manager_qpr_detail'),
     path('qpr/manager/section11/<int:manager_qpr_id>/', views.manager_section11_select_texts, name='manager_section11_select'),
     path('qpr/admin/form/', views.admin_qpr_view, name='admin_qpr_form'),
+    path('qpr/admin/form/<int:id>/', views.admin_qpr_view, name='admin_qpr_form_edit'),
     path('qpr/admin/<int:id>/', views.admin_qpr_detail, name='admin_qpr_detail'),
 
     # --- HOD WORKFLOW ---

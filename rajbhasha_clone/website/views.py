@@ -1201,6 +1201,17 @@ def is_period_overlapping(user, start, end, exclude_id=None, new_frequency=None)
         # Otherwise allow weekly creation (no conflict)
         return False
 
+    # Special-case: creating a daily record — only conflict if same day already exists
+    if str(new_frequency).lower() == 'daily':
+        # Daily records should only conflict if another daily record for the same day exists
+        # (they represent the same day's report)
+        same_day_overlap = base_qs.filter(
+            frequency__iexact='daily',
+            period_start=start,
+            period_end=end
+        ).exists()
+        return same_day_overlap
+
     # Special-case: creating a monthly/quarterly record — only conflict with same frequency/period
     if str(new_frequency).lower() in ['monthly', 'quarterly']:
         # Monthly/quarterly are cumulative aggregations; only conflict if exact same period exists
@@ -2849,41 +2860,66 @@ def manager_section11_select_texts(request, manager_qpr_id=None):
 
 
 @login_required
-def admin_qpr_view(request):
+def admin_qpr_view(request, id=None):
+    # Role check
     if not user_has_role(request.user, 'admin'):
         return HttpResponseForbidden("Admin role required")
 
     from .forms import AdminQPRForm
     from .models import AdminQPR
+
+    instance = None
+    if id:
+        instance = get_object_or_404(AdminQPR, pk=id)
+
     if request.method == 'POST':
-        form = AdminQPRForm(request.POST)
+        if instance:
+            form = AdminQPRForm(request.POST, instance=instance)
+        else:
+            form = AdminQPRForm(request.POST)
+
         if form.is_valid():
             quarter = form.cleaned_data.get('quarter')
-            if AdminQPR.objects.filter(user=request.user, quarter=quarter).exists():
-                existing = AdminQPR.objects.filter(user=request.user, quarter=quarter).first()
-                messages.error(request, "You have already submitted Admin QPR for this quarter.")
-                return redirect('admin_qpr_detail', id=existing.id)
-
-            instance = form.save(commit=False)
-            instance.user = request.user
-            instance.is_submitted = True
-            instance.submitted_at = timezone.now()
-            instance.save()
-            messages.success(request, "Admin QPR submitted successfully.")
-            return redirect('admin_qpr_detail', id=instance.id)
+            # If creating new and one already exists for this quarter, show error
+            if not instance and AdminQPR.objects.filter(user=request.user, quarter=quarter).exists():
+                messages.error(request, "Admin QPR for this quarter has already been filled.")
+            else:
+                # Only save if it's an edit OR if no duplicate exists
+                obj = form.save(commit=False)
+                obj.user = request.user
+                # Ensure submitted flag/time on save
+                obj.is_submitted = True
+                obj.submitted_at = timezone.now()
+                obj.save()
+                messages.success(request, "Admin QPR saved successfully.")
+                return redirect('admin_qpr_detail', id=obj.id)
     else:
-        form = AdminQPRForm()
+        if instance:
+            form = AdminQPRForm(instance=instance)
+        else:
+            form = AdminQPRForm()
 
-    return render(request, 'qpr/admin_qpr_form.html', {'form': form})
+    return render(request, 'qpr/admin_qpr_form.html', {'form': form, 'instance': instance})
 
 
 @login_required
 def admin_qpr_detail(request, id):
+    from .forms import AdminQPRForm
     from .models import AdminQPR
     obj = get_object_or_404(AdminQPR, id=id)
-    if obj.user != request.user and not (request.user.is_staff or user_has_role(request.user, 'manager')):
+    # Only owner or staff can view
+    if obj.user != request.user and not (request.user.is_staff or user_has_role(request.user, 'admin')):
         return HttpResponseForbidden()
-    return render(request, 'qpr/admin_qpr_detail.html', {'record': obj})
+
+    # Build a form populated with the instance and disable all inputs for readonly view
+    form = AdminQPRForm(instance=obj)
+    for name in form.fields:
+        try:
+            form.fields[name].widget.attrs['disabled'] = 'disabled'
+        except Exception:
+            pass
+
+    return render(request, 'qpr/admin_qpr_form.html', {'form': form, 'instance': obj, 'readonly': True})
 
 @login_required
 def qpr_hod_dashboard(request):
@@ -4789,7 +4825,7 @@ def qpr_save_record(request):
                 except:
                     ps, pe = None, None
 
-            if ps and pe and is_period_overlapping(request.user, ps, pe, exclude_id=record.pk):
+            if ps and pe and is_period_overlapping(request.user, ps, pe, exclude_id=record.pk, new_frequency=record.frequency):
                 messages.error(request, "This update overlaps with an existing report.")
                 return redirect('qpr_records')
 
@@ -5244,8 +5280,8 @@ def admin_edit_requests(request):
 
 @login_required
 def approve_edit_request(request, request_id):
-    """Manager/Admin approves an edit request"""
-    if not user_has_role(request.user, ['manager', 'admin']):
+    """Manager approves a QPR edit request"""
+    if not user_has_role(request.user, 'manager'):
         return redirect('/')
     lang = request.session.get('lang', 'en')
     
@@ -5253,7 +5289,7 @@ def approve_edit_request(request, request_id):
         edit_request = EditRequest.objects.get(id=request_id)
     except EditRequest.DoesNotExist:
         messages.error(request, translate_text("Request not found.", lang))
-        return redirect('admin_edit_requests')
+        return redirect('manager_dashboard')
     
     if request.method == 'POST':
         try:
@@ -5278,16 +5314,10 @@ def approve_edit_request(request, request_id):
             )
             
             messages.success(request, translate_text("Edit request approved.", lang))
-            if user_role(request.user) == 'manager':
-                return redirect('manager_dashboard')
-            else:
-                return redirect('qpr_admin_dashboard')
+            return redirect('manager_dashboard')
         except Exception as e:
             messages.error(request, translate_text(f"Error approving request: {str(e)}", lang))
-            if user_role(request.user) == 'manager':
-                return redirect('manager_dashboard')
-            else:
-                return redirect('qpr_admin_dashboard')
+            return redirect('manager_dashboard')
     
     context = {'edit_request': edit_request, 'current_lang': lang}
     return render(request, 'qpr/approve_edit_request.html', context)
@@ -5295,8 +5325,8 @@ def approve_edit_request(request, request_id):
 
 @login_required
 def reject_edit_request(request, request_id):
-    """Manager/Admin rejects an edit request"""
-    if not user_has_role(request.user, ['manager', 'admin']):
+    """Manager rejects a QPR edit request"""
+    if not user_has_role(request.user, 'manager'):
         return redirect('/')
     lang = request.session.get('lang', 'en')
     
@@ -5304,7 +5334,7 @@ def reject_edit_request(request, request_id):
         edit_request = EditRequest.objects.get(id=request_id)
     except EditRequest.DoesNotExist:
         messages.error(request, translate_text("Request not found.", lang))
-        return redirect('admin_edit_requests')
+        return redirect('manager_dashboard')
     
     if request.method == 'POST':
         try:
@@ -5330,16 +5360,10 @@ def reject_edit_request(request, request_id):
             )
             
             messages.success(request, translate_text("Edit request rejected.", lang))
-            if user_role(request.user) == 'manager':
-                return redirect('manager_dashboard')
-            else:
-                return redirect('qpr_admin_dashboard')
+            return redirect('manager_dashboard')
         except Exception as e:
             messages.error(request, translate_text(f"Error rejecting request: {str(e)}", lang))
-            if user_role(request.user) == 'manager':
-                return redirect('manager_dashboard')
-            else:
-                return redirect('qpr_admin_dashboard')
+            return redirect('manager_dashboard')
     
     context = {'edit_request': edit_request, 'current_lang': lang}
     return render(request, 'qpr/reject_edit_request.html', context)
