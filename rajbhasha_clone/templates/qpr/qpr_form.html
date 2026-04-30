@@ -71,6 +71,7 @@
         <div class="card-body">
             <form id="qprForm" method="POST" action="{% block qpr_form_action %}{% url 'qpr_save_record' %}{% endblock %}">
                 {% csrf_token %}
+                {% block qpr_form_type %}<input type="hidden" name="form_type" value="user">{% endblock %}
                 <input type="hidden" id="recordId" name="id">
                 <input type="hidden" name="details" id="detailsField">
 
@@ -357,9 +358,8 @@
                     </div>
                     {% endif %}
 
-                    {% if active_role == 'manager' %}
                     <div class="section-box">
-                        <div class="section-title">11. तिमाही के दौरान विशिष्ट उपलब्धियां (अधिकतम सीमा- 500 अक्षर) <span class="d-block small text-muted">(specific achievements during quarter)</span></div>
+                        <div class="section-title">11. तिमाही के दौरान विशिष्ट उपलब्धियां (अधिकतम सीमा- 500 अक्षर) &nbsp केवल यदि आवश्यक हो तो भरें। <span class="d-block small text-muted">(specific achievements during quarter) &nbsp Fill if only necessary/applicable</span></div>
                         
                         <div class="mb-2">
                             <textarea class="form-control" id="s12_1" name="s12_1" placeholder="1. नवनमेषी कार्य/Innovative Work"></textarea>
@@ -371,7 +371,6 @@
                             <textarea class="form-control" id="s12_3" name="s12_3" placeholder="3. हिंदी माध्यम में किए गए अन्य कार्य/Other works done in Hindi medium"></textarea>
                         </div>
                     </div>
-                    {% endif %}
 
                     <div class="d-flex justify-content-between mt-4 pt-3 border-top">
                         <button type="button" class="btn btn-secondary" onclick="showTab(2)">&larr;
@@ -428,6 +427,27 @@
         var form = document.getElementById('qprForm');
         if(!form) return;
         form.addEventListener('submit', function(){
+            // Get form_type to determine which sections to clear
+            var formTypeInput = document.querySelector('input[name="form_type"]');
+            var formType = formTypeInput ? formTypeInput.value : 'user';
+            
+            // Clear values for sections that shouldn't be submitted based on form_type
+            if(formType === 'user'){
+                // Clear admin-only sections (1, 3) and manager-only sections (8, 9, 10)
+                var fieldsToClean = ['s1_', 's3_', 's8_', 's9_', 's10_'];
+                var elems = form.querySelectorAll('[id^="s"]');
+                elems.forEach(function(el){
+                    var id = el.id;
+                    // Check if field belongs to a hidden section
+                    for(var i = 0; i < fieldsToClean.length; i++){
+                        if(id.startsWith(fieldsToClean[i])){
+                            el.value = '';  // Clear the value before submission
+                            break;
+                        }
+                    }
+                });
+            }
+            
             var details = {};
             var elems = form.querySelectorAll('[id^="s"]');
             elems.forEach(function(el){
@@ -439,5 +459,44 @@
             if(df) df.value = JSON.stringify(details);
         });
     })();
+</script>
+
+<script>
+    // Hide form sections based on form_type to prevent multi-role users from seeing irrelevant fields
+    document.addEventListener('DOMContentLoaded', function(){
+        var formTypeInput = document.querySelector('input[name="form_type"]');
+        if(!formTypeInput) return;
+        
+        var formType = formTypeInput.value;
+        
+        // If form_type is "user", hide manager and admin sections
+        if(formType === 'user'){
+            // Find all section-title elements and hide sections not applicable to user/hod form
+            var sectionTitles = document.querySelectorAll('.section-title');
+            sectionTitles.forEach(function(title){
+                var titleText = title.textContent;
+                // Hide admin-only sections (1, 3)
+                if(titleText.includes('माननीय मंत्री') || 
+                   titleText.includes('धारा 3(3)') ||
+                   // Hide manager-only sections (8, 9, 10)
+                   titleText.includes('कार्यशालाएं') || 
+                   titleText.includes('कार्यान्वयन समिति') ||
+                   titleText.includes('सलाहकार समिति')){
+                    
+                    // Find the parent section container and hide it
+                    var parent = title.closest('.section-box');
+                    if(parent){
+                        parent.style.display = 'none';
+                    } else {
+                        // For sections within row divs, hide the col container
+                        var colParent = title.closest('[class*="col-"]');
+                        if(colParent){
+                            colParent.style.display = 'none';
+                        }
+                    }
+                }
+            });
+        }
+    });
 </script>
 {% endblock %}

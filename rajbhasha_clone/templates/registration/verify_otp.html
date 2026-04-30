@@ -17,7 +17,7 @@
                         <div class="mb-4">
                             <input type="text" name="otp" class="form-control form-control-lg text-center fw-bold" placeholder="000000" maxlength="6" pattern="\d{6}" required>
                         </div>
-                        <button type="submit" class="btn btn-success w-100 mb-3">{{ "Verify Code"|t:current_lang }}</button>
+                        <button type="submit" name="action" value="verify_otp" class="btn btn-success w-100 mb-3">{{ "Verify Code"|t:current_lang }}</button>
                     </form>
                 {% endif %}
 
