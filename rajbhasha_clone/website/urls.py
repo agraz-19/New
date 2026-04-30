@@ -42,8 +42,13 @@ urlpatterns = [
     path('qpr/certificate/<int:record_id>/', views.qpr_certificate, name='qpr_certificate'),
     path('qpr/certificate/<int:record_id>/form/', views.certificate_form_view, name='certificate_form'),
     path('qpr/certificate/<int:record_id>/display/', views.certificate_display_view, name='certificate_display'),
-    path('certificate-part2/', views.certificate_part2_view, name='certificate_part2'),
-    path('qpr/certificate/<int:record_id>/part2/print/', views.certificate_part2_print_view, name='certificate_part2_print'),
+    path('certificate-part2/', views.certificate_part2_list, name='certificate_part2_list'),
+    path('certificate-part2/new/', views.certificate_part2_new, name='certificate_part2_new'),
+    path('certificate-part2/<int:pk>/form/', views.certificate_part2_form, name='certificate_part2_form'),
+    path('certificate-part2/<int:pk>/edit/', views.certificate_part2_edit, name='certificate_part2_edit'),
+    path('certificate-part2/<int:pk>/view/', views.certificate_part2_view, name='certificate_part2_view'),
+    path('certificate-part2/<int:pk>/print/', views.certificate_part2_print, name='certificate_part2_print'),
+    path('certificate-part2/<int:pk>/delete/', views.certificate_part2_delete, name='certificate_part2_delete'),
     
     # Debug
     path('debug/whoami/', views.debug_whoami, name='debug_whoami'),
@@ -60,12 +65,15 @@ urlpatterns = [
     path('qpr/reports/<int:record_id>/typing-usage-report/', views.typing_usage_report_form, name='typing_usage_report_form'),
     path('qpr/reports/<int:record_id>/typing-usage-report/view/', views.typing_usage_report_view, name='typing_usage_report_view'),
     path('qpr/reports/<int:record_id>/request-edit/', views.request_qpr_edit, name='request_qpr_edit'),
+    path('qpr/finalize/', views.finalize_qpr, name='finalize_qpr'),
 
     # Role-based QPR forms (manager/admin)
     path('qpr/manager/form/', views.manager_qpr_view, name='manager_qpr_form'),
     path('qpr/manager/form/<int:id>/', views.manager_qpr_view, name='manager_qpr_form_edit'),
     path('qpr/manager/<int:id>/', views.manager_qpr_detail, name='manager_qpr_detail'),
+    path('qpr/manager/section11/<int:manager_qpr_id>/', views.manager_section11_select_texts, name='manager_section11_select'),
     path('qpr/admin/form/', views.admin_qpr_view, name='admin_qpr_form'),
+    path('qpr/admin/form/<int:id>/', views.admin_qpr_view, name='admin_qpr_form_edit'),
     path('qpr/admin/<int:id>/', views.admin_qpr_detail, name='admin_qpr_detail'),
 
     # --- HOD WORKFLOW ---
