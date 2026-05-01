@@ -26,8 +26,8 @@
                         <td>{{ r.financial_year|default:'-' }}</td>
                         <td>{% if r.is_submitted %}<span class="badge bg-success">{{ "Submitted"|t:current_lang }}</span>{% else %}<span class="badge bg-primary">{{ "Draft"|t:current_lang }}</span>{% endif %}</td>
                         <td>
-                            {% if r.user == request.user and not r.is_submitted %}
-                                <a class="btn btn-sm btn-outline-success" href="{% url 'admin_qpr_detail' r.id %}">{{ "Edit"|t:current_lang }}</a>
+                            {% if r.user == request.user %}
+                                <a class="btn btn-sm btn-outline-success" href="{% url 'admin_qpr_form_edit' r.id %}">{{ "Edit"|t:current_lang }}</a>
                             {% endif %}
                             <a class="btn btn-sm btn-outline-primary ms-1" href="{% url 'admin_qpr_detail' r.id %}">{{ "View"|t:current_lang }}</a>
                         </td>

@@ -1,6 +1,7 @@
 {% extends "qpr/qpr_form.html" %}
 {% load translate_tags %}
-{% block qpr_form_action %}{% url 'manager_qpr_form' %}{% endblock %}
+{% block qpr_form_action %}{% if instance %}{% url 'manager_qpr_form_edit' instance.id %}{% else %}{% url 'manager_qpr_form' %}{% endif %}{% endblock %}
+{% block qpr_form_type %}<input type="hidden" name="form_type" value="manager">{% endblock %}
 {% block title %}{{ "Manager QPR"|t:current_lang }}{% endblock %}
 {% block qpr_form_inner %}
     <div class="col-12 mb-3">
@@ -231,7 +232,14 @@
     <div class="col-12">
         <div class="card section-box">
             <div class="card-body">
-                <h6 class="section-title">11. तिमाही के दौरान विशिष्ट उपलब्धियां (अधिकतम सीमा- 500 अक्षर) <span class="d-block small text-muted">(specific achievements during quarter)</span></h6>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="section-title mb-0">11. तिमाही के दौरान विशिष्ट उपलब्धियां (अधिकतम सीमा- 500 अक्षर) <span class="d-block small text-muted">(specific achievements during quarter)</span></h6>
+                    {% if instance and not readonly %}
+                    <a href="{% url 'manager_section11_select' instance.id %}" class="btn btn-sm btn-info text-white ms-2" title="{{ 'Select texts from office users to aggregate'|t:current_lang }}">
+                        {{ "Include Office Users' Texts"|t:current_lang }}
+                    </a>
+                    {% endif %}
+                </div>
                 <div class="mb-3">
                     <div class="lbl-text"><span class="lbl-hindi">1. नवनमेषी कार्य</span><span class="lbl-eng">(Innovative Work)</span></div>
                     <div class="mt-2">{{ form.s11_innovative_work }}</div>
@@ -255,7 +263,6 @@
             <input type="hidden" name="frequency" value="quarterly">
             <input type="hidden" name="year" value="{{ form.financial_year.value }}">
             <input type="hidden" name="role_form" value="manager">
-            <button id="saveDraftBtn" type="submit" class="btn btn-info text-white me-2" name="status" value="Draft">{{ "Save as Draft"|t:current_lang }}</button>
             <button type="submit" class="btn btn-primary" style="background-color: #2c5a86;" name="status" value="Submitted">{{ "Submit"|t:current_lang }}</button>
             {% endif %}
         </div>

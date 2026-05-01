@@ -219,6 +219,31 @@ async function loadReport() {
             } catch (e) { return cell(r[key]); }
         }
 
+        // Helper to pick cumulative text for Section 11 fields for weekly/monthly/quarterly
+        function valForText(textKey) {
+            try {
+                let period = viewAs ? viewAs.toLowerCase() : (r.frequency || 'daily').toLowerCase();
+                let textVal = '';
+                let src = 'rec';
+                
+                if (period !== 'daily' && r.cumulative_text && r.cumulative_text[period]) {
+                    textVal = r.cumulative_text[period][textKey] || '';
+                    src = 'cum';
+                } else {
+                    textVal = (typeof r[textKey] !== 'undefined' && r[textKey] !== null) ? r[textKey] : '';
+                    src = 'rec';
+                }
+                
+                if (!textVal || textVal.trim() === '') {
+                    return '<span style="color:#bbb">–</span>';
+                }
+                return `<div>${textVal}</div><div style="font-size:8px;color:#999">(${src})</div>`;
+            } catch (e) { 
+                const val = r[textKey];
+                return (val && val.trim()) ? val : '<span style="color:#bbb">–</span>';
+            }
+        }
+
         const html = `
     <div class="qpr-page">
 
@@ -356,15 +381,15 @@ async function loadReport() {
             <div class="ach-grid">
                 <div class="ach-item">
                     <span class="ach-lbl">1. नवनमेषी कार्य / Innovative Work</span>
-                    ${v(r.s12_1) ?? '<span style="color:#bbb">–</span>'}
+                    ${valForText('s12_1')}
                 </div>
                 <div class="ach-item">
                     <span class="ach-lbl">2. विशिष्ट आयोजन / Special Event &amp; Notable Work</span>
-                    ${v(r.s12_2) ?? '<span style="color:#bbb">–</span>'}
+                    ${valForText('s12_2')}
                 </div>
                 <div class="ach-item" style="border-right:none">
                     <span class="ach-lbl">3. हिंदी माध्यम में अन्य कार्य / Other works in Hindi</span>
-                    ${v(r.s12_3) ?? '<span style="color:#bbb">–</span>'}
+                    ${valForText('s12_3')}
                 </div>
             </div>
         </div>

@@ -1,6 +1,7 @@
 {% extends "qpr/qpr_form.html" %}
 {% load translate_tags %}
-{% block qpr_form_action %}{% url 'admin_qpr_form' %}{% endblock %}
+{% block qpr_form_action %}{% if instance %}{% url 'admin_qpr_form_edit' instance.id %}{% else %}{% url 'admin_qpr_form' %}{% endif %}{% endblock %}
+{% block qpr_form_type %}<input type="hidden" name="form_type" value="admin">{% endblock %}
 {% block title %}{{ "Admin QPR"|t:current_lang }}{% endblock %}
 {% block qpr_form_inner %}
     <div class="col-12 mb-3">
@@ -193,24 +194,16 @@
     </div>
         <div class="col-12">
             <div class="d-flex justify-content-end mt-3">
+                <a href="{% url 'admin_qpr_list' %}" class="btn btn-outline-secondary me-2">{{ "Table List"|t:current_lang }}</a>
+                {% if not readonly %}
                 <input type="hidden" name="frequency" value="quarterly">
                 <input type="hidden" name="year" value="{{ form.financial_year.value }}">
                 <input type="hidden" name="role_form" value="admin">
-                <a href="{% url 'qpr_user_report_list' %}" class="btn btn-outline-secondary me-2">{{ "Table List"|t:current_lang }}</a>
-                <button id="saveDraftBtn" type="submit" class="btn btn-info text-white me-2" name="status" value="Draft">{{ "Save as Draft"|t:current_lang }}</button>
                 <button type="submit" class="btn btn-primary" style="background-color: #2c5a86;" name="status" value="Submitted">{{ "Submit"|t:current_lang }}</button>
+                {% endif %}
             </div>
         </div>
 
 {% endblock %}
 
 {% block qpr_report_list %}{% endblock %}
-
-<script>
-document.addEventListener('DOMContentLoaded', function(){
-    try{
-        var f = document.getElementById('qprForm');
-        if(f) f.action = "{% url 'admin_qpr_form' %}";
-    }catch(e){}
-});
-</script>

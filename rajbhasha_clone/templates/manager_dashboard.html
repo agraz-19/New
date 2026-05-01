@@ -44,7 +44,7 @@
                 <a href="{% url 'manager_report' %}" class="btn btn-primary" style="background-color: #0066cc;">
                     <i class="fas fa-chart-bar"></i> {{ "Manager Report"|t:current_lang }}
                 </a>
-                <a href="{% url 'certificate_part2' %}" class="btn btn-info">
+                <a href="{% url 'certificate_part2_list' %}" class="btn btn-info">
                     <i class="fas fa-certificate"></i> {{ "Certificate"|t:current_lang }}
                 </a>
                 <a href="{% url 'change_password' %}" class="btn btn-secondary">
@@ -246,7 +246,6 @@
     
 
     <script>
-        // 1. Helper to find User ID from EmpCode
         function getUserId(empCode) {
 
             const lookup = JSON.parse(
@@ -255,13 +254,11 @@
 
             empCode = String(empCode).trim();
 
-            // convert 1 → 001
             empCode = empCode.padStart(3, '0');
 
             return lookup[empCode];
         }
     
-        // 2. Handle Unlock Logic
         function triggerUnlock(empCode) {
             const userId = getUserId(empCode);
             
@@ -275,7 +272,6 @@
             }
         }
 
-        // 3. Handle Designation Update Logic
         function openDesignationModal(empCode, name, currentDesignation) {
             const userId = getUserId(empCode);
             
@@ -285,7 +281,6 @@
             }
 
             const form = document.getElementById('designationForm');
-            // Dynamically set the form action to include the User ID
             form.action = `/update-designation/${userId}/`;
             
             document.getElementById('modalUsername').textContent = name + " (" + empCode + ")";

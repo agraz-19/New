@@ -171,6 +171,28 @@
         background-color: #5a6268;
     }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const freezeForm = document.getElementById('freezeForm');
+    const freezeBtn = document.getElementById('freezeBtn');
+    
+    if (freezeForm && freezeBtn) {
+        freezeForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Show warning message with Yes/No confirmation
+            const warningMessage = 'You are about to freeze the division quarter.\n\n' +
+                                 'Any further changes done in the QPR hereafter will not be shown in the state QPR.\n\n' +
+                                 'Are you sure you want to proceed?';
+            
+            if (confirm(warningMessage)) {
+                freezeForm.submit();
+            }
+        });
+    }
+});
+</script>
 {% endblock %}
 
 {% block content %}
@@ -358,7 +380,7 @@
     
     <!-- Division Quarter Section -->
     <div class="mt-4">
-        <h4>Division Quarter</h4>
+        <h4>Division Quarter - Finalize quarterly reports ({{ finalized_count }}/{{ total_users }})</h4>
 
         <table class="table table-bordered">
             <thead>
@@ -374,9 +396,9 @@
                     <td>{{ current_year }}</td>
                     <td>
                         <a href="{% url 'qpr_report_detail' 0 %}?division=1" class="btn btn-sm btn-outline-primary">View</a>
-                        <form method="post" action="{% url 'freeze_division_snapshot' %}" style="display:inline;">
+                        <form method="post" action="{% url 'freeze_division_snapshot' %}" style="display:inline;" id="freezeForm">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-danger">Freeze</button>
+                            <button type="submit" class="btn btn-sm btn-outline-danger" id="freezeBtn" {% if not all_finalized %}disabled title="All employees must finalize their QPR first"{% endif %}>Freeze</button>
                         </form>
                     </td>
                 </tr>
