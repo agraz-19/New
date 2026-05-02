@@ -13,21 +13,17 @@
     <div class="container py-3">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h3 class="mb-0">Quarterly Progress Reports</h3>
-            {% if is_hod_view %}
-            <a href="{% url 'qpr_hod_detail_list' %}" class="btn btn-secondary btn-sm">← Back to Employee List</a>
-            {% endif %}
+            <div>
+                {% if not is_hod_view %}
+                <button class="btn btn-outline-warning btn-sm me-2" id="finalizeBtn" onclick="finalizeQPR()">Finalize Your QPR</button>
+                {% endif %}
+                {% if is_hod_view %}
+                <a href="{% url 'qpr_hod_detail_list' %}" class="btn btn-secondary btn-sm">← Back to Employee List</a>
+                {% endif %}
+            </div>
         </div>
 
-        <!-- Frequency selector: controls which summary source the backend should provide -->
-        <div class="mb-2">
-            <label for="frequencySelect"><strong>View Frequency:</strong></label>
-            <select id="frequencySelect" class="form-select form-select-sm" style="width:200px;display:inline-block;margin-left:8px;">
-                <option value="daily" selected>Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="quarterly">Quarterly</option>
-            </select>
-        </div>
+        <!-- View Frequency selector removed per UI request -->
 
         <!-- Note: Page intentionally simplified to only show Daily/Weekly/Monthly/Quarterly tables -->
 
@@ -452,6 +448,44 @@
             document.body.appendChild(form);
             form.submit();
         } catch (e) { console.error('request-edit submit failed', e); alert('Failed to submit request.'); }
+    }
+
+    function finalizeQPR() {
+        // Show confirmation dialog
+        if (!confirm('This finalizes your quarterly report for this quarter. Do you want to continue?')) {
+            return;
+        }
+        
+        // Get CSRF token
+        const csrf = (function(){
+            const name = 'csrftoken=';
+            const parts = document.cookie.split(';').map(s=>s.trim());
+            for (let p of parts) if (p.indexOf(name)===0) return decodeURIComponent(p.substring(name.length));
+            return null;
+        })();
+        
+        // Submit finalize request
+        fetch('/qpr/finalize/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrf || ''
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Your QPR has been finalized. Returning to report list...');
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to finalize QPR');
+        });
     }
 
     window.addEventListener('DOMContentLoaded', () => {

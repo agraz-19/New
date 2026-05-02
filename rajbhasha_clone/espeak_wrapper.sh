@@ -7,4 +7,6 @@ while [[ $# -gt 0 ]]; do
     *) shift ;;
   esac
 done
-espeak "$text" -w "$output"
+
+spaced_text=$(echo "$text" | sed 's/./& /g')
+espeak -s 120 -g 80 "$spaced_text" -w "$output"

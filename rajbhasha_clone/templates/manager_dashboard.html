@@ -4,8 +4,6 @@
 {% block content %}
 <div class="container-fluid px-4 mt-4">
 
-    {% if user.role == 'manager' %}
-    
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold text-primary">{{ "Manager Dashboard"|t:current_lang }}</h2>
         <div class="d-flex gap-2">
@@ -40,8 +38,14 @@
                 <a href="{% url 'manager_report' %}" class="btn btn-primary" style="background-color: #0066cc;">
                     <i class="fas fa-chart-bar"></i> {{ "Manager Report"|t:current_lang }}
                 </a>
+                <a href="{% url 'certificate_part2_list' %}" class="btn btn-info">
+                    <i class="fas fa-certificate"></i> {{ "Certificate"|t:current_lang }}
+                </a>
                 <a href="{% url 'change_password' %}" class="btn btn-secondary">
                     <i class="fas fa-lock"></i> {{ "Change Password"|t:current_lang }}
+                </a>
+                <a href="{% url 'admin_events_dashboard' %}" class="btn btn-success text-white">
+                    <i class="fas fa-calendar-alt"></i> {{ "Events"|t:current_lang }}
                 </a>
                 <a href="{% url 'logout' %}" class="btn btn-danger">
                     <i class="fas fa-sign-out-alt"></i> {{ "Logout"|t:current_lang }}
@@ -222,6 +226,8 @@
         </div>
     </div>
     
+    
+    
     <script id="user-lookup" type="application/json">
     {
     {% for u in users %}
@@ -231,6 +237,7 @@
     {% endfor %}
     }
     </script>
+    
 
     <script>
         // 1. Helper to find User ID from EmpCode
@@ -281,8 +288,6 @@
             new bootstrap.Modal(document.getElementById('designationModal')).show();
         }
     </script>
-
-    {% endif %}
 
 </div>
 {% endblock %}

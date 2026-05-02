@@ -10,9 +10,8 @@ from website.views import (
 urlpatterns = [
     path('captcha/', include('captcha.urls')),
     path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),    
-    # Core & Auth
     path('', views.home, name='home'),
-    path('dashboard/', views.dashboard, name='dashboard'), # Central Router
+    path('dashboard/', views.dashboard, name='dashboard'),
     
     path('login/', CustomLoginView.as_view(), name='login'),
     path('login/verify-otp/', LoginOTPView.as_view(), name='login_otp_step'),
@@ -25,7 +24,6 @@ urlpatterns = [
     path('reset-password/', ResetPasswordView.as_view(), name='reset_password'),
     path('change-password/', views.change_password, name='change_password'),
 
-    # User Profile & Privacy
     path('profile/', views.profile_view, name='profile'),
     path('toggle-language/', views.toggle_language, name='toggle_language'),
     path('export-data/', views.export_user_data, name='export_data'),
@@ -36,7 +34,6 @@ urlpatterns = [
     path('profile/freeze/', views.freeze_profile, name='freeze_profile'),
     path('profile/request-edit/', views.request_edit, name='request_edit'),
 
-    # --- UNIFIED DASHBOARDS ---
     path('qpr/admin/dashboard/', views.admin_dashboard, name='qpr_admin_dashboard'),
     path('manager/dashboard/', views.manager_dashboard, name='manager_dashboard'),
     path('manager/report/', views.manager_report, name='manager_report'),
@@ -45,15 +42,19 @@ urlpatterns = [
     path('qpr/certificate/<int:record_id>/', views.qpr_certificate, name='qpr_certificate'),
     path('qpr/certificate/<int:record_id>/form/', views.certificate_form_view, name='certificate_form'),
     path('qpr/certificate/<int:record_id>/display/', views.certificate_display_view, name='certificate_display'),
-    path('qpr/certificate/<int:record_id>/part2/', views.certificate_part2_view, name='certificate_part2'),
-    path('qpr/certificate/<int:record_id>/part2/print/', views.certificate_part2_print_view, name='certificate_part2_print'),
+    path('certificate-part2/', views.certificate_part2_list, name='certificate_part2_list'),
+    path('certificate-part2/new/', views.certificate_part2_new, name='certificate_part2_new'),
+    path('certificate-part2/<int:pk>/form/', views.certificate_part2_form, name='certificate_part2_form'),
+    path('certificate-part2/<int:pk>/edit/', views.certificate_part2_edit, name='certificate_part2_edit'),
+    path('certificate-part2/<int:pk>/view/', views.certificate_part2_view, name='certificate_part2_view'),
+    path('certificate-part2/<int:pk>/print/', views.certificate_part2_print, name='certificate_part2_print'),
+    path('certificate-part2/<int:pk>/delete/', views.certificate_part2_delete, name='certificate_part2_delete'),
     
     # Debug
     path('debug/whoami/', views.debug_whoami, name='debug_whoami'),
     path('qpr/hod/dashboard/', views.qpr_hod_dashboard, name='qpr_hod_dashboard'),
     path('qpr/user/dashboard/', views.user_dashboard, name='qpr_user_dashboard'),
 
-    # --- USER QPR WORKFLOW ---
     path('qpr/profile/update/', views.profile_view, name='qpr_user_profile'),
     path('qpr/profile/request-edit/', views.request_profile_edit, name='request_profile_edit'),
     path('qpr/office/', views.user_office_form, name='qpr_user_office'),
@@ -64,6 +65,16 @@ urlpatterns = [
     path('qpr/reports/<int:record_id>/typing-usage-report/', views.typing_usage_report_form, name='typing_usage_report_form'),
     path('qpr/reports/<int:record_id>/typing-usage-report/view/', views.typing_usage_report_view, name='typing_usage_report_view'),
     path('qpr/reports/<int:record_id>/request-edit/', views.request_qpr_edit, name='request_qpr_edit'),
+    path('qpr/finalize/', views.finalize_qpr, name='finalize_qpr'),
+
+    # Role-based QPR forms (manager/admin)
+    path('qpr/manager/form/', views.manager_qpr_view, name='manager_qpr_form'),
+    path('qpr/manager/form/<int:id>/', views.manager_qpr_view, name='manager_qpr_form_edit'),
+    path('qpr/manager/<int:id>/', views.manager_qpr_detail, name='manager_qpr_detail'),
+    path('qpr/manager/section11/<int:manager_qpr_id>/', views.manager_section11_select_texts, name='manager_section11_select'),
+    path('qpr/admin/form/', views.admin_qpr_view, name='admin_qpr_form'),
+    path('qpr/admin/form/<int:id>/', views.admin_qpr_view, name='admin_qpr_form_edit'),
+    path('qpr/admin/<int:id>/', views.admin_qpr_detail, name='admin_qpr_detail'),
 
     # --- HOD WORKFLOW ---
     path('qpr/hod/details/', views.hod_detail_list, name='qpr_hod_detail_list'),
@@ -74,7 +85,6 @@ urlpatterns = [
     path('qpr/admin/create-hod/', views.admin_create_hod, name='qpr_admin_create_hod'),
     path('qpr/admin/create-manager/', views.admin_create_manager, name='qpr_admin_create_manager'),
     path('get-employee-form/', views.get_employee_details_form, name='get_employee_details_form'),
-    # path('qpr/admin/api/employee-details/', views.admin_api_get_employee_details, name='api_get_employee_details'),
 
     path('qpr/admin/api/office-create/', views.api_create_office, name='api_create_office'),
     path('qpr/api/offices/', views.api_list_offices, name='api_list_offices'),
@@ -86,24 +96,15 @@ urlpatterns = [
     path('update-designation/<int:user_id>/', views.update_designation, name='update_designation'),
     path('action/<int:user_id>/<str:action>/', views.manage_user_action, name='manage_user_action'),
 
-    # API endpoint for QPR records was removed in favor of POST-based views.
-    # Keep the route here as a comment in case it's needed again later.
-    # path('qpr/api/records/', views.api_records, name='qpr_api_records'),
+
     path('qpr/records/', views.qpr_records_view, name='qpr_records'),
+    path('qpr/my-reports/', views.qpr_user_report_list, name='qpr_user_report_list'),
+    path('qpr/manager/my-reports/', views.manager_qpr_list, name='manager_qpr_list'),
+    path('qpr/admin/my-reports/', views.admin_qpr_list, name='admin_qpr_list'),
     path('qpr/records/save/', views.qpr_save_record, name='qpr_save_record'),
     path('qpr/records/delete/<int:id>/', views.qpr_delete_record, name='qpr_delete_record'),
-    #path('qpr/api/records/<int:record_id>/', views.api_record_detail, name='api_record_detail'),
-    path('qpr/api/availability/', views.api_qpr_availability, name='qpr_api_availability'),
-    #path('qpr/api/period-summary/', views.api_period_summary, name='api_period_summary'),
     path('qpr/api/request-edit/', views.request_edit_api, name='request_edit_api'),
-    path('qpr/api/update-hod/', views.api_update_hod, name='api_update_hod'),
-    path('qpr/api/user-change-hod/', views.api_user_change_hod, name='api_user_change_hod'),
 
-    #path('employee-form/', views.employee_form, name='employee_form'),
-    #path('employee/export-pdf/', views.export_employee_pdf, name='export_employee_pdf'), 
-    #path('api/employees/', EmployeeListCreateAPI.as_view(), name='employee_list_create_api'),
-    #path('api/employees/<int:pk>/', EmployeeDetailAPI.as_view(), name='employee_detail_api'),
-    #path('api/employees/submit/', SubmitDraftAPI.as_view(), name='submit_draft_api'),
 
     path('download-backup/', views.download_db_backup, name='download_db_backup'),
     path('perform/archive/<int:user_id>/', views.archive_user, name='archive_user'),
@@ -118,13 +119,10 @@ urlpatterns = [
     path("events-admin/delete/<str:folder>/", views.admin_delete_event, name="admin_delete_event"),
     path('events-admin/get-images/<str:folder>/', views.get_event_images, name='get_event_images'),
     path('events-admin/update-titles/', views.update_event_titles, name='update_event_titles'),
-    # path('api/event-images/<str:folder>/', views.api_event_images, name='api_event_images'),
-    # path('get-employee/', views.get_employee_details_form, name='get_employee'),
     path('get-employee-form/', views.get_employee_details_form, name='get_employee_details_form'),
     path('qpr/hod/approval/<int:profile_id>/<str:action>/', views.process_user_approval, name='process_user_approval'),
     path("events-admin/edit-titles/", views.admin_edit_event_titles, name="admin_edit_event_titles"),
     path('events-admin/<str:folder>/set-thumbnail/', views.set_thumbnail, name='set_thumbnail'),
-    # 🆕 Profile Change Request Workflow
     path('profile/change-request/reject/<int:request_id>/', views.reject_profile_change_hod, name='reject_profile_change'),
     path('profile/submit-change/', views.submit_profile_change_request, name='submit_profile_change_request'),
     path('profile/approve-change/<int:request_id>/', views.approve_profile_change_hod, name='approve_profile_change'),

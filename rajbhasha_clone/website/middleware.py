@@ -7,10 +7,10 @@ from django.core.cache import cache
 import hashlib
 
 class DynamicTranslationMiddleware(MiddlewareMixin):
-    # ✅ Added more technical artifacts to prevent them from showing as "एचटीएमएल"
+    # Added more technical artifacts to prevent them from showing as "एचटीएमएल"
     BLACKLIST = ['HTML', 'html', 'Banner carousel', 'csrfmiddlewaretoken', 'doctype', 'DOCTYPE']
     
-    # ✅ Task Requirement: Keep these fields UNCHANGED even in Hindi
+    # Task Requirement: Keep these fields UNCHANGED even in Hindi
     # Add the exact field names/labels you want to lock here
     LOCKED_FIELDS = ['Empcode', 'Superannuation Date'] 
 
@@ -66,7 +66,7 @@ class DynamicTranslationMiddleware(MiddlewareMixin):
                     if not original_text or original_text.isdigit() or original_text in self.LOCKED_FIELDS:
                         continue
 
-                    # 🔥 FIX: Check Blacklist (Case-Insensitive)
+                    # FIX: Check Blacklist (Case-Insensitive)
                     if original_text.upper() in [x.upper() for x in self.BLACKLIST]:
                         # Do not replace with translated text; just leave it as is or clear if it's a ghost tag
                         continue

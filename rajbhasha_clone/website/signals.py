@@ -9,7 +9,7 @@ from .utils import send_system_email
 User = get_user_model()
 
 
-# 🔹 Create profile automatically when user is created
+# Create profile automatically when user is created
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
@@ -31,7 +31,7 @@ def create_user_profile(sender, instance, created, **kwargs):
             profile.roles.add(user_role)
 
 
-# 🔹 Always ensure profile exists and sync roles
+#  Always ensure profile exists and sync roles
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
     # 1. Prevent this signal from running when we are just updating the OTP
@@ -67,7 +67,7 @@ def save_user_profile(sender, instance, **kwargs):
         pass
 
 
-# 🔹 Login signal
+#  Login signal
 @receiver(user_logged_in)
 def on_user_login(sender, request, user, **kwargs):
     send_system_email(user, request, "login")

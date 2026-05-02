@@ -1168,4 +1168,99 @@ textarea:focus {
     filter:brightness(0) invert(1) !important;
     opacity:.95 !important;
   }
+  [data-bs-theme="dark"] .captcha {
+        filter: grayscale(10%) contrast(1.2) brightness(0.8);
+        border: 1px solid #444;
+        background-color: #eee;
+        border-radius: 4px;
+    }
+    
+    [data-bs-theme="dark"] .logo-img {
+        background-color: #ffffff;
+        border-radius: 8px;
+        padding: 5px;
+    }
+
+    html[data-font-size="medium"] { font-size: 110%; }
+    html[data-font-size="large"] { font-size: 120%; }
+    
+    .accessibility-menu {
+        min-width: 260px;
+    }
+.no-js-dropdown {
+    position: relative;
+}
+.no-js-dropdown summary {
+    list-style: none; 
+    cursor: pointer;
+}
+.no-js-dropdown summary::-webkit-details-marker {
+    display: none; 
+}
+.no-js-dropdown[open] summary:before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 99;
+}
+.no-js-menu {
+    position: absolute;
+    right: 0;
+    top: 120%;
+    z-index: 100;
+    min-width: 250px;
+}
+.pure-hover-dropdown {
+        position: relative;
+        display: inline-block;
+    }
+    .pure-hover-menu {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        min-width: 250px;
+        z-index: 1050;
+        background-color: var(--bs-body-bg);
+        border: var(--bs-border-width) solid var(--bs-border-color);
+        border-radius: var(--bs-border-radius);
+    }
+    .pure-hover-dropdown::after {
+        content: '';
+        position: absolute;
+        bottom: -15px;
+        left: 0;
+        width: 100%;
+        height: 15px;
+    }
+    .pure-hover-dropdown:hover .pure-hover-menu {
+        display: block;
+    }
+    .custom-dropdown {
+        position: relative;
+        display: inline-block;
+    }
+    .custom-dropdown-menu {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        min-width: 250px;
+        z-index: 1050;
+        background-color: var(--bs-body-bg);
+        border: var(--bs-border-width) solid var(--bs-border-color);
+        border-radius: var(--bs-border-radius);
+        margin-top: 0.5rem;
+    }
+    .custom-dropdown-menu.show-menu {
+        display: block;
+    }
+    [data-bs-theme="dark"] .text-dark:not(.badge) {
+        color: #f8f9fa !important; 
+    }
+    
+    [data-bs-theme="dark"] th,
+    [data-bs-theme="dark"] .table-heading {
+        color: #f8f9fa !important;
+    }
 </style>

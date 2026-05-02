@@ -198,13 +198,75 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (frequencyEl) {
                 frequencyEl.addEventListener('change', () => {
-                    // if non-daily selected, disable date input (weekly/monthly/quarterly)
+                    // if non-daily selected, make date input read-only instead of disabled
+                    // so its value is still submitted to the server
                     if (frequencyEl.value && frequencyEl.value !== 'daily') {
-                        if (selectedDateEl) selectedDateEl.disabled = true;
+                        if (selectedDateEl) {
+                            selectedDateEl.readOnly = true;
+                            selectedDateEl.classList.add('text-muted');
+                        }
+                        // disable/hide Save as Draft on non-daily frequencies
+                        try {
+                            const saveDraftBtn = document.getElementById('saveDraftBtn');
+                            if (saveDraftBtn) {
+                                saveDraftBtn.disabled = true;
+                                saveDraftBtn.classList.add('d-none');
+                            }
+                        } catch(e) {}
                     } else {
-                        if (selectedDateEl) selectedDateEl.disabled = false;
+                        if (selectedDateEl) {
+                            selectedDateEl.readOnly = false;
+                            selectedDateEl.classList.remove('text-muted');
+                        }
+                        try {
+                            const saveDraftBtn = document.getElementById('saveDraftBtn');
+                            if (saveDraftBtn) {
+                                saveDraftBtn.disabled = false;
+                                saveDraftBtn.classList.remove('d-none');
+                            }
+                        } catch(e) {}
                     }
                 });
+                // initialize draft button state based on current frequency
+                try {
+                    const saveDraftBtn = document.getElementById('saveDraftBtn');
+                    if (saveDraftBtn) {
+                        if (frequencyEl.value && frequencyEl.value !== 'daily') {
+                            saveDraftBtn.disabled = true;
+                            saveDraftBtn.classList.add('d-none');
+                        } else {
+                            saveDraftBtn.disabled = false;
+                            saveDraftBtn.classList.remove('d-none');
+                        }
+                        // prevent accidental usage if clicked while disabled
+                        saveDraftBtn.addEventListener('click', function(ev){
+                            if (frequencyEl.value !== 'daily') {
+                                ev.preventDefault();
+                                alert('Save as Draft is allowed only for Daily frequency. Please select Daily to save drafts.');
+                                return false;
+                            }
+                        });
+                    }
+                } catch(e) {}
+
+                // Prevent form submitting a draft when frequency is not daily (covers hidden inputs)
+                try {
+                    const qprForm = document.getElementById('qprForm');
+                    if (qprForm) {
+                        qprForm.addEventListener('submit', function(ev){
+                            try {
+                                const freq = (frequencyEl && frequencyEl.value) ? frequencyEl.value : 'daily';
+                                const statusInput = qprForm.querySelector('input[name="status"]');
+                                const statusVal = statusInput ? String(statusInput.value).toLowerCase() : null;
+                                if (freq !== 'daily' && statusVal === 'draft') {
+                                    ev.preventDefault();
+                                    alert('Drafts are allowed only for Daily frequency. Change frequency to Daily to save as Draft.');
+                                    return false;
+                                }
+                            } catch(e) { /* ignore */ }
+                        });
+                    }
+                } catch(e) {}
             }
 
             // Also recompute when recordId is set by edit action
@@ -438,7 +500,7 @@ async function loadData() {
                     if (record.can_edit) {
                         actionButtons = `
                             <button class="btn btn-sm btn-outline-warning fw-bold" onclick="event.stopPropagation(); editRecord(${record.id})">
-                                ✏️ Edit
+                                Edit
                             </button>
                         `;
                     } else {
@@ -447,13 +509,13 @@ async function loadData() {
                             if (record.has_pending_edit_request) {
                                 actionButtons = `
                                     <button class="btn btn-sm btn-outline-secondary fw-bold" disabled>
-                                        ⏳ Pending
+                                        Pending
                                     </button>
                                 `;
                             } else {
                                 actionButtons = `
                                     <button class="btn btn-sm btn-outline-primary fw-bold" onclick="event.stopPropagation(); try { requestEdit(${record.id}); } catch(e){ window.location.href='/qpr/reports/${record.id}/request-edit/'; }">
-                                        ✉️ Request to Edit
+                                        Request to Edit
                                     </button>
                                 `;
                             }
@@ -461,7 +523,7 @@ async function loadData() {
                             // Non-submitted and not editable (rare) — show disabled edit
                             actionButtons = `
                                 <button class="btn btn-sm btn-outline-secondary fw-bold" disabled>
-                                    ✏️ Edit
+                                    Edit
                                 </button>
                             `;
                         }
