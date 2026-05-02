@@ -3016,9 +3016,7 @@ def qpr_hod_dashboard(request):
     hod_profile = UserProfile.objects.select_related('user').get(user=request.user)
     hod_name = (hod_profile.hod_name or hod_profile.name or "").strip()
 
-    # ===============================
-    # USERS UNDER HOD
-    # ===============================
+
     if hod_name:
         user_role_q = Q(roles__name='user') | Q(user__roles__name='user')
 
@@ -3031,13 +3029,8 @@ def qpr_hod_dashboard(request):
         users_under_hod = UserProfile.objects.filter(user=request.user, approval_status__iexact='approved').distinct()
 
     total_users = users_under_hod.count()
-
-    # ===============================
-    # QPR COUNTS (FIXED LOOP)
-    # ===============================
     qpr_submitted_count = 0
 
-    # Count users who submitted a daily QPR for today's server date.
     today = timezone.localdate()
     for up in users_under_hod:
         try:
@@ -3053,10 +3046,6 @@ def qpr_hod_dashboard(request):
             continue
 
     qpr_pending = total_users - qpr_submitted_count
-
-    # ===============================
-    # PROFILE STATUS
-    # ===============================
     profile_updated_count = users_under_hod.filter(profile_updated=True).count()
 
     pending_approvals = UserProfile.objects.filter(
