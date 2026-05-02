@@ -203,6 +203,7 @@ async function loadReport() {
             try {
                 // If viewing as weekly/monthly/quarterly, force that frequency's cumulative
                 let period = viewAs ? viewAs.toLowerCase() : (r.frequency || 'daily').toLowerCase();
+                if (period === 'fill') period = 'daily';
                 const cumPeriod = (r.cumulative && r.cumulative[period]);
                 // Prefer cumulative for non-daily frequencies when available.
                 // Treat missing/null values as 0 for numeric fields.
@@ -223,6 +224,7 @@ async function loadReport() {
         function valForText(textKey) {
             try {
                 let period = viewAs ? viewAs.toLowerCase() : (r.frequency || 'daily').toLowerCase();
+                if (period === 'fill') period = 'daily';
                 let textVal = '';
                 let src = 'rec';
                 

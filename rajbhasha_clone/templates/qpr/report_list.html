@@ -72,11 +72,11 @@
 
         <!-- Quarterly entries -->
         <div class="mb-2">
-            <strong>Quarterly Entries</strong>
+            <strong>Quarterly Entries (Snapshots)</strong>
             <div class="table-responsive">
                 <table class="table table-sm table-bordered" id="quarterlyTable">
                     <thead class="table-light"><tr>
-                        <th>Quarter</th>
+                        <th>Quarter (Data Source)</th>
                         <th>Year</th>
                         <th>Action</th>
                     </tr></thead>
@@ -204,16 +204,51 @@
                             return isNaN(d) ? String(s).slice(0,10) : d.toISOString().slice(0,10);
                         }
 
-                        const rec = records.find(r => 
+                        const rec = records.find(r =>
+                            String(r.frequency || '').toLowerCase() === 'daily' &&
                             normalizeDate(r.period_start) === normalizeDate(ps)
                         ) || null;
                         const periodLabel = ps || (d.period_label || '-');
-                        // Determine status: submitted daily, covered by weekly/monthly/quarterly, or missing
+                        // Determine status: submitted daily, filled by weekly, covered by other, or missing
                         let status = '';
-                        if (d.has_daily) status = '<span class="badge bg-success">Submitted</span>';
-                        else if (d.covered_by) status = `<span class="badge bg-secondary">Filled via ${d.covered_by}</span>`;
+                        if (d.has_daily) status = '<span class="badge bg-success">Submitted Daily</span>';
+                        else if (d.filled_by_weekly) status = '<span class="badge bg-info">Filled by Weekly</span>';
+                        else if (d.covered_by) status = `<span class="badge bg-secondary">Covered by ${d.covered_by}</span>`;
                         else status = '<span class="text-muted">Missing</span>';
-                        const actions = rec ? makeActions(rec) : '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
+                        
+                        // Button logic - STRICT PRIORITY:
+                        // 1. If has_daily → show actions for daily record (Request Edit + View)
+                        // 2. Else if filled_by_weekly AND is_first_fill_day → show actions for weekly fill
+                        // 3. Otherwise → NO buttons
+                        let actions = '';
+                        if (d.has_daily && d.daily_id) {
+                            // Daily record exists - use standard actions
+                            // Find the QPRRecord to get edit/view permissions
+                            if (rec) {
+                                actions = makeActions(rec);
+                            } else {
+                                // Fallback if record not in preloaded list
+                                actions = `<a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.daily_id)}">View</a>`;
+                            }
+                        } else if (d.filled_by_weekly && d.is_first_fill_day && d.weekly_record_id) {
+                            // First filled missing day of weekly fill - show weekly record actions
+                            const weeklyRec = records.find(r => Number(r.id) === Number(d.weekly_record_id)) || null;
+                            if (IS_HOD_VIEW) {
+                                // HOD view: only View
+                                actions = `<a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.weekly_record_id, '?view_as=fill')}">View</a>`;
+                            } else if (weeklyRec && weeklyRec.can_edit) {
+                                actions = `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); edit(${d.weekly_record_id})">Edit</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.weekly_record_id, '?view_as=fill')}">View</a>`;
+                            } else if (weeklyRec && weeklyRec.has_pending_edit_request) {
+                                actions = `<button class="btn btn-sm btn-outline-secondary" disabled>Pending</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.weekly_record_id, '?view_as=fill')}">View</a>`;
+                            } else {
+                                actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${d.weekly_record_id})">Request to Edit</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.weekly_record_id, '?view_as=fill')}">View</a>`;
+                            }
+                        }
+                        // else: no buttons (empty actions already initialized)
+                        
                         renderRow(dailyBody, rec, [periodLabel, status, actions]);
                     });
                 } else {
@@ -383,20 +418,36 @@
                     }
 
                     let actions = '';
-                    if (rec) {
-                        actions = makeActions(rec);
-                    } else if (dataSourceRec) {
+                    const sourceRec = rec || dataSourceRec;
+                    if (sourceRec) {
                         if (IS_HOD_VIEW) {
-                            actions = ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(dataSourceRec.id, '?view_as=quarterly')}">View</a>`;
+                            actions = ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(sourceRec.id, '?view_as=quarterly')}">View</a>`;
+                        } else if (sourceRec.can_edit) {
+                            actions = `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); edit(${sourceRec.id})">Edit</button>`;
+                            actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(sourceRec.id, '?view_as=quarterly')}">View</a>`;
+                        } else if (sourceRec.has_pending_edit_request) {
+                            actions = `<button class="btn btn-sm btn-outline-secondary" disabled>Pending</button>`;
+                            actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(sourceRec.id, '?view_as=quarterly')}">View</a>`;
                         } else {
-                            actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${dataSourceRec.id})">Request to Edit</button>`;
-                            actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(dataSourceRec.id, '?view_as=quarterly')}">View</a>`;
+                            actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${sourceRec.id})">Request to Edit</button>`;
+                            actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(sourceRec.id, '?view_as=quarterly')}">View</a>`;
                         }
                     } else {
                         actions = '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
                     }
 
-                    renderRow(quarterlyBody, null, [periodLabel, summary.year_label || '-', actions]);
+                    // Show data source composition if available
+                    const dataSource = q.data_source ? `<small class="d-block text-muted">${q.data_source}</small>` : '';
+                    const snapshotBadge = q.is_snapshot ? '<small class="badge bg-info ms-2">Snapshot</small>' : '<small class="badge bg-secondary ms-2">Legacy</small>';
+                    
+                    // Render row with data_source info
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${periodLabel} ${snapshotBadge}${dataSource}</td>
+                        <td>${summary.year_label || '-'}</td>
+                        <td>${actions}</td>
+                    `;
+                    if (quarterlyBody) quarterlyBody.appendChild(row);
                 } else {
                     quarterlyBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No quarterly entries</td></tr>';
                 }

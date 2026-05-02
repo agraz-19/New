@@ -100,6 +100,15 @@
                                 </select>
                             </div>
                         </div>
+                        
+                        <!-- Missing Days Info Box for Weekly/Monthly/Quarterly -->
+                        <div id="missingDaysAlert" class="alert alert-info d-none mb-3" role="alert">
+                            <strong id="missingDaysTitle">Missing Days Info</strong>
+                            <p id="missingDaysMessage" class="mb-0 mt-2"></p>
+                            <small id="missingDaysList" class="d-block mt-2 text-muted"></small>
+                            <small id="existingFillInfo" class="d-block mt-1 text-muted"></small>
+                        </div>
+                        
                         <div class="row g-2 align-items-center mb-2">
                             <div class="col-md-3 text-end"><span class="lbl-hindi">कार्यालय का नाम</span><span class="lbl-eng">Name of Office</span></div>
                             <div class="col-md-5"><input type="text" class="form-control form-control-sm" id="officeName" name="officeName" value="{{ profile_office_name }}" {% if profile_office_name_filled %}disabled readonly data-protected="1"{% else %}data-protected="0"{% endif %}></div>
@@ -418,6 +427,13 @@
     try { document.getElementById('selectedDate').value = '{{ selected_date }}'; } catch(e) {}
 </script>
 {% endif %}
+{% if qpr_popup_error %}
+<script>
+    window.addEventListener('DOMContentLoaded', function () {
+        alert("{{ qpr_popup_error|escapejs }}");
+    });
+</script>
+{% endif %}
 <script>
     // Preload user's records for client-side editing (used by static/js/script.js)
     try { window.PRELOADED_RECORDS = {{ records_json|default:'[]'|safe }}; } catch(e) { window.PRELOADED_RECORDS = []; }
@@ -498,5 +514,17 @@
             });
         }
     });
+    
+    // Load missing days data into global variable for form use
+    try {
+        const missingDaysDataJson = `{{ missing_days_json|safe }}`;
+        if (missingDaysDataJson && missingDaysDataJson.trim()) {
+            window.MISSING_DAYS_DATA = JSON.parse(missingDaysDataJson);
+            console.log('[DEBUG] Loaded missing days data:', window.MISSING_DAYS_DATA);
+        }
+    } catch (e) {
+        console.error('[ERROR] Failed to load missing days data:', e);
+        window.MISSING_DAYS_DATA = {};
+    }
 </script>
 {% endblock %}

@@ -62,6 +62,7 @@ urlpatterns = [
     path('qpr/reports/', views.report_list, name='qpr_report_list'),
     path('qpr/reports/<int:record_id>/', views.report_detail, name='qpr_report_detail'),
     path('qpr/reports/<int:record_id>/print/', views.print_qpr_report, name='qpr_report_print'),
+    path('qpr/snapshot/<str:quarter>/<str:year>/edit/', views.snapshot_edit, name='snapshot_edit'),
     path('qpr/reports/<int:record_id>/typing-usage-report/', views.typing_usage_report_form, name='typing_usage_report_form'),
     path('qpr/reports/<int:record_id>/typing-usage-report/view/', views.typing_usage_report_view, name='typing_usage_report_view'),
     path('qpr/reports/<int:record_id>/request-edit/', views.request_qpr_edit, name='request_qpr_edit'),

@@ -198,6 +198,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (frequencyEl) {
                 frequencyEl.addEventListener('change', () => {
+                    // Update missing days alert based on frequency
+                    const missingDaysAlert = document.getElementById('missingDaysAlert');
+                    if (missingDaysAlert && window.MISSING_DAYS_DATA) {
+                        const freq = frequencyEl.value;
+                        if (freq && freq !== 'daily') {
+                            const missingInfo = window.MISSING_DAYS_DATA[freq];
+                            if (missingInfo && missingInfo.message) {
+                                document.getElementById('missingDaysTitle').textContent = `${freq.charAt(0).toUpperCase() + freq.slice(1)} - Missing Days Info`;
+                                document.getElementById('missingDaysMessage').textContent = missingInfo.message;
+                                
+                                // Show missing days list
+                                if (missingInfo.missing_days && missingInfo.missing_days.length) {
+                                    const daysList = missingInfo.missing_days.map(d => new Date(d + 'T00:00').toLocaleDateString('en-IN', {weekday: 'short', month: 'short', day: 'numeric'})).join(', ');
+                                    document.getElementById('missingDaysList').textContent = `Missing dates: ${daysList}`;
+                                } else {
+                                    document.getElementById('missingDaysList').textContent = 'No missing days - all days are covered.';
+                                }
+                                
+                                // Show info about existing Fill
+                                if (missingInfo.has_fill) {
+                                    document.getElementById('existingFillInfo').textContent = `✓ You have already filled ${missingInfo.fill_fields_count} field(s) for this ${freq}. Submitting will update these values.`;
+                                } else {
+                                    document.getElementById('existingFillInfo').textContent = '';
+                                }
+                                
+                                missingDaysAlert.classList.remove('d-none');
+                            } else {
+                                missingDaysAlert.classList.add('d-none');
+                            }
+                        } else {
+                            missingDaysAlert.classList.add('d-none');
+                        }
+                    }
+                    
                     // if non-daily selected, make date input read-only instead of disabled
                     // so its value is still submitted to the server
                     if (frequencyEl.value && frequencyEl.value !== 'daily') {
@@ -709,6 +743,12 @@ function editRecord(id) {
     if (regionEl && String(regionEl.dataset.protected) !== '1') regionEl.value = record.region || '';
     const quarterEl = document.getElementById('quarter');
     if (quarterEl) quarterEl.value = record.quarter || '';
+    const yearEl = document.getElementById('year');
+    if (yearEl && record.year) yearEl.value = record.year;
+    const selectedDateEl = document.getElementById('selectedDate');
+    if (selectedDateEl && record.period_start) {
+        selectedDateEl.value = String(record.period_start).slice(0, 10);
+    }
     
     // Handle phone field if it exists in details
     const phoneEl = document.getElementById('phone');
@@ -730,10 +770,11 @@ function editRecord(id) {
             }
         }
     }
-    // frequency is server-determined; ensure it defaults to 'daily' if empty
+    // Edit mode must use the record's original entry type, not today's default.
     const freqEl = document.getElementById('frequency');
-    if (freqEl && (!freqEl.value || freqEl.value === '')) {
+    if (freqEl) {
         freqEl.value = record.frequency || 'daily';
+        freqEl.dispatchEvent(new Event('change'));
     }
     
     // Disable/Enable form based on edit permission

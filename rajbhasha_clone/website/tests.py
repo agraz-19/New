@@ -1,3 +1,141 @@
-from django.test import TestCase
+from datetime import date
 
-# Create your tests here.
+from django.contrib.messages import get_messages
+from django.contrib.messages.storage.fallback import FallbackStorage
+from django.contrib.sessions.middleware import SessionMiddleware
+from django.test import RequestFactory, TestCase
+
+from .models import CustomUser, QPRRecord, Role, Section11SpecificAchievementsData
+from .views import _aggregate_section11_text_for_range, is_period_overlapping, qpr_save_record
+
+
+class QPROverlapRestrictionTests(TestCase):
+    def setUp(self):
+        Role.objects.get_or_create(name='user')
+        self.user = CustomUser.objects.create_user(
+            username='overlap-user',
+            email='overlap@example.com',
+            password='password123'
+        )
+        self.factory = RequestFactory()
+
+    def _record(self, frequency, start, end):
+        return QPRRecord.objects.create(
+            user=self.user,
+            officeName='Office',
+            officeCode='OFF',
+            region='Region A',
+            quarter='Apr-Jun',
+            year='2026-2027',
+            frequency=frequency,
+            period_start=start,
+            period_end=end,
+            status='Submitted',
+            is_submitted=True,
+        )
+
+    def test_daily_is_blocked_by_submitted_weekly_monthly_or_quarterly_coverage(self):
+        self._record('weekly', date(2026, 4, 6), date(2026, 4, 11))
+        self.assertTrue(is_period_overlapping(self.user, date(2026, 4, 7), date(2026, 4, 7), new_frequency='daily'))
+
+        QPRRecord.objects.all().delete()
+        self._record('monthly', date(2026, 4, 1), date(2026, 4, 30))
+        self.assertTrue(is_period_overlapping(self.user, date(2026, 4, 7), date(2026, 4, 7), new_frequency='daily'))
+
+        QPRRecord.objects.all().delete()
+        self._record('quarterly', date(2026, 4, 1), date(2026, 6, 30))
+        self.assertTrue(is_period_overlapping(self.user, date(2026, 4, 7), date(2026, 4, 7), new_frequency='daily'))
+
+    def test_weekly_is_blocked_by_submitted_monthly_or_quarterly_coverage(self):
+        self._record('monthly', date(2026, 4, 1), date(2026, 4, 30))
+        self.assertTrue(is_period_overlapping(self.user, date(2026, 4, 6), date(2026, 4, 11), new_frequency='weekly'))
+
+        QPRRecord.objects.all().delete()
+        self._record('quarterly', date(2026, 4, 1), date(2026, 6, 30))
+        self.assertTrue(is_period_overlapping(self.user, date(2026, 4, 6), date(2026, 4, 11), new_frequency='weekly'))
+
+    def test_monthly_is_blocked_by_submitted_quarterly_coverage(self):
+        self._record('quarterly', date(2026, 4, 1), date(2026, 6, 30))
+        self.assertTrue(is_period_overlapping(self.user, date(2026, 4, 1), date(2026, 4, 30), new_frequency='monthly'))
+
+    def test_aggregate_frequencies_can_still_be_submitted_over_lower_level_sources(self):
+        self._record('daily', date(2026, 4, 6), date(2026, 4, 6))
+        self.assertFalse(is_period_overlapping(self.user, date(2026, 4, 1), date(2026, 4, 30), new_frequency='monthly'))
+
+        self._record('monthly', date(2026, 4, 1), date(2026, 4, 30))
+        self.assertFalse(is_period_overlapping(self.user, date(2026, 4, 1), date(2026, 6, 30), new_frequency='quarterly'))
+
+    def test_blank_frequency_defaults_to_daily_instead_of_rejecting_frequency_required(self):
+        request = self.factory.post('/qpr/records/save/', {
+            'status': 'Submitted',
+            'officeName': 'Office',
+            'officeCode': 'OFF',
+            'region': 'Region A',
+            'quarter': '30 जून / Jun 30',
+            'year': '2026-2027',
+            'frequency': '',
+            'selected_date': '2026-04-06',
+            'details': '{}',
+        })
+        request.user = self.user
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        setattr(request, '_messages', FallbackStorage(request))
+
+        qpr_save_record.__wrapped__(request)
+
+        messages = [str(message) for message in get_messages(request)]
+        self.assertNotIn('Frequency is required', messages)
+        self.assertTrue(QPRRecord.objects.filter(user=self.user, frequency='daily').exists())
+
+    def test_duplicate_covered_submission_redirects_back_to_qpr_form_with_popup_message(self):
+        self._record('monthly', date(2026, 4, 1), date(2026, 4, 30))
+        request = self.factory.post('/qpr/records/save/', {
+            'status': 'Submitted',
+            'officeName': 'Office',
+            'officeCode': 'OFF',
+            'region': 'Region A',
+            'quarter': '30 जून / Jun 30',
+            'year': '2026-2027',
+            'frequency': 'daily',
+            'selected_date': '2026-04-06',
+            'details': '{}',
+        })
+        request.user = self.user
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        setattr(request, '_messages', FallbackStorage(request))
+
+        response = qpr_save_record.__wrapped__(request)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/qpr/form/')
+        self.assertEqual(request.session['qpr_popup_error'], 'This QPR has already been filled for the selected period.')
+
+    def test_section11_cumulative_text_includes_weekly_monthly_and_quarterly_entries(self):
+        daily = self._record('daily', date(2026, 4, 6), date(2026, 4, 6))
+        weekly = self._record('weekly', date(2026, 4, 6), date(2026, 4, 11))
+        monthly = self._record('monthly', date(2026, 4, 1), date(2026, 4, 30))
+        quarterly = self._record('quarterly', date(2026, 4, 1), date(2026, 6, 30))
+
+        Section11SpecificAchievementsData.objects.create(qpr_record=daily, innovative_work='Daily text')
+        Section11SpecificAchievementsData.objects.create(qpr_record=weekly, innovative_work='Weekly text')
+        Section11SpecificAchievementsData.objects.create(qpr_record=monthly, innovative_work='Monthly text')
+        Section11SpecificAchievementsData.objects.create(qpr_record=quarterly, innovative_work='Quarterly text')
+
+        text = _aggregate_section11_text_for_range(
+            self.user,
+            date(2026, 4, 1),
+            date(2026, 6, 30),
+            'innovative_work',
+            source_frequency='all'
+        )
+
+        self.assertIn('Daily text', text)
+        self.assertIn('Weekly text', text)
+        self.assertIn('Monthly text', text)
+        self.assertIn('Quarterly text', text)
+        self.assertNotIn('[Daily', text)
+        self.assertNotIn('[Weekly', text)
+        self.assertNotIn('[Monthly', text)
+        self.assertNotIn('[Quarterly', text)

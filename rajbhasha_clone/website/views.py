@@ -44,8 +44,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from website import urls
-
 # Local App Imports
 from .utils import (
     load_employee_data, send_system_email, get_allowed_quarters,
@@ -66,7 +64,8 @@ from .models import (
     Section9ImplementationCommitteeData, Section10HindiAdvisoryData,
     Section11SpecificAchievementsData, StaffHindiKnowledge, TranslationKnowledge, TypingStenographyKnowledge,
     TypingUsageReport, UserProfile, cipher_suite, ProfileChangeRequest,
-    ManagerRequest, EditRequest
+    ManagerRequest, EditRequest, WeeklyFill, WeeklySnapshot, MonthlyFill, MonthlySnapshot,
+    QuarterlyFill, QuarterlySnapshot
 )
 from .serializers import EmployeeSerializer
 from .signals import User
@@ -713,6 +712,40 @@ def _quarter_label_to_daterange(quarter_label, year_label):
         end = date(base+1, 3, 31)
     return (start, end)
 
+
+def get_clipped_week_bounds(date_val, quarter_label, year_label):
+    """
+    Get week boundaries normalized to Monday-Saturday and clipped to quarter boundaries.
+    
+    This is the SINGLE AUTHORITATIVE source for all aggregation period calculations.
+    Enforces consistent normalization + quarter boundary clamping everywhere.
+    
+    Args:
+        date_val: A date object to normalize to week
+        quarter_label: Quarter string like 'Jul-Sep' or 'सितंबर'
+        year_label: Year label like '2025-2026'
+    
+    Returns:
+        (period_start, period_end) tuple with:
+        - period_start: Monday of the week (zero-indexed weekday 0)
+        - period_end: Saturday of the week (zero-indexed weekday 5)
+        - Both clamped to financial quarter boundaries
+    """
+    # 1. Normalize to Monday-Saturday week
+    weekday = date_val.weekday()  # Monday=0, Sunday=6
+    week_start = date_val - timedelta(days=weekday)
+    week_end = week_start + timedelta(days=5)  # Saturday
+    
+    # 2. Get quarter boundaries
+    q_start, q_end = _quarter_label_to_daterange(quarter_label, year_label)
+    
+    # 3. Clip to quarter boundaries
+    clipped_start = max(week_start, q_start)
+    clipped_end = min(week_end, q_end)
+    
+    return (clipped_start, clipped_end)
+
+
 NUMERIC_KEYS = [
     's1_total','s1_hindi','s2_meetings','s2_minutes','s2_papers_total','s2_papers_hindi',
     's3_total','s3_bilingual','s3_english','s3_hindi_only',
@@ -1022,9 +1055,11 @@ def _aggregate_section11_text_for_range(user, start_dt, end_dt, text_field_name,
 
     qs = QPRRecord.objects.filter(
         user=user,
-        is_submitted=True,
-        frequency__iexact=(source_frequency or '')
+        is_submitted=True
     )
+    if source_frequency and str(source_frequency).lower() != 'all':
+        qs = qs.filter(frequency__iexact=(source_frequency or ''))
+    qs = qs.order_by('period_start', 'period_end', 'id')
 
     for r in qs:
         try:
@@ -1196,6 +1231,11 @@ def is_period_overlapping(user, start, end, exclude_id=None, new_frequency=None)
     Behaviour:
     - By default (new_frequency is None) returns True if any submitted record
       overlaps the range (preserves original strict behaviour).
+    - Lower-level submissions cannot be created inside an already submitted
+      higher-level period:
+        * daily is blocked by daily/weekly/monthly/quarterly coverage.
+        * weekly is blocked by weekly/monthly/quarterly coverage.
+        * monthly is blocked by monthly/quarterly coverage.
     - If `new_frequency=='weekly'` then:
         * overlapping records with frequency != 'daily' (weekly/monthly/quarterly)
           are considered conflicts (e.g. another weekly already exists).
@@ -1240,27 +1280,40 @@ def is_period_overlapping(user, start, end, exclude_id=None, new_frequency=None)
         # Otherwise allow weekly creation (no conflict)
         return False
 
-    # Special-case: creating a daily record — only conflict if same day already exists
+    # Special-case: creating a daily record — conflict if that date is already covered
     if str(new_frequency).lower() == 'daily':
-        # Daily records should only conflict if another daily record for the same day exists
-        # (they represent the same day's report)
-        same_day_overlap = base_qs.filter(
-            frequency__iexact='daily',
-            period_start=start,
-            period_end=end
-        ).exists()
-        return same_day_overlap
+        # A daily report cannot be submitted for a date that is already covered
+        # by any submitted daily/weekly/monthly/quarterly report.
+        return base_qs.filter(period_start__lte=end, period_end__gte=start).exists()
 
-    # Special-case: creating a monthly/quarterly record — only conflict with same frequency/period
-    if str(new_frequency).lower() in ['monthly', 'quarterly']:
-        # Monthly/quarterly are cumulative aggregations; only conflict if exact same period exists
-        # Don't conflict with daily/weekly records (those are incorporated into the aggregate)
-        same_freq_overlap = base_qs.filter(
-            frequency__iexact=new_frequency,
+    # Special-case: creating a monthly record — allow aggregation over daily/weekly,
+    # but block an already submitted monthly for the same month or any quarterly
+    # report that covers this month.
+    if str(new_frequency).lower() == 'monthly':
+        same_month_exists = base_qs.filter(
+            frequency__iexact='monthly',
             period_start=start,
             period_end=end
         ).exists()
-        return same_freq_overlap
+        if same_month_exists:
+            return True
+
+        quarterly_conflict = base_qs.filter(
+            frequency__iexact='quarterly',
+            period_start__lte=end,
+            period_end__gte=start
+        ).exists()
+        return quarterly_conflict
+
+    # Special-case: creating a quarterly record — only conflict with the same
+    # quarterly period. Daily/weekly/monthly records are incorporated into the
+    # aggregate and remain allowed as sources before the quarterly is submitted.
+    if str(new_frequency).lower() == 'quarterly':
+        return base_qs.filter(
+            frequency__iexact='quarterly',
+            period_start=start,
+            period_end=end
+        ).exists()
 
     # Fallback to strict behaviour for other frequencies
     return base_qs.filter(period_start__lte=end, period_end__gte=start).exists()
@@ -1374,6 +1427,16 @@ def _allowed_frequencies_for_date(user, selected_date, allow_future_days=True):
     # quarterly allowed only at quarter end if there are missing working days in the quarter
     if len(missing_quarter) > 0 and selected_date >= quarter_last:
         allowed.append('quarterly')
+
+    # Keep the client-facing availability list consistent with the final
+    # submit guard. This prevents lower-level options from appearing when a
+    # weekly/monthly/quarterly submission already covers the selected period.
+    filtered_allowed = []
+    for freq in allowed:
+        ps, pe = compute_period(freq, selected_date=selected_date)
+        if not is_period_overlapping(user, ps, pe, new_frequency=freq):
+            filtered_allowed.append(freq)
+    allowed = filtered_allowed
 
     return {
         'allowed': allowed,
@@ -3644,6 +3707,9 @@ def qpr_form(request):
         'profile_email_filled': bool(profile_email),
         'used_quarters_json': json.dumps(used),
     }
+    qpr_popup_error = request.session.pop('qpr_popup_error', '')
+    if qpr_popup_error:
+        context['qpr_popup_error'] = qpr_popup_error
 
     # Determine current quarter for preselection using server local date (respects TIME_ZONE)
     today = timezone.localdate()
@@ -3720,6 +3786,30 @@ def qpr_form(request):
     except Exception:
         context['availability_json'] = None
         context['selected_date'] = timezone.localdate().isoformat()
+
+    # Add missing days context for different frequencies
+    try:
+        selected_date = timezone.localdate()
+        context['missing_days_weekly'] = _get_missing_days_context(
+            request.user, 'weekly', selected_date, current_quarter, current_financial_year
+        )
+        context['missing_days_monthly'] = _get_missing_days_context(
+            request.user, 'monthly', selected_date, current_quarter, current_financial_year
+        )
+        context['missing_days_quarterly'] = _get_missing_days_context(
+            request.user, 'quarterly', selected_date, current_quarter, current_financial_year
+        )
+        context['missing_days_json'] = _json.dumps({
+            'weekly': context['missing_days_weekly'],
+            'monthly': context['missing_days_monthly'],
+            'quarterly': context['missing_days_quarterly']
+        })
+    except Exception as e:
+        print(f"[ERROR] Failed to get missing days context: {str(e)}")
+        context['missing_days_weekly'] = {'missing_days': [], 'has_fill': False, 'fill_fields_count': 0, 'message': ''}
+        context['missing_days_monthly'] = {'missing_days': [], 'has_fill': False, 'fill_fields_count': 0, 'message': ''}
+        context['missing_days_quarterly'] = {'missing_days': [], 'has_fill': False, 'fill_fields_count': 0, 'message': ''}
+        context['missing_days_json'] = _json.dumps({})
 
     return render(request, 'qpr/qpr_form.html', context)
 
@@ -3831,64 +3921,271 @@ def report_list(request):
         except Exception:
             default_region = ''
 
-        # DAILY: include every working day (Mon-Sat) with submitted flag and coverage info
         daily = []
+        weekly = []
+        monthly = []
+        quarterly = None
+        
         if q_start and q_end:
+            # ========== PHASE 1: Batch load all data once (1-3 queries total) ==========
+            
+            # Load all daily records WITH FULL DATA (not just dates)
+            all_daily_recs_full = list(QPRRecord.objects.filter(
+                user=target_user, 
+                is_submitted=True, 
+                frequency__iexact='daily',
+                period_start__range=[q_start, q_end]
+            ))
+            
+            # Also load all daily records as summary for existence check
+            all_daily_recs = list(QPRRecord.objects.filter(
+                user=target_user, 
+                is_submitted=True, 
+                frequency__iexact='daily',
+                period_start__range=[q_start, q_end]
+            ).values('period_start', 'region'))
+            
+            # Load all weekly snapshots
+            all_weekly_snaps = list(WeeklySnapshot.objects.filter(
+                user=target_user,
+                quarter=quarter,
+                year=year,
+                period_start__gte=q_start - timedelta(days=7),
+                period_end__lte=q_end + timedelta(days=7)
+            ))
+            
+            # Load all weekly fills (to populate missing days)
+            all_weekly_fills = list(WeeklyFill.objects.filter(
+                user=target_user,
+                quarter=quarter,
+                year=year,
+                period_start__gte=q_start - timedelta(days=7),
+                period_end__lte=q_end + timedelta(days=7)
+            ))
+            
+            # Load all monthly snapshots
+            all_monthly_snaps = list(MonthlySnapshot.objects.filter(
+                user=target_user,
+                quarter=quarter,
+                year=year,
+                period_start__gte=q_start - timedelta(days=31),
+                period_end__lte=q_end + timedelta(days=31)
+            ))
+            
+            # Load quarterly snapshot
+            quarterly_snap = QuarterlySnapshot.objects.filter(
+                user=target_user,
+                quarter=quarter,
+                year=year
+            ).first()
+            
+            # Load all daily/weekly/monthly QPRRecords for coverage detection
+            all_daily_records = QPRRecord.objects.filter(
+                user=target_user, 
+                is_submitted=True, 
+                frequency__iexact='daily',
+                period_start__range=[q_start, q_end]
+            )
+            all_weekly_records = QPRRecord.objects.filter(
+                user=target_user,
+                is_submitted=True,
+                frequency__iexact='weekly',
+                period_start__lte=q_end,
+                period_end__gte=q_start
+            )
+            all_monthly_records = QPRRecord.objects.filter(
+                user=target_user,
+                is_submitted=True,
+                frequency__iexact='monthly',
+                period_start__lte=q_end,
+                period_end__gte=q_start
+            )
+            all_quarterly_records = QPRRecord.objects.filter(
+                user=target_user,
+                is_submitted=True,
+                frequency__iexact='quarterly',
+                period_start__lte=q_end,
+                period_end__gte=q_start
+            )
+            
+            # ========== PHASE 2: Build in-memory dictionaries (O(n) once) ==========
+            
+            # daily_by_date: {date: QPRRecord object} for full daily records
+            daily_by_date_full = {}
+            for rec in all_daily_recs_full:
+                daily_by_date_full[rec.period_start] = rec
+            
+            # daily_by_date: {date: record_dict} for existence check
+            daily_by_date = {}
+            for rec in all_daily_recs:
+                daily_by_date[rec['period_start']] = rec
+            
+            # weekly_by_range: {(start, end): snapshot}
+            weekly_by_range = {}
+            for snap in all_weekly_snaps:
+                weekly_by_range[(snap.period_start, snap.period_end)] = snap
+            
+            # weekly_fill_by_range: {(start, end): fill} to populate missing days
+            weekly_fill_by_range = {}
+            for fill in all_weekly_fills:
+                weekly_fill_by_range[(fill.period_start, fill.period_end)] = fill
+            
+            # monthly_by_range: {(start, end): snapshot}
+            monthly_by_range = {}
+            for snap in all_monthly_snaps:
+                monthly_by_range[(snap.period_start, snap.period_end)] = snap
+            
+            # Coverage check dictionaries (for determining covered_by)
+            # Build sets of date ranges for faster overlap checking
+            weekly_ranges = [(r.period_start, r.period_end) for r in all_weekly_records]
+            weekly_record_by_range = {(r.period_start, r.period_end): r for r in all_weekly_records}
+            monthly_ranges = [(r.period_start, r.period_end) for r in all_monthly_records]
+            quarterly_ranges = [(r.period_start, r.period_end) for r in all_quarterly_records]
+            first_weekly_fill_day_by_id = {}
+            for (w_start, w_end), weekly_fill in weekly_fill_by_range.items():
+                fill_id = getattr(weekly_fill, 'id', None)
+                cur_fill_day = max(w_start, q_start)
+                fill_end = min(w_end, q_end)
+                while cur_fill_day <= fill_end:
+                    if cur_fill_day.weekday() <= 5 and cur_fill_day not in daily_by_date_full:
+                        first_weekly_fill_day_by_id[fill_id] = cur_fill_day
+                        break
+                    cur_fill_day = cur_fill_day + timedelta(days=1)
+            
+            # ========== PHASE 3: Loop using dictionaries (zero more queries!) ==========
+            
+            # DAILY: every working day (Mon-Sat)
             cur = q_start
+            daily_debug = []
             while cur <= q_end:
                 if cur.weekday() <= 5:  # Mon-Sat
-                    # totals from daily records
-                    totals = _aggregate_records_with_fallback(target_user, cur, cur, preferred='daily')
-                    rec_daily = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='daily', period_start=cur).first()
-                    exists_daily = bool(rec_daily)
-                    # determine coverage by higher-level records
+                    # Initialize all flags
+                    totals = {k: 0 for k in NUMERIC_KEYS}
+                    filled_by_weekly = False
+                    is_first_fill_day = False
+                    weekly_fill_record_id = None
+                    weekly_record_id = None
+                    exists_daily = False
+                    region = ''
+                    
+                    # PRIORITY 1: Check for daily record FIRST (highest priority)
+                    daily_rec = daily_by_date_full.get(cur)
+                    daily_record_id = None
+                    if daily_rec:
+                        exists_daily = True
+                        daily_record_id = getattr(daily_rec, 'id', None)
+                        region = getattr(daily_rec, 'region', '') or ''
+                        for k in NUMERIC_KEYS:
+                            totals[k] = getattr(daily_rec, k, 0) or 0
+                        daily_debug.append(f"{cur}: HAS_DAILY (s1_total={totals.get('s1_total', 0)})")
+                    else:
+                        # PRIORITY 2: If no daily record, check for weekly fill (only for missing days)
+                        for (w_start, w_end), weekly_fill in weekly_fill_by_range.items():
+                            if w_start <= cur <= w_end:
+                                # Use weekly fill values for this missing day
+                                for k in NUMERIC_KEYS:
+                                    totals[k] = getattr(weekly_fill, k, 0) or 0
+                                filled_by_weekly = True
+                                weekly_fill_record_id = getattr(weekly_fill, 'id', None)
+                                weekly_record = weekly_record_by_range.get((w_start, w_end))
+                                weekly_record_id = getattr(weekly_record, 'id', None) if weekly_record else None
+                                
+                                # Mark only the first filled missing day of this weekly fill range.
+                                is_first_fill_day = (
+                                    first_weekly_fill_day_by_id.get(weekly_fill_record_id) == cur
+                                )
+                                
+                                daily_debug.append(f"{cur}: WEEKLY_FILL is_first={is_first_fill_day} (s1_total={totals.get('s1_total', 0)})")
+                                break
+                    
+                    # Determine coverage by higher-level records (if no daily or weekly fill)
                     covered_by = None
-                    region = getattr(rec_daily, 'region', '') if rec_daily else ''
-                    if not exists_daily:
-                        # check weekly, monthly, quarterly coverage
-                        if QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='weekly', period_start__lte=cur, period_end__gte=cur).exists():
-                            covered_by = 'weekly'
-                        elif QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='monthly', period_start__lte=cur, period_end__gte=cur).exists():
-                            covered_by = 'monthly'
-                        elif QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='quarterly', period_start__lte=cur, period_end__gte=cur).exists():
-                            covered_by = 'quarterly'
-                        # derive region from candidates if not set
-                        if not region:
-                            cand = QPRRecord.objects.filter(user=target_user, is_submitted=True, period_start__lte=cur, period_end__gte=cur).first()
-                            region = getattr(cand, 'region', '') if cand else ''
-
+                    if not exists_daily and not filled_by_weekly:
+                        # Check if this day falls within any weekly/monthly/quarterly range
+                        for w_start, w_end in weekly_ranges:
+                            if w_start <= cur <= w_end:
+                                covered_by = 'weekly'
+                                break
+                        if not covered_by:
+                            for m_start, m_end in monthly_ranges:
+                                if m_start <= cur <= m_end:
+                                    covered_by = 'monthly'
+                                    break
+                        if not covered_by:
+                            for q_start_r, q_end_r in quarterly_ranges:
+                                if q_start_r <= cur <= q_end_r:
+                                    covered_by = 'quarterly'
+                                    break
+                    
                     daily.append({
                         'period_start': cur.isoformat(),
                         'period_end': cur.isoformat(),
                         'totals': totals,
                         'has_daily': exists_daily,
+                        'daily_id': daily_record_id,
+                        'filled_by_weekly': filled_by_weekly,
+                        'is_first_fill_day': is_first_fill_day,
+                        'weekly_fill_record_id': weekly_fill_record_id,
+                        'weekly_record_id': weekly_record_id,
                         'covered_by': covered_by,
                         'region': region or default_region or ''
                     })
                 cur = cur + timedelta(days=1)
-
-        # WEEKLY: iterate Mon-Sat weeks overlapping quarter
-        weekly = []
-        if q_start and q_end:
+            print(f"[DEBUG report_list] DAILY SUMMARY: {daily_debug}")
+            print(type(cur), cur)
+            for k in daily_by_date_full.keys():
+                print(type(k), k)
+            # WEEKLY: Mon-Sat weeks overlapping quarter
             w_start = q_start - timedelta(days=q_start.weekday())
             while w_start <= q_end:
                 w_end = w_start + timedelta(days=5)
                 display_start = max(w_start, q_start)
                 display_end = min(w_end, q_end)
-                totals = _aggregate_records_with_fallback(target_user, display_start, display_end, preferred='weekly')
-                daily_count = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='daily', period_start__range=(display_start, display_end)).count()
+                
+                # Get clipped week bounds (as stored in database)
+                clipped_ws, clipped_we = get_clipped_week_bounds(w_start, quarter, year)
+                
+                # Get snapshot (O(1) dictionary lookup) using CLIPPED dates
+                weekly_snap = weekly_by_range.get((clipped_ws, clipped_we))
+                if weekly_snap and not getattr(weekly_snap, 'is_overwritten', False):
+                    weekly_snap, _ = _rebuild_weekly_snapshot_from_source(
+                        target_user, clipped_ws, clipped_we, quarter, year
+                    )
+                if weekly_snap:
+                    # Convert snapshot to totals dict
+                    totals = {k: getattr(weekly_snap, k, 0) or 0 for k in NUMERIC_KEYS}
+                else:
+                    totals = {k: 0 for k in NUMERIC_KEYS}
+                
+                # Count daily records (O(1) in-memory operation)
+                daily_count = sum(1 for d in all_daily_recs 
+                                 if display_start <= d['period_start'] <= display_end)
+                
+                # Calculate expected working days
                 expected_days = 0
                 for d in range((display_end - display_start).days + 1):
                     dt = display_start + timedelta(days=d)
                     if dt.weekday() <= 5 and q_start <= dt <= q_end:
                         expected_days += 1
+                
                 missing_days = max(0, expected_days - daily_count)
-                weekly_submitted = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='weekly', period_start__lte=display_start, period_end__gte=display_end).exists()
-                weekly_rec = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='weekly', period_start__lte=display_start, period_end__gte=display_end).first()
-                region_week = getattr(weekly_rec, 'region', '') if weekly_rec else ''
+                
+                # Check if weekly submitted (O(1) check from all_weekly_records)
+                weekly_submitted = any(
+                    (r.period_start <= display_start and r.period_end >= display_end)
+                    for r in all_weekly_records
+                )
+                
+                # Get region from weekly snapshot or daily records
+                region_week = ''
+                if weekly_snap:
+                    region_week = getattr(weekly_snap, 'region', '') or ''
                 if not region_week:
-                    cand = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='daily', period_start__range=(display_start, display_end)).first()
-                    region_week = getattr(cand, 'region', '') if cand else ''
+                    for rec in all_daily_recs:
+                        if display_start <= rec['period_start'] <= display_end:
+                            region_week = rec.get('region', '')
+                            break
+                
                 weekly.append({
                     'period_start': display_start.isoformat(),
                     'period_end': display_end.isoformat(),
@@ -3900,10 +4197,8 @@ def report_list(request):
                     'region': region_week or default_region or ''
                 })
                 w_start = w_start + timedelta(days=7)
-
-        # MONTHLY
-        monthly = []
-        if q_start and q_end:
+            
+            # MONTHLY: iterate through months in quarter
             m = q_start
             while m <= q_end:
                 month_start = date(m.year, m.month, 1)
@@ -3915,14 +4210,42 @@ def report_list(request):
                     month_end = q_end
                 if month_start < q_start:
                     month_start = q_start
-                totals = _aggregate_records_with_fallback(target_user, month_start, month_end, preferred='monthly')
-                daily_count = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='daily', period_start__range=(month_start, month_end)).count()
-                monthly_submitted = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='monthly', period_start__lte=month_start, period_end__gte=month_end).exists()
-                monthly_rec = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='monthly', period_start__lte=month_start, period_end__gte=month_end).first()
-                region_month = getattr(monthly_rec, 'region', '') if monthly_rec else ''
+                
+                # Get snapshot (O(1) dictionary lookup)
+                monthly_snap = monthly_by_range.get((month_start, month_end))
+                if monthly_snap and not getattr(monthly_snap, 'is_overwritten', False):
+                    monthly_snap, _ = _rebuild_monthly_snapshot_from_source(
+                        target_user, month_start, month_end, quarter, year
+                    )
+                elif not monthly_snap:
+                    monthly_snap, _ = _rebuild_monthly_snapshot_from_source(
+                        target_user, month_start, month_end, quarter, year
+                    )
+                if monthly_snap:
+                    totals = {k: getattr(monthly_snap, k, 0) or 0 for k in NUMERIC_KEYS}
+                else:
+                    totals = {k: 0 for k in NUMERIC_KEYS}
+                
+                # Count daily records in month (O(1) in-memory operation)
+                daily_count = sum(1 for d in all_daily_recs 
+                                 if month_start <= d['period_start'] <= month_end)
+                
+                # Check if monthly submitted
+                monthly_submitted = any(
+                    (r.period_start <= month_start and r.period_end >= month_end)
+                    for r in all_monthly_records
+                )
+                
+                # Get region from monthly snapshot or daily records
+                region_month = ''
+                if monthly_snap:
+                    region_month = getattr(monthly_snap, 'region', '') or ''
                 if not region_month:
-                    cand = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='daily', period_start__range=(month_start, month_end)).first()
-                    region_month = getattr(cand, 'region', '') if cand else ''
+                    for rec in all_daily_recs:
+                        if month_start <= rec['period_start'] <= month_end:
+                            region_month = rec.get('region', '')
+                            break
+                
                 monthly.append({
                     'period_start': month_start.isoformat(),
                     'period_end': month_end.isoformat(),
@@ -3931,19 +4254,45 @@ def report_list(request):
                     'monthly_submitted': monthly_submitted,
                     'region': region_month or default_region or ''
                 })
+                
                 # next month
                 if m.month == 12:
                     m = date(m.year + 1, 1, 1)
                 else:
                     m = date(m.year, m.month + 1, 1)
+            
+            # QUARTERLY: Use quarterly snapshot values, rebuilt from monthly snapshots + quarterly fill.
+            if quarterly_snap and not getattr(quarterly_snap, 'is_overwritten', False):
+                quarterly_snap, _ = _rebuild_quarterly_snapshot_from_source(target_user, quarter, year)
+            elif not quarterly_snap:
+                quarterly_snap, _ = _rebuild_quarterly_snapshot_from_source(target_user, quarter, year)
 
-        # QUARTERLY
-        if q_start and q_end:
-            quarterly_totals = _aggregate_records_with_fallback(target_user, q_start, q_end, preferred='quarterly')
-            quarterly_submitted = QPRRecord.objects.filter(user=target_user, is_submitted=True, frequency__iexact='quarterly', period_start=q_start, period_end=q_end).exists()
-            quarterly = {'period_start': q_start.isoformat(), 'period_end': q_end.isoformat(), 'totals': quarterly_totals, 'submitted': quarterly_submitted}
-        else:
-            quarterly = None
+            if quarterly_snap:
+                # Use snapshot data
+                quarterly = {
+                    'period_start': q_start.isoformat(),
+                    'period_end': q_end.isoformat(),
+                    'totals': {k: getattr(quarterly_snap, k, 0) or 0 for k in NUMERIC_KEYS},
+                    'submitted': True,
+                    'is_snapshot': True,
+                    'data_source': 'Quarterly snapshot',
+                    'composition': None,
+                    'quarter': quarter,
+                    'year': year
+                }
+            else:
+                # Fallback: zeros (no quarterly data)
+                quarterly = {
+                    'period_start': q_start.isoformat(),
+                    'period_end': q_end.isoformat(),
+                    'totals': {k: 0 for k in NUMERIC_KEYS},
+                    'submitted': False,
+                    'is_snapshot': False,
+                    'data_source': 'No data',
+                    'composition': None,
+                    'quarter': quarter,
+                    'year': year
+                }
 
         summary = {
             'quarter_label': quarter,
@@ -4315,16 +4664,34 @@ def report_detail(request, record_id):
                         # WEEKLY
                         if view_as == 'weekly' or view_as == 'weekly' or True:
                             try:
-                                # compute week containing ps (Monday start)
-                                wk_start = ps - timedelta(days=(ps.weekday() or 0))
-                                wk_end = wk_start + timedelta(days=6)
-                                wk_tot = _aggregate_records_with_fallback(rec.user, wk_start, wk_end, preferred='weekly')
+                                # Use the same quarter-clipped week bounds used by report_list/snapshots.
+                                wk_start, wk_end = get_clipped_week_bounds(ps, rec.quarter, rec.year)
+                                
+                                weekly_snap = WeeklySnapshot.objects.filter(
+                                    user=rec.user,
+                                    quarter=rec.quarter,
+                                    year=rec.year,
+                                    period_start=wk_start,
+                                    period_end=wk_end
+                                ).first()
+                                if weekly_snap and not getattr(weekly_snap, 'is_overwritten', False):
+                                    weekly_snap, _ = _rebuild_weekly_snapshot_from_source(
+                                        rec.user, wk_start, wk_end, rec.quarter, rec.year
+                                    )
+                                
+                                if weekly_snap:
+                                    # Convert snapshot to totals dict
+                                    wk_tot = {k: getattr(weekly_snap, k, 0) or 0 for k in NUMERIC_KEYS}
+                                else:
+                                    # Fallback to aggregation if snapshot doesn't exist (legacy data)
+                                    wk_tot = _aggregate_records_with_fallback(rec.user, wk_start, wk_end, preferred='weekly')
+                                
                                 record_data['cumulative']['weekly'] = wk_tot
                                 # Accumulate Section 11 text for weekly view
                                 try:
-                                    s12_1_txt = _aggregate_section11_text_for_range(rec.user, wk_start, wk_end, 'innovative_work', source_frequency='daily')
-                                    s12_2_txt = _aggregate_section11_text_for_range(rec.user, wk_start, wk_end, 'special_events', source_frequency='daily')
-                                    s12_3_txt = _aggregate_section11_text_for_range(rec.user, wk_start, wk_end, 'hindi_medium_works', source_frequency='daily')
+                                    s12_1_txt = _aggregate_section11_text_for_range(rec.user, wk_start, wk_end, 'innovative_work', source_frequency='all')
+                                    s12_2_txt = _aggregate_section11_text_for_range(rec.user, wk_start, wk_end, 'special_events', source_frequency='all')
+                                    s12_3_txt = _aggregate_section11_text_for_range(rec.user, wk_start, wk_end, 'hindi_medium_works', source_frequency='all')
                                     record_data.setdefault('cumulative_text', {})
                                     record_data['cumulative_text']['weekly'] = {'s12_1': s12_1_txt, 's12_2': s12_2_txt, 's12_3': s12_3_txt}
                                 except Exception:
@@ -4338,39 +4705,69 @@ def report_detail(request, record_id):
                                 m_end = date(ps.year, 12, 31)
                             else:
                                 m_end = date(ps.year, ps.month + 1, 1) - timedelta(days=1)
-                            m_tot = _aggregate_records_with_fallback(rec.user, m_start, m_end, preferred='monthly')
+                            
+                            # READ from MonthlySnapshot instead of recomputing
+                            monthly_snap = MonthlySnapshot.objects.filter(
+                                user=rec.user,
+                                quarter=rec.quarter,
+                                year=rec.year,
+                                period_start=m_start,
+                                period_end=m_end
+                            ).first()
+                            if monthly_snap and not getattr(monthly_snap, 'is_overwritten', False):
+                                monthly_snap, _ = _rebuild_monthly_snapshot_from_source(
+                                    rec.user, m_start, m_end, rec.quarter, rec.year
+                                )
+                            elif not monthly_snap:
+                                monthly_snap, _ = _rebuild_monthly_snapshot_from_source(
+                                    rec.user, m_start, m_end, rec.quarter, rec.year
+                                )
+                            
+                            if monthly_snap:
+                                m_tot = {k: getattr(monthly_snap, k, 0) or 0 for k in NUMERIC_KEYS}
+                            else:
+                                # Fallback to aggregation if snapshot doesn't exist
+                                m_tot = _aggregate_records_with_fallback(rec.user, m_start, m_end, preferred='monthly')
+                            
                             record_data['cumulative']['monthly'] = m_tot
                             # Accumulate Section 11 text for monthly view
                             try:
-                                s12_1_txt = _aggregate_section11_text_for_range(rec.user, m_start, m_end, 'innovative_work', source_frequency='daily')
-                                s12_2_txt = _aggregate_section11_text_for_range(rec.user, m_start, m_end, 'special_events', source_frequency='daily')
-                                s12_3_txt = _aggregate_section11_text_for_range(rec.user, m_start, m_end, 'hindi_medium_works', source_frequency='daily')
+                                s12_1_txt = _aggregate_section11_text_for_range(rec.user, m_start, m_end, 'innovative_work', source_frequency='all')
+                                s12_2_txt = _aggregate_section11_text_for_range(rec.user, m_start, m_end, 'special_events', source_frequency='all')
+                                s12_3_txt = _aggregate_section11_text_for_range(rec.user, m_start, m_end, 'hindi_medium_works', source_frequency='all')
                                 record_data.setdefault('cumulative_text', {})
                                 record_data['cumulative_text']['monthly'] = {'s12_1': s12_1_txt, 's12_2': s12_2_txt, 's12_3': s12_3_txt}
                             except Exception:
                                 pass
                         except Exception:
                             pass
-                        # QUARTERLY (fiscal Apr-Mar quarters)
+                        # QUARTERLY (use stored quarter/year labels)
                         try:
-                            mon = ps.month
-                            yr = ps.year
-                            if 4 <= mon <= 6:
-                                q_start = date(yr, 4, 1); q_end = date(yr, 6, 30)
-                            elif 7 <= mon <= 9:
-                                q_start = date(yr, 7, 1); q_end = date(yr, 9, 30)
-                            elif 10 <= mon <= 12:
-                                q_start = date(yr, 10, 1); q_end = date(yr, 12, 31)
+                            q_start, q_end = _quarter_label_to_daterange(rec.quarter, rec.year or get_current_year_label())
+                            
+                            # READ from QuarterlySnapshot instead of recomputing
+                            quarter_snap = QuarterlySnapshot.objects.filter(
+                                user=rec.user,
+                                quarter=rec.quarter,
+                                year=rec.year or get_current_year_label()
+                            ).first()
+                            if quarter_snap and not getattr(quarter_snap, 'is_overwritten', False):
+                                quarter_snap, _ = _rebuild_quarterly_snapshot_from_source(
+                                    rec.user, rec.quarter, rec.year or get_current_year_label()
+                                )
+                            
+                            if quarter_snap:
+                                q_tot = {k: getattr(quarter_snap, k, 0) or 0 for k in NUMERIC_KEYS}
                             else:
-                                # Jan-Mar
-                                q_start = date(yr, 1, 1); q_end = date(yr, 3, 31)
-                            q_tot = _aggregate_records_with_fallback(rec.user, q_start, q_end, preferred='quarterly')
+                                # Fallback to aggregation if snapshot doesn't exist
+                                q_tot = _aggregate_records_with_fallback(rec.user, q_start, q_end, preferred='quarterly')
+                            
                             record_data['cumulative']['quarterly'] = q_tot
                             # Accumulate Section 11 text for quarterly view
                             try:
-                                s12_1_txt = _aggregate_section11_text_for_range(rec.user, q_start, q_end, 'innovative_work', source_frequency='daily')
-                                s12_2_txt = _aggregate_section11_text_for_range(rec.user, q_start, q_end, 'special_events', source_frequency='daily')
-                                s12_3_txt = _aggregate_section11_text_for_range(rec.user, q_start, q_end, 'hindi_medium_works', source_frequency='daily')
+                                s12_1_txt = _aggregate_section11_text_for_range(rec.user, q_start, q_end, 'innovative_work', source_frequency='all')
+                                s12_2_txt = _aggregate_section11_text_for_range(rec.user, q_start, q_end, 'special_events', source_frequency='all')
+                                s12_3_txt = _aggregate_section11_text_for_range(rec.user, q_start, q_end, 'hindi_medium_works', source_frequency='all')
                                 record_data.setdefault('cumulative_text', {})
                                 record_data['cumulative_text']['quarterly'] = {'s12_1': s12_1_txt, 's12_2': s12_2_txt, 's12_3': s12_3_txt}
                             except Exception:
@@ -4803,6 +5200,1485 @@ def freeze_division_snapshot(request):
     messages.success(request, 'Division quarter frozen successfully. Any further changes in QPR will not be shown in the state aggregation.')
     return redirect('qpr_hod_detail_list')
 
+
+# ==================== Missing Days Context for Forms ====================
+
+def _get_missing_days_context(user, frequency, selected_date, quarter=None, year=None):
+    """
+    Get context info for form display about missing days for a given frequency.
+    
+    Returns dict:
+    {
+        'missing_days': [date1, date2, ...],  # List of missing dates (excluding Sundays)
+        'has_fill': bool,  # Whether a Fill record already exists for this period
+        'fill_fields_count': int,  # Number of fields that have values in existing Fill
+        'message': str,  # User-friendly message about what's being filled
+        'period_start': date,
+        'period_end': date
+    }
+    """
+    if frequency not in ['weekly', 'monthly', 'quarterly']:
+        return {'missing_days': [], 'has_fill': False, 'fill_fields_count': 0, 'message': ''}
+    
+    try:
+        period_start, period_end = compute_period(frequency, selected_date, quarter, year)
+        
+        # Get missing days
+        missing_days = _get_missing_days_in_range(user, period_start, period_end)
+        
+        # Check if Fill record exists
+        has_fill = False
+        fill_fields_count = 0
+        
+        if frequency == 'weekly':
+            fill = WeeklyFill.objects.filter(
+                user=user,
+                period_start=period_start,
+                period_end=period_end,
+                quarter=quarter or '',
+                year=year or ''
+            ).first()
+            if fill:
+                has_fill = True
+                # Count non-null fields
+                for key in NUMERIC_KEYS:
+                    if getattr(fill, key, None):
+                        fill_fields_count += 1
+        
+        elif frequency == 'monthly':
+            fill = MonthlyFill.objects.filter(
+                user=user,
+                period_start=period_start,
+                period_end=period_end,
+                quarter=quarter or '',
+                year=year or ''
+            ).first()
+            if fill:
+                has_fill = True
+                for key in NUMERIC_KEYS:
+                    if getattr(fill, key, None):
+                        fill_fields_count += 1
+        
+        elif frequency == 'quarterly':
+            fill = QuarterlyFill.objects.filter(
+                user=user,
+                quarter=quarter or '',
+                year=year or ''
+            ).first()
+            if fill:
+                has_fill = True
+                for key in NUMERIC_KEYS:
+                    if getattr(fill, key, None):
+                        fill_fields_count += 1
+        
+        # Build user-friendly message
+        if missing_days:
+            day_names = [d.strftime('%a') for d in missing_days]
+            message = f"Filling {len(missing_days)} missing day{'s' if len(missing_days) != 1 else ''} ({', '.join(day_names)}) for {frequency} of {period_start.strftime('%d-%m-%Y')}"
+        else:
+            message = f"All days covered for this {frequency}. No missing days to fill."
+        
+        return {
+            'missing_days': [d.isoformat() for d in missing_days],
+            'has_fill': has_fill,
+            'fill_fields_count': fill_fields_count,
+            'message': message,
+            'period_start': period_start.isoformat(),
+            'period_end': period_end.isoformat()
+        }
+    
+    except Exception as e:
+        print(f"[ERROR] _get_missing_days_context failed: {str(e)}")
+        return {'missing_days': [], 'has_fill': False, 'fill_fields_count': 0, 'message': '', 'error': str(e)}
+
+
+# ==================== Fill Record Creation & Management ====================
+
+def _validate_details_for_missing_dates(user, period_start, period_end, details, entry_type):
+    """
+    Validate that submitted details only target missing dates.
+    Backend enforces that users can only fill dates without daily submissions.
+    
+    Args:
+        user: CustomUser instance
+        period_start, period_end: Date range of period
+        details: Dict with submitted numeric values
+        entry_type: 'weekly', 'monthly', or 'quarterly'
+    
+    Returns:
+        tuple: (is_valid, missing_dates_list, error_message)
+    """
+    try:
+        # Get list of dates without daily submissions
+        missing_dates = _get_missing_days_in_range(user, period_start, period_end)
+        
+        # Validation 1: Must have at least one missing date to fill
+        if not missing_dates:
+            error_msg = (
+                f"Cannot submit {entry_type} entry: No missing dates in this period. "
+                f"All working days {period_start} to {period_end} already have daily submissions."
+            )
+            return False, [], error_msg
+        
+        # Validation 2: Ensure submitted data has values (details not empty)
+        has_values = any(
+            details.get(key) for key in NUMERIC_KEYS 
+            if details.get(key)
+        )
+        if not has_values:
+            error_msg = (
+                f"Cannot submit {entry_type} entry: No data provided. "
+                f"Please enter values for at least one field."
+            )
+            return False, missing_dates, error_msg
+        
+        # Validation passed
+        return True, missing_dates, ""
+        
+    except Exception as e:
+        error_msg = f"Validation error for {entry_type} entry: {str(e)}"
+        return False, [], error_msg
+
+
+def _create_or_update_weekly_fill(user, period_start, period_end, details, quarter, year):
+    """
+    Create or update WeeklyFill record with user inputs for missing days.
+    Called when user submits "Weekly entry type" to fill only missing days.
+    
+    Validates that submission only targets missing dates (backend enforced).
+    
+    Args:
+        user: CustomUser instance
+        period_start, period_end: Date range of week
+        details: Dict with numeric values from form
+        quarter, year: Quarter and year identifiers
+        
+    Returns:
+        tuple: (fill_record_or_None, error_message_or_empty_string)
+    """
+    try:
+        # USE CENTRALIZED FUNCTION: Normalize to Monday-Saturday AND clamp to quarter boundaries
+        if period_start and period_end:
+            normalized_start, normalized_end = get_clipped_week_bounds(period_start, quarter, year)
+        else:
+            normalized_start = period_start
+            normalized_end = period_end
+        
+        # VALIDATION: Ensure submission targets only missing dates (use NORMALIZED dates)
+        is_valid, missing_dates, error_msg = _validate_details_for_missing_dates(
+            user, normalized_start, normalized_end, details, 'weekly'
+        )
+        if not is_valid:
+            print(f"[VALIDATION] Weekly Fill rejected for {user.id}: {error_msg}")
+            return None, error_msg
+        
+        # Validation passed - create or update fill with NORMALIZED dates
+        fill, _ = WeeklyFill.objects.get_or_create(
+            user=user,
+            period_start=normalized_start,
+            period_end=normalized_end,
+            quarter=quarter,
+            year=year
+        )
+        
+        # Update all NUMERIC_KEYS fields
+        for key in NUMERIC_KEYS:
+            value = details.get(key)
+            try:
+                value = int(value) if value else None
+            except (ValueError, TypeError):
+                value = None
+            if hasattr(fill, key):
+                setattr(fill, key, value)
+        
+        fill.save()
+        print(f"[SUCCESS] Weekly Fill created for {user.id}: {period_start} to {period_end}")
+        return fill, ""
+    except Exception as e:
+        error_msg = f"Failed to create WeeklyFill: {str(e)}"
+        print(f"[ERROR] {error_msg}")
+        return None, error_msg
+
+
+def _create_or_update_monthly_fill(user, period_start, period_end, details, quarter, year):
+    """
+    Create or update MonthlyFill record with user inputs for missing days.
+    Called when user submits "Monthly entry type" to fill only missing days.
+    
+    Validates that submission only targets missing dates (backend enforced).
+    
+    Args:
+        user: CustomUser instance
+        period_start, period_end: Date range of month
+        details: Dict with numeric values from form
+        quarter, year: Quarter and year identifiers
+        
+    Returns:
+        tuple: (fill_record_or_None, error_message_or_empty_string)
+    """
+    try:
+        # VALIDATION: Ensure submission targets only missing dates
+        is_valid, missing_dates, error_msg = _validate_details_for_missing_dates(
+            user, period_start, period_end, details, 'monthly'
+        )
+        if not is_valid:
+            print(f"[VALIDATION] Monthly Fill rejected for {user.id}: {error_msg}")
+            return None, error_msg
+        
+        # Validation passed - create or update fill
+        fill, _ = MonthlyFill.objects.get_or_create(
+            user=user,
+            period_start=period_start,
+            period_end=period_end,
+            quarter=quarter,
+            year=year
+        )
+        
+        # Update all NUMERIC_KEYS fields
+        for key in NUMERIC_KEYS:
+            value = details.get(key)
+            try:
+                value = int(value) if value else None
+            except (ValueError, TypeError):
+                value = None
+            if hasattr(fill, key):
+                setattr(fill, key, value)
+        
+        fill.save()
+        print(f"[SUCCESS] Monthly Fill created for {user.id}: {period_start} to {period_end}")
+        return fill, ""
+    except Exception as e:
+        error_msg = f"Failed to create MonthlyFill: {str(e)}"
+        print(f"[ERROR] {error_msg}")
+        return None, error_msg
+
+
+def _create_or_update_quarterly_fill(user, details, quarter, year, period_start=None, period_end=None):
+    """
+    Create or update QuarterlyFill record with user inputs for missing days.
+    Called when user submits "Quarterly entry type" to fill only missing days.
+    
+    Validates that submission only targets missing dates (backend enforced).
+    
+    Args:
+        user: CustomUser instance
+        details: Dict with numeric values from form
+        quarter, year: Quarter and year identifiers
+        period_start, period_end: Optional date range of quarter
+        
+    Returns:
+        tuple: (fill_record_or_None, error_message_or_empty_string)
+    """
+    try:
+        # Ensure we have period dates for validation
+        if not period_start or not period_end:
+            error_msg = "Cannot create quarterly fill: period_start and period_end required"
+            print(f"[ERROR] {error_msg}")
+            return None, error_msg
+        
+        # VALIDATION: Ensure submission targets only missing dates
+        is_valid, missing_dates, error_msg = _validate_details_for_missing_dates(
+            user, period_start, period_end, details, 'quarterly'
+        )
+        if not is_valid:
+            print(f"[VALIDATION] Quarterly Fill rejected for {user.id}: {error_msg}")
+            return None, error_msg
+        
+        # Validation passed - create or update fill
+        fill, _ = QuarterlyFill.objects.get_or_create(
+            user=user,
+            quarter=quarter,
+            year=year,
+            defaults={
+                'period_start': period_start,
+                'period_end': period_end
+            }
+        )
+        
+        # Update all NUMERIC_KEYS fields
+        for key in NUMERIC_KEYS:
+            value = details.get(key)
+            try:
+                value = int(value) if value else None
+            except (ValueError, TypeError):
+                value = None
+            if hasattr(fill, key):
+                setattr(fill, key, value)
+        
+        fill.save()
+        print(f"[SUCCESS] Quarterly Fill created for {user.id}: Q{quarter} {year}")
+        return fill, ""
+    except Exception as e:
+        error_msg = f"Failed to create QuarterlyFill: {str(e)}"
+        print(f"[ERROR] {error_msg}")
+        return None, error_msg
+
+
+# ==================== Snapshot Composition Helpers ====================
+
+def _get_snapshot_with_composition(user, quarter, year, period_start, period_end):
+    """
+    Fetch QuarterlySnapshot and build composition info (data_source).
+    Shows which sources contributed to the final snapshot.
+    
+    Returns:
+        dict: {snapshot_data..., data_source: "Composed of: X daily + Y weekly fills...", 
+               is_snapshot: True, composition_details: {...}}
+    """
+    try:
+        # Get or create snapshot (should already exist if aggregation ran)
+        snapshot = QuarterlySnapshot.objects.filter(
+            user=user,
+            quarter=quarter,
+            year=year
+        ).first()
+        
+        if not snapshot:
+            # No snapshot yet - not submitted or aggregation hasn't run
+            return None
+        
+        # Build composition info
+        composition = {'daily': 0, 'weekly_fills': 0, 'monthly_fills': 0, 'quarterly_fills': 0}
+        
+        # Count daily submissions in period
+        daily_count = QPRRecord.objects.filter(
+            user=user,
+            frequency__iexact='daily',
+            is_submitted=True,
+            period_start__gte=period_start,
+            period_start__lte=period_end
+        ).count()
+        composition['daily'] = daily_count
+        
+        # Count fills used in aggregation
+        weekly_fills_count = WeeklyFill.objects.filter(
+            user=user,
+            period_start__gte=period_start,
+            period_start__lte=period_end
+        ).count()
+        composition['weekly_fills'] = weekly_fills_count
+        
+        monthly_fills_count = MonthlyFill.objects.filter(
+            user=user,
+            period_start__gte=period_start,
+            period_start__lte=period_end
+        ).count()
+        composition['monthly_fills'] = monthly_fills_count
+        
+        quarterly_fills_count = QuarterlyFill.objects.filter(
+            user=user,
+            quarter=quarter,
+            year=year
+        ).count()
+        composition['quarterly_fills'] = quarterly_fills_count
+        
+        # Build human-readable data_source string
+        sources = []
+        if composition['daily'] > 0:
+            sources.append(f"{composition['daily']} daily")
+        if composition['weekly_fills'] > 0:
+            sources.append(f"{composition['weekly_fills']} weekly")
+        if composition['monthly_fills'] > 0:
+            sources.append(f"{composition['monthly_fills']} monthly")
+        if composition['quarterly_fills'] > 0:
+            sources.append(f"{composition['quarterly_fills']} quarterly")
+        
+        if not sources:
+            data_source = "Empty snapshot (no submissions)"
+        else:
+            data_source = f"Composed of: {' + '.join(sources)}"
+        
+        # Extract snapshot values into dict matching NUMERIC_KEYS
+        snapshot_dict = {}
+        for key in NUMERIC_KEYS:
+            snapshot_dict[key] = getattr(snapshot, key, 0) or 0
+        
+        # Add metadata
+        snapshot_dict['is_snapshot'] = True
+        snapshot_dict['data_source'] = data_source
+        snapshot_dict['composition'] = composition
+        snapshot_dict['is_overwritten'] = snapshot.is_overwritten
+        snapshot_dict['quarter'] = quarter
+        snapshot_dict['year'] = year
+        snapshot_dict['period_start'] = period_start.isoformat()
+        snapshot_dict['period_end'] = period_end.isoformat()
+        
+        return snapshot_dict
+        
+    except Exception as e:
+        print(f"[ERROR] Failed to get snapshot composition: {str(e)}")
+        return None
+
+
+# ==================== Aggregation Utilities for Fill & Snapshot Models ====================
+
+def _get_missing_days_in_range(user, start_date, end_date):
+    """
+    Return list of dates in [start_date, end_date] where user has no daily QPR submitted.
+    """
+    from django.db.models import Q
+    
+    all_dates = []
+    current = start_date
+    while current <= end_date:
+        # Skip Sundays (weekday() == 6)
+        if current.weekday() != 6:
+            all_dates.append(current)
+        current += timedelta(days=1)
+    
+    # Get dates with submitted daily records
+    submitted_dates = set(
+        QPRRecord.objects.filter(
+            user=user,
+            frequency__iexact='daily',
+            is_submitted=True,
+            period_start__in=all_dates
+        ).values_list('period_start', flat=True)
+    )
+    
+    # Return missing dates
+    return [d for d in all_dates if d not in submitted_dates]
+
+
+def _extract_details_from_record(qpr_record):
+    """
+    Convert QPRRecord + related section data into a dict of NUMERIC_KEYS values.
+    """
+    data = serialize_qpr_record(qpr_record)
+    return {k: (data.get(k) or 0) for k in NUMERIC_KEYS}
+
+
+def _update_snapshot_model(snapshot_model, details_dict, is_overwrite=False):
+    """
+    Update a Snapshot model instance with values from details_dict.
+    Handles PyDateTime defaults by converting them to integers.
+    """
+    for key in NUMERIC_KEYS:
+        value = details_dict.get(key, 0)
+        try:
+            value = int(value) if value else 0
+        except (ValueError, TypeError):
+            value = 0
+        if hasattr(snapshot_model, key):
+            setattr(snapshot_model, key, value)
+    
+    if is_overwrite:
+        snapshot_model.is_overwritten = True
+        snapshot_model.overwritten_at = now()
+    
+    snapshot_model.save()
+
+
+# ==================== NEW INCREMENTAL AGGREGATION HELPERS ====================
+# These functions implement the optimized O(1) per-level aggregation design
+
+def _sum_daily_in_range(user, start_date, end_date):
+    """
+    Sum all daily QPR records submitted by user in [start_date, end_date].
+    Returns dict keyed by NUMERIC_KEYS.
+    """
+    total = {k: 0 for k in NUMERIC_KEYS}
+    try:
+        daily_records = QPRRecord.objects.filter(
+            user=user,
+            frequency__iexact='daily',
+            is_submitted=True,
+            period_start__gte=start_date,
+            period_start__lte=end_date
+        ).values_list('id')  # Minimize data fetched
+        
+        for (record_id,) in daily_records:
+            record = QPRRecord.objects.get(id=record_id)
+            data = _extract_details_from_record(record)
+            for k in NUMERIC_KEYS:
+                total[k] = (total[k] or 0) + (data.get(k) or 0)
+    except Exception as e:
+        print(f"[ERROR] _sum_daily_in_range: {str(e)}")
+    return total
+
+
+def _sum_weekly_fill_in_range(user, start_date, end_date):
+    """Sum all WeeklyFill records in date range. Returns dict keyed by NUMERIC_KEYS."""
+    total = {k: 0 for k in NUMERIC_KEYS}
+    try:
+        fills = WeeklyFill.objects.filter(
+            user=user,
+            period_start__gte=start_date,
+            period_start__lte=end_date
+        )
+        for fill in fills:
+            for k in NUMERIC_KEYS:
+                total[k] = (total[k] or 0) + (getattr(fill, k, 0) or 0)
+    except Exception as e:
+        print(f"[ERROR] _sum_weekly_fill_in_range: {str(e)}")
+    return total
+
+
+def _sum_weekly_snapshots_in_month(user, month_start, month_end, quarter, year):
+    """
+    Sum WeeklySnapshot records owned by this month.
+    Cross-month weeks belong to the month containing the week's period_start.
+    """
+    total = {k: 0 for k in NUMERIC_KEYS}
+    try:
+        snapshots = WeeklySnapshot.objects.filter(
+            user=user,
+            quarter=quarter,
+            year=year,
+            period_start__gte=month_start,
+            period_start__lte=month_end
+        )
+        for snap in snapshots:
+            for k in NUMERIC_KEYS:
+                total[k] = (total[k] or 0) + (getattr(snap, k, 0) or 0)
+    except Exception as e:
+        print(f"[ERROR] _sum_weekly_snapshots_in_month: {str(e)}")
+    return total
+
+
+def _sum_monthly_snapshots_in_quarter(user, quarter, year):
+    """Sum all MonthlySnapshot records in a quarter. Returns dict keyed by NUMERIC_KEYS."""
+    total = {k: 0 for k in NUMERIC_KEYS}
+    try:
+        snapshots = MonthlySnapshot.objects.filter(
+            user=user,
+            quarter=quarter,
+            year=year
+        )
+        for snap in snapshots:
+            for k in NUMERIC_KEYS:
+                total[k] = (total[k] or 0) + (getattr(snap, k, 0) or 0)
+    except Exception as e:
+        print(f"[ERROR] _sum_monthly_snapshots_in_quarter: {str(e)}")
+    return total
+
+
+def _get_or_create_weekly_snapshot_with_sum(user, period_start, period_end, quarter, year):
+    """
+    Get or create weekly snapshot. On creation, initialize with sum of all daily + fills in week.
+    On get, return existing (already has proper sum from previous incremental updates).
+    
+    Uses centralized get_clipped_week_bounds() for consistent normalization + clipping.
+    
+    Returns: (snapshot_obj, is_new)
+    """
+    # USE CENTRALIZED FUNCTION: Normalize to Monday-Saturday AND clamp to quarter boundaries
+    if period_start:
+        normalized_start, normalized_end = get_clipped_week_bounds(period_start, quarter, year)
+    else:
+        normalized_start = period_start
+        normalized_end = period_end
+    
+    snapshot, created = WeeklySnapshot.objects.get_or_create(
+        user=user,
+        period_start=normalized_start,
+        period_end=normalized_end,
+        quarter=quarter,
+        year=year,
+        defaults={'is_overwritten': False}
+    )
+    
+    if created:
+        # Initialize with current sources: daily records + weekly fills (using NORMALIZED dates)
+        daily_sum = _sum_daily_in_range(user, normalized_start, normalized_end)
+        fill_sum = _sum_weekly_fill_in_range(user, normalized_start, normalized_end)
+        
+        for k in NUMERIC_KEYS:
+            val = (daily_sum.get(k, 0) or 0) + (fill_sum.get(k, 0) or 0)
+            setattr(snapshot, k, val)
+        snapshot.save()
+        print(f"[NEW] WeeklySnapshot created for user={user.id}: {normalized_start} to {normalized_end} (normalized from {period_start} to {period_end})")
+    
+    return snapshot, created
+
+
+def _get_or_create_monthly_snapshot_with_sum(user, period_start, period_end, quarter, year):
+    """
+    Get or create monthly snapshot. On creation, initialize with sum of all weekly snapshots + fills in month.
+    
+    Returns: (snapshot_obj, is_new)
+    """
+    snapshot, created = MonthlySnapshot.objects.get_or_create(
+        user=user,
+        period_start=period_start,
+        period_end=period_end,
+        quarter=quarter,
+        year=year,
+        defaults={'is_overwritten': False}
+    )
+    
+    if created:
+        # Initialize with weekly snapshots (don't rescan daily!) + monthly fills
+        weekly_sum = _sum_weekly_snapshots_in_month(user, period_start, period_end, quarter, year)
+        
+        monthly_fill = MonthlyFill.objects.filter(
+            user=user,
+            period_start=period_start,
+            period_end=period_end,
+            quarter=quarter,
+            year=year
+        ).first()
+        
+        fill_sum = {}
+        if monthly_fill:
+            fill_sum = {k: (getattr(monthly_fill, k, 0) or 0) for k in NUMERIC_KEYS}
+        else:
+            fill_sum = {k: 0 for k in NUMERIC_KEYS}
+        
+        for k in NUMERIC_KEYS:
+            val = (weekly_sum.get(k, 0) or 0) + (fill_sum.get(k, 0) or 0)
+            setattr(snapshot, k, val)
+        snapshot.save()
+        print(f"[NEW] MonthlySnapshot created for user={user.id}: {period_start} to {period_end}")
+    
+    return snapshot, created
+
+
+def _get_or_create_quarterly_snapshot_with_sum(user, quarter, year, period_start, period_end):
+    """
+    Get or create quarterly snapshot. On creation, initialize with sum of all monthly snapshots + fills in quarter.
+    
+    Returns: (snapshot_obj, is_new)
+    """
+    snapshot, created = QuarterlySnapshot.objects.get_or_create(
+        user=user,
+        quarter=quarter,
+        year=year,
+        defaults={
+            'period_start': period_start,
+            'period_end': period_end,
+            'is_overwritten': False
+        }
+    )
+    
+    if created:
+        # Initialize with monthly snapshots (don't rescan weekly!) + quarterly fills
+        monthly_sum = _sum_monthly_snapshots_in_quarter(user, quarter, year)
+        
+        quarterly_fill = QuarterlyFill.objects.filter(
+            user=user,
+            quarter=quarter,
+            year=year
+        ).first()
+        
+        fill_sum = {}
+        if quarterly_fill:
+            fill_sum = {k: (getattr(quarterly_fill, k, 0) or 0) for k in NUMERIC_KEYS}
+        else:
+            fill_sum = {k: 0 for k in NUMERIC_KEYS}
+        
+        for k in NUMERIC_KEYS:
+            val = (monthly_sum.get(k, 0) or 0) + (fill_sum.get(k, 0) or 0)
+            setattr(snapshot, k, val)
+        snapshot.save()
+        print(f"[NEW] QuarterlySnapshot created for user={user.id}: Q{quarter} {year}")
+    
+    return snapshot, created
+
+
+def _increment_snapshot_by_delta(snapshot, delta):
+    """Increment snapshot values by delta dict. O(1) operation."""
+    for k in NUMERIC_KEYS:
+        current = getattr(snapshot, k, 0) or 0
+        setattr(snapshot, k, current + (delta.get(k, 0) or 0))
+    snapshot.save()
+
+
+# ==================== SAFE PATH: REBUILD FUNCTIONS ====================
+# These functions RECALCULATE snapshots from parent sources when edits/corrections occur
+# They ensure data consistency for edit/fill scenarios where delta-only would drift
+
+def _rebuild_weekly_snapshot_from_source(user, period_start, period_end, quarter, year):
+    """
+    SAFE PATH: Recalculate weekly snapshot from authoritative sources (daily records + weekly fills).
+    Called when: daily record edited, or weekly fill submitted, or drift detected.
+    
+    Uses centralized get_clipped_week_bounds() for consistent normalization + clipping.
+    
+    Returns: (snapshot, was_updated)
+    """
+    try:
+        # USE CENTRALIZED FUNCTION: Normalize to Monday-Saturday AND clamp to quarter boundaries
+        if period_start and period_end:
+            normalized_start, normalized_end = get_clipped_week_bounds(period_start, quarter, year)
+        else:
+            normalized_start = period_start
+            normalized_end = period_end
+        
+        # Get all daily records + fills in this NORMALIZED week
+        daily_sum = _sum_daily_in_range(user, normalized_start, normalized_end)
+        fill_sum = _sum_weekly_fill_in_range(user, normalized_start, normalized_end)
+        
+        # Combine
+        total = {}
+        for k in NUMERIC_KEYS:
+            total[k] = (daily_sum.get(k, 0) or 0) + (fill_sum.get(k, 0) or 0)
+        
+        # Get or create snapshot with NORMALIZED dates
+        snapshot, created = WeeklySnapshot.objects.get_or_create(
+            user=user,
+            period_start=normalized_start,
+            period_end=normalized_end,
+            quarter=quarter,
+            year=year,
+            defaults={'is_overwritten': False}
+        )
+        
+        # Update with recalculated values (replace, not increment)
+        was_updated = False
+        for k in NUMERIC_KEYS:
+            new_val = total.get(k, 0) or 0
+            old_val = getattr(snapshot, k, 0) or 0
+            if new_val != old_val:
+                setattr(snapshot, k, new_val)
+                was_updated = True
+        
+        if was_updated:
+            snapshot.save()
+            print(f"[REBUILD] WeeklySnapshot recalculated for {user.id}: {normalized_start} to {normalized_end} (normalized from {period_start} to {period_end})")
+        
+        return snapshot, was_updated
+        
+    except Exception as e:
+        print(f"[ERROR] _rebuild_weekly_snapshot_from_source: {str(e)}")
+        return None, False
+
+
+def _rebuild_monthly_snapshot_from_source(user, period_start, period_end, quarter, year):
+    """
+    SAFE PATH: Recalculate monthly snapshot from authoritative sources (weekly snapshots + monthly fills).
+    Called when: weekly record edited/deleted, or monthly fill submitted, or drift detected.
+    
+    Returns: (snapshot, was_updated)
+    """
+    try:
+        weekly_ranges = set(
+            QPRRecord.objects.filter(
+                user=user,
+                is_submitted=True,
+                frequency__iexact='weekly',
+                quarter=quarter,
+                year=year,
+                period_start__gte=period_start,
+                period_start__lte=period_end
+            ).values_list('period_start', 'period_end')
+        )
+        weekly_ranges.update(
+            WeeklyFill.objects.filter(
+                user=user,
+                quarter=quarter,
+                year=year,
+                period_start__gte=period_start,
+                period_start__lte=period_end
+            ).values_list('period_start', 'period_end')
+        )
+        for w_start, w_end in weekly_ranges:
+            _rebuild_weekly_snapshot_from_source(user, w_start, w_end, quarter, year)
+
+        for weekly_snapshot in WeeklySnapshot.objects.filter(
+            user=user,
+            quarter=quarter,
+            year=year,
+            period_start__gte=period_start,
+            period_start__lte=period_end
+        ):
+            if not getattr(weekly_snapshot, 'is_overwritten', False):
+                _rebuild_weekly_snapshot_from_source(
+                    user, weekly_snapshot.period_start, weekly_snapshot.period_end, quarter, year
+                )
+
+        # Get all weekly snapshots + fills in this month
+        weekly_sum = _sum_weekly_snapshots_in_month(user, period_start, period_end, quarter, year)
+        
+        monthly_fill = MonthlyFill.objects.filter(
+            user=user,
+            period_start=period_start,
+            period_end=period_end,
+            quarter=quarter,
+            year=year
+        ).first()
+        
+        fill_sum = {k: (getattr(monthly_fill, k, 0) or 0) for k in NUMERIC_KEYS} if monthly_fill else {k: 0 for k in NUMERIC_KEYS}
+        
+        # Combine
+        total = {}
+        for k in NUMERIC_KEYS:
+            total[k] = (weekly_sum.get(k, 0) or 0) + (fill_sum.get(k, 0) or 0)
+        
+        # Get or create snapshot
+        snapshot, created = MonthlySnapshot.objects.get_or_create(
+            user=user,
+            period_start=period_start,
+            period_end=period_end,
+            quarter=quarter,
+            year=year,
+            defaults={'is_overwritten': False}
+        )
+        
+        # Update with recalculated values (replace, not increment)
+        was_updated = False
+        for k in NUMERIC_KEYS:
+            new_val = total.get(k, 0) or 0
+            old_val = getattr(snapshot, k, 0) or 0
+            if new_val != old_val:
+                setattr(snapshot, k, new_val)
+                was_updated = True
+        
+        if was_updated:
+            snapshot.save()
+            print(f"[REBUILD] MonthlySnapshot recalculated for {user.id}: {period_start} to {period_end}")
+        
+        return snapshot, was_updated
+        
+    except Exception as e:
+        print(f"[ERROR] _rebuild_monthly_snapshot_from_source: {str(e)}")
+        return None, False
+
+
+def _rebuild_quarterly_snapshot_from_source(user, quarter, year):
+    """
+    SAFE PATH: Recalculate quarterly snapshot from authoritative sources (monthly snapshots + quarterly fills).
+    Called when: monthly record edited/deleted, or quarterly fill submitted, or drift detected.
+    
+    Returns: (snapshot, was_updated)
+    """
+    try:
+        try:
+            q_start, q_end = _quarter_label_to_daterange(quarter, year)
+            for monthly_snapshot in MonthlySnapshot.objects.filter(
+                user=user,
+                quarter=quarter,
+                year=year,
+                period_start__gte=q_start,
+                period_end__lte=q_end
+            ):
+                if not getattr(monthly_snapshot, 'is_overwritten', False):
+                    _rebuild_monthly_snapshot_from_source(
+                        user, monthly_snapshot.period_start, monthly_snapshot.period_end, quarter, year
+                    )
+        except Exception as e:
+            print(f"[WARN] Could not refresh monthly snapshots before quarterly rebuild: {str(e)}")
+
+        # Get all monthly snapshots + fills in this quarter
+        monthly_sum = _sum_monthly_snapshots_in_quarter(user, quarter, year)
+        
+        quarterly_fill = QuarterlyFill.objects.filter(
+            user=user,
+            quarter=quarter,
+            year=year
+        ).first()
+        
+        fill_sum = {k: (getattr(quarterly_fill, k, 0) or 0) for k in NUMERIC_KEYS} if quarterly_fill else {k: 0 for k in NUMERIC_KEYS}
+        
+        # Combine
+        total = {}
+        for k in NUMERIC_KEYS:
+            total[k] = (monthly_sum.get(k, 0) or 0) + (fill_sum.get(k, 0) or 0)
+        
+        # Get or create snapshot
+        snapshot = QuarterlySnapshot.objects.filter(
+            user=user, quarter=quarter, year=year
+        ).first()
+        
+        if not snapshot:
+            # Get period dates
+            try:
+                period_start, period_end = _quarter_label_to_daterange(quarter, year)
+            except:
+                period_start, period_end = None, None
+            
+            snapshot = QuarterlySnapshot.objects.create(
+                user=user,
+                quarter=quarter,
+                year=year,
+                period_start=period_start,
+                period_end=period_end,
+                is_overwritten=False
+            )
+        elif getattr(snapshot, 'is_overwritten', False):
+            return snapshot, False
+        
+        # Update with recalculated values (replace, not increment)
+        was_updated = False
+        for k in NUMERIC_KEYS:
+            new_val = total.get(k, 0) or 0
+            old_val = getattr(snapshot, k, 0) or 0
+            if new_val != old_val:
+                setattr(snapshot, k, new_val)
+                was_updated = True
+        
+        if was_updated:
+            snapshot.save()
+            print(f"[REBUILD] QuarterlySnapshot recalculated for {user.id}: Q{quarter} {year}")
+        
+        return snapshot, was_updated
+        
+    except Exception as e:
+        print(f"[ERROR] _rebuild_quarterly_snapshot_from_source: {str(e)}")
+        return None, False
+
+
+def _detect_event_type(qpr_record):
+    """
+    Detect whether this QPR submission is:
+    - 'insert': New record (ID didn't exist before)
+    - 'edit': Existing record being modified
+    
+    Returns: 'insert' or 'edit'
+    """
+    if not qpr_record or not qpr_record.id:
+        return 'insert'
+    
+    try:
+        # Check if this ID existed in DB before this request
+        # If it exists and differs from form values, it's an edit
+        # For now, assume: new id = insert, existing id = edit
+        # (In real system, track original vs current values)
+        existing = QPRRecord.objects.filter(id=qpr_record.id).exists()
+        return 'edit' if existing else 'insert'
+    except:
+        return 'insert'
+
+
+def _trigger_aggregation_chain_optimized(qpr_record, event_type=None, old_values=None):
+    """
+    HYBRID aggregation chain: Fast path for inserts + Delta-based updates for edits.
+    
+    FAST PATH (INSERT - O(1)):
+        New daily → weekly += delta → monthly += delta → quarterly += delta
+    
+    OPTIMIZED UPDATE PATH (EDIT - O(1)):
+        Edit daily → compute actual_delta = (new_values - old_values)
+                  → weekly += actual_delta → monthly += actual_delta → quarterly += actual_delta
+    
+    SAFE PATH (FILL/CORRECTION - rebuild from source):
+        Weekly fill → rebuild weekly from [all daily + fills]
+        Monthly fill → rebuild monthly from [weekly snapshots + fills]
+        Quarterly fill → rebuild quarterly from [monthly snapshots + fills]
+    
+    Returns: dict with aggregation status
+    """
+    if not qpr_record or not qpr_record.is_submitted:
+        return {'success': False, 'error': 'Invalid or unsubmitted QPR record'}
+    
+    frequency = (qpr_record.frequency or '').lower()
+    user = qpr_record.user
+    result = {'success': True, 'errors': [], 'fills_created': []}
+    
+    try:
+        # Detect event type if not provided
+        if not event_type:
+            event_type = _detect_event_type(qpr_record)
+        
+        # Extract the current (new) values from the submitted record
+        try:
+            new_values = _extract_details_from_record(qpr_record)
+        except Exception as e:
+            new_values = {k: 0 for k in NUMERIC_KEYS}
+            result['errors'].append(f"Could not extract details: {str(e)}")
+        
+        # ===== Case 1: Daily submission =====
+        if frequency == 'daily':
+            ps, pe = qpr_record.period_start, qpr_record.period_end
+            
+            if event_type == 'insert':
+                # FAST PATH: New daily → incremental update
+                weekly_snapshot, weekly_created = _get_or_create_weekly_snapshot_with_sum(
+                    user, ps, pe, qpr_record.quarter, qpr_record.year
+                )
+                if not weekly_created:
+                    _increment_snapshot_by_delta(weekly_snapshot, new_values)
+                
+                # Cascade to monthly
+                monthly_ps, monthly_pe = compute_period('monthly', selected_date=ps)
+                monthly_snapshot, monthly_created = _get_or_create_monthly_snapshot_with_sum(
+                    user, monthly_ps, monthly_pe, qpr_record.quarter, qpr_record.year
+                )
+                if not monthly_created:
+                    _increment_snapshot_by_delta(monthly_snapshot, new_values)
+                
+                # Cascade to quarterly
+                quarterly_snapshot, quarterly_created = _get_or_create_quarterly_snapshot_with_sum(
+                    user, qpr_record.quarter, qpr_record.year, 
+                    qpr_record.period_start or monthly_ps, qpr_record.period_end or monthly_pe
+                )
+                if not quarterly_created:
+                    _increment_snapshot_by_delta(quarterly_snapshot, new_values)
+                
+                print(f"[DAILY INSERT - FAST PATH] user={user.id}, date={ps}, new_values={new_values}")
+            
+            else:  # edit
+                # FAST PATH: Compute delta (new - old) and apply O(1) incremental updates
+                if old_values is None:
+                    old_values = {k: 0 for k in NUMERIC_KEYS}
+                if new_values is None:
+                    new_values = {k: 0 for k in NUMERIC_KEYS}
+                
+                actual_delta = {k: (new_values.get(k, 0) or 0) - (old_values.get(k, 0) or 0) 
+                               for k in NUMERIC_KEYS}
+                
+                # Get or create weekly snapshot and apply delta
+                weekly_snapshot, weekly_created = _get_or_create_weekly_snapshot_with_sum(
+                    user, ps, pe, qpr_record.quarter, qpr_record.year
+                )
+                if not weekly_created:
+                    _increment_snapshot_by_delta(weekly_snapshot, actual_delta)
+                
+                # Cascade delta to monthly
+                monthly_ps, monthly_pe = compute_period('monthly', selected_date=ps)
+                monthly_snapshot, monthly_created = _get_or_create_monthly_snapshot_with_sum(
+                    user, monthly_ps, monthly_pe, qpr_record.quarter, qpr_record.year
+                )
+                if not monthly_created:
+                    _increment_snapshot_by_delta(monthly_snapshot, actual_delta)
+                
+                # Cascade delta to quarterly
+                quarterly_snapshot, quarterly_created = _get_or_create_quarterly_snapshot_with_sum(
+                    user, qpr_record.quarter, qpr_record.year,
+                    qpr_record.period_start or monthly_ps, qpr_record.period_end or monthly_pe
+                )
+                if not quarterly_created:
+                    _increment_snapshot_by_delta(quarterly_snapshot, actual_delta)
+                
+                print(f"[DAILY EDIT - FAST PATH] user={user.id}, date={ps}, delta={actual_delta}")
+        
+        # ===== Case 2: Weekly submission =====
+        elif frequency == 'weekly':
+            ps, pe = qpr_record.period_start, qpr_record.period_end
+            
+            # ALWAYS rebuild for weekly (may be regular weekly or fill scenario)
+            # Create/update WeeklyFill if applicable
+            fill, error_msg = _create_or_update_weekly_fill(
+                user, ps, pe, new_values, qpr_record.quarter, qpr_record.year
+            )
+            if fill:
+                result['fills_created'].append('weekly')
+            
+            # Rebuild weekly from authoritative sources
+            weekly_snapshot, weekly_updated = _rebuild_weekly_snapshot_from_source(
+                user, ps, pe, qpr_record.quarter, qpr_record.year
+            )
+            
+            if weekly_updated or fill:
+                # Weekly changed, rebuild monthly and quarterly
+                monthly_ps, monthly_pe = compute_period('monthly', selected_date=ps)
+                monthly_snapshot, _ = _rebuild_monthly_snapshot_from_source(
+                    user, monthly_ps, monthly_pe, qpr_record.quarter, qpr_record.year
+                )
+                
+                quarterly_snapshot, _ = _rebuild_quarterly_snapshot_from_source(
+                    user, qpr_record.quarter, qpr_record.year
+                )
+                print(f"[WEEKLY AGGREGATION] user={user.id}, week={ps} to {pe}, rebuilt weekly→monthly→quarterly")
+            else:
+                print(f"[WEEKLY AGGREGATION] user={user.id}, week={ps} to {pe}, no changes")
+        
+        # ===== Case 3: Monthly submission =====
+        elif frequency == 'monthly':
+            ps, pe = qpr_record.period_start, qpr_record.period_end
+            
+            # Create/update MonthlyFill if applicable
+            fill, error_msg = _create_or_update_monthly_fill(
+                user, ps, pe, new_values, qpr_record.quarter, qpr_record.year
+            )
+            if fill:
+                result['fills_created'].append('monthly')
+            
+            # Rebuild monthly from authoritative sources (weekly snapshots + fill)
+            monthly_snapshot, monthly_updated = _rebuild_monthly_snapshot_from_source(
+                user, ps, pe, qpr_record.quarter, qpr_record.year
+            )
+            
+            if monthly_updated or fill:
+                # Monthly changed, rebuild quarterly
+                quarterly_snapshot, _ = _rebuild_quarterly_snapshot_from_source(
+                    user, qpr_record.quarter, qpr_record.year
+                )
+                print(f"[MONTHLY AGGREGATION] user={user.id}, month={ps} to {pe}, rebuilt monthly→quarterly")
+            else:
+                print(f"[MONTHLY AGGREGATION] user={user.id}, month={ps} to {pe}, no changes")
+        
+        # ===== Case 4: Quarterly submission =====
+        elif frequency == 'quarterly':
+            # Create/update QuarterlyFill if applicable
+            fill, error_msg = _create_or_update_quarterly_fill(
+                user, new_values, qpr_record.quarter, qpr_record.year,
+                qpr_record.period_start, qpr_record.period_end
+            )
+            if fill:
+                result['fills_created'].append('quarterly')
+            
+            # Rebuild quarterly from authoritative sources (monthly snapshots + fill)
+            quarterly_snapshot, quarterly_updated = _rebuild_quarterly_snapshot_from_source(
+                user, qpr_record.quarter, qpr_record.year
+            )
+            
+            if quarterly_updated or fill:
+                print(f"[QUARTERLY AGGREGATION] user={user.id}, quarter=Q{qpr_record.quarter} {qpr_record.year}, updated")
+            else:
+                print(f"[QUARTERLY AGGREGATION] user={user.id}, quarter=Q{qpr_record.quarter} {qpr_record.year}, no changes")
+        
+    except Exception as e:
+        error_msg = f"[ERROR] Aggregation chain failed: {str(e)}"
+        print(error_msg)
+        result['errors'].append(error_msg)
+        result['success'] = False
+    
+    return result
+
+
+def _auto_aggregate_weekly(user, weekly_record):
+    """
+    Auto-aggregate: Combine daily records + weekly fill → weekly snapshot.
+    Called after any daily/weekly submission within a week.
+    
+    [DEPRECATED: Use _trigger_aggregation_chain_optimized instead]
+    """
+    if not weekly_record or not weekly_record.period_start or not weekly_record.period_end:
+        return
+    
+    period_start = weekly_record.period_start
+    period_end = weekly_record.period_end
+    quarter = weekly_record.quarter or ''
+    year = weekly_record.year or ''
+    
+    # Get all submitted daily records in this week
+    daily_records = QPRRecord.objects.filter(
+        user=user,
+        frequency__iexact='daily',
+        is_submitted=True,
+        period_start__gte=period_start,
+        period_start__lte=period_end
+    )
+    
+    # Aggregate daily records
+    aggregated = {k: 0 for k in NUMERIC_KEYS}
+    for daily in daily_records:
+        daily_data = _extract_details_from_record(daily)
+        for k in NUMERIC_KEYS:
+            aggregated[k] = (aggregated[k] or 0) + (daily_data.get(k) or 0)
+    
+    # Get weekly fill (if exists)
+    weekly_fill = WeeklyFill.objects.filter(
+        user=user,
+        period_start=period_start,
+        period_end=period_end,
+        quarter=quarter,
+        year=year
+    ).first()
+    
+    if weekly_fill:
+        fill_data = {}
+        for key in NUMERIC_KEYS:
+            val = getattr(weekly_fill, key, 0)
+            fill_data[key] = (val or 0)
+        
+        # Add fill data to aggregated
+        for k in NUMERIC_KEYS:
+            aggregated[k] = (aggregated[k] or 0) + (fill_data.get(k) or 0)
+    
+    # Create or update weekly snapshot
+    snapshot, _ = WeeklySnapshot.objects.get_or_create(
+        user=user,
+        period_start=period_start,
+        period_end=period_end,
+        quarter=quarter,
+        year=year,
+        defaults={'is_overwritten': False}
+    )
+    
+    # Only update if not manually overwritten
+    if not snapshot.is_overwritten:
+        _update_snapshot_model(snapshot, aggregated, is_overwrite=False)
+
+
+def _auto_aggregate_monthly(user, monthly_record):
+    """
+    Auto-aggregate: Combine weekly snapshots + monthly fill → monthly snapshot.
+    Called after any daily/weekly/monthly submission within a month.
+    """
+    if not monthly_record or not monthly_record.period_start or not monthly_record.period_end:
+        return
+    
+    period_start = monthly_record.period_start
+    period_end = monthly_record.period_end
+    quarter = monthly_record.quarter or ''
+    year = monthly_record.year or ''
+    
+    # Get all weeks in this month and aggregate from their snapshots
+    aggregated = {k: 0 for k in NUMERIC_KEYS}
+    
+    # Find weeks that overlap with this month
+    current = period_start
+    while current <= period_end:
+        week_start = current - timedelta(days=current.weekday())
+        week_end = week_start + timedelta(days=5)
+        
+        # Ensure week_end doesn't exceed month_end
+        if week_end > period_end:
+            week_end = period_end
+        
+        # Try to get weekly snapshot for this week
+        weekly_snapshot = WeeklySnapshot.objects.filter(
+            user=user,
+            period_start=week_start,
+            period_end=week_end,
+            quarter=quarter,
+            year=year
+        ).first()
+        
+        if weekly_snapshot:
+            for k in NUMERIC_KEYS:
+                val = getattr(weekly_snapshot, k, 0)
+                aggregated[k] = (aggregated[k] or 0) + (val or 0)
+        
+        current = week_end + timedelta(days=1)
+    
+    # Get monthly fill (if exists)
+    monthly_fill = MonthlyFill.objects.filter(
+        user=user,
+        period_start=period_start,
+        period_end=period_end,
+        quarter=quarter,
+        year=year
+    ).first()
+    
+    if monthly_fill:
+        fill_data = {}
+        for key in NUMERIC_KEYS:
+            val = getattr(monthly_fill, key, 0)
+            fill_data[key] = (val or 0)
+        
+        # Add fill data to aggregated
+        for k in NUMERIC_KEYS:
+            aggregated[k] = (aggregated[k] or 0) + (fill_data.get(k) or 0)
+    
+    # Create or update monthly snapshot
+    snapshot, _ = MonthlySnapshot.objects.get_or_create(
+        user=user,
+        period_start=period_start,
+        period_end=period_end,
+        quarter=quarter,
+        year=year,
+        defaults={'is_overwritten': False}
+    )
+    
+    # Only update if not manually overwritten
+    if not snapshot.is_overwritten:
+        _update_snapshot_model(snapshot, aggregated, is_overwrite=False)
+
+
+def _auto_aggregate_quarterly(user, quarterly_record):
+    """
+    Auto-aggregate: Combine monthly snapshots + quarterly fill → quarterly snapshot.
+    Called after any submission within a quarter.
+    """
+    if not quarterly_record:
+        return
+    
+    quarter = quarterly_record.quarter or ''
+    year = quarterly_record.year or ''
+    period_start = quarterly_record.period_start
+    period_end = quarterly_record.period_end
+    
+    # Get all months in this quarter and aggregate from their snapshots
+    aggregated = {k: 0 for k in NUMERIC_KEYS}
+    
+    current = period_start
+    while current <= period_end:
+        month_start = date(current.year, current.month, 1)
+        if current.month == 12:
+            month_end = date(current.year, 12, 31)
+        else:
+            month_end = date(current.year, current.month + 1, 1) - timedelta(days=1)
+        
+        # Ensure month_end doesn't exceed quarter_end
+        if month_end > period_end:
+            month_end = period_end
+        
+        # Try to get monthly snapshot for this month
+        monthly_snapshot = MonthlySnapshot.objects.filter(
+            user=user,
+            period_start=month_start,
+            period_end=month_end,
+            quarter=quarter,
+            year=year
+        ).first()
+        
+        if monthly_snapshot:
+            for k in NUMERIC_KEYS:
+                val = getattr(monthly_snapshot, k, 0)
+                aggregated[k] = (aggregated[k] or 0) + (val or 0)
+        
+        # Move to next month
+        if month_end.month == 12:
+            current = date(month_end.year + 1, 1, 1)
+        else:
+            current = date(month_end.year, month_end.month + 1, 1)
+    
+    # Get quarterly fill (if exists)
+    quarterly_fill = QuarterlyFill.objects.filter(
+        user=user,
+        quarter=quarter,
+        year=year
+    ).first()
+    
+    if quarterly_fill:
+        fill_data = {}
+        for key in NUMERIC_KEYS:
+            val = getattr(quarterly_fill, key, 0)
+            fill_data[key] = (val or 0)
+        
+        # Add fill data to aggregated
+        for k in NUMERIC_KEYS:
+            aggregated[k] = (aggregated[k] or 0) + (fill_data.get(k) or 0)
+    
+    # Create or update quarterly snapshot
+    snapshot, _ = QuarterlySnapshot.objects.get_or_create(
+        user=user,
+        quarter=quarter,
+        year=year,
+        defaults={
+            'period_start': period_start,
+            'period_end': period_end,
+            'is_overwritten': False
+        }
+    )
+    
+    # Only update if not manually overwritten
+    if not snapshot.is_overwritten:
+        _update_snapshot_model(snapshot, aggregated, is_overwrite=False)
+
+
+def _trigger_aggregation_chain(qpr_record):
+    """
+    After any QPR submission, trigger aggregation up the chain:
+    daily → weekly snapshot → monthly snapshot → quarterly snapshot
+    
+    Also creates Fill records if the submission covers only missing days.
+    Returns: dict with aggregation status and any validation errors
+    """
+    if not qpr_record or not qpr_record.is_submitted:
+        return {'success': False, 'error': 'Invalid or unsubmitted QPR record'}
+    
+    frequency = (qpr_record.frequency or '').lower()
+    user = qpr_record.user
+    result = {'success': True, 'errors': [], 'fills_created': []}
+    
+    try:
+        # Extract details from the submitted record for potential Fill creation
+        try:
+            record_details = _extract_details_from_record(qpr_record)
+        except Exception as e:
+            record_details = {k: 0 for k in NUMERIC_KEYS}
+            result['errors'].append(f"Warning: Could not extract details from record: {str(e)}")
+        
+        # For weekly: check if gap-only and create Fill if needed
+        if frequency == 'weekly':
+            fill, error_msg = _create_or_update_weekly_fill(
+                user,
+                qpr_record.period_start,
+                qpr_record.period_end,
+                record_details,
+                qpr_record.quarter,
+                qpr_record.year
+            )
+            if error_msg:
+                result['errors'].append(f"Weekly Fill: {error_msg}")
+                result['success'] = False
+            else:
+                result['fills_created'].append('weekly')
+            
+            # Continue with monthly and quarterly aggregation
+            monthly_ps, monthly_pe = compute_period('monthly', selected_date=qpr_record.period_start)
+            fake_monthly = QPRRecord(
+                user=user,
+                period_start=monthly_ps,
+                period_end=monthly_pe,
+                quarter=qpr_record.quarter,
+                year=qpr_record.year,
+                frequency='monthly'
+            )
+            _auto_aggregate_monthly(user, fake_monthly)
+            _auto_aggregate_quarterly(user, qpr_record)
+        
+        # For monthly: check if gap-only and create Fill if needed
+        elif frequency == 'monthly':
+            fill, error_msg = _create_or_update_monthly_fill(
+                user,
+                qpr_record.period_start,
+                qpr_record.period_end,
+                record_details,
+                qpr_record.quarter,
+                qpr_record.year
+            )
+            if error_msg:
+                result['errors'].append(f"Monthly Fill: {error_msg}")
+                result['success'] = False
+            else:
+                result['fills_created'].append('monthly')
+            
+            # Continue with quarterly aggregation
+            _auto_aggregate_quarterly(user, qpr_record)
+        
+        # For quarterly: check if gap-only and create Fill if needed
+        elif frequency == 'quarterly':
+            fill, error_msg = _create_or_update_quarterly_fill(
+                user,
+                record_details,
+                qpr_record.quarter,
+                qpr_record.year,
+                qpr_record.period_start,
+                qpr_record.period_end
+            )
+            if error_msg:
+                result['errors'].append(f"Quarterly Fill: {error_msg}")
+                result['success'] = False
+            else:
+                result['fills_created'].append('quarterly')
+            
+            # Continue with quarterly aggregation
+            _auto_aggregate_quarterly(user, qpr_record)
+        
+        # For daily: standard aggregation chain up
+        elif frequency == 'daily':
+            # Get or create weekly record to pass to aggregation
+            weekly_ps, weekly_pe = compute_period('weekly', selected_date=qpr_record.period_start)
+            fake_weekly = QPRRecord(
+                user=user,
+                period_start=weekly_ps,
+                period_end=weekly_pe,
+                quarter=qpr_record.quarter,
+                year=qpr_record.year,
+                frequency='weekly'
+            )
+            _auto_aggregate_weekly(user, fake_weekly)
+            
+            # Also trigger monthly aggregation for the week
+            monthly_ps, monthly_pe = compute_period('monthly', selected_date=qpr_record.period_start)
+            fake_monthly = QPRRecord(
+                user=user,
+                period_start=monthly_ps,
+                period_end=monthly_pe,
+                quarter=qpr_record.quarter,
+                year=qpr_record.year,
+                frequency='monthly'
+            )
+            _auto_aggregate_monthly(user, fake_monthly)
+            
+            # Trigger quarterly aggregation
+            _auto_aggregate_quarterly(user, qpr_record)
+    
+    except Exception as e:
+        # Log error but don't fail the submission
+        error_msg = f"[ERROR] Aggregation chain failed for user={user.id} record={qpr_record.id}: {str(e)}"
+        print(error_msg)
+        result['errors'].append(error_msg)
+        result['success'] = False
+    
+    return result
+
+
 # ==================== APIs ====================
 
 
@@ -4846,6 +6722,11 @@ def qpr_save_record(request):
 
     data = request.POST
 
+    def reject_to_qpr_form(message):
+        messages.error(request, message)
+        request.session['qpr_popup_error'] = message
+        return redirect('qpr_form')
+
     # Ignore accidental posts from role-specific QPR forms (manager/admin)
     role_form = (data.get('role_form') or '').strip().lower()
     if role_form:
@@ -4880,6 +6761,14 @@ def qpr_save_record(request):
         # ================= UPDATE =================
         if record_id:
             record = get_object_or_404(QPRRecord, pk=record_id, user=request.user)
+            
+            # Capture OLD values BEFORE any modifications (for delta computation in aggregation)
+            old_values = None
+            if record.is_submitted:
+                try:
+                    old_values = _extract_details_from_record(record)
+                except Exception:
+                    old_values = None
 
             record.officeName = data.get('officeName', '')
             record.officeCode = (data.get('officeCode', '') or '').replace('*', '')
@@ -4905,8 +6794,7 @@ def qpr_save_record(request):
                     ps, pe = None, None
 
             if ps and pe and is_period_overlapping(request.user, ps, pe, exclude_id=record.pk, new_frequency=record.frequency):
-                messages.error(request, "This update overlaps with an existing report.")
-                return redirect('qpr_records')
+                return reject_to_qpr_form("This QPR has already been filled for the selected period.")
 
             record.period_start = ps
             record.period_end = pe
@@ -4950,16 +6838,28 @@ def qpr_save_record(request):
                     pass
 
             _save_section_data(record, details)
+            
+            # Trigger OPTIMIZED hybrid aggregation chain if submitted (EVENT: EDIT)
+            if record.is_submitted:
+                agg_result = _trigger_aggregation_chain_optimized(record, event_type='edit', old_values=old_values)
+                if agg_result and not agg_result.get('success', True):
+                    # Aggregation had validation errors, but record was saved
+                    error_details = ' | '.join(agg_result.get('errors', []))
+                    messages.warning(request, f"Record saved with aggregation notes: {error_details}")
+                elif agg_result:
+                    fills_created = ', '.join(agg_result.get('fills_created', []))
+                    if fills_created:
+                        messages.info(request, f"Record submitted with {fills_created} fill(s) created")
 
         # ================= CREATE =================
         else:
             is_submitted = (data.get('status', 'Draft') == 'Submitted')
 
-            frequency = (data.get('frequency') or '').strip()
+            frequency = (data.get('frequency') or 'daily').strip().lower()
             selected_date_str = (data.get('selected_date') or '').strip()
 
-            if not frequency:
-                messages.error(request, "Frequency is required")
+            if frequency not in {'daily', 'weekly', 'monthly', 'quarterly'}:
+                messages.error(request, "Invalid frequency")
                 return redirect('qpr_records')
 
             if frequency in ['daily', 'weekly', 'monthly'] and not selected_date_str:
@@ -4997,8 +6897,14 @@ def qpr_save_record(request):
 
                 availability = _allowed_frequencies_for_date(request.user, selected_date)
                 if frequency not in availability.get('allowed', []):
+                    if ps_pe := compute_period(frequency, selected_date=selected_date, quarter=data.get('quarter'), year=data.get('year')):
+                        ps_check, pe_check = ps_pe
+                    else:
+                        ps_check, pe_check = None, None
+                    if ps_check and pe_check and is_period_overlapping(request.user, ps_check, pe_check, new_frequency=frequency):
+                        return reject_to_qpr_form("This QPR has already been filled for the selected period.")
                     messages.error(request, f"Allowed: {availability.get('allowed', [])}")
-                    return redirect('qpr_records')
+                    return redirect('qpr_form')
             else:
                 # Quarterly frequency: no selected_date checks; availability implicitly allowed
                 selected_date = None
@@ -5011,8 +6917,7 @@ def qpr_save_record(request):
             )
 
             if ps and pe and is_period_overlapping(request.user, ps, pe, new_frequency=frequency):
-                messages.error(request, "Overlapping period")
-                return redirect('qpr_records')
+                return reject_to_qpr_form("This QPR has already been filled for the selected period.")
 
             quarter = data.get('quarter', '').strip()
             year = data.get('year', '').strip() or None
@@ -5035,8 +6940,7 @@ def qpr_save_record(request):
                     exists = exists.filter(year=year)
 
             if exists.exists():
-                messages.error(request, "Report already exists")
-                return redirect('qpr_records')
+                return reject_to_qpr_form("This QPR has already been filled for the selected period.")
 
             record = QPRRecord.objects.create(
                 user=request.user,
@@ -5055,6 +6959,18 @@ def qpr_save_record(request):
             )
 
             _save_section_data(record, details)
+            
+            # Trigger OPTIMIZED hybrid aggregation chain if submitted (EVENT: INSERT)
+            if record.is_submitted:
+                agg_result = _trigger_aggregation_chain_optimized(record, event_type='insert')
+                if agg_result and not agg_result.get('success', True):
+                    # Aggregation had validation errors, but record was saved
+                    error_details = ' | '.join(agg_result.get('errors', []))
+                    messages.warning(request, f"Record saved with aggregation notes: {error_details}")
+                elif agg_result:
+                    fills_created = ', '.join(agg_result.get('fills_created', []))
+                    if fills_created:
+                        messages.info(request, f"Record submitted with {fills_created} fill(s) created")
 
         messages.success(request, "Saved successfully")
         # Redirect based on which form was actually submitted (form_type field)
@@ -5079,6 +6995,101 @@ def qpr_delete_record(request, id):
         QPRRecord.objects.filter(pk=id, user=request.user).delete()
         messages.success(request, "Deleted successfully")
     return redirect('qpr_records')
+
+@login_required
+def snapshot_edit(request, quarter, year):
+    """
+    Edit endpoint for QuarterlySnapshot overwrites (Phase 5).
+    Allows users to manually edit snapshot data, setting is_overwritten=True.
+    Once overwritten, auto-aggregation is locked for that snapshot.
+    
+    GET: Load snapshot form with current data
+    POST: Save edited snapshot data with is_overwritten flag
+    """
+    try:
+        # Parse quarter and year
+        q_label = str(quarter).strip().upper()  # e.g., 'Q1'
+        y_label = str(year).strip()  # e.g., '2024-25'
+        
+        # Validate quarter format
+        if not q_label.startswith('Q') or not q_label[1:].isdigit():
+            messages.error(request, "Invalid quarter format")
+            return redirect('qpr_report_list')
+        
+        # Get period dates
+        try:
+            q_start, q_end = _quarter_label_to_daterange(q_label, y_label)
+        except:
+            messages.error(request, "Invalid quarter/year")
+            return redirect('qpr_report_list')
+        
+        # Get or create snapshot
+        snapshot, created = QuarterlySnapshot.objects.get_or_create(
+            user=request.user,
+            quarter=q_label,
+            year=y_label,
+            defaults={
+                'period_start': q_start,
+                'period_end': q_end,
+                'is_overwritten': False
+            }
+        )
+        
+        if request.method == 'GET':
+            # Load snapshot form with current data
+            context = {
+                'quarter': q_label,
+                'year': y_label,
+                'period_start': q_start,
+                'period_end': q_end,
+                'is_overwritten': snapshot.is_overwritten,
+                'overwritten_at': snapshot.overwritten_at
+            }
+            
+            # Add snapshot field values to context
+            for key in NUMERIC_KEYS:
+                context[key] = getattr(snapshot, key, 0) or 0
+            
+            return render(request, 'qpr/snapshot_edit.html', context)
+        
+        elif request.method == 'POST':
+            # Parse and save edited snapshot data
+            data = request.POST
+            
+            try:
+                # Update all NUMERIC_KEYS fields
+                for key in NUMERIC_KEYS:
+                    value = data.get(key, '')
+                    try:
+                        value = int(value) if value else None
+                    except (ValueError, TypeError):
+                        value = None
+                    setattr(snapshot, key, value)
+                
+                # Mark as overwritten
+                snapshot.is_overwritten = True
+                snapshot.overwritten_at = now()
+                snapshot.save()
+                
+                print(f"[SUCCESS] Snapshot edited for {request.user.id}: Q{q_label} {y_label}")
+                messages.success(request, f"Snapshot for {q_label} {y_label} has been edited and locked from auto-aggregation.")
+                return redirect('qpr_report_list')
+                
+            except Exception as e:
+                error_msg = f"Failed to save snapshot: {str(e)}"
+                print(f"[ERROR] {error_msg}")
+                messages.error(request, error_msg)
+                return redirect('qpr_report_list')
+        
+        else:
+            messages.error(request, "Invalid request method")
+            return redirect('qpr_report_list')
+            
+    except Exception as e:
+        error_msg = f"Snapshot edit error: {str(e)}"
+        print(f"[ERROR] {error_msg}")
+        messages.error(request, error_msg)
+        return redirect('qpr_report_list')
 
 @login_required
 def print_qpr_report(request, record_id):
@@ -5311,13 +7322,16 @@ def request_qpr_edit(request, record_id):
                     reason=reason,
                     status='pending'
                 )
-                messages.success(request, translate_text("QPR edit request submitted to admin for approval.", lang))
+                messages.success(request, translate_text("QPR edit request submitted to manager for approval.", lang))
                 
-                # Send notification to admins
-                admins = CustomUser.objects.filter(roles__name='admin', is_active=True)
-                for admin in admins:
+                manager_office = qpr_record.officeCode
+                managers = UserProfile.objects.filter(
+                    office_code=manager_office,
+                    roles__name='manager'
+                ).select_related('user')
+                for profile in managers:
                     msg = f"User {request.user.username} ({request.user.profile.employee_code}) has requested to edit QPR for {qpr_record.quarter}."
-                    send_system_email(admin, request, 'manager_alert', extra_context={'body_text': msg})
+                    send_system_email(profile.user, request, 'manager_alert', extra_context={'body_text': msg})
             
             return redirect('qpr_report_detail', record_id=record_id)
         except Exception as e:
