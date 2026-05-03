@@ -131,6 +131,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             const availabilityBoxId = 'qprAvailabilityBox';
+            function isScopedSnapshotEditMode() {
+                const params = new URLSearchParams(window.location.search || '');
+                const urlScope = (params.get('edit_scope') || '').toLowerCase();
+                const hiddenScope = (document.getElementById('snapshotEditScope')?.value || '').toLowerCase();
+                return ['weekly', 'monthly', 'quarterly'].includes(urlScope || hiddenScope);
+            }
             function showAvailabilityBox(html) {
                 let box = document.getElementById(availabilityBoxId);
                 if (!box) {
@@ -165,18 +171,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     // set min/max/default
                     if (selectedDateEl) {
-                        selectedDateEl.min = j.min_date;
-                        selectedDateEl.max = j.max_date;
-                        if (!selectedDateEl.value) selectedDateEl.value = j.default_date;
+                        if (isScopedSnapshotEditMode()) {
+                            selectedDateEl.removeAttribute('min');
+                            selectedDateEl.removeAttribute('max');
+                            selectedDateEl.setCustomValidity('');
+                        } else {
+                            selectedDateEl.min = j.min_date;
+                            selectedDateEl.max = j.max_date;
+                            if (!selectedDateEl.value) selectedDateEl.value = j.default_date;
+                        }
                     }
                     // enable/disable frequency options
                     if (frequencyEl) {
-                        Array.from(frequencyEl.options).forEach(opt => {
-                            if (opt.value === '') return; // keep placeholder
-                            opt.disabled = !j.allowed.includes(opt.value);
-                        });
-                        // default to daily if current selection is invalid
-                        if (!j.allowed.includes(frequencyEl.value)) frequencyEl.value = 'daily';
+                        if (!isScopedSnapshotEditMode()) {
+                            Array.from(frequencyEl.options).forEach(opt => {
+                                if (opt.value === '') return; // keep placeholder
+                                opt.disabled = !j.allowed.includes(opt.value);
+                            });
+                            // default to daily if current selection is invalid
+                            if (!j.allowed.includes(frequencyEl.value)) frequencyEl.value = 'daily';
+                        }
                     }
                     // show missing days summary
                     const missing = [];
@@ -586,7 +600,10 @@ async function loadData() {
         }
 
         // Check if we're coming from edit action in report list
-        const editId = localStorage.getItem('editRecordId');
+        const editParams = new URLSearchParams(window.location.search || '');
+        const editId = editParams.get('edit_record') || localStorage.getItem('editRecordId');
+        const editScopeFromUrl = (editParams.get('edit_scope') || '').toLowerCase();
+        if (editScopeFromUrl) localStorage.setItem('editSnapshotScope', editScopeFromUrl);
         console.log("After loadData - editId from localStorage:", editId);
         console.log("Total records loaded:", records.length);
         
@@ -732,6 +749,24 @@ function editRecord(id) {
         return;
     }
 
+    const editParams = new URLSearchParams(window.location.search || '');
+    const requestedSnapshotScope = (
+        editParams.get('edit_scope') ||
+        localStorage.getItem('editSnapshotScope') ||
+        record.edit_approved_scope ||
+        ''
+    ).toLowerCase();
+    const scopedEditRequested = ['weekly', 'monthly', 'quarterly'].includes(requestedSnapshotScope);
+    const snapshotEdit = (record.snapshot_edit && record.snapshot_edit.scope === requestedSnapshotScope) ? record.snapshot_edit : null;
+    const editFrequency = snapshotEdit ? snapshotEdit.scope : (scopedEditRequested ? requestedSnapshotScope : (record.frequency || 'daily'));
+    const canUseCurrentApproval = !(record.edit_approved_scope) || !!snapshotEdit || scopedEditRequested;
+    const canEditCurrentRecord = !!record.can_edit || (!!record.snapshot_can_edit && (!!snapshotEdit || scopedEditRequested)) || scopedEditRequested;
+    if (record.edit_approved_scope && record.edit_approved_scope !== requestedSnapshotScope && !snapshotEdit) {
+        alert('This approval is only for the ' + record.edit_approved_scope + ' cumulative QPR. Please open the matching ' + record.edit_approved_scope + ' row from the report list.');
+        window.location.href = '/qpr/reports/';
+        return;
+    }
+
     // Fill Main Fields - Apply masking to all records
     document.getElementById('recordId').value = record.id;
     const officeNameEl = document.getElementById('officeName');
@@ -746,9 +781,17 @@ function editRecord(id) {
     const yearEl = document.getElementById('year');
     if (yearEl && record.year) yearEl.value = record.year;
     const selectedDateEl = document.getElementById('selectedDate');
-    if (selectedDateEl && record.period_start) {
-        selectedDateEl.value = String(record.period_start).slice(0, 10);
+    if (selectedDateEl) {
+        const editPeriodStart = snapshotEdit ? snapshotEdit.period_start : record.period_start;
+        if (editPeriodStart) selectedDateEl.value = String(editPeriodStart).slice(0, 10);
+        if (scopedEditRequested) {
+            selectedDateEl.removeAttribute('min');
+            selectedDateEl.removeAttribute('max');
+            selectedDateEl.setCustomValidity('');
+        }
     }
+    const snapshotScopeEl = document.getElementById('snapshotEditScope');
+    if (snapshotScopeEl) snapshotScopeEl.value = snapshotEdit ? snapshotEdit.scope : (scopedEditRequested ? requestedSnapshotScope : '');
     
     // Handle phone field if it exists in details
     const phoneEl = document.getElementById('phone');
@@ -761,24 +804,41 @@ function editRecord(id) {
     if (emailEl && String(emailEl.dataset.protected) !== '1') {
         emailEl.value = record.email || '';
     }
-    // Fill Details - Apply masking to all records
-    if (record.details) {
-    for (const [key, value] of Object.entries(record.details)) {
-        const el = document.getElementById(key);
-        if (el) {
-            el.value = value;
-            }
-        }
-    }
     // Edit mode must use the record's original entry type, not today's default.
     const freqEl = document.getElementById('frequency');
     if (freqEl) {
-        freqEl.value = record.frequency || 'daily';
+        if (scopedEditRequested) {
+            Array.from(freqEl.options).forEach(opt => {
+                if (opt.value === requestedSnapshotScope) opt.disabled = false;
+            });
+        }
+        freqEl.value = editFrequency;
         freqEl.dispatchEvent(new Event('change'));
+        if (scopedEditRequested) {
+            Array.from(freqEl.options).forEach(opt => {
+                if (opt.value === requestedSnapshotScope) opt.disabled = false;
+            });
+            freqEl.value = editFrequency;
+        }
     }
+
+    // Fill Details after frequency handlers run so scoped snapshot values win.
+    const cumulativeDetails = (scopedEditRequested && record.cumulative && record.cumulative[requestedSnapshotScope])
+        ? record.cumulative[requestedSnapshotScope]
+        : null;
+    const detailSource = snapshotEdit ? snapshotEdit.details : (cumulativeDetails || record.details);
+    if (detailSource) {
+        for (const [key, value] of Object.entries(detailSource)) {
+            const el = document.getElementById(key);
+            if (el) {
+                el.value = value;
+            }
+        }
+    }
+    localStorage.removeItem('editSnapshotScope');
     
     // Disable/Enable form based on edit permission
-    setFormEditability(record.can_edit, record.edit_approved);
+    setFormEditability(canEditCurrentRecord && canUseCurrentApproval, (record.edit_approved || scopedEditRequested) && canUseCurrentApproval);
 
     showTab(1);
 }

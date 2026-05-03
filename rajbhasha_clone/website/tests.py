@@ -1,12 +1,18 @@
+import json
 from datetime import date
+from unittest.mock import patch
 
 from django.contrib.messages import get_messages
 from django.contrib.messages.storage.fallback import FallbackStorage
+from django.http import HttpResponse
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
 
-from .models import CustomUser, QPRRecord, Role, Section11SpecificAchievementsData
-from .views import _aggregate_section11_text_for_range, is_period_overlapping, qpr_save_record
+from .models import (
+    CustomUser, EditRequest, MonthlyFill, MonthlySnapshot, QPRRecord, QuarterlyFill,
+    QuarterlySnapshot, Role, Section11SpecificAchievementsData, WeeklyFill, WeeklySnapshot
+)
+from .views import _aggregate_section11_text_for_range, is_period_overlapping, qpr_form, qpr_save_record, report_list, request_qpr_edit
 
 
 class QPROverlapRestrictionTests(TestCase):
@@ -139,3 +145,279 @@ class QPROverlapRestrictionTests(TestCase):
         self.assertNotIn('[Weekly', text)
         self.assertNotIn('[Monthly', text)
         self.assertNotIn('[Quarterly', text)
+
+    def test_approved_weekly_snapshot_edit_overwrites_snapshot_values(self):
+        record = self._record('daily', date(2026, 4, 6), date(2026, 4, 6))
+        WeeklySnapshot.objects.create(
+            user=self.user,
+            quarter=record.quarter,
+            year=record.year,
+            period_start=date(2026, 4, 6),
+            period_end=date(2026, 4, 11),
+            s2_meetings=3,
+            s7_total=8,
+        )
+        EditRequest.objects.create(
+            user=self.user,
+            request_type='qpr',
+            qpr_record_id=record.pk,
+            requested_data={'edit_scope': 'weekly'},
+            status='approved',
+        )
+        request = self.factory.post('/qpr/records/save/', {
+            'id': str(record.pk),
+            'status': 'Submitted',
+            'snapshot_edit_scope': 'weekly',
+            'details': '{"s2_meetings": "11", "s7_total": "22"}',
+        })
+        request.user = self.user
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        setattr(request, '_messages', FallbackStorage(request))
+
+        response = qpr_save_record.__wrapped__(request)
+
+        snapshot = WeeklySnapshot.objects.get(user=self.user, period_start=date(2026, 4, 6), period_end=date(2026, 4, 11))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(snapshot.s2_meetings, 11)
+        self.assertEqual(snapshot.s7_total, 22)
+        self.assertTrue(snapshot.is_overwritten)
+        self.assertTrue(EditRequest.objects.filter(qpr_record_id=record.pk, status='temp use').exists())
+
+    def test_weekly_snapshot_edit_is_not_reset_by_parent_refresh(self):
+        record = self._record('weekly', date(2026, 4, 6), date(2026, 4, 11))
+        WeeklyFill.objects.create(
+            user=self.user,
+            quarter=record.quarter,
+            year=record.year,
+            period_start=date(2026, 4, 6),
+            period_end=date(2026, 4, 11),
+            s2_meetings=6,
+        )
+        WeeklySnapshot.objects.create(
+            user=self.user,
+            quarter=record.quarter,
+            year=record.year,
+            period_start=date(2026, 4, 6),
+            period_end=date(2026, 4, 11),
+            s2_meetings=6,
+        )
+        EditRequest.objects.create(
+            user=self.user,
+            request_type='qpr',
+            qpr_record_id=record.pk,
+            requested_data={'edit_scope': 'weekly'},
+            status='approved',
+        )
+        request = self.factory.post('/qpr/records/save/', {
+            'id': str(record.pk),
+            'status': 'Submitted',
+            'snapshot_edit_scope': 'weekly',
+            'details': '{"s2_meetings": "9"}',
+        })
+        request.user = self.user
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        setattr(request, '_messages', FallbackStorage(request))
+
+        response = qpr_save_record.__wrapped__(request)
+
+        snapshot = WeeklySnapshot.objects.get(user=self.user, period_start=date(2026, 4, 6), period_end=date(2026, 4, 11))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(snapshot.s2_meetings, 9)
+        self.assertTrue(snapshot.is_overwritten)
+
+    def test_monthly_snapshot_edit_is_not_reset_by_quarterly_refresh(self):
+        record = self._record('monthly', date(2026, 4, 1), date(2026, 4, 30))
+        MonthlyFill.objects.create(
+            user=self.user,
+            quarter=record.quarter,
+            year=record.year,
+            period_start=date(2026, 4, 1),
+            period_end=date(2026, 4, 30),
+            s2_meetings=6,
+        )
+        MonthlySnapshot.objects.create(
+            user=self.user,
+            quarter=record.quarter,
+            year=record.year,
+            period_start=date(2026, 4, 1),
+            period_end=date(2026, 4, 30),
+            s2_meetings=6,
+        )
+        EditRequest.objects.create(
+            user=self.user,
+            request_type='qpr',
+            qpr_record_id=record.pk,
+            requested_data={'edit_scope': 'monthly'},
+            status='approved',
+        )
+        request = self.factory.post('/qpr/records/save/', {
+            'id': str(record.pk),
+            'status': 'Submitted',
+            'snapshot_edit_scope': 'monthly',
+            'details': '{"s2_meetings": "13"}',
+        })
+        request.user = self.user
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        setattr(request, '_messages', FallbackStorage(request))
+
+        response = qpr_save_record.__wrapped__(request)
+
+        snapshot = MonthlySnapshot.objects.get(user=self.user, period_start=date(2026, 4, 1), period_end=date(2026, 4, 30))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(snapshot.s2_meetings, 13)
+        self.assertTrue(snapshot.is_overwritten)
+
+    def test_quarterly_snapshot_edit_overwrites_snapshot_values(self):
+        record = self._record('quarterly', date(2026, 4, 1), date(2026, 6, 30))
+        QuarterlyFill.objects.create(
+            user=self.user,
+            quarter=record.quarter,
+            year=record.year,
+            period_start=date(2026, 4, 1),
+            period_end=date(2026, 6, 30),
+            s2_meetings=6,
+        )
+        QuarterlySnapshot.objects.create(
+            user=self.user,
+            quarter=record.quarter,
+            year=record.year,
+            period_start=date(2026, 4, 1),
+            period_end=date(2026, 6, 30),
+            s2_meetings=6,
+        )
+        EditRequest.objects.create(
+            user=self.user,
+            request_type='qpr',
+            qpr_record_id=record.pk,
+            requested_data={'edit_scope': 'quarterly'},
+            status='approved',
+        )
+        request = self.factory.post('/qpr/records/save/', {
+            'id': str(record.pk),
+            'status': 'Submitted',
+            'snapshot_edit_scope': 'quarterly',
+            'details': '{"s2_meetings": "21"}',
+        })
+        request.user = self.user
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        setattr(request, '_messages', FallbackStorage(request))
+
+        response = qpr_save_record.__wrapped__(request)
+
+        snapshot = QuarterlySnapshot.objects.get(user=self.user, quarter=record.quarter, year=record.year)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(snapshot.s2_meetings, 21)
+        self.assertTrue(snapshot.is_overwritten)
+
+    def test_scoped_edit_request_before_period_end_is_rejected(self):
+        record = self._record('monthly', date(2026, 5, 1), date(2026, 5, 31))
+        request = self.factory.post(f'/qpr/reports/{record.pk}/request-edit/', {
+            'reason': 'Need correction',
+            'edit_scope': 'monthly',
+        })
+        request.user = self.user
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        setattr(request, '_messages', FallbackStorage(request))
+
+        with patch('website.views.timezone.localdate', return_value=date(2026, 5, 3)):
+            response = request_qpr_edit.__wrapped__(request, record.pk)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(EditRequest.objects.filter(qpr_record_id=record.pk).exists())
+
+    def test_scoped_weekly_approval_does_not_unlock_base_daily_qpr(self):
+        record = self._record('daily', date(2026, 4, 6), date(2026, 4, 6))
+        EditRequest.objects.create(
+            user=self.user,
+            request_type='qpr',
+            qpr_record_id=record.pk,
+            requested_data={'edit_scope': 'weekly'},
+            status='approved',
+        )
+
+        request = self.factory.get('/qpr/form/')
+        request.user = self.user
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        setattr(request, '_messages', FallbackStorage(request))
+
+        profile = self.user.profile
+        profile.approval_status = 'approved'
+        profile.save(update_fields=['approval_status'])
+
+        with patch('website.views.render', return_value=HttpResponse('ok')) as render_mock:
+            response = qpr_form.__wrapped__(request)
+            context = render_mock.call_args[0][2]
+
+        self.assertEqual(response.status_code, 200)
+        records = json.loads(context['records_json'])
+        preloaded = records[0]
+        self.assertFalse(preloaded['can_edit'])
+        self.assertTrue(preloaded['snapshot_can_edit'])
+        self.assertEqual(preloaded['edit_approved_scope'], 'weekly')
+        self.assertEqual(preloaded['snapshot_edit']['scope'], 'weekly')
+
+    def test_report_list_scoped_weekly_approval_does_not_mark_daily_editable(self):
+        record = self._record('daily', date(2026, 4, 6), date(2026, 4, 6))
+        EditRequest.objects.create(
+            user=self.user,
+            request_type='qpr',
+            qpr_record_id=record.pk,
+            requested_data={'edit_scope': 'weekly'},
+            status='approved',
+        )
+
+        request = self.factory.get('/qpr/reports/')
+        request.user = self.user
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        setattr(request, '_messages', FallbackStorage(request))
+
+        with patch('website.views.render', return_value=HttpResponse('ok')) as render_mock:
+            response = report_list.__wrapped__(request)
+            context = render_mock.call_args[0][2]
+
+        self.assertEqual(response.status_code, 200)
+        records = json.loads(context['records_json'])
+        preloaded = records[0]
+        self.assertFalse(preloaded['can_edit'])
+        self.assertTrue(preloaded['snapshot_can_edit'])
+        self.assertEqual(preloaded['edit_approved_scope'], 'weekly')
+
+    def test_weekly_snapshot_approval_cannot_update_daily_record_directly(self):
+        record = self._record('daily', date(2026, 4, 6), date(2026, 4, 6))
+        EditRequest.objects.create(
+            user=self.user,
+            request_type='qpr',
+            qpr_record_id=record.pk,
+            requested_data={'edit_scope': 'weekly'},
+            status='approved',
+        )
+
+        request = self.factory.post('/qpr/records/save/', {
+            'id': str(record.pk),
+            'status': 'Submitted',
+            'officeName': 'Changed Office',
+            'officeCode': 'CHG',
+            'region': 'Region B',
+            'quarter': record.quarter,
+            'year': record.year,
+            'frequency': 'daily',
+            'details': '{"s2_meetings": "99"}',
+        })
+        request.user = self.user
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        setattr(request, '_messages', FallbackStorage(request))
+
+        response = qpr_save_record.__wrapped__(request)
+
+        record.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(record.officeName, 'Office')
+        self.assertFalse(EditRequest.objects.filter(qpr_record_id=record.pk, status='temp use').exists())

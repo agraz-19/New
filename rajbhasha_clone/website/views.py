@@ -1225,6 +1225,181 @@ def compute_period(frequency, selected_date=None, quarter=None, year=None):
     return (selected_date, selected_date)
 
 
+SNAPSHOT_EDIT_SCOPES = {'weekly', 'monthly', 'quarterly'}
+
+
+def _snapshot_bounds_for_record(record, scope):
+    scope = (scope or '').lower()
+    if scope == 'weekly':
+        return get_clipped_week_bounds(record.period_start, record.quarter, record.year)
+    if scope == 'monthly':
+        return compute_period('monthly', selected_date=record.period_start)
+    if scope == 'quarterly':
+        return _quarter_label_to_daterange(record.quarter, record.year)
+    return (None, None)
+
+
+def _snapshot_model_for_scope(scope):
+    scope = (scope or '').lower()
+    if scope == 'weekly':
+        return WeeklySnapshot
+    if scope == 'monthly':
+        return MonthlySnapshot
+    if scope == 'quarterly':
+        return QuarterlySnapshot
+    return None
+
+
+def _snapshot_for_record(record, scope):
+    model = _snapshot_model_for_scope(scope)
+    ps, pe = _snapshot_bounds_for_record(record, scope)
+    if not model or not ps or not pe:
+        return None
+
+    if scope == 'quarterly':
+        snapshot, _ = model.objects.get_or_create(
+            user=record.user,
+            quarter=record.quarter,
+            year=record.year,
+            defaults={'period_start': ps, 'period_end': pe, 'is_overwritten': False}
+        )
+    else:
+        snapshot, _ = model.objects.get_or_create(
+            user=record.user,
+            period_start=ps,
+            period_end=pe,
+            quarter=record.quarter,
+            year=record.year,
+            defaults={'is_overwritten': False}
+        )
+    return snapshot
+
+
+def _snapshot_details(snapshot):
+    return {key: getattr(snapshot, key, 0) or 0 for key in NUMERIC_KEYS}
+
+
+def _overwrite_snapshot_from_details(record, scope, details):
+    snapshot = _snapshot_for_record(record, scope)
+    if not snapshot:
+        return None
+
+    for key in NUMERIC_KEYS:
+        try:
+            value = details.get(key, 0)
+            setattr(snapshot, key, int(value or 0))
+        except (TypeError, ValueError):
+            setattr(snapshot, key, 0)
+    snapshot.is_overwritten = True
+    snapshot.overwritten_at = now()
+    snapshot.save()
+    return snapshot
+
+
+def _approved_qpr_edit_request(user, record, scope='any'):
+    """Return an approved edit request matching the requested edit scope."""
+    if not user or not record:
+        return None
+
+    requests = EditRequest.objects.filter(
+        user=user,
+        request_type='qpr',
+        qpr_record_id=record.pk,
+        status='approved'
+    ).order_by('-approved_at', '-updated_at')
+
+    scope = (scope or 'any').lower()
+    for edit_request in requests:
+        requested_data = edit_request.requested_data or {}
+        requested_scope = (requested_data.get('edit_scope') or '').lower()
+        if scope == 'any':
+            return edit_request
+        if scope == 'base' and requested_scope not in SNAPSHOT_EDIT_SCOPES:
+            return edit_request
+        if scope in SNAPSHOT_EDIT_SCOPES and requested_scope == scope:
+            return edit_request
+    return None
+
+
+def _add_qpr_edit_flags(record_dict, record, current_user, owner_user=None):
+    owner_user = owner_user or getattr(record, 'user', None)
+    is_owner = (
+        getattr(current_user, 'id', None) is not None
+        and getattr(owner_user, 'id', None) == getattr(current_user, 'id', None)
+    )
+
+    approved_request = None
+    edit_approved = False
+    approved_scope = ''
+    if is_owner and getattr(record, 'is_submitted', False):
+        approved_request = _approved_qpr_edit_request(owner_user, record)
+        edit_approved = bool(approved_request)
+        if approved_request:
+            approved_scope = ((approved_request.requested_data or {}).get('edit_scope') or '').lower()
+
+    record_dict['edit_approved'] = edit_approved
+    record_dict['edit_approved_scope'] = approved_scope
+    record_dict['can_edit'] = (
+        is_owner
+        and (
+            not getattr(record, 'is_submitted', False)
+            or (edit_approved and approved_scope not in SNAPSHOT_EDIT_SCOPES)
+        )
+    )
+    record_dict['snapshot_can_edit'] = is_owner and edit_approved and approved_scope in SNAPSHOT_EDIT_SCOPES
+    record_dict['has_pending_edit_request'] = EditRequest.objects.filter(
+        user=owner_user,
+        request_type='qpr',
+        qpr_record_id=record.pk,
+        status='pending'
+    ).exists()
+    return approved_request
+
+
+def _refresh_parent_snapshots_after_overwrite(record, scope):
+    """Refresh higher-level snapshots after a manual snapshot overwrite."""
+    scope = (scope or '').lower()
+    if scope == 'weekly':
+        month_start, month_end = compute_period('monthly', selected_date=record.period_start)
+        monthly_snapshot = MonthlySnapshot.objects.filter(
+            user=record.user,
+            period_start=month_start,
+            period_end=month_end,
+            quarter=record.quarter,
+            year=record.year
+        ).first()
+        if not monthly_snapshot or not getattr(monthly_snapshot, 'is_overwritten', False):
+            _rebuild_monthly_snapshot_from_source(
+                record.user, month_start, month_end, record.quarter, record.year
+            )
+        quarterly_snapshot = QuarterlySnapshot.objects.filter(
+            user=record.user,
+            quarter=record.quarter,
+            year=record.year
+        ).first()
+        if not quarterly_snapshot or not getattr(quarterly_snapshot, 'is_overwritten', False):
+            _rebuild_quarterly_snapshot_from_source(record.user, record.quarter, record.year)
+    elif scope == 'monthly':
+        quarterly_snapshot = QuarterlySnapshot.objects.filter(
+            user=record.user,
+            quarter=record.quarter,
+            year=record.year
+        ).first()
+        if not quarterly_snapshot or not getattr(quarterly_snapshot, 'is_overwritten', False):
+            _rebuild_quarterly_snapshot_from_source(record.user, record.quarter, record.year)
+
+
+def _snapshot_edit_request_allowed(record, scope, today=None):
+    scope = (scope or '').lower()
+    if scope not in SNAPSHOT_EDIT_SCOPES:
+        return True
+    _, period_end = _snapshot_bounds_for_record(record, scope)
+    if not period_end:
+        return False
+    today = today or timezone.localdate()
+    return today >= period_end
+
+
 def is_period_overlapping(user, start, end, exclude_id=None, new_frequency=None):
     """Return True if a submitted QPRRecord for user conflicts with [start,end].
 
@@ -3754,22 +3929,50 @@ def qpr_form(request):
     try:
         records_qs = QPRRecord.objects.filter(user=request.user).order_by('-id')
         records = []
+        requested_edit_record_id = (request.GET.get('edit_record') or '').strip()
+        requested_edit_scope = (request.GET.get('edit_scope') or '').strip().lower()
         for r in records_qs:
             d = serialize_qpr_record(r)
             # For form preload, only owner can edit; compute approval flags
-            edit_approved = False
-            if getattr(r, 'is_submitted', False):
-                edit_approved = EditRequest.objects.filter(
-                    user=request.user,
-                    request_type='qpr',
-                    qpr_record_id=r.pk,
-                    status='approved'
-                ).exists()
-            d['edit_approved'] = edit_approved
-            d['can_edit'] = (not getattr(r, 'is_submitted', False)) or edit_approved
-            d['has_pending_edit_request'] = EditRequest.objects.filter(
-                user=request.user, request_type='qpr', qpr_record_id=r.pk, status='pending'
-            ).exists()
+            approved_request = _add_qpr_edit_flags(d, r, request.user, request.user)
+            if (
+                requested_edit_scope in SNAPSHOT_EDIT_SCOPES
+                and requested_edit_record_id
+                and str(r.pk) == requested_edit_record_id
+            ):
+                scoped_request = _approved_qpr_edit_request(request.user, r, requested_edit_scope)
+                if scoped_request:
+                    approved_request = scoped_request
+                    d['edit_approved'] = True
+                    d['edit_approved_scope'] = requested_edit_scope
+                    d['can_edit'] = False
+                    d['snapshot_can_edit'] = True
+            if approved_request:
+                requested_data = approved_request.requested_data or {}
+                edit_scope = (requested_data.get('edit_scope') or '').lower()
+                if edit_scope in SNAPSHOT_EDIT_SCOPES:
+                    ps, pe = _snapshot_bounds_for_record(r, edit_scope)
+                    snapshot = _snapshot_for_record(r, edit_scope)
+                    details = None
+                    if snapshot:
+                        if not getattr(snapshot, 'is_overwritten', False):
+                            if edit_scope == 'weekly':
+                                snapshot, _ = _rebuild_weekly_snapshot_from_source(r.user, ps, pe, r.quarter, r.year)
+                            elif edit_scope == 'monthly':
+                                snapshot, _ = _rebuild_monthly_snapshot_from_source(r.user, ps, pe, r.quarter, r.year)
+                            elif edit_scope == 'quarterly':
+                                snapshot, _ = _rebuild_quarterly_snapshot_from_source(r.user, r.quarter, r.year)
+                        details = _snapshot_details(snapshot)
+                    if details is None and ps and pe:
+                        details = _aggregate_records_with_fallback(r.user, ps, pe, preferred=edit_scope)
+                    if details is not None:
+                        d['snapshot_edit'] = {
+                            'scope': edit_scope,
+                            'period_start': ps.isoformat() if ps else '',
+                            'period_end': pe.isoformat() if pe else '',
+                            'details': details,
+                        }
+                        d.setdefault('cumulative', {})[edit_scope] = details
             records.append(d)
     except Exception:
         records = []
@@ -3862,6 +4065,7 @@ def report_list(request):
     context = {
         'target_user_id': getattr(target_user, 'id', ''),
         'is_hod_view': is_hod_view,
+        'today_iso': timezone.localdate().isoformat(),
     }
     # Preload records for client-side rendering without calling API
     try:
@@ -3869,34 +4073,7 @@ def report_list(request):
         records = []
         for r in records_qs:
             d = serialize_qpr_record(r)
-            # If viewing another user's records (HOD/admin), don't allow edit via list
-            if getattr(target_user, 'id', None) != getattr(request.user, 'id', None):
-                d['can_edit'] = False
-                d['edit_approved'] = False
-                d['has_pending_edit_request'] = EditRequest.objects.filter(
-                    user=target_user, request_type='qpr', qpr_record_id=r.pk, status='pending'
-                ).exists()
-            else:
-                edit_approved = False
-                if getattr(r, 'is_submitted', False):
-                    edit_approved = EditRequest.objects.filter(
-                        user=request.user,
-                        request_type='qpr',
-                        qpr_record_id=r.pk,
-                        status='approved'
-                    ).exists()
-                d['edit_approved'] = edit_approved
-                d['can_edit'] = (not getattr(r, 'is_submitted', False)) or edit_approved
-                d['has_pending_edit_request'] = EditRequest.objects.filter(
-                    user=request.user, request_type='qpr', qpr_record_id=r.pk, status='pending'
-                ).exists()
-                # Debug: log EditRequest rows for troublesome example (user_id=4, record_id=1)
-                try:
-                    if getattr(target_user, 'id', None) == 4 and getattr(r, 'pk', None) == 1:
-                        ers = list(EditRequest.objects.filter(user=target_user, qpr_record_id=r.pk).values_list('id', 'status'))
-                        print(f"[DEBUG] report_list - EditRequests for user=4 record=1: {ers}")
-                except Exception:
-                    pass
+            _add_qpr_edit_flags(d, r, request.user, target_user)
             records.append(d)
     except Exception:
         records = []
@@ -4779,24 +4956,7 @@ def report_detail(request, record_id):
                 record_json = _json.dumps(record_data, default=str)
                 # Compute edit approval flags for the detail preload (same logic as API)
                 try:
-                    edit_approved = False
-                    has_pending_edit_request = False
-                    if rec.is_submitted:
-                        edit_approved = EditRequest.objects.filter(
-                            user=rec.user,
-                            request_type='qpr',
-                            qpr_record_id=rec.pk,
-                            status='approved'
-                        ).exists()
-                        has_pending_edit_request = EditRequest.objects.filter(
-                            user=rec.user,
-                            request_type='qpr',
-                            qpr_record_id=rec.pk,
-                            status='pending'
-                        ).exists()
-                    record_data['edit_approved'] = edit_approved
-                    record_data['can_edit'] = (rec.user == request.user and not rec.is_submitted) or edit_approved
-                    record_data['has_pending_edit_request'] = has_pending_edit_request
+                    _add_qpr_edit_flags(record_data, rec, request.user, rec.user)
                     record_json = _json.dumps(record_data, default=str)
                 except Exception:
                     pass
@@ -5923,6 +6083,9 @@ def _rebuild_weekly_snapshot_from_source(user, period_start, period_end, quarter
             year=year,
             defaults={'is_overwritten': False}
         )
+
+        if not created and getattr(snapshot, 'is_overwritten', False):
+            return snapshot, False
         
         # Update with recalculated values (replace, not increment)
         was_updated = False
@@ -6014,6 +6177,9 @@ def _rebuild_monthly_snapshot_from_source(user, period_start, period_end, quarte
             year=year,
             defaults={'is_overwritten': False}
         )
+
+        if not created and getattr(snapshot, 'is_overwritten', False):
+            return snapshot, False
         
         # Update with recalculated values (replace, not increment)
         was_updated = False
@@ -6761,6 +6927,36 @@ def qpr_save_record(request):
         # ================= UPDATE =================
         if record_id:
             record = get_object_or_404(QPRRecord, pk=record_id, user=request.user)
+            snapshot_edit_scope = (data.get('snapshot_edit_scope') or '').strip().lower()
+            if snapshot_edit_scope in SNAPSHOT_EDIT_SCOPES:
+                approved_request = _approved_qpr_edit_request(request.user, record, snapshot_edit_scope)
+                if not approved_request:
+                    messages.error(request, "Snapshot edit approval not found.")
+                    return redirect('qpr_report_list')
+
+                snapshot = _overwrite_snapshot_from_details(record, snapshot_edit_scope, details)
+                if not snapshot:
+                    messages.error(request, "Unable to update snapshot.")
+                    return redirect('qpr_report_list')
+
+                _refresh_parent_snapshots_after_overwrite(record, snapshot_edit_scope)
+                approved_request.status = 'temp use'
+                approved_request.save(update_fields=['status', 'updated_at'])
+                EditRequest.objects.filter(
+                    user=request.user,
+                    request_type='qpr',
+                    qpr_record_id=record.pk,
+                    status='pending'
+                ).update(status='rejected')
+                messages.success(request, "Snapshot values updated successfully.")
+                return redirect('qpr_report_list')
+
+            base_approved_request = None
+            if record.is_submitted:
+                base_approved_request = _approved_qpr_edit_request(request.user, record, 'base')
+            if record.is_submitted and not base_approved_request:
+                messages.error(request, "QPR edit approval not found for this submitted record.")
+                return redirect('qpr_report_list')
             
             # Capture OLD values BEFORE any modifications (for delta computation in aggregation)
             old_values = None
@@ -6816,13 +7012,18 @@ def qpr_save_record(request):
                 except Exception:
                     pass
 
-                # Mark any approved EditRequest(s) for this record as temp use
-                EditRequest.objects.filter(
+                # Mark only base-record approvals as consumed; snapshot scoped approvals
+                # must remain available for their matching weekly/monthly/quarterly edit.
+                for edit_request in EditRequest.objects.filter(
                     user=request.user,
                     request_type='qpr',
                     qpr_record_id=record.pk,
                     status='approved'
-                ).update(status='temp use')
+                ):
+                    requested_scope = ((edit_request.requested_data or {}).get('edit_scope') or '').lower()
+                    if requested_scope not in SNAPSHOT_EDIT_SCOPES:
+                        edit_request.status = 'temp use'
+                        edit_request.save(update_fields=['status', 'updated_at'])
                 # Reject any pending requests for this same record
                 EditRequest.objects.filter(
                     user=request.user,
@@ -7295,6 +7496,12 @@ def request_qpr_edit(request, record_id):
     if request.method == 'POST':
         try:
             reason = request.POST.get('reason', '')
+            edit_scope = (request.POST.get('edit_scope') or '').strip().lower()
+            if edit_scope not in SNAPSHOT_EDIT_SCOPES:
+                edit_scope = ''
+            if edit_scope and not _snapshot_edit_request_allowed(qpr_record, edit_scope):
+                messages.error(request, translate_text("Edit requests for this QPR can be made only on or after the period end date.", lang))
+                return redirect('qpr_report_detail', record_id=record_id)
             
             # Check if already pending
             pending_request = EditRequest.objects.filter(
@@ -7313,6 +7520,13 @@ def request_qpr_edit(request, record_id):
                     'quarter': qpr_record.quarter,
                     'year': qpr_record.year,
                 }
+                if edit_scope:
+                    ps, pe = _snapshot_bounds_for_record(qpr_record, edit_scope)
+                    qpr_data.update({
+                        'edit_scope': edit_scope,
+                        'period_start': ps.isoformat() if ps else '',
+                        'period_end': pe.isoformat() if pe else '',
+                    })
                 
                 EditRequest.objects.create(
                     user=request.user,
