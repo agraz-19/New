@@ -3041,7 +3041,6 @@ def qpr_hod_dashboard(request):
     today = timezone.localdate()
     for up in users_under_hod:
         try:
-            # Check for a submitted daily QPR with period_start == today
             submitted_today = up.user.qpr_records.filter(
                 frequency__iexact='daily',
                 period_start=today,
@@ -3062,9 +3061,6 @@ def qpr_hod_dashboard(request):
             Q(hod_name__iexact=hod_profile.employee_code) |
             Q(hod_name=str(hod_profile.employee_code))
         ).select_related('user', 'employee')
-    # ===============================
-    # CONTEXT
-    # ===============================
     context = {
         'role': 'hod',
         'total_users': total_users,
