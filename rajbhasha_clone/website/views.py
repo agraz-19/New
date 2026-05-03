@@ -2310,6 +2310,7 @@ def profile_view(request):
             # 3. Update Employee Model
             emp_instance = form.save(commit=False)
             emp_instance.highest_exam = ",".join(request.POST.getlist("hindi_exam"))
+            emp_instance.super_annuation_date = form.cleaned_data.get('super_annuation_date')
             emp_instance.empcode = empcode
             emp_instance.save()
             if profile:
@@ -2335,6 +2336,11 @@ def profile_view(request):
     employee = Employee.objects.filter(empcode=empcode).first() if empcode else None
     form = EmployeeForm(instance=employee)
     current_office_code = profile.office_code if profile else "0012"
+    super_annuation_date_value = ''
+    if employee:
+        decrypted_super_annuation_date = employee.get_super_annuation_date()
+        if decrypted_super_annuation_date:
+            super_annuation_date_value = decrypted_super_annuation_date.strftime('%Y-%m-%d')
 
     # Context Generation
     offices = Office.objects.all()
@@ -2350,6 +2356,7 @@ def profile_view(request):
         'current_hod': profile.hod_name if profile else None,
         'ip_number': profile.ip_number if profile else '',
         'alternate_email': profile.alternate_email if profile else '',
+        'super_annuation_date_value': super_annuation_date_value,
 
         # Flags for Template
         'can_edit': can_edit,
