@@ -1047,6 +1047,18 @@ def _aggregate_records_with_fallback(user, start_dt, end_dt, preferred='daily'):
     return acc
 
 
+def _quarterly_snapshot_totals_for_user(user, quarter, year):
+    """Return stored QuarterlySnapshot totals only; do not fall back to fill/QPR records."""
+    snapshot = QuarterlySnapshot.objects.filter(
+        user=user,
+        quarter=quarter,
+        year=year
+    ).first()
+    if not snapshot:
+        return {k: 0 for k in NUMERIC_KEYS}
+    return {k: getattr(snapshot, k, 0) or 0 for k in NUMERIC_KEYS}
+
+
 def _aggregate_section11_text_for_range(user, start_dt, end_dt, text_field_name, source_frequency='daily'):
     """Concatenate text from Section 11 fields of submitted records whose period overlaps [start_dt, end_dt]."""
     text_parts = []
@@ -4139,6 +4151,21 @@ def report_list(request):
                 period_start__gte=q_start - timedelta(days=7),
                 period_end__lte=q_end + timedelta(days=7)
             ))
+
+            # Load monthly/quarterly fills so their edit/view actions can be
+            # exposed only on the first missing daily row they cover.
+            all_monthly_fills = list(MonthlyFill.objects.filter(
+                user=target_user,
+                quarter=quarter,
+                year=year,
+                period_start__lte=q_end,
+                period_end__gte=q_start
+            ))
+            all_quarterly_fills = list(QuarterlyFill.objects.filter(
+                user=target_user,
+                quarter=quarter,
+                year=year
+            ))
             
             # Load all monthly snapshots
             all_monthly_snaps = list(MonthlySnapshot.objects.filter(
@@ -4206,6 +4233,12 @@ def report_list(request):
             weekly_fill_by_range = {}
             for fill in all_weekly_fills:
                 weekly_fill_by_range[(fill.period_start, fill.period_end)] = fill
+
+            monthly_fill_by_range = {}
+            for fill in all_monthly_fills:
+                monthly_fill_by_range[(fill.period_start, fill.period_end)] = fill
+
+            quarterly_fill = all_quarterly_fills[0] if all_quarterly_fills else None
             
             # monthly_by_range: {(start, end): snapshot}
             monthly_by_range = {}
@@ -4228,6 +4261,41 @@ def report_list(request):
                         first_weekly_fill_day_by_id[fill_id] = cur_fill_day
                         break
                     cur_fill_day = cur_fill_day + timedelta(days=1)
+
+            def is_weekly_fill_day(day):
+                return any(w_start <= day <= w_end for (w_start, w_end) in weekly_fill_by_range.keys())
+
+            def is_monthly_fill_day(day):
+                return any(m_start <= day <= m_end for (m_start, m_end) in monthly_fill_by_range.keys())
+
+            first_monthly_fill_day_by_id = {}
+            for (m_start, m_end), monthly_fill in monthly_fill_by_range.items():
+                fill_id = getattr(monthly_fill, 'id', None)
+                cur_fill_day = max(m_start, q_start)
+                fill_end = min(m_end, q_end)
+                while cur_fill_day <= fill_end:
+                    if (
+                        cur_fill_day.weekday() <= 5
+                        and cur_fill_day not in daily_by_date_full
+                        and not is_weekly_fill_day(cur_fill_day)
+                    ):
+                        first_monthly_fill_day_by_id[fill_id] = cur_fill_day
+                        break
+                    cur_fill_day = cur_fill_day + timedelta(days=1)
+
+            first_quarterly_fill_day = None
+            if quarterly_fill:
+                cur_fill_day = q_start
+                while cur_fill_day <= q_end:
+                    if (
+                        cur_fill_day.weekday() <= 5
+                        and cur_fill_day not in daily_by_date_full
+                        and not is_weekly_fill_day(cur_fill_day)
+                        and not is_monthly_fill_day(cur_fill_day)
+                    ):
+                        first_quarterly_fill_day = cur_fill_day
+                        break
+                    cur_fill_day = cur_fill_day + timedelta(days=1)
             
             # ========== PHASE 3: Loop using dictionaries (zero more queries!) ==========
             
@@ -4239,9 +4307,17 @@ def report_list(request):
                     # Initialize all flags
                     totals = {k: 0 for k in NUMERIC_KEYS}
                     filled_by_weekly = False
+                    filled_by_monthly = False
+                    filled_by_quarterly = False
                     is_first_fill_day = False
+                    is_first_monthly_fill_day = False
+                    is_first_quarterly_fill_day = False
                     weekly_fill_record_id = None
+                    monthly_fill_record_id = None
+                    quarterly_fill_record_id = None
                     weekly_record_id = None
+                    monthly_record_id = None
+                    quarterly_record_id = None
                     exists_daily = False
                     region = ''
                     
@@ -4274,10 +4350,47 @@ def report_list(request):
                                 
                                 daily_debug.append(f"{cur}: WEEKLY_FILL is_first={is_first_fill_day} (s1_total={totals.get('s1_total', 0)})")
                                 break
+
+                        if not filled_by_weekly:
+                            for (m_start, m_end), monthly_fill in monthly_fill_by_range.items():
+                                if m_start <= cur <= m_end:
+                                    for k in NUMERIC_KEYS:
+                                        totals[k] = getattr(monthly_fill, k, 0) or 0
+                                    filled_by_monthly = True
+                                    monthly_fill_record_id = getattr(monthly_fill, 'id', None)
+                                    monthly_record = next(
+                                        (
+                                            r for r in all_monthly_records
+                                            if r.period_start <= m_start and r.period_end >= m_end
+                                        ),
+                                        None
+                                    )
+                                    monthly_record_id = getattr(monthly_record, 'id', None) if monthly_record else None
+                                    is_first_monthly_fill_day = (
+                                        first_monthly_fill_day_by_id.get(monthly_fill_record_id) == cur
+                                    )
+                                    daily_debug.append(f"{cur}: MONTHLY_FILL is_first={is_first_monthly_fill_day} (s1_total={totals.get('s1_total', 0)})")
+                                    break
+
+                        if not filled_by_weekly and not filled_by_monthly and quarterly_fill and q_start <= cur <= q_end:
+                            for k in NUMERIC_KEYS:
+                                totals[k] = getattr(quarterly_fill, k, 0) or 0
+                            filled_by_quarterly = True
+                            quarterly_fill_record_id = getattr(quarterly_fill, 'id', None)
+                            quarterly_record = next(
+                                (
+                                    r for r in all_quarterly_records
+                                    if r.period_start <= q_start and r.period_end >= q_end
+                                ),
+                                None
+                            )
+                            quarterly_record_id = getattr(quarterly_record, 'id', None) if quarterly_record else None
+                            is_first_quarterly_fill_day = (first_quarterly_fill_day == cur)
+                            daily_debug.append(f"{cur}: QUARTERLY_FILL is_first={is_first_quarterly_fill_day} (s1_total={totals.get('s1_total', 0)})")
                     
                     # Determine coverage by higher-level records (if no daily or weekly fill)
                     covered_by = None
-                    if not exists_daily and not filled_by_weekly:
+                    if not exists_daily and not filled_by_weekly and not filled_by_monthly and not filled_by_quarterly:
                         # Check if this day falls within any weekly/monthly/quarterly range
                         for w_start, w_end in weekly_ranges:
                             if w_start <= cur <= w_end:
@@ -4301,9 +4414,17 @@ def report_list(request):
                         'has_daily': exists_daily,
                         'daily_id': daily_record_id,
                         'filled_by_weekly': filled_by_weekly,
+                        'filled_by_monthly': filled_by_monthly,
+                        'filled_by_quarterly': filled_by_quarterly,
                         'is_first_fill_day': is_first_fill_day,
+                        'is_first_monthly_fill_day': is_first_monthly_fill_day,
+                        'is_first_quarterly_fill_day': is_first_quarterly_fill_day,
                         'weekly_fill_record_id': weekly_fill_record_id,
+                        'monthly_fill_record_id': monthly_fill_record_id,
+                        'quarterly_fill_record_id': quarterly_fill_record_id,
                         'weekly_record_id': weekly_record_id,
+                        'monthly_record_id': monthly_record_id,
+                        'quarterly_record_id': quarterly_record_id,
                         'covered_by': covered_by,
                         'region': region or default_region or ''
                     })
@@ -4352,6 +4473,17 @@ def report_list(request):
                     (r.period_start <= display_start and r.period_end >= display_end)
                     for r in all_weekly_records
                 )
+                covered_by_monthly = any(
+                    (fill.period_start <= display_end and fill.period_end >= display_start)
+                    for fill in all_monthly_fills
+                ) or any(
+                    (r.period_start <= display_end and r.period_end >= display_start)
+                    for r in all_monthly_records
+                )
+                covered_by_quarterly = bool(quarterly_fill) or any(
+                    (r.period_start <= display_end and r.period_end >= display_start)
+                    for r in all_quarterly_records
+                )
                 
                 # Get region from weekly snapshot or daily records
                 region_week = ''
@@ -4371,6 +4503,7 @@ def report_list(request):
                     'expected_days': expected_days,
                     'missing_days': missing_days,
                     'weekly_submitted': weekly_submitted,
+                    'covered_by': 'monthly' if covered_by_monthly else ('quarterly' if covered_by_quarterly else ''),
                     'region': region_week or default_region or ''
                 })
                 w_start = w_start + timedelta(days=7)
@@ -4412,6 +4545,10 @@ def report_list(request):
                     (r.period_start <= month_start and r.period_end >= month_end)
                     for r in all_monthly_records
                 )
+                covered_by_quarterly = bool(quarterly_fill) or any(
+                    (r.period_start <= month_start and r.period_end >= month_end)
+                    for r in all_quarterly_records
+                )
                 
                 # Get region from monthly snapshot or daily records
                 region_month = ''
@@ -4429,6 +4566,7 @@ def report_list(request):
                     'totals': totals,
                     'daily_count': daily_count,
                     'monthly_submitted': monthly_submitted,
+                    'covered_by': 'quarterly' if covered_by_quarterly else '',
                     'region': region_month or default_region or ''
                 })
                 
@@ -4586,7 +4724,7 @@ def report_detail(request, record_id):
                             u = getattr(p, 'user', None)
                             if not u:
                                 continue
-                            ut = _aggregate_records_with_fallback(u, q_start, q_end, preferred='quarterly') or {k: 0 for k in NUMERIC_KEYS}
+                            ut = _quarterly_snapshot_totals_for_user(u, current_quarter, current_year)
                             for k in NUMERIC_KEYS:
                                 try:
                                     expected[k] += int(ut.get(k, 0) or 0)
@@ -4697,7 +4835,7 @@ def report_detail(request, record_id):
                     except Exception:
                         pass
                     print("USER:", user_obj.id)
-                    user_totals = _aggregate_records_with_fallback(user_obj, q_start, q_end, preferred='quarterly') or {k: 0 for k in NUMERIC_KEYS}
+                    user_totals = _quarterly_snapshot_totals_for_user(user_obj, current_quarter, current_year)
                     try:
                         print("USER_TOTALS:", user_totals)
                     except Exception:
@@ -4715,29 +4853,6 @@ def report_detail(request, record_id):
                         record_count += 1
                 except Exception:
                     continue
-
-            # Include HOD's own totals using the same fallback aggregation
-            try:
-                hod_user_id = getattr(request.user, 'id', None)
-                # If the HOD was already included in users_under aggregation, skip adding again
-                if hod_user_id and hod_user_id in processed_user_ids:
-                    try:
-                        print("HOD already included in user list; skipping additional aggregation for HOD:", hod_user_id)
-                    except Exception:
-                        pass
-                else:
-                    hod_totals = _aggregate_records_with_fallback(request.user, q_start, q_end, preferred='quarterly') or {k: 0 for k in NUMERIC_KEYS}
-                    try:
-                        print("HOD TOTALS:", hod_totals)
-                    except Exception:
-                        pass
-                    for k in NUMERIC_KEYS:
-                        try:
-                            aggregated[k] += int(hod_totals.get(k, 0) or 0)
-                        except Exception:
-                            continue
-            except Exception:
-                pass
 
             try:
                 print("FINAL AGGREGATED:", {k: aggregated.get(k, 0) for k in NUMERIC_KEYS})
@@ -5284,8 +5399,7 @@ def freeze_division_snapshot(request):
                     u = CustomUser.objects.filter(id=uid).first()
                     if not u:
                         continue
-                    # Use fallback aggregation to compute this user's totals for the quarter
-                    user_totals = _aggregate_records_with_fallback(u, q_start, q_end, preferred='quarterly') or {k: 0 for k in NUMERIC_KEYS}
+                    user_totals = _quarterly_snapshot_totals_for_user(u, current_quarter, current_year)
                     any_nonzero = False
                     for k in NUMERIC_KEYS:
                         try:
@@ -5876,8 +5990,14 @@ def _sum_weekly_fill_in_range(user, start_date, end_date):
 
 def _sum_weekly_snapshots_in_month(user, month_start, month_end, quarter, year):
     """
-    Sum WeeklySnapshot records owned by this month.
-    Cross-month weeks belong to the month containing the week's period_start.
+    Sum weekly-level data for a month.
+
+    Weeks fully inside the month are taken from WeeklySnapshot. Cross-month
+    weeks are not assigned wholesale to the start month:
+    - normal daily entries are summed by their actual daily date
+    - weekly-fill entries are split by the missing working days that fall in
+      the target month, because WeeklyFill stores one aggregate value for the
+      missing dates in the week rather than per-day rows
     """
     total = {k: 0 for k in NUMERIC_KEYS}
     try:
@@ -5886,11 +6006,50 @@ def _sum_weekly_snapshots_in_month(user, month_start, month_end, quarter, year):
             quarter=quarter,
             year=year,
             period_start__gte=month_start,
-            period_start__lte=month_end
+            period_end__lte=month_end
         )
         for snap in snapshots:
             for k in NUMERIC_KEYS:
                 total[k] = (total[k] or 0) + (getattr(snap, k, 0) or 0)
+
+        edge_daily_records = QPRRecord.objects.filter(
+            user=user,
+            frequency__iexact='daily',
+            is_submitted=True,
+            period_start__gte=month_start,
+            period_start__lte=month_end,
+            quarter=quarter,
+            year=year,
+        )
+        for record in edge_daily_records:
+            week_start, week_end = get_clipped_week_bounds(record.period_start, quarter, year)
+            if week_start >= month_start and week_end <= month_end:
+                continue
+            data = _extract_details_from_record(record)
+            for k in NUMERIC_KEYS:
+                total[k] = (total[k] or 0) + (data.get(k, 0) or 0)
+
+        edge_fills = WeeklyFill.objects.filter(
+            user=user,
+            quarter=quarter,
+            year=year,
+            period_start__lte=month_end,
+            period_end__gte=month_start,
+        )
+        for fill in edge_fills:
+            if fill.period_start >= month_start and fill.period_end <= month_end:
+                continue
+
+            missing_dates = _get_missing_days_in_range(user, fill.period_start, fill.period_end)
+            month_missing_dates = [d for d in missing_dates if month_start <= d <= month_end]
+            if not missing_dates or not month_missing_dates:
+                continue
+
+            numerator = len(month_missing_dates)
+            denominator = len(missing_dates)
+            for k in NUMERIC_KEYS:
+                value = getattr(fill, k, 0) or 0
+                total[k] = (total[k] or 0) + round(value * numerator / denominator)
     except Exception as e:
         print(f"[ERROR] _sum_weekly_snapshots_in_month: {str(e)}")
     return total
@@ -6038,10 +6197,13 @@ def _get_or_create_quarterly_snapshot_with_sum(user, quarter, year, period_start
 
 def _increment_snapshot_by_delta(snapshot, delta):
     """Increment snapshot values by delta dict. O(1) operation."""
+    if getattr(snapshot, 'is_overwritten', False):
+        return False
     for k in NUMERIC_KEYS:
         current = getattr(snapshot, k, 0) or 0
         setattr(snapshot, k, current + (delta.get(k, 0) or 0))
     snapshot.save()
+    return True
 
 
 # ==================== SAFE PATH: REBUILD FUNCTIONS ====================
@@ -6929,6 +7091,10 @@ def qpr_save_record(request):
             record = get_object_or_404(QPRRecord, pk=record_id, user=request.user)
             snapshot_edit_scope = (data.get('snapshot_edit_scope') or '').strip().lower()
             if snapshot_edit_scope in SNAPSHOT_EDIT_SCOPES:
+                if data.get('status', 'Submitted') != 'Submitted':
+                    messages.error(request, "Snapshot edits must be submitted. Draft is not available for snapshot overwrites.")
+                    return redirect('qpr_report_list')
+
                 approved_request = _approved_qpr_edit_request(request.user, record, snapshot_edit_scope)
                 if not approved_request:
                     messages.error(request, "Snapshot edit approval not found.")

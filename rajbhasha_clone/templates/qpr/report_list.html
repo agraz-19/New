@@ -169,6 +169,7 @@
             const weekly = grouped.weekly;
             const monthly = grouped.monthly;
             const quarterly = grouped.quarterly;
+            const isSubmittedRecord = (rec) => !!rec && (rec.is_submitted || String(rec.status || '').toLowerCase() === 'submitted');
 
             // Populate helper
             function scopedRequestAllowed(editScope, periodEnd) {
@@ -184,8 +185,9 @@
                 const viewSuffix = editScope ? `?view_as=${editScope}` : '';
                 const approvedScope = String(rec.edit_approved_scope || '').toLowerCase();
                 const requestedScope = String(editScope || '').toLowerCase();
-                const canEditThisScope = requestedScope && approvedScope === requestedScope;
-                const canEditBaseRecord = rec.can_edit && !approvedScope;
+                const isSnapshotScope = ['weekly', 'monthly', 'quarterly'].includes(requestedScope);
+                const canEditThisScope = isSnapshotScope && approvedScope === requestedScope && rec.snapshot_can_edit;
+                const canEditBaseRecord = !isSnapshotScope && rec.can_edit && !approvedScope;
                 // HOD view is read-only: only show View button
                 if (IS_HOD_VIEW) {
                     return ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(rec.id, viewSuffix)}">View</a>`;
@@ -199,6 +201,11 @@
                 }
                 if (!scopedRequestAllowed(editScope, periodEnd)) {
                     return `<a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(rec.id, viewSuffix)}">View</a>`;
+                }
+                if (!rec.is_submitted && String(rec.status || '').toLowerCase() !== 'submitted') {
+                    return isSnapshotScope
+                        ? '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>'
+                        : `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); edit(${rec.id})">Edit Draft</button>`;
                 }
                 // Otherwise offer request-to-edit
                 let actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${rec.id}${scopeArg})">Request to Edit</button>`;
@@ -242,7 +249,10 @@
                         // Determine status: submitted daily, filled by weekly, covered by other, or missing
                         let status = '';
                         if (d.has_daily) status = '<span class="badge bg-success">Submitted Daily</span>';
+                        else if (rec && !isSubmittedRecord(rec)) status = '<span class="badge bg-primary">Draft</span>';
                         else if (d.filled_by_weekly) status = '<span class="badge bg-info">Filled by Weekly</span>';
+                        else if (d.filled_by_monthly) status = '<span class="badge bg-info">Filled by Monthly</span>';
+                        else if (d.filled_by_quarterly) status = '<span class="badge bg-info">Filled by Quarterly</span>';
                         else if (d.covered_by) status = `<span class="badge bg-secondary">Covered by ${d.covered_by}</span>`;
                         else status = '<span class="text-muted">Missing</span>';
                         
@@ -260,6 +270,8 @@
                                 // Fallback if record not in preloaded list
                                 actions = `<a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.daily_id)}">View</a>`;
                             }
+                        } else if (rec && !isSubmittedRecord(rec)) {
+                            actions = makeActions(rec);
                         } else if (d.filled_by_weekly && d.is_first_fill_day && d.weekly_record_id) {
                             // First filled missing day of weekly fill - show weekly record actions
                             const weeklyRec = records.find(r => Number(r.id) === Number(d.weekly_record_id)) || null;
@@ -275,6 +287,34 @@
                             } else {
                                 actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${d.weekly_record_id})">Request to Edit</button>`;
                                 actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.weekly_record_id, '?view_as=fill')}">View</a>`;
+                            }
+                        } else if (d.filled_by_monthly && d.is_first_monthly_fill_day && d.monthly_record_id) {
+                            const monthlyRec = records.find(r => Number(r.id) === Number(d.monthly_record_id)) || null;
+                            if (IS_HOD_VIEW) {
+                                actions = `<a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.monthly_record_id, '?view_as=fill')}">View</a>`;
+                            } else if (monthlyRec && monthlyRec.can_edit && !monthlyRec.edit_approved_scope) {
+                                actions = `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); edit(${d.monthly_record_id})">Edit</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.monthly_record_id, '?view_as=fill')}">View</a>`;
+                            } else if (monthlyRec && monthlyRec.has_pending_edit_request) {
+                                actions = `<button class="btn btn-sm btn-outline-secondary" disabled>Pending</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.monthly_record_id, '?view_as=fill')}">View</a>`;
+                            } else {
+                                actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${d.monthly_record_id})">Request to Edit</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.monthly_record_id, '?view_as=fill')}">View</a>`;
+                            }
+                        } else if (d.filled_by_quarterly && d.is_first_quarterly_fill_day && d.quarterly_record_id) {
+                            const quarterlyRec = records.find(r => Number(r.id) === Number(d.quarterly_record_id)) || null;
+                            if (IS_HOD_VIEW) {
+                                actions = `<a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.quarterly_record_id, '?view_as=fill')}">View</a>`;
+                            } else if (quarterlyRec && quarterlyRec.can_edit && !quarterlyRec.edit_approved_scope) {
+                                actions = `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); edit(${d.quarterly_record_id})">Edit</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.quarterly_record_id, '?view_as=fill')}">View</a>`;
+                            } else if (quarterlyRec && quarterlyRec.has_pending_edit_request) {
+                                actions = `<button class="btn btn-sm btn-outline-secondary" disabled>Pending</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.quarterly_record_id, '?view_as=fill')}">View</a>`;
+                            } else {
+                                actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${d.quarterly_record_id})">Request to Edit</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.quarterly_record_id, '?view_as=fill')}">View</a>`;
                             }
                         }
                         // else: no buttons (empty actions already initialized)
@@ -307,6 +347,7 @@
                             // Find candidate records that cover the same period (normalize both sides)
                             // Accept records that match on start OR match on end OR whose period_start falls within the week
                             const candidates = records.filter(r => {
+                                if (!r.is_submitted && String(r.status || '').toLowerCase() !== 'submitted') return false;
                                 const rs = normDate(r.period_start);
                                 const re = normDate(r.period_end || r.period_start);
                                 const matchStart = rs && rs === normDate(ps);
@@ -325,7 +366,9 @@
                             const periodLabel = (ps || '-') + (pe ? ' → ' + pe : '');
                         // If no weekly record but have daily candidates (dataSourceRec), show View + Request to Edit using first daily candidate
                         let actions = '';
-                        if (weeklyActionRec) {
+                        if (w.covered_by) {
+                            actions = `<span class="badge bg-secondary">Covered by ${w.covered_by}</span>`;
+                        } else if (weeklyActionRec) {
                             actions = makeActions(weeklyActionRec, 'weekly', pe);
                         } else {
                             actions = '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
@@ -333,6 +376,12 @@
 
                         // Render row: show period and actions (no totals column)
                         renderRow(weeklyBody, rec, [periodLabel, actions]);
+                    });
+                    weekly.filter(rec => !isSubmittedRecord(rec)).forEach(rec => {
+                        const ps = getProp(rec, 'period_start') || getProp(rec, 'period') || '-';
+                        const pe = getProp(rec, 'period_end') || '';
+                        const period = pe ? `${ps} → ${pe} <span class="badge bg-primary ms-1">Draft</span>` : `${ps} <span class="badge bg-primary ms-1">Draft</span>`;
+                        renderRow(weeklyBody, rec, [period, makeActions(rec)]);
                     });
                 } else {
                     if (weekly.length === 0) weeklyBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">No weekly entries</td></tr>';
@@ -361,6 +410,7 @@
                         }
                         // Find candidate records that cover the same period
                         const candidates = records.filter(r => {
+                            if (!r.is_submitted && String(r.status || '').toLowerCase() !== 'submitted') return false;
                             const rs = normDate(r.period_start);
                             const re = normDate(r.period_end || r.period_start);
                             const matchStart = rs && rs === normDate(ps);
@@ -378,12 +428,20 @@
                         const monthlyActionRec = chooseActionRecord(candidates, 'monthly') || rec || dataSourceRec;
                         const periodLabel = (ps || '-') + (pe ? ' → ' + pe : '');
                         let actions = '';
-                        if (monthlyActionRec) {
+                        if (m.covered_by) {
+                            actions = `<span class="badge bg-secondary">Covered by ${m.covered_by}</span>`;
+                        } else if (monthlyActionRec) {
                             actions = makeActions(monthlyActionRec, 'monthly', pe);
                         } else {
                             actions = '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
                         }
                         renderRow(monthlyBody, rec, [periodLabel, actions]);
+                    });
+                    monthly.filter(rec => !isSubmittedRecord(rec)).forEach(rec => {
+                        const ps = getProp(rec, 'period_start') || getProp(rec, 'period') || '-';
+                        const pe = getProp(rec, 'period_end') || '';
+                        const period = pe ? `${ps} → ${pe} <span class="badge bg-primary ms-1">Draft</span>` : `${ps} <span class="badge bg-primary ms-1">Draft</span>`;
+                        renderRow(monthlyBody, rec, [period, makeActions(rec)]);
                     });
                 } else {
                     if (monthly.length === 0) monthlyBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">No monthly entries</td></tr>';
@@ -416,6 +474,7 @@
 
                     // Find candidate records inside quarter range for actions
                     const candidates = records.filter(r => {
+                        if (!r.is_submitted && String(r.status || '').toLowerCase() !== 'submitted') return false;
                         const rs = normDateQ(r.period_start);
                         const re = normDateQ(r.period_end || r.period_start);
                         const matchStart = rs && rs === normDateQ(ps);
@@ -451,6 +510,24 @@
                         <td>${actions}</td>
                     `;
                     if (quarterlyBody) quarterlyBody.appendChild(row);
+                    quarterly.filter(rec => !isSubmittedRecord(rec)).forEach(rec => {
+                        const ps = getProp(rec, 'period_start') || getProp(rec, 'period') || '-';
+                        const pe = getProp(rec, 'period_end') || '';
+                        const period = pe ? `${ps} → ${pe}` : ps;
+                        renderRow(
+                            quarterlyBody,
+                            rec,
+                            [`${period} <span class="badge bg-primary ms-1">Draft</span>`, rec.year || summary.year_label || '-', makeActions(rec)]
+                        );
+                    });
+                } else if (quarterly.length > 0) {
+                    quarterly.forEach(rec => {
+                        const ps = getProp(rec, 'period_start') || getProp(rec, 'period') || '-';
+                        const pe = getProp(rec, 'period_end') || '';
+                        const period = pe ? `${ps} → ${pe}` : ps;
+                        const badge = isSubmittedRecord(rec) ? '' : ' <span class="badge bg-primary ms-1">Draft</span>';
+                        renderRow(quarterlyBody, rec, [`${period}${badge}`, rec.year || '-', makeActions(rec)]);
+                    });
                 } else {
                     quarterlyBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No quarterly entries</td></tr>';
                 }

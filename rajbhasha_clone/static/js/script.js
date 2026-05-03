@@ -253,62 +253,62 @@ document.addEventListener('DOMContentLoaded', () => {
                             selectedDateEl.readOnly = true;
                             selectedDateEl.classList.add('text-muted');
                         }
-                        // disable/hide Save as Draft on non-daily frequencies
-                        try {
-                            const saveDraftBtn = document.getElementById('saveDraftBtn');
-                            if (saveDraftBtn) {
-                                saveDraftBtn.disabled = true;
-                                saveDraftBtn.classList.add('d-none');
-                            }
-                        } catch(e) {}
                     } else {
                         if (selectedDateEl) {
                             selectedDateEl.readOnly = false;
                             selectedDateEl.classList.remove('text-muted');
                         }
-                        try {
-                            const saveDraftBtn = document.getElementById('saveDraftBtn');
-                            if (saveDraftBtn) {
+                    }
+                    // Draft is valid for normal QPR entry flows, including weekly/monthly/quarterly
+                    // entries used to fill missed daily periods. Hide it only for snapshot overwrites.
+                    try {
+                        const saveDraftBtn = document.getElementById('saveDraftBtn');
+                        if (saveDraftBtn) {
+                            if (isScopedSnapshotEditMode()) {
+                                saveDraftBtn.disabled = true;
+                                saveDraftBtn.classList.add('d-none');
+                            } else {
                                 saveDraftBtn.disabled = false;
                                 saveDraftBtn.classList.remove('d-none');
                             }
-                        } catch(e) {}
-                    }
+                        }
+                    } catch(e) {}
                 });
-                // initialize draft button state based on current frequency
+                // initialize draft button state based on current edit mode
                 try {
                     const saveDraftBtn = document.getElementById('saveDraftBtn');
                     if (saveDraftBtn) {
-                        if (frequencyEl.value && frequencyEl.value !== 'daily') {
+                        if (isScopedSnapshotEditMode()) {
                             saveDraftBtn.disabled = true;
                             saveDraftBtn.classList.add('d-none');
                         } else {
                             saveDraftBtn.disabled = false;
                             saveDraftBtn.classList.remove('d-none');
                         }
-                        // prevent accidental usage if clicked while disabled
-                        saveDraftBtn.addEventListener('click', function(ev){
-                            if (frequencyEl.value !== 'daily') {
-                                ev.preventDefault();
-                                alert('Save as Draft is allowed only for Daily frequency. Please select Daily to save drafts.');
-                                return false;
-                            }
-                        });
+                        // prevent accidental usage during snapshot overwrite edits
+                        try {
+                            saveDraftBtn.addEventListener('click', function(ev){
+                                if (isScopedSnapshotEditMode()) {
+                                    ev.preventDefault();
+                                    alert('Draft is not available for snapshot overwrites. Please submit the snapshot changes.');
+                                    return false;
+                                }
+                            });
+                        } catch(e) {}
                     }
                 } catch(e) {}
 
-                // Prevent form submitting a draft when frequency is not daily (covers hidden inputs)
+                // Prevent form submitting a draft during snapshot overwrite edits (covers hidden inputs)
                 try {
                     const qprForm = document.getElementById('qprForm');
                     if (qprForm) {
                         qprForm.addEventListener('submit', function(ev){
                             try {
-                                const freq = (frequencyEl && frequencyEl.value) ? frequencyEl.value : 'daily';
                                 const statusInput = qprForm.querySelector('input[name="status"]');
                                 const statusVal = statusInput ? String(statusInput.value).toLowerCase() : null;
-                                if (freq !== 'daily' && statusVal === 'draft') {
+                                if (isScopedSnapshotEditMode() && statusVal === 'draft') {
                                     ev.preventDefault();
-                                    alert('Drafts are allowed only for Daily frequency. Change frequency to Daily to save as Draft.');
+                                    alert('Draft is not available for snapshot overwrites. Please submit the snapshot changes.');
                                     return false;
                                 }
                             } catch(e) { /* ignore */ }
