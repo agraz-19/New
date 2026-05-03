@@ -328,43 +328,48 @@
         <p>(ii) Expenditure incurred on purchase of Hindi books <input type="number" step="0.01" class="form-control" name="expenditure_hindi_books" style="width:240px; display:inline-block;"></p>
     </div>
 
-    <div class="qpr-section">
-        <h4>Section 11: Work done by Officers (Deputy Secretary/Equivalent and above)</h4>
-        <table class="qpr-table">
-            <thead>
-                <tr>
-                    <th>Total No. of Officers</th>
-                    <th>No. of Officers having knowledge of Hindi</th>
-                    <th colspan="6">Out of Column(2) No. of those working in Hindi</th>
-                </tr>
-                <tr>
-                    <th></th>
-                    <th></th>
-                    <th>Not doing</th>
-                    <th>Doing Upto 25%</th>
-                    <th>Doing upto 26 to 50%</th>
-                    <th>Doing upto 51 to 75%</th>
-                    <th>Doing more than 76%</th>
-                    <th>Doing Cent percent</th>
-                </tr>
-                <tr>
-                    <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><input type="number" class="form-control" data-group="officers_work" data-level="ds_and_above" data-field="total_officers"></td>
-                    <td><input type="number" class="form-control" data-group="officers_work" data-level="ds_and_above" data-field="knowledge_of_hindi"></td>
-                    <td><input type="number" class="form-control" data-group="officers_work" data-level="ds_and_above" data-field="not_doing"></td>
-                    <td><input type="number" class="form-control" data-group="officers_work" data-level="ds_and_above" data-field="doing_upto_25"></td>
-                    <td><input type="number" class="form-control" data-group="officers_work" data-level="ds_and_above" data-field="doing_26_to_50"></td>
-                    <td><input type="number" class="form-control" data-group="officers_work" data-level="ds_and_above" data-field="doing_51_to_75"></td>
-                    <td><input type="number" class="form-control" data-group="officers_work" data-level="ds_and_above" data-field="doing_more_76"></td>
-                    <td><input type="number" class="form-control" data-group="officers_work" data-level="ds_and_above" data-field="doing_cent_percent"></td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+<div class="qpr-section">
+    <p><strong>11. उप सचिव/समकक्ष एवं उनसे उच्च स्तर के अधिकारियों द्वारा हिंदी में कार्य <br> Work done in Hindi by DS/Equivalent and above officers</strong></p>
+
+    <table class="qpr-table">
+        <thead>
+            <tr>
+                <th>Total Officers</th>
+                <th>Officers knowing Hindi</th>
+                <th>Not doing</th>
+                <th>Up to 25%</th>
+                <th>26–50%</th>
+                <th>51–75%</th>
+                <th>Above 75%</th>
+                <th>100%</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td><input type="number" name="sec11_total" class="form-control"></td>
+
+                <td><input type="number" name="sec11_knowledge"
+                    value="{{ sec11.knowledge_of_hindi|default:0 }}" class="form-control"></td>
+
+                <td><input type="number" name="sec11_0_25"
+                    value="{{ sec11.doing_upto_25|default:0 }}" class="form-control"></td>
+
+                <td><input type="number" name="sec11_26_50"
+                    value="{{ sec11.doing_26_to_50|default:0 }}" class="form-control"></td>
+
+                <td><input type="number" name="sec11_51_75"
+                    value="{{ sec11.doing_51_to_75|default:0 }}" class="form-control"></td>
+
+                <td><input type="number" name="sec11_76_99"
+                    value="{{ sec11.doing_more_76|default:0 }}" class="form-control"></td>
+
+                <td><input type="number" name="sec11_100"
+                    value="{{ sec11.doing_cent_percent|default:0 }}" class="form-control"></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
 
     <div class="qpr-section">
         <h4>Section 12: Work done by Officials below the level of Deputy Secretary</h4>
