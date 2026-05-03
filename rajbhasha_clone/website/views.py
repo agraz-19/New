@@ -1518,14 +1518,19 @@ def _allowed_frequencies_for_date(user, selected_date, allow_future_days=True):
     }
     """
     today = timezone.localdate()
-    # min_date: earliest submitted period_start for user or start of current financial year
+    # min_date: allow dates from the start of the current financial year (Apr 1)
+    # through the user's earliest submitted date (if earlier). This ensures
+    # that once a user submits any QPR in the fiscal year, all dates from
+    # Apr 1 up to that submission are available in the form.
+    fy_start = today.year if today.month >= 4 else today.year - 1
+    fiscal_start = date(fy_start, 4, 1)
     earliest = QPRRecord.objects.filter(user=user).order_by('period_start').first()
     if earliest and earliest.period_start:
-        min_date = earliest.period_start
+        # Choose the earlier of fiscal_start and earliest submission so we do
+        # not accidentally enable dates before that user's real history.
+        min_date = min(earliest.period_start, fiscal_start)
     else:
-        # fiscal year start: Apr 1 of current fiscal year
-        fy_start = today.year if today.month >= 4 else today.year - 1
-        min_date = date(fy_start, 4, 1)
+        min_date = fiscal_start
 
     # Max date: by default allow one month ahead from today (user can plan one month in advance)
     # If allow_future_days is False (used by the user/HOD QPR form), restrict max_date to today.
