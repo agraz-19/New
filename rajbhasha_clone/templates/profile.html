@@ -851,10 +851,10 @@ function fetchEmployeeData() {
             const designationSelect = document.getElementById("designation");
             if(designationSelect) designationSelect.value = data.designation || "";
 
-            feedback.innerHTML = "âœ” Verified";
+            feedback.innerHTML = "&#10004; Verified";
             feedback.style.color = "green";
         } else {
-            feedback.innerHTML = "âœ– Invalid Employee Code";
+            feedback.innerHTML = "&#10006; Invalid Employee Code";
             feedback.style.color = "red";
         }
     })
