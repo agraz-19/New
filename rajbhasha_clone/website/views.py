@@ -3076,8 +3076,7 @@ def manager_section11_select_texts(request, manager_qpr_id=None):
     if not user_has_role(request.user, 'manager'):
         return HttpResponseForbidden("Manager role required")
 
-    from .models import ManagerQPR, QPRRecord, Section11SpecificAchievementsData, CustomUser
-    import json
+    from .models import ManagerQPR, QPRRecord, CustomUser
 
     # Get manager's office code
     manager_office = getattr(request.user.profile, 'office_code', None)
@@ -3089,6 +3088,57 @@ def manager_section11_select_texts(request, manager_qpr_id=None):
     manager_qpr = None
     if manager_qpr_id:
         manager_qpr = get_object_or_404(ManagerQPR, pk=manager_qpr_id, user=request.user)
+
+    quarter = manager_qpr.quarter if manager_qpr else None
+    financial_year = manager_qpr.financial_year if manager_qpr else None
+    try:
+        quarter_start, quarter_end = _quarter_label_to_daterange(quarter, financial_year)
+    except Exception:
+        quarter_start, quarter_end = None, None
+
+    def collect_user_section11(user):
+        texts = {
+            'innovative_work': '',
+            'special_events': '',
+            'hindi_medium_works': ''
+        }
+        latest_qpr = None
+
+        if quarter_start and quarter_end:
+            latest_qpr = QPRRecord.objects.filter(
+                user=user,
+                is_submitted=True,
+                period_start__lte=quarter_end,
+                period_end__gte=quarter_start
+            ).order_by('-updated_at').first()
+
+            for field_name in texts:
+                texts[field_name] = _aggregate_section11_text_for_range(
+                    user,
+                    quarter_start,
+                    quarter_end,
+                    field_name,
+                    source_frequency='all'
+                )
+
+        # Fallback for older records that may not have period_start/period_end populated.
+        if not any(value.strip() for value in texts.values()) and quarter and financial_year:
+            latest_qpr = QPRRecord.objects.filter(
+                user=user,
+                quarter=quarter,
+                year=financial_year,
+                is_submitted=True
+            ).order_by('-updated_at').first()
+
+            if latest_qpr and hasattr(latest_qpr, 'section11'):
+                s11 = latest_qpr.section11
+                texts = {
+                    'innovative_work': (s11.innovative_work or '').strip(),
+                    'special_events': (s11.special_events or '').strip(),
+                    'hindi_medium_works': (s11.hindi_medium_works or '').strip()
+                }
+
+        return texts, latest_qpr
 
     if request.method == 'POST':
         # Process selected user texts
@@ -3111,25 +3161,14 @@ def manager_section11_select_texts(request, manager_qpr_id=None):
             try:
                 user_id = int(user_id)
                 user = office_users.get(id=user_id)
-                
-                # Get user's most recent submitted QPRRecord for this quarter/year
-                latest_qpr = QPRRecord.objects.filter(
-                    user=user,
-                    quarter=manager_qpr.quarter if manager_qpr else None,
-                    year=manager_qpr.financial_year if manager_qpr else None,
-                    is_submitted=True
-                ).order_by('-updated_at').first()
 
-                if latest_qpr and hasattr(latest_qpr, 'section11'):
-                    s11 = latest_qpr.section11
-                    user_display = f"{user.first_name} {user.last_name}" if user.first_name else user.username
-                    
-                    if s11.innovative_work:
-                        texts_by_field['innovative_work'].append(f"[{user_display}]: {s11.innovative_work}")
-                    if s11.special_events:
-                        texts_by_field['special_events'].append(f"[{user_display}]: {s11.special_events}")
-                    if s11.hindi_medium_works:
-                        texts_by_field['hindi_medium_works'].append(f"[{user_display}]: {s11.hindi_medium_works}")
+                section11_texts, latest_qpr = collect_user_section11(user)
+                if any(value.strip() for value in section11_texts.values()):
+                    user_display = f"{user.first_name} {user.last_name}".strip() or user.username
+
+                    for field_name, text_value in section11_texts.items():
+                        if text_value:
+                            texts_by_field[field_name].append(f"[{user_display}]: {text_value}")
             except (ValueError, CustomUser.DoesNotExist):
                 continue
 
@@ -3161,26 +3200,15 @@ def manager_section11_select_texts(request, manager_qpr_id=None):
 
     # Get their Section11 data with latest QPRs
     users_section11 = []
-    quarter = manager_qpr.quarter if manager_qpr else None
-    financial_year = manager_qpr.financial_year if manager_qpr else None
 
     for user in office_users:
-        # Get user's most recent submitted QPRRecord
-        latest_qpr = QPRRecord.objects.filter(
-            user=user,
-            quarter=quarter,
-            year=financial_year,
-            is_submitted=True
-        ).order_by('-updated_at').first() if (quarter and financial_year) else None
-
-        if latest_qpr and hasattr(latest_qpr, 'section11'):
-            s11 = latest_qpr.section11
-            if s11.innovative_work or s11.special_events or s11.hindi_medium_works:
-                users_section11.append({
-                    'user': user,
-                    'section11': s11,
-                    'qpr': latest_qpr
-                })
+        section11_texts, latest_qpr = collect_user_section11(user)
+        if any(value.strip() for value in section11_texts.values()):
+            users_section11.append({
+                'user': user,
+                'section11': section11_texts,
+                'qpr': latest_qpr
+            })
 
     context = {
         'manager_qpr': manager_qpr,
