@@ -3157,33 +3157,26 @@ def manager_dashboard(request):
             'qpr_last_updated': qpr_last_updated
         })
 
-    # Pending profile edit requests targeted to this manager
     pending_profile_requests = ManagerRequest.objects.filter(hod=request.user, request_type='profile', status='pending')
     
-    # QPR edit requests (pending and approved) from employees in this manager's office
     manager_office = getattr(request.user.profile, 'office_code', None)
     pending_qpr_edits = []
-    edit_requests_by_user = {}  # Map user_id -> EditRequest for quick lookup (pending or approved)
+    edit_requests_by_user = {} 
     
     if manager_office:
-        # Get both pending and approved edit requests
         edit_requests = EditRequest.objects.filter(
             request_type='qpr',
-            status__in=['pending', 'approved']  # Include both pending and approved
+            status__in=['pending', 'approved'] 
         ).select_related('user').filter(
             user__profile__office_code=manager_office
         )
         
-        # Filter pending ones for the quick actions section
         pending_qpr_edits = [req for req in edit_requests if req.status == 'pending']
         
-        # Build dictionary for template lookup (stores latest edit request per user)
         for req in edit_requests:
-            # Only store if newer or first one
             if req.user_id not in edit_requests_by_user or req.created_at > edit_requests_by_user[req.user_id].created_at:
                 edit_requests_by_user[req.user_id] = req
     
-    # Enrich employee_data with edit request info
     for emp in employee_data:
         emp['pending_edit_request'] = None
         emp['approved_edit_request'] = None
@@ -3221,7 +3214,6 @@ def admin_dashboard(request):
     for hod_profile in hods:
         hod_key = hod_profile.hod_name or hod_profile.name or hod_profile.employee_code
         hod_display = hod_profile.name or hod_key or 'UNKNOWN'
-        # Count only approved users for admin HOD statistics
         users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_key, approval_status__iexact='approved',office_state=admin_state)
         total_users = users_under_hod.count()
         profile_complete = sum(1 for p in users_under_hod if p.profile_updated)
