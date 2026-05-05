@@ -5,6 +5,7 @@ import random
 import hashlib
 import json
 import tempfile
+import logging
 from datetime import date, datetime, timedelta
 from typing import cast
 from urllib import request
@@ -138,6 +139,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from weasyprint import HTML
+
+app_logger = logging.getLogger(__name__)
 
 # Local App Imports
 from .employeeform import EmployeeForm
@@ -3992,10 +3995,9 @@ def finalize_qpr(request):
             'success': True,
             'message': f'QPR finalized for {quarter} {year}'
         })
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({'error': str(e)}, status=500)
+    except Exception:
+        app_logger.exception("QPR finalization failed.")
+        return JsonResponse({'error': 'Unable to finalize QPR at this time.'}, status=500)
 
 
 @login_required
