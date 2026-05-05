@@ -3206,9 +3206,11 @@ def manager_dashboard(request):
 def admin_dashboard(request):
     if user_role(request.user) != 'admin': return redirect('/')
     admin_state = request.user.profile.office_state
+    if not admin_state:
+        messages.warning(request, "Mandatory: You must set your Office State in your profile before accessing the Admin Dashboard.")
+        return redirect('profile')
     
     users = CustomUser.objects.filter(is_active=True, is_archived=False, profile__office_state=admin_state).order_by('-date_joined')
-    
     archived_users = ArchivedUser.objects.all().order_by('-archived_at')
 
     current_quarter = get_current_quarter()
@@ -3363,18 +3365,15 @@ def admin_api_get_employee_details(request):
 
 @login_required
 def api_create_office(request):
-    """Create an Office via standard form POST and redirect with messages.
-
-    This view replaces the JSON API usage and performs server-side validation
-    and feedback via Django's messages framework.
-    """
-    # Only accept POST from admins; otherwise redirect back to admin dashboard
     if request.method != 'POST':
         return redirect('qpr_admin_dashboard')
     if not user_has_role(request.user, 'admin'):
         messages.error(request, 'Permission denied')
         return redirect('qpr_admin_dashboard')
-
+    admin_state = getattr(request.user.profile, 'office_state', '').strip()
+    if not admin_state:
+        messages.error(request, "Your profile is missing a state. Please update your profile first.")
+        return redirect('profile')
     code = request.POST.get('office_code', '').strip()
     name = request.POST.get('office_name', '').strip()
     if not code or not name:
@@ -3382,12 +3381,15 @@ def api_create_office(request):
         return redirect('qpr_admin_dashboard')
 
     from .models import Office
-    office, created = Office.objects.get_or_create(code=code, defaults={'name': name})
+    office, created = Office.objects.get_or_create(
+        code=code, 
+        defaults={'name': name,'state': admin_state}
+    )
     if not created:
         messages.error(request, 'Office code already exists')
         return redirect('qpr_admin_dashboard')
 
-    messages.success(request, f'Office {office.code} - {office.name} created')
+    messages.success(request, f'Office {office.code} - {office.name} created for {admin_state}')
     return redirect('qpr_admin_dashboard')
 
 
@@ -5756,7 +5758,7 @@ def export_employee_pdf(request):
 
     for emp in employees:
         raw_date = emp.get_super_annuation_date()
-        masked_date = f"**-**-{raw_date.year}" if raw_date else "-"
+        raw_date.strftime('%Y-%m-%d')
 
         row = [
             Paragraph(str(emp.empcode or '-'), cell_style),

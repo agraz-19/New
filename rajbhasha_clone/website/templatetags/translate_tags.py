@@ -9,11 +9,6 @@ register = template.Library()
 
 @register.filter(name='t')
 def translate_text(text: Optional[str], lang: str) -> str:
-    """Translate `text` to `lang` and always return a string.
-
-    Coerce `None` to an empty string so callers (including `messages.error`)
-    always receive a `str`.
-    """
     text_str = str(text) if text is not None else ""
 
     if lang == 'en' or text_str == "":
