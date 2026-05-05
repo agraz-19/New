@@ -101,3 +101,11 @@ class DynamicTranslationMiddleware(MiddlewareMixin):
             except Exception:
                 return response
         return response
+
+
+class SecurityHeadersMiddleware(MiddlewareMixin):
+    def process_response(self, request, response):
+        # Preserve any stronger upstream setting while preventing an explicit disable state.
+        response.setdefault("X-XSS-Protection", "1; mode=block")
+        response.setdefault("X-Content-Type-Options", "nosniff")
+        return response

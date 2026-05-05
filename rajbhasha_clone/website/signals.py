@@ -2,11 +2,13 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth.signals import user_logged_in
 from django.contrib.auth import get_user_model
+import logging
 
 from .models import UserProfile, Role
 from .utils import send_system_email
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 # Create profile automatically when user is created
@@ -61,9 +63,9 @@ def save_user_profile(sender, instance, **kwargs):
             instance.roles.add(user_role)
             profile.roles.add(user_role)
             
-    except Exception as e:
+    except Exception:
         # Catch IntegrityErrors gracefully if a username overlaps with an existing employee_code
-        print(f"Profile auto-create skipped due to conflict: {e}")
+        logger.warning("Profile auto-create skipped due to a user/profile conflict.")
         pass
 
 

@@ -596,9 +596,9 @@
                             <a href="{% url 'profile' %}" class="btn btn-info text-white">
                                 <i class="bi bi-person-gear"></i> {{ "Edit / Freeze Profile"|t:current_lang }}
                             </a>
-                            <a href="" class="btn btn-outline-info">
+                            <!-- <a href="" class="btn btn-outline-info">
                                 <i class="bi bi-card-list"></i> {{ "Manage Employee Records"|t:current_lang }}
-                            </a>
+                            </a> -->
                         </div>
                     </div>
                 </div>
@@ -645,40 +645,42 @@
 
     {% endif %}
 
-    <!-- Office Details Modal -->
     <div class="modal fade" id="officeDetailsModal" tabindex="-1" aria-labelledby="officeDetailsModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-warning">
-                    <h5 class="modal-title" id="officeDetailsModalLabel">
-                        <i class="fas fa-building"></i> {{ "Office Details"|t:current_lang }}
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="officeDetailsForm" method="POST" action="{% url 'api_create_office' %}">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label for="office_code" class="form-label">{{ "Office Code"|t:current_lang }} <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="office_code" name="office_code" required placeholder="{{ 'Enter office code'|t:current_lang }}">
-                        </div>
-                        <div class="mb-3">
-                            <label for="office_name" class="form-label">{{ "Office Name"|t:current_lang }} <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="office_name" name="office_name" required placeholder="{{ 'Enter office name'|t:current_lang }}">
-                        </div>
-                    </form>
-                </div>
-                    <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        {{ "Cancel"|t:current_lang }}
-                    </button>
-                    <button type="submit" form="officeDetailsForm" class="btn btn-warning text-white">
-                        <i class="fas fa-check"></i> {{ "Submit"|t:current_lang }}
-                    </button>
-                </div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title" id="officeDetailsModalLabel">
+                    <i class="fas fa-building"></i> {{ "Office Details"|t:current_lang }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="officeDetailsForm" method="POST" action="{% url 'api_create_office' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="office_code" class="form-label">{{ "Office Code"|t:current_lang }} <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="office_code" name="office_code" required placeholder="{{ 'Enter office code'|t:current_lang }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="office_name" class="form-label">{{ "Office Name"|t:current_lang }} <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="office_name" name="office_name" required placeholder="{{ 'Enter office name'|t:current_lang }}">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {{ "Cancel"|t:current_lang }}
+                </button>
+                <button type="submit" form="officeDetailsForm" class="btn btn-warning text-white">
+                    <i class="fas fa-check"></i> {{ "Submit"|t:current_lang }}
+                </button>
             </div>
         </div>
     </div>
-
 </div>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        document.body.appendChild(document.getElementById('officeDetailsModal'));
+    });
+</script>
 {% endblock %}

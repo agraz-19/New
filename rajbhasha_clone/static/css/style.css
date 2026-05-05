@@ -1105,7 +1105,6 @@ textarea:focus {
   background: transparent !important;
 }
 
-<style>
   .custom-btn-group{
     display:flex !important;
     gap:10px !important;
@@ -1263,4 +1262,6 @@ textarea:focus {
     [data-bs-theme="dark"] .table-heading {
         color: #f8f9fa !important;
     }
-</style>
+    body {
+    padding-bottom: 120px; 
+}

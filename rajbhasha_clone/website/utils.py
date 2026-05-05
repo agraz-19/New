@@ -8,10 +8,13 @@ from django.utils import timezone
 from .templatetags.translate_tags import translate_text
 import pandas as pd
 import os
+import logging
 from datetime import date
 from .models import FinancialYear
 from django.conf import settings
 from zoneinfo import ZoneInfo
+
+logger = logging.getLogger(__name__)
 
     
 
@@ -174,6 +177,19 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
             'action_text': "Review Request",
             'action_url': f"{domain}{reverse('manager_dashboard')}"
         },
+        'login_otp': {
+            'subject': "Your Login OTP | आपका लॉगिन ओटीपी",
+            'headline': "Login Verification | लॉगिन सत्यापन",
+            'body': "Use the OTP below to securely log into your account. Do not share this code with anyone.\n\nअपने खाते में सुरक्षित रूप से लॉगिन करने के लिए नीचे दिए गए ओटीपी का उपयोग करें। इस कोड को किसी के साथ साझा न करें।",
+            'details': {'OTP | ओटीपी': extra_context.get('otp')},
+            'skip_translation': True
+        },
+        'reset_otp': {
+            'subject': "Password Reset OTP | पासवर्ड रीसेट ओटीपी",
+            'headline': "Reset Your Password | अपना पासवर्ड रीसेट करें",
+            'body': "Use the OTP below to reset your password. If you did not request this, please ignore this email.\n\nअपना पासवर्ड रीसेट करने के लिए नीचे दिए गए ओटीपी का उपयोग करें। यदि आपने इसका अनुरोध नहीं किया है, तो कृपया इस ईमेल को अनदेखा करें।",
+            'skip_translation': True
+        },
         'reset': {
             'subject': "Password Changed",
             'headline': "Password Updated",
@@ -230,8 +246,8 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
         email.attach_alternative(html_msg, "text/html")    
         email.send(fail_silently=False)
         # Email sent successfully
-    except Exception as e:
-        print(f"--- SMTP Error: {e} ---")
+    except Exception:
+        logger.exception("System email delivery failed.")
 EXCEL_PATH = os.path.join(settings.MEDIA_ROOT, "data", "tg_hod_officers_employee_report.xlsx")
 
 def load_employee_data():

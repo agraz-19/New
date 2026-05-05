@@ -5,7 +5,13 @@
 <div class="container-fluid px-4 mt-4">
 
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold text-primary">{{ "Manager Dashboard"|t:current_lang }}</h2>
+        <h2 class="fw-bold text-primary">
+    {% if user.profile.office_name %}
+        {{ user.profile.office_name }} - {{ "Dashboard"|t:current_lang }}
+    {% else %}
+        {{ "Manager Dashboard"|t:current_lang }}
+    {% endif %}
+</h2>
         <div class="d-flex gap-2">
             <span class="badge bg-primary p-3 rounded-pill shadow-sm">
                 <i class="fas fa-file-alt me-2"></i>{{ employees|length }} {{ "Records"|t:current_lang }}
@@ -240,7 +246,6 @@
     
 
     <script>
-        // 1. Helper to find User ID from EmpCode
         function getUserId(empCode) {
 
             const lookup = JSON.parse(
@@ -249,13 +254,11 @@
 
             empCode = String(empCode).trim();
 
-            // convert 1 → 001
             empCode = empCode.padStart(3, '0');
 
             return lookup[empCode];
         }
     
-        // 2. Handle Unlock Logic
         function triggerUnlock(empCode) {
             const userId = getUserId(empCode);
             
@@ -269,7 +272,6 @@
             }
         }
 
-        // 3. Handle Designation Update Logic
         function openDesignationModal(empCode, name, currentDesignation) {
             const userId = getUserId(empCode);
             
@@ -279,7 +281,6 @@
             }
 
             const form = document.getElementById('designationForm');
-            // Dynamically set the form action to include the User ID
             form.action = `/update-designation/${userId}/`;
             
             document.getElementById('modalUsername').textContent = name + " (" + empCode + ")";

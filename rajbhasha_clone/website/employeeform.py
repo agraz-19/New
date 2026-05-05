@@ -18,9 +18,17 @@ class EmployeeForm(forms.ModelForm):
     class Meta:
         model = Employee
 
-        exclude = [
-            "status",
-            "encrypted_super_annuation_date"
+        fields = [
+            "empcode",
+            "ename",
+            "hname",
+            "designation",
+            "typing",
+            "hindiproficiency",
+            "gazet",
+            "stenographer",
+            "highest_exam",
+            "olic_affiliate",
         ]
 
         labels = {
@@ -32,7 +40,8 @@ class EmployeeForm(forms.ModelForm):
             "hindiproficiency": "Hindi Proficiency",
             "gazet": "Gazet",
             "stenographer": "Stenographer",
-            "highest_hindi_exam_passed": "Highest Hindi Exam Passed",
+            "highest_exam": "Highest Hindi Exam Passed",
+            "olic_affiliate": "OLIC Affiliate",
         }
 
         widgets = {
@@ -70,7 +79,11 @@ class EmployeeForm(forms.ModelForm):
                 attrs={"class": "form-select"}
             ),
 
-            "highest_hindi_exam_passed": forms.Select(
+            "highest_exam": forms.Select(
+                attrs={"class": "form-select"}
+            ),
+
+            "olic_affiliate": forms.Select(
                 attrs={"class": "form-select"}
             ),
         }
