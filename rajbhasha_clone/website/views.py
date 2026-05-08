@@ -1,125 +1,27 @@
-import os
-import io
 import csv
-import random
 import hashlib
+import io
 import json
+import logging
+import os
+import random
+import openpyxl
 import tempfile
 from datetime import date, datetime, timedelta
 from typing import cast
-from urllib import request
+from urllib.parse import urlencode
 
 # Django / stdlib
 from django.conf import settings
-from django.core.exceptions import PermissionDenied
+from django.contrib import messages
+from django.contrib.auth import login as auth_login, logout
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.views import LoginView
 from django.core.cache import cache
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import Count, Min, Q
-from django.shortcuts import render, redirect, get_object_or_404
-from django.http import FileResponse, Http404, HttpResponse, JsonResponse
-from django.urls import reverse
-from django.template.loader import render_to_string
-from django.utils import timezone
-from django.utils.timezone import now
-from django.contrib import messages
-from django.contrib.auth import login as auth_login, logout, get_user_model
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.views import LoginView
-from django.contrib.admin.views.decorators import staff_member_required
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from django.views import View
-
-# Third-party
-from weasyprint import HTML
-from pypdf import PdfWriter, PdfReader
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from gtts import gTTS
-from captcha.models import CaptchaStore, logger
-from deep_translator import GoogleTranslator
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-
-# Local App Imports
-from .utils import (
-    load_employee_data, send_system_email, get_allowed_quarters,
-    ensure_current_financial_year
-)
-from .employeeform import EmployeeForm
-from .forms import (
-    CertificateDataForm, CustomLoginForm,
-    CustomUserCreationForm, TypingUsageReportForm
-)
-from .models import (
-    ArchivedUser, CertificateData, CustomUser, DataAccessLog,
-    EditRequest, Employee, FinancialYear, HindiPost, ManagerRequest, Office,
-    QPRPartTwo, QPRRecord, Role, Section1FilesData, Section2MeetingsData,
-    Section3OfficialLanguagesData, Section4HindiLettersData,
-    Section5EnglishRepliedHindiData, Section6IssuedLettersData,
-    Section7NotingsData, Section8WorkshopsData,
-    Section9ImplementationCommitteeData, Section10HindiAdvisoryData,
-    Section11SpecificAchievementsData, StaffHindiKnowledge, TranslationKnowledge, TypingStenographyKnowledge,
-    TypingUsageReport, UserProfile, cipher_suite, ProfileChangeRequest,
-    ManagerRequest, EditRequest, WeeklyFill, WeeklySnapshot, MonthlyFill, MonthlySnapshot,
-    QuarterlyFill, QuarterlySnapshot
-)
-from .serializers import EmployeeSerializer
-from .signals import User
-from .static_event_service import (
-    delete_event, get_all_events, update_event_meta,
-    upload_event, upload_images_to_existing_event
-)
-
-# Font Registration
-FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
-if os.path.exists(FONT_PATH):
-    pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
-from .templatetags.translate_tags import translate_text
-from .utils import (
-    ensure_current_financial_year, get_allowed_quarters, 
-    load_employee_data, send_system_email
-)
-
-# Font Registration
-FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
-pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
-from django.contrib.admin.views.decorators import staff_member_required
-from django.shortcuts import render, redirect
-from django.http import JsonResponse
-from django.contrib import messages
-from .utils import load_employee_data
-from .utils import ensure_current_financial_year
-from .models import FinancialYear
-from django.http import JsonResponse
-import csv
-import hashlib
-import io
-import json
-import os
-import random
-import tempfile
-from datetime import date, datetime, timedelta
-from typing import cast
-from urllib import request
-
-# Third-party / Django Imports
-from captcha.models import CaptchaStore, logger
-from deep_translator import GoogleTranslator
-from django.conf import settings
-from django.contrib import messages
-from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.auth import get_user_model, logout
-from django.contrib.auth import login as auth_login
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.views import LoginView
-from django.core.cache import cache
-from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Min, Q
-from django.http import FileResponse, Http404, HttpResponse, JsonResponse
+from django.db.models import Min, Q
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -127,41 +29,56 @@ from django.utils import timezone
 from django.utils.timezone import now
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+
+# Third-party
 from gtts import gTTS
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.views import APIView
 from weasyprint import HTML
 
 # Local App Imports
 from .employeeform import EmployeeForm
 from .forms import (
-    CertificateDataForm, CustomLoginForm, 
-    CustomUserCreationForm, TypingUsageReportForm
+    CustomLoginForm,
+    CustomUserCreationForm,
+    TypingUsageReportForm
 )
 from .models import (
-    ArchivedUser, CertificateData, CustomUser, DataAccessLog, 
-    EditRequest, Employee, HindiPost, ManagerRequest, Office, 
-    QPRPartTwo, QPRRecord, Role, Section1FilesData, Section2MeetingsData, 
-    Section3OfficialLanguagesData, Section4HindiLettersData, 
-    Section5EnglishRepliedHindiData, Section6IssuedLettersData, 
-    Section7NotingsData, Section8WorkshopsData, 
-    Section9ImplementationCommitteeData, Section10HindiAdvisoryData, 
-    Section11SpecificAchievementsData, StaffHindiKnowledge, 
-    TypingUsageReport, UserProfile, cipher_suite
+    ArchivedUser, CertificateData, CustomUser, DataAccessLog,
+    EditRequest, Employee, HindiPost, ManagerRequest, MonthlyFill,
+    MonthlySnapshot, ProfileChangeRequest, QPRPartTwo, QPRRecord, QuarterlyFill,
+    QuarterlySnapshot, Role, Section1FilesData, Section2MeetingsData,
+    Section3OfficialLanguagesData, Section4HindiLettersData,
+    Section5EnglishRepliedHindiData, Section6IssuedLettersData,
+    Section7NotingsData, Section8WorkshopsData,
+    Section9ImplementationCommitteeData, Section10HindiAdvisoryData,
+    Section11SpecificAchievementsData, StaffHindiKnowledge,
+    TranslationKnowledge, TypingStenographyKnowledge, TypingUsageReport,
+    UserProfile, WeeklyFill, WeeklySnapshot
 )
-from website.models import CodeManualStandardForms, HindiPost, WebsiteDetail, OfficersWorkInHindi   
-from .serializers import EmployeeSerializer
-from .templatetags.translate_tags import translate_text
-from .utils import get_allowed_quarters, load_employee_data, send_system_email
 from .signals import User
+from .static_event_service import (
+    delete_event, get_all_events, update_event_meta,
+    upload_event, upload_images_to_existing_event
+)
+from .templatetags.translate_tags import translate_text
+from .utils import (
+    ensure_current_financial_year, get_allowed_quarters,
+    send_system_email
+)
+
+logger = logging.getLogger(__name__)
+
+# Font Registration
+FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
 if os.path.exists(FONT_PATH):
     pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
+
+#############################################################################################################################################################################################################################################################################################################
 
 def get_employee_details_form(request):
     if request.method == "POST":
@@ -171,11 +88,6 @@ def get_employee_details_form(request):
             return JsonResponse({'status': 'error', 'message': 'Employee code required'})
         
         try:
-            import openpyxl
-            import os
-            from django.conf import settings
-            from django.http import JsonResponse
-            
             # Load Excel file
             excel_file = os.path.join(settings.MEDIA_ROOT, 'data', 'tg_hod_officers_employee_report.xlsx')
             
@@ -314,7 +226,6 @@ def submit_profile_change_request(request):
 
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
-from django.http import JsonResponse
 from website.static_event_service import get_all_events
 
 def can_manage_events(user):
@@ -443,7 +354,7 @@ def admin_edit_event_titles(request):
             return JsonResponse({"status": "error", "message": str(e)})
  
     return JsonResponse({"status": "error", "message": "POST only"})
-from website.static_event_service import update_event_meta, _read_meta
+from website.static_event_service import update_event_meta
 
 @login_required
 def set_thumbnail(request, folder):
@@ -1136,6 +1047,73 @@ def _get_quarter_range_for_date(dt):
     return (date(y,1,1), date(y,3,31))
 
 
+def _quarter_label_for_date(dt):
+    if dt.month in (4, 5, 6):
+        return '30 जून / Jun 30'
+    if dt.month in (7, 8, 9):
+        return '30 सितंबर / Sep 30'
+    if dt.month in (10, 11, 12):
+        return '31 दिसंबर / Dec 31'
+    return '31 मार्च / Mar 31'
+
+
+def _financial_year_for_date(dt):
+    start = dt.year if dt.month >= 4 else dt.year - 1
+    return f"{start}-{start + 1}"
+
+
+def _last_working_before(d):
+    while d.weekday() > 5:  # Sunday
+        d = d - timedelta(days=1)
+    return d
+
+
+def _is_current_system_quarter(period_start, period_end, today=None):
+    today = today or timezone.localdate()
+    current_start, current_end = _get_quarter_range_for_date(today)
+    return period_start == current_start and period_end == current_end
+
+
+def _is_date_in_current_system_quarter(date_value, today=None):
+    today = today or timezone.localdate()
+    current_start, current_end = _get_quarter_range_for_date(today)
+    return current_start <= date_value <= current_end
+
+
+def _is_future_quarter(period_start, today=None):
+    today = today or timezone.localdate()
+    current_start, _ = _get_quarter_range_for_date(today)
+    return period_start > current_start
+
+
+def _current_quarter_fill_error(frequency):
+    messages_by_frequency = {
+        'weekly': 'Weekly QPR can be filled only after the working week is complete.',
+        'monthly': 'Monthly QPR can be filled only on month end.',
+        'quarterly': 'Quarterly QPR can be filled only on quarter end.'
+    }
+    return messages_by_frequency.get(
+        frequency,
+        'You can fill weekly, monthly, or quarterly QPR only on weekdays/month end/quarter end for the current quarter.'
+    )
+
+
+def _current_quarter_aggregate_fill_allowed(frequency, selected_date):
+    if frequency == 'weekly':
+        _, week_end = compute_period('weekly', selected_date=selected_date)
+        return selected_date == week_end
+
+    if frequency == 'monthly':
+        _, month_end = compute_period('monthly', selected_date=selected_date)
+        return selected_date == _last_working_before(month_end)
+
+    if frequency == 'quarterly':
+        _, quarter_end = _get_quarter_range_for_date(selected_date)
+        return selected_date == _last_working_before(quarter_end)
+
+    return True
+
+
 def determine_submission_frequency(user, submission_date=None, is_submitted=True):
     """Enforce submission rules and return (frequency, period_start, period_end).
 
@@ -1168,11 +1146,6 @@ def determine_submission_frequency(user, submission_date=None, is_submitted=True
 
     # Quarter range
     q_start, q_end = _get_quarter_range_for_date(submission_date)
-
-    def _last_working_before(d):
-        while d.weekday() > 5:  # Sunday (6)
-            d = d - timedelta(days=1)
-        return d
 
     month_last_working = _last_working_before(month_end)
     quarter_last_working = _last_working_before(q_end)
@@ -1599,12 +1572,6 @@ def _allowed_frequencies_for_date(user, selected_date, allow_future_days=True):
     missing_quarter = [d for d in quarter_days if d not in submitted_quarter and d >= min_date and d <= max_date]
 
     allowed = ['daily']
-    
-    # Helper to find last working day before a date
-    def _last_working_before(d):
-        while d.weekday() > 5:  # Sunday is 6
-            d = d - timedelta(days=1)
-        return d
     
     month_last = _last_working_before(month_end)
     quarter_last = _last_working_before(q_end)
@@ -4111,10 +4078,52 @@ def report_list(request):
         'target_user_id': getattr(target_user, 'id', ''),
         'is_hod_view': is_hod_view,
         'today_iso': timezone.localdate().isoformat(),
+        'emp_code_filter': emp_code,
     }
+
+    quarter = (request.GET.get('quarter') or '').strip() or get_current_quarter()
+    year = (request.GET.get('year') or '').strip() or get_current_year_label()
+    try:
+        q_start, q_end = _quarter_label_to_daterange(quarter, year)
+    except Exception:
+        quarter = get_current_quarter()
+        year = get_current_year_label()
+        q_start, q_end = _quarter_label_to_daterange(quarter, year)
+
+    quarter_options = [
+        '30 जून / Jun 30',
+        '30 सितंबर / Sep 30',
+        '31 दिसंबर / Dec 31',
+        '31 मार्च / Mar 31',
+    ]
+    raw_year_values = QPRRecord.objects.filter(user=target_user).values_list('year', flat=True)
+    year_values = []
+    seen_years = set()
+    for raw_year in raw_year_values:
+        normalized_year = str(raw_year or '').strip()
+        if normalized_year and normalized_year not in seen_years:
+            seen_years.add(normalized_year)
+            year_values.append(normalized_year)
+    for required_year in (year, get_current_year_label()):
+        normalized_year = str(required_year or '').strip()
+        if normalized_year and normalized_year not in seen_years:
+            seen_years.add(normalized_year)
+            year_values.append(normalized_year)
+    year_options = sorted(year_values, reverse=True)
+
+    context.update({
+        'quarter_filter': quarter,
+        'year_filter': year,
+        'quarter_options': quarter_options,
+        'year_options': year_options,
+    })
+
     # Preload records for client-side rendering without calling API
     try:
-        records_qs = QPRRecord.objects.filter(user=target_user).order_by('-id')
+        records_qs = QPRRecord.objects.filter(user=target_user).filter(
+            Q(period_start__lte=q_end, period_end__gte=q_start) |
+            Q(quarter=quarter, year=year)
+        ).order_by('-id')
         records = []
         for r in records_qs:
             d = serialize_qpr_record(r)
@@ -4124,16 +4133,8 @@ def report_list(request):
         records = []
     import json as _json
     context['records_json'] = _json.dumps(records, default=str)
-    # Compute period summary for the current quarter/year so client can render daily/weekly/monthly/quarterly lists
+    # Compute period summary for the selected quarter/year so client can render daily/weekly/monthly/quarterly lists
     try:
-        quarter = get_current_quarter()
-        year = get_current_year_label()
-        try:
-            q_start, q_end = _quarter_label_to_daterange(quarter, year)
-        except Exception:
-            q_start = None
-            q_end = None
-
         # Default region from profile
         default_region = ''
         try:
@@ -4658,6 +4659,38 @@ def report_list(request):
     return render(request, 'qpr/report_list.html', context)
 
 
+def _qpr_filter_year_options_for_users(users):
+    user_ids = []
+    for user in users:
+        user_id = getattr(user, 'id', None)
+        if user_id is not None:
+            user_ids.append(user_id)
+
+    raw_year_values = QPRRecord.objects.filter(user_id__in=user_ids).values_list('year', flat=True)
+    year_values = []
+    seen_years = set()
+    for raw_year in raw_year_values:
+        normalized_year = str(raw_year or '').strip()
+        if normalized_year and normalized_year not in seen_years:
+            seen_years.add(normalized_year)
+            year_values.append(normalized_year)
+
+    current_year = get_current_year_label()
+    if current_year not in seen_years:
+        year_values.append(current_year)
+
+    return sorted(year_values, reverse=True)
+
+
+def _qpr_filter_quarter_options():
+    return [
+        '30 जून / Jun 30',
+        '30 सितंबर / Sep 30',
+        '31 दिसंबर / Dec 31',
+        '31 मार्च / Mar 31',
+    ]
+
+
 @login_required
 def finalize_qpr(request):
     """Mark user as finalized for current quarter (via POST request)"""
@@ -4665,7 +4698,6 @@ def finalize_qpr(request):
         return JsonResponse({'error': 'Invalid method'}, status=400)
     
     try:
-        from django.http import JsonResponse
         from website.models import QPRFinalization
         
         quarter = get_current_quarter()
@@ -4740,9 +4772,9 @@ def report_detail(request, record_id):
                 owner_hod_name = (owner_profile.hod_name or owner_profile.name) if owner_profile else None
                 owner_hod_name = owner_hod_name.strip() if owner_hod_name else None
 
-                # Compute expected aggregated totals for that HOD
-                current_quarter = get_current_quarter()
-                current_year = get_current_year_label()
+                # Compute expected aggregated totals for that HOD and snapshot period.
+                current_quarter = (getattr(rec, 'quarter', None) or request.GET.get('quarter') or get_current_quarter()).strip()
+                current_year = (getattr(rec, 'year', None) or request.GET.get('year') or get_current_year_label()).strip()
                 try:
                     q_start, q_end = _quarter_label_to_daterange(current_quarter, current_year)
                 except Exception:
@@ -4817,15 +4849,16 @@ def report_detail(request, record_id):
         # Get users under this HOD by matching UserProfile.hod_name == hod_profile.name
         users_under = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_name_val).select_related('user')
 
-        current_quarter = get_current_quarter()
-        current_year = get_current_year_label()
+        current_quarter = (request.GET.get('quarter') or get_current_quarter()).strip()
+        current_year = (request.GET.get('year') or get_current_year_label()).strip()
 
         # Determine quarter date range
         try:
             q_start, q_end = _quarter_label_to_daterange(current_quarter, current_year)
         except Exception:
-            q_start = None
-            q_end = None
+            current_quarter = get_current_quarter()
+            current_year = get_current_year_label()
+            q_start, q_end = _quarter_label_to_daterange(current_quarter, current_year)
 
         # Initialize aggregated totals
         aggregated = {k: 0 for k in NUMERIC_KEYS}
@@ -4856,6 +4889,7 @@ def report_detail(request, record_id):
         # avoids skipping records that lack explicit period_start/period_end
         # and ensures division totals reflect stored data.
         try:
+            record_count = 0
             processed_user_ids = set()
             for profile in users_under:
                 try:
@@ -5226,9 +5260,17 @@ def hod_detail_list(request):
     else:
         users_under_hod = UserProfile.objects.filter(user=request.user, approval_status__iexact='approved').select_related('user')
     
+    selected_quarter = (request.GET.get('quarter') or get_current_quarter()).strip()
+    selected_year = (request.GET.get('year') or get_current_year_label()).strip()
+    try:
+        _quarter_label_to_daterange(selected_quarter, selected_year)
+    except Exception:
+        selected_quarter = get_current_quarter()
+        selected_year = get_current_year_label()
+
     users_data = []
-    current_quarter = get_current_quarter()
-    current_year = get_current_year_label()
+    current_quarter = selected_quarter
+    current_year = selected_year
     today = timezone.localdate()
     for user_profile in users_under_hod:
         user = user_profile.user
@@ -5313,12 +5355,18 @@ def hod_detail_list(request):
         ).count()
     
     all_finalized = (total_users > 0 and finalized_count == total_users)
+    report_query = urlencode({'quarter': current_quarter, 'year': current_year})
 
     context = {
         'users_data': users_data, 
         'hod_name': hod_name, 
         'current_quarter': current_quarter, 
         'current_year': current_year,
+        'quarter_filter': current_quarter,
+        'year_filter': current_year,
+        'quarter_options': _qpr_filter_quarter_options(),
+        'year_options': _qpr_filter_year_options_for_users([up.user for up in users_under_hod if getattr(up, 'user', None)]),
+        'report_query': report_query,
         'profile_change_requests': profile_change_requests,
         'finalized_count': finalized_count,
         'total_users': total_users,
@@ -5397,14 +5445,19 @@ def freeze_division_snapshot(request):
 
     hod_profile = getattr(request.user, 'profile', None)
     hod_name = (hod_profile.hod_name or hod_profile.name) if hod_profile else None
-    current_quarter = get_current_quarter()
-    current_year = get_current_year_label()
+    current_quarter = (request.POST.get('quarter') or get_current_quarter()).strip()
+    current_year = (request.POST.get('year') or get_current_year_label()).strip()
+    try:
+        _quarter_label_to_daterange(current_quarter, current_year)
+    except Exception:
+        current_quarter = get_current_quarter()
+        current_year = get_current_year_label()
 
     # Prevent duplicate freeze for same HOD + quarter
     existing = QPRRecord.objects.filter(user=request.user, frequency__iexact='quarterly', quarter=current_quarter, year=current_year, is_quarterly_frozen=True)
     if existing.exists():
         messages.error(request, 'You have already frozen for this quarter')
-        return redirect('qpr_hod_detail_list')
+        return redirect(f"{reverse('qpr_hod_detail_list')}?{urlencode({'quarter': current_quarter, 'year': current_year})}")
 
     # Find users under this HOD
     if hod_name:
@@ -5487,7 +5540,7 @@ def freeze_division_snapshot(request):
         except Exception:
             pass
         messages.error(request, 'Failed to save aggregated section data')
-        return redirect('qpr_hod_detail_list')
+        return redirect(f"{reverse('qpr_hod_detail_list')}?{urlencode({'quarter': current_quarter, 'year': current_year})}")
 
     # DEBUG: verify saved snapshot sections
     try:
@@ -5505,7 +5558,7 @@ def freeze_division_snapshot(request):
         pass
 
     messages.success(request, 'Division quarter frozen successfully. Any further changes in QPR will not be shown in the state aggregation.')
-    return redirect('qpr_hod_detail_list')
+    return redirect(f"{reverse('qpr_hod_detail_list')}?{urlencode({'quarter': current_quarter, 'year': current_year})}")
 
 
 # ==================== Missing Days Context for Forms ====================
@@ -5813,12 +5866,11 @@ def _create_or_update_quarterly_fill(user, details, quarter, year, period_start=
                 setattr(fill, key, value)
         
         fill.save()
-        print(f"[SUCCESS] Quarterly Fill created for {user.id}: Q{quarter} {year}")
+        logger.info(f"Quarterly Fill created for user {user.id} for quarter {quarter} year {year}")
         return fill, ""
-    except Exception as e:
-        error_msg = f"Failed to create QuarterlyFill: {str(e)}"
-        print(f"[ERROR] {error_msg}")
-        return None, error_msg
+    except Exception:
+        logger.exception("Failed to create QuarterlyFill")
+        return None, "An error occurred while creating the quarterly fill. Please try again."
 
 
 # ==================== Snapshot Composition Helpers ====================
@@ -5999,8 +6051,8 @@ def _sum_daily_in_range(user, start_date, end_date):
             data = _extract_details_from_record(record)
             for k in NUMERIC_KEYS:
                 total[k] = (total[k] or 0) + (data.get(k) or 0)
-    except Exception as e:
-        print(f"[ERROR] _sum_daily_in_range: {str(e)}")
+    except Exception:
+        logger.exception("Error aggregating daily records in range")
     return total
 
 
@@ -6016,8 +6068,8 @@ def _sum_weekly_fill_in_range(user, start_date, end_date):
         for fill in fills:
             for k in NUMERIC_KEYS:
                 total[k] = (total[k] or 0) + (getattr(fill, k, 0) or 0)
-    except Exception as e:
-        print(f"[ERROR] _sum_weekly_fill_in_range: {str(e)}")
+    except Exception:
+        logger.exception("Error aggregating weekly fills in range")
     return total
 
 
@@ -6083,8 +6135,8 @@ def _sum_weekly_snapshots_in_month(user, month_start, month_end, quarter, year):
             for k in NUMERIC_KEYS:
                 value = getattr(fill, k, 0) or 0
                 total[k] = (total[k] or 0) + round(value * numerator / denominator)
-    except Exception as e:
-        print(f"[ERROR] _sum_weekly_snapshots_in_month: {str(e)}")
+    except Exception:
+        logger.exception("Error aggregating weekly snapshots in month")
     return total
 
 
@@ -6100,8 +6152,8 @@ def _sum_monthly_snapshots_in_quarter(user, quarter, year):
         for snap in snapshots:
             for k in NUMERIC_KEYS:
                 total[k] = (total[k] or 0) + (getattr(snap, k, 0) or 0)
-    except Exception as e:
-        print(f"[ERROR] _sum_monthly_snapshots_in_quarter: {str(e)}")
+    except Exception:
+        logger.exception("Error aggregating monthly snapshots in quarter")
     return total
 
 
@@ -6139,8 +6191,7 @@ def _get_or_create_weekly_snapshot_with_sum(user, period_start, period_end, quar
             val = (daily_sum.get(k, 0) or 0) + (fill_sum.get(k, 0) or 0)
             setattr(snapshot, k, val)
         snapshot.save()
-        print(f"[NEW] WeeklySnapshot created for user={user.id}: {normalized_start} to {normalized_end} (normalized from {period_start} to {period_end})")
-    
+        logger.info(f"WeeklySnapshot created for user={user.id}: {normalized_start} to {normalized_end}")    
     return snapshot, created
 
 
@@ -6181,8 +6232,7 @@ def _get_or_create_monthly_snapshot_with_sum(user, period_start, period_end, qua
             val = (weekly_sum.get(k, 0) or 0) + (fill_sum.get(k, 0) or 0)
             setattr(snapshot, k, val)
         snapshot.save()
-        print(f"[NEW] MonthlySnapshot created for user={user.id}: {period_start} to {period_end}")
-    
+        logger.info(f"MonthlySnapshot created for user={user.id}: {period_start} to {period_end}")    
     return snapshot, created
 
 
@@ -6223,8 +6273,7 @@ def _get_or_create_quarterly_snapshot_with_sum(user, quarter, year, period_start
             val = (monthly_sum.get(k, 0) or 0) + (fill_sum.get(k, 0) or 0)
             setattr(snapshot, k, val)
         snapshot.save()
-        print(f"[NEW] QuarterlySnapshot created for user={user.id}: Q{quarter} {year}")
-    
+        logger.info(f"QuarterlySnapshot created for user={user.id} for quarter={quarter} year={year}")    
     return snapshot, created
 
 
@@ -6470,9 +6519,106 @@ def _rebuild_quarterly_snapshot_from_source(user, quarter, year):
         
         if was_updated:
             snapshot.save()
-            print(f"[REBUILD] QuarterlySnapshot recalculated for {user.id}: Q{quarter} {year}")
+            logging.debug(f"QuarterlySnapshot recalculated for user {user.id}: Q{quarter} {year}")
         
         return snapshot, was_updated
+    except Exception as e:
+        logging.exception("Error rebuilding quarterly snapshot from source")
+        return None, False
+
+
+def _get_snapshot_with_composition(user, quarter, year, period_start, period_end):
+    """
+    Fetch QuarterlySnapshot and build composition info (data_source).
+    Shows which sources contributed to the final snapshot.
+    
+    Returns:
+        dict: {snapshot_data..., data_source: "Composed of: X daily + Y weekly fills...", 
+               is_snapshot: True, composition_details: {...}}
+    """
+    try:
+        # Get or create snapshot (should already exist if aggregation ran)
+        snapshot = QuarterlySnapshot.objects.filter(
+            user=user,
+            quarter=quarter,
+            year=year
+        ).first()
+        
+        if not snapshot:
+            # No snapshot yet - not submitted or aggregation hasn't run
+            return None
+        
+        # Build composition info
+        composition = {'daily': 0, 'weekly_fills': 0, 'monthly_fills': 0, 'quarterly_fills': 0}
+        
+        # Count daily submissions in period
+        daily_count = QPRRecord.objects.filter(
+            user=user,
+            frequency__iexact='daily',
+            is_submitted=True,
+            period_start__gte=period_start,
+            period_start__lte=period_end
+        ).count()
+        composition['daily'] = daily_count
+        
+        # Count fills used in aggregation
+        weekly_fills_count = WeeklyFill.objects.filter(
+            user=user,
+            period_start__gte=period_start,
+            period_start__lte=period_end
+        ).count()
+        composition['weekly_fills'] = weekly_fills_count
+        
+        monthly_fills_count = MonthlyFill.objects.filter(
+            user=user,
+            period_start__gte=period_start,
+            period_start__lte=period_end
+        ).count()
+        composition['monthly_fills'] = monthly_fills_count
+        
+        quarterly_fills_count = QuarterlyFill.objects.filter(
+            user=user,
+            quarter=quarter,
+            year=year
+        ).count()
+        composition['quarterly_fills'] = quarterly_fills_count
+        
+        # Build human-readable data_source string
+        sources = []
+        if composition['daily'] > 0:
+            sources.append(f"{composition['daily']} daily")
+        if composition['weekly_fills'] > 0:
+            sources.append(f"{composition['weekly_fills']} weekly")
+        if composition['monthly_fills'] > 0:
+            sources.append(f"{composition['monthly_fills']} monthly")
+        if composition['quarterly_fills'] > 0:
+            sources.append(f"{composition['quarterly_fills']} quarterly")
+        
+        if not sources:
+            data_source = "Empty snapshot (no submissions)"
+        else:
+            data_source = f"Composed of: {' + '.join(sources)}"
+        
+        # Extract snapshot values into dict matching NUMERIC_KEYS
+        snapshot_dict = {}
+        for key in NUMERIC_KEYS:
+            snapshot_dict[key] = getattr(snapshot, key, 0) or 0
+        
+        # Add metadata
+        snapshot_dict['is_snapshot'] = True
+        snapshot_dict['data_source'] = data_source
+        snapshot_dict['composition'] = composition
+        snapshot_dict['is_overwritten'] = snapshot.is_overwritten
+        snapshot_dict['quarter'] = quarter
+        snapshot_dict['year'] = year
+        snapshot_dict['period_start'] = period_start.isoformat()
+        snapshot_dict['period_end'] = period_end.isoformat()
+        
+        return snapshot_dict
+        
+    except Exception as e:
+        print(f"[ERROR] Failed to get snapshot composition: {str(e)}")
+        return Nonedated
         
     except Exception as e:
         print(f"[ERROR] _rebuild_quarterly_snapshot_from_source: {str(e)}")
@@ -7262,65 +7408,66 @@ def qpr_save_record(request):
                 messages.error(request, "Invalid frequency")
                 return redirect('qpr_records')
 
-            if frequency in ['daily', 'weekly', 'monthly'] and not selected_date_str:
+            if frequency in ['daily', 'weekly', 'monthly', 'quarterly'] and not selected_date_str:
                 messages.error(request, "Date is required")
                 return redirect('qpr_records')
 
-            # Parse and validate selected_date only for non-quarterly frequencies
+            today = timezone.localdate()
+
+            # Parse selected_date for all frequencies. For aggregate fills this
+            # selected date determines the target week/month/quarter.
             selected_date = None
-            if frequency != 'quarterly':
+            if selected_date_str:
                 try:
-                    selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date() if selected_date_str else None
+                    selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
                 except:
                     messages.error(request, "Invalid date")
                     return redirect('qpr_records')
 
-                if selected_date:
-                    today = timezone.localdate()
+            if selected_date:
+                if frequency == 'daily' and selected_date.weekday() == 6:
+                    messages.error(request, "Sunday not allowed")
+                    return redirect('qpr_records')
 
-                    if selected_date.weekday() == 6:
-                        messages.error(request, "Sunday not allowed")
+                if selected_date > today:
+                    messages.error(request, "Too far in future")
+                    return redirect('qpr_records')
+
+                try:
+                    cur_q_start, _ = _get_quarter_range_for_date(today)
+                    sel_q_start, _ = _get_quarter_range_for_date(selected_date)
+                    if sel_q_start > cur_q_start:
+                        messages.error(request, "Future quarter not allowed")
                         return redirect('qpr_records')
+                except:
+                    pass
 
-                    if selected_date > today:
-                        messages.error(request, "Too far in future")
-                        return redirect('qpr_records')
+            quarter = data.get('quarter', '').strip()
+            year = data.get('year', '').strip() or None
 
-                    try:
-                        cur_q_start, _ = _get_quarter_range_for_date(today)
-                        sel_q_start, _ = _get_quarter_range_for_date(selected_date)
-                        if sel_q_start > cur_q_start:
-                            messages.error(request, "Future quarter not allowed")
-                            return redirect('qpr_records')
-                    except:
-                        pass
-
-                availability = _allowed_frequencies_for_date(request.user, selected_date)
-                if frequency not in availability.get('allowed', []):
-                    if ps_pe := compute_period(frequency, selected_date=selected_date, quarter=data.get('quarter'), year=data.get('year')):
-                        ps_check, pe_check = ps_pe
-                    else:
-                        ps_check, pe_check = None, None
-                    if ps_check and pe_check and is_period_overlapping(request.user, ps_check, pe_check, new_frequency=frequency):
-                        return reject_to_qpr_form("This QPR has already been filled for the selected period.")
-                    messages.error(request, f"Allowed: {availability.get('allowed', [])}")
-                    return redirect('qpr_form')
-            else:
-                # Quarterly frequency: no selected_date checks; availability implicitly allowed
-                selected_date = None
+            if frequency in {'weekly', 'monthly', 'quarterly'} and selected_date:
+                quarter = _quarter_label_for_date(selected_date)
+                year = _financial_year_for_date(selected_date)
 
             ps, pe = compute_period(
                 frequency,
                 selected_date=selected_date,
-                quarter=data.get('quarter'),
-                year=data.get('year')
+                quarter=quarter,
+                year=year
             )
+
+            if frequency in {'weekly', 'monthly', 'quarterly'}:
+                if not selected_date and ps and _is_future_quarter(ps, today=today):
+                    messages.error(request, "Future quarter not allowed")
+                    return redirect('qpr_records')
+
+                if selected_date and _is_date_in_current_system_quarter(selected_date, today=today):
+                    if not _current_quarter_aggregate_fill_allowed(frequency, selected_date):
+                        messages.error(request, _current_quarter_fill_error(frequency))
+                        return redirect('qpr_form')
 
             if ps and pe and is_period_overlapping(request.user, ps, pe, new_frequency=frequency):
                 return reject_to_qpr_form("This QPR has already been filled for the selected period.")
-
-            quarter = data.get('quarter', '').strip()
-            year = data.get('year', '').strip() or None
 
             allowed_quarters = get_allowed_quarters(year)
             if quarter and quarter not in allowed_quarters:
@@ -9599,8 +9746,6 @@ def manager_report_edit_view(request, record_id):
         }, status=500)
         
 from gtts import gTTS
-import os
-from django.conf import settings
 
 def generate_captcha_audio(text):
     # This creates the audio from the captcha text

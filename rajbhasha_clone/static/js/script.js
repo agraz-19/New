@@ -82,6 +82,25 @@ function populateMonthDropdown() {
 let API_URL = window.QPR_API_URL || null;
 let records = []; // Store data globally
 
+function unlockQprFillControls() {
+    const frequencyEl = document.getElementById('frequency');
+    if (frequencyEl) {
+        frequencyEl.disabled = false;
+        Array.from(frequencyEl.options).forEach(opt => {
+            opt.disabled = false;
+        });
+    }
+
+    const selectedDateEl = document.getElementById('selectedDate');
+    if (selectedDateEl) {
+        selectedDateEl.disabled = false;
+        selectedDateEl.readOnly = false;
+        selectedDateEl.removeAttribute('min');
+        selectedDateEl.setCustomValidity('');
+        selectedDateEl.classList.remove('text-muted');
+    }
+}
+
 // Function to mask sensitive fields
 function maskSensitiveData(value) {
     if (!value || value === '-') return '-';
@@ -169,29 +188,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         const j = await res.json();
                     }
-                    // set min/max/default
+                    // Set a default and max date; previous dates must remain selectable.
                     if (selectedDateEl) {
-                        if (isScopedSnapshotEditMode()) {
-                            selectedDateEl.removeAttribute('min');
-                            selectedDateEl.removeAttribute('max');
-                            selectedDateEl.setCustomValidity('');
-                        } else {
-                            selectedDateEl.min = j.min_date;
-                            selectedDateEl.max = j.max_date;
-                            if (!selectedDateEl.value) selectedDateEl.value = j.default_date;
-                        }
+                        if (!selectedDateEl.value) selectedDateEl.value = j.default_date;
+                        if (j.max_date) selectedDateEl.max = j.max_date;
                     }
-                    // enable/disable frequency options
-                    if (frequencyEl) {
-                        if (!isScopedSnapshotEditMode()) {
-                            Array.from(frequencyEl.options).forEach(opt => {
-                                if (opt.value === '') return; // keep placeholder
-                                opt.disabled = !j.allowed.includes(opt.value);
-                            });
-                            // default to daily if current selection is invalid
-                            if (!j.allowed.includes(frequencyEl.value)) frequencyEl.value = 'daily';
-                        }
-                    }
+                    unlockQprFillControls();
+                    if (selectedDateEl && j.max_date) selectedDateEl.max = j.max_date;
                     // show missing days summary
                     const missing = [];
                     if (j.missing_week && j.missing_week.length) missing.push('<strong>Missing (week):</strong> ' + j.missing_week.join(', '));
@@ -204,8 +207,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (selectedDateEl) {
                 // initialize and fetch
                 if (!selectedDateEl.value) selectedDateEl.value = (new Date()).toISOString().slice(0,10);
+                unlockQprFillControls();
                 fetchAvailability(selectedDateEl.value);
                 selectedDateEl.addEventListener('change', (e) => {
+                    unlockQprFillControls();
                     fetchAvailability(e.target.value);
                 });
             }
@@ -246,19 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                     
-                    // if non-daily selected, make date input read-only instead of disabled
-                    // so its value is still submitted to the server
-                    if (frequencyEl.value && frequencyEl.value !== 'daily') {
-                        if (selectedDateEl) {
-                            selectedDateEl.readOnly = true;
-                            selectedDateEl.classList.add('text-muted');
-                        }
-                    } else {
-                        if (selectedDateEl) {
-                            selectedDateEl.readOnly = false;
-                            selectedDateEl.classList.remove('text-muted');
-                        }
-                    }
+                    unlockQprFillControls();
                     // Draft is valid for normal QPR entry flows, including weekly/monthly/quarterly
                     // entries used to fill missed daily periods. Hide it only for snapshot overwrites.
                     try {
@@ -662,6 +655,7 @@ async function saveData(status) {
         payload.frequency = 'daily';
         document.getElementById('frequency').value = 'daily';
     }
+    unlockQprFillControls();
 
     console.log("Payload being sent:", payload);
 
@@ -700,6 +694,24 @@ async function saveData(status) {
             form.appendChild(statusInput);
         }
         statusInput.value = status;
+
+        let frequencyInput = form.querySelector('input[name="frequency"][type="hidden"]');
+        if (!frequencyInput) {
+            frequencyInput = document.createElement('input');
+            frequencyInput.type = 'hidden';
+            frequencyInput.name = 'frequency';
+            form.appendChild(frequencyInput);
+        }
+        frequencyInput.value = payload.frequency;
+
+        let selectedDateInput = form.querySelector('input[name="selected_date"][type="hidden"]');
+        if (!selectedDateInput) {
+            selectedDateInput = document.createElement('input');
+            selectedDateInput.type = 'hidden';
+            selectedDateInput.name = 'selected_date';
+            form.appendChild(selectedDateInput);
+        }
+        selectedDateInput.value = payload.selected_date;
 
         form.submit();
         return;
