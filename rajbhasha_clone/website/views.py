@@ -15,7 +15,7 @@ import subprocess
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.core.cache import cache
-from django.db import transaction
+from django.db import OperationalError, ProgrammingError, transaction
 from django.db.models import Count, Min, Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
@@ -4585,11 +4585,17 @@ def hod_detail_list(request):
     finalized_count = 0
     if total_users > 0:
         from .models import QPRFinalization
-        finalized_count = QPRFinalization.objects.filter(
-            user_id__in=all_users_ids,
-            quarter=current_quarter,
-            year=current_year
-        ).count()
+        try:
+            finalized_count = QPRFinalization.objects.filter(
+                user_id__in=all_users_ids,
+                quarter=current_quarter,
+                year=current_year
+            ).count()
+        except (OperationalError, ProgrammingError):
+            app_logger.warning(
+                "QPR finalization table is unavailable while rendering HOD detail list."
+            )
+            finalized_count = 0
     
     all_finalized = (total_users > 0 and finalized_count == total_users)
 
