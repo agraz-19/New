@@ -136,8 +136,22 @@
                 {% for item in certificate.staff_knowledge.all %}
                 <tr>
                     <td class="text-left">{{ item.category }}</td>
-                    <td>{{ item.officers_count|default:"0" }}</td>
-                    <td>{{ item.employees_count|default:"0" }}</td>
+                    <td>
+                        {% if item.category == 'knowledge' %}
+                            Working: {{ item.officers_working|default:"0" }}<br>
+                            Proficient: {{ item.officers_proficient|default:"0" }}
+                        {% else %}
+                            {{ item.officers_total|default:"0" }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.category == 'knowledge' %}
+                            Working: {{ item.employees_working|default:"0" }}<br>
+                            Proficient: {{ item.employees_proficient|default:"0" }}
+                        {% else %}
+                            {{ item.employees_total|default:"0" }}
+                        {% endif %}
+                    </td>
                     <td>{{ item.total_count|default:"0" }}</td>
                 </tr>
                 {% empty %}
@@ -248,16 +262,10 @@
             </thead>
             <tbody>
                 <tr>
-                    <td class="text-left">During the Quarter</td>
-                    <td>{{ certificate.training_during_hindi|default:"0" }}</td>
-                    <td>{{ certificate.training_during_english|default:"0" }}</td>
-                    <td>{{ certificate.training_during_mixed|default:"0" }}</td>
-                </tr>
-                <tr>
-                    <td class="text-left">Before the Quarter</td>
-                    <td>{{ certificate.training_before_hindi|default:"0" }}</td>
-                    <td>{{ certificate.training_before_english|default:"0" }}</td>
-                    <td>{{ certificate.training_before_mixed|default:"0" }}</td>
+                    <td>{{ certificate.training_total_duration_hours|default:"0" }}</td>
+                    <td>{{ certificate.training_imparted_hindi|default:"0" }}</td>
+                    <td>{{ certificate.training_imparted_english|default:"0" }}</td>
+                    <td>{{ certificate.training_imparted_mixed|default:"0" }}</td>
                 </tr>
             </tbody>
         </table>
@@ -266,8 +274,10 @@
     <!-- Section 8 - Inspections -->
     <div class="qpr-section">
         <h4>8. Inspections (Sections & Subordinate Offices)</h4>
-        <p><strong>Sections Inspected:</strong> {{ certificate.sec8_sections_inspected|default:"-" }}</p>
-        <p><strong>Subordinate Offices Inspected:</strong> {{ certificate.sec8_subordinate_offices_inspected|default:"-" }}</p>
+        <p><strong>Total Sections:</strong> {{ certificate.sec8_total_sections|default:"0" }}</p>
+        <p><strong>Sections Inspected:</strong> {{ certificate.sec8_inspected_sections|default:"0" }}</p>
+        <p><strong>Total Subordinate Offices:</strong> {{ certificate.sec8_total_sub_offices|default:"0" }}</p>
+        <p><strong>Subordinate Offices Inspected:</strong> {{ certificate.sec8_inspected_sub_offices|default:"0" }}</p>
     </div>
 
     <!-- Section 9 - Publication of Magazines -->
@@ -276,16 +286,16 @@
         <table class="qpr-table">
             <thead>
                 <tr>
-                    <th>Magazine Name</th>
-                    <th>Circulation</th>
-                    <th>Language</th>
+                    <th>Total</th>
+                    <th>Hindi</th>
+                    <th>English</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td class="text-left">{{ certificate.magazines_name|default:"-" }}</td>
-                    <td>{{ certificate.magazines_circulation|default:"0" }}</td>
-                    <td>{{ certificate.magazines_language|default:"-" }}</td>
+                    <td>{{ certificate.magazines_total|default:"0" }}</td>
+                    <td>{{ certificate.magazines_hindi|default:"0" }}</td>
+                    <td>{{ certificate.magazines_english|default:"0" }}</td>
                 </tr>
             </tbody>
         </table>
@@ -294,8 +304,8 @@
     <!-- Section 10 - Hindi Books Purchase Expenditure -->
     <div class="qpr-section">
         <h4>10. Hindi Books Purchase Expenditure</h4>
-        <p><strong>Expenditure on Hindi Publications:</strong> ₹{{ certificate.expenditure_amount|default:"0" }}</p>
-        <p><strong>Description:</strong> {{ certificate.expenditure_description|default:"-" }}</p>
+        <p><strong>Total expenditure on books:</strong> Rs. {{ certificate.expenditure_total_books|default:"0" }}</p>
+        <p><strong>Expenditure on Hindi books:</strong> Rs. {{ certificate.expenditure_hindi_books|default:"0" }}</p>
     </div>
 
     <!-- Section 11 - Work in Hindi by Officers DS & Above -->

@@ -796,7 +796,7 @@ class ManagerQPR(models.Model):
         return f"Manager QPR - {self.user.username} ({self.quarter})"
 
     class Meta:
-        unique_together = (('user', 'quarter'),)
+        unique_together = (('user', 'quarter', 'financial_year'),)
         ordering = ['-created_at']
 
 
@@ -856,7 +856,7 @@ class AdminQPR(models.Model):
         return f"Admin QPR - {self.user.username} ({self.quarter})"
 
     class Meta:
-        unique_together = (('user', 'quarter'),)
+        unique_together = (('user', 'quarter', 'financial_year'),)
         ordering = ['-created_at']
     
 class StaffHindiKnowledge(models.Model):

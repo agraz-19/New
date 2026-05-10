@@ -698,15 +698,15 @@ def _quarter_label_to_daterange(quarter_label, year_label):
         base = date.today().year
     q = (quarter_label or '').strip()
     # Apr-Jun
-    if 'Jun' in q or 'जून' in q:
+    if q.upper() == 'Q1' or 'Jun' in q or 'जून' in q:
         start = date(base, 4, 1)
         end = date(base, 6, 30)
     # Jul-Sep
-    elif 'Sep' in q or 'सितंबर' in q or 'सित' in q:
+    elif q.upper() == 'Q2' or 'Sep' in q or 'सितंबर' in q or 'सित' in q:
         start = date(base, 7, 1)
         end = date(base, 9, 30)
     # Oct-Dec
-    elif 'Dec' in q or 'दिसंबर' in q or 'दिस' in q:
+    elif q.upper() == 'Q3' or 'Dec' in q or 'दिसंबर' in q or 'दिस' in q:
         start = date(base, 10, 1)
         end = date(base, 12, 31)
     # Jan-Mar
@@ -715,6 +715,20 @@ def _quarter_label_to_daterange(quarter_label, year_label):
         start = date(base+1, 1, 1)
         end = date(base+1, 3, 31)
     return (start, end)
+
+
+def _quarter_query_values(quarter_label):
+    q = (quarter_label or '').strip()
+    normalized = q.upper()
+    if normalized == 'Q1' or 'Jun' in q or 'जून' in q:
+        return ['Q1', '30 जून / Jun 30']
+    if normalized == 'Q2' or 'Sep' in q or 'सितंबर' in q or 'सित' in q:
+        return ['Q2', '30 सितंबर / Sep 30']
+    if normalized == 'Q3' or 'Dec' in q or 'दिसंबर' in q or 'दिस' in q:
+        return ['Q3', '31 दिसंबर / Dec 31']
+    if normalized == 'Q4' or 'Mar' in q or 'मार्च' in q:
+        return ['Q4', '31 मार्च / Mar 31']
+    return [q] if q else []
 
 
 def get_clipped_week_bounds(date_val, quarter_label, year_label):
@@ -2900,9 +2914,10 @@ def manager_qpr_view(request, id=None):
 
         if form.is_valid():
             quarter = form.cleaned_data.get('quarter')
-            # If creating new and one already exists for this quarter, show error
-            if not instance and ManagerQPR.objects.filter(user=request.user, quarter=quarter).exists():
-                messages.error(request, "Manager QPR for this quarter has already been filled.")
+            financial_year = form.cleaned_data.get('financial_year')
+            # If creating new and one already exists for this quarter/year, show error
+            if not instance and ManagerQPR.objects.filter(user=request.user, quarter=quarter, financial_year=financial_year).exists():
+                messages.error(request, "Manager QPR for this quarter and financial year has already been filled.")
             else:
                 # Only save if it's an edit OR if no duplicate exists
                 obj = form.save(commit=False)
@@ -2956,6 +2971,38 @@ def manager_section11_select_texts(request, manager_qpr_id=None):
         messages.error(request, "Your profile doesn't have an office code configured.")
         return redirect('manager_qpr_list')
 
+    def resolve_user_identity(user):
+        """Return a stable display name and employee code for Section 11 attribution."""
+        profile = getattr(user, 'profile', None)
+        employee_code = (
+            (getattr(profile, 'employee_code', '') or '').strip()
+            or (getattr(user, 'username', '') or '').strip()
+        )
+
+        employee = getattr(profile, 'employee', None) if profile else None
+        if not employee and employee_code:
+            try:
+                employee = Employee.objects.filter(empcode=int(employee_code)).first()
+            except (TypeError, ValueError):
+                employee = None
+
+        candidates = [
+            getattr(profile, 'name', None) if profile else None,
+            getattr(employee, 'ename', None) if employee else None,
+            user.get_full_name() if hasattr(user, 'get_full_name') else None,
+        ]
+        display_name = ''
+        for candidate in candidates:
+            candidate = (candidate or '').strip()
+            if candidate and candidate != employee_code:
+                display_name = candidate
+                break
+
+        return {
+            'display_name': display_name or employee_code or getattr(user, 'username', ''),
+            'employee_code': employee_code or getattr(user, 'username', ''),
+        }
+
     # Get or create manager QPR record
     manager_qpr = None
     if manager_qpr_id:
@@ -2997,7 +3044,7 @@ def manager_section11_select_texts(request, manager_qpr_id=None):
         if not any(value.strip() for value in texts.values()) and quarter and financial_year:
             latest_qpr = QPRRecord.objects.filter(
                 user=user,
-                quarter=quarter,
+                quarter__in=_quarter_query_values(quarter),
                 year=financial_year,
                 is_submitted=True
             ).order_by('-updated_at').first()
@@ -3036,7 +3083,8 @@ def manager_section11_select_texts(request, manager_qpr_id=None):
 
                 section11_texts, latest_qpr = collect_user_section11(user)
                 if any(value.strip() for value in section11_texts.values()):
-                    user_display = f"{user.first_name} {user.last_name}".strip() or user.username
+                    user_identity = resolve_user_identity(user)
+                    user_display = user_identity['display_name']
 
                     for field_name, text_value in section11_texts.items():
                         if text_value:
@@ -3068,7 +3116,7 @@ def manager_section11_select_texts(request, manager_qpr_id=None):
     office_users = CustomUser.objects.filter(
         profile__office_code=manager_office,
         is_active=True
-    ).exclude(id=request.user.id).select_related('profile')
+    ).exclude(id=request.user.id).select_related('profile', 'profile__employee')
 
     # Get their Section11 data with latest QPRs
     users_section11 = []
@@ -3076,8 +3124,11 @@ def manager_section11_select_texts(request, manager_qpr_id=None):
     for user in office_users:
         section11_texts, latest_qpr = collect_user_section11(user)
         if any(value.strip() for value in section11_texts.values()):
+            user_identity = resolve_user_identity(user)
             users_section11.append({
                 'user': user,
+                'display_name': user_identity['display_name'],
+                'employee_code': user_identity['employee_code'],
                 'section11': section11_texts,
                 'qpr': latest_qpr
             })
@@ -3114,9 +3165,10 @@ def admin_qpr_view(request, id=None):
 
         if form.is_valid():
             quarter = form.cleaned_data.get('quarter')
-            # If creating new and one already exists for this quarter, show error
-            if not instance and AdminQPR.objects.filter(user=request.user, quarter=quarter).exists():
-                messages.error(request, "Admin QPR for this quarter has already been filled.")
+            financial_year = form.cleaned_data.get('financial_year')
+            # If creating new and one already exists for this quarter/year, show error
+            if not instance and AdminQPR.objects.filter(user=request.user, quarter=quarter, financial_year=financial_year).exists():
+                messages.error(request, "Admin QPR for this quarter and financial year has already been filled.")
             else:
                 # Only save if it's an edit OR if no duplicate exists
                 obj = form.save(commit=False)
@@ -7506,7 +7558,7 @@ def manager_report(request):
         # Also include ManagerQPR/AdminQPR records to compute state totals
         try:
             from .models import ManagerQPR, AdminQPR
-            mgr_qprs = ManagerQPR.objects.filter(quarter=current_quarter, financial_year=current_year, user__profile__office_code=office_code)
+            mgr_qprs = ManagerQPR.objects.filter(quarter__in=_quarter_query_values(current_quarter), financial_year=current_year, user__profile__office_code=office_code)
             for mq in mgr_qprs:
                 try:
                     mvals = _serialize_managerqpr(mq)
@@ -7519,7 +7571,7 @@ def manager_report(request):
                 except Exception:
                     continue
 
-            adm_qprs = AdminQPR.objects.filter(quarter=current_quarter, financial_year=current_year, user__profile__office_code=office_code)
+            adm_qprs = AdminQPR.objects.filter(quarter__in=_quarter_query_values(current_quarter), financial_year=current_year, user__profile__office_code=office_code)
             for aq in adm_qprs:
                 try:
                     avals = _serialize_adminqpr(aq)
@@ -7656,7 +7708,7 @@ def manager_state_qpr(request):
     # Include ManagerQPR and AdminQPR records for this financial year/quarter
     try:
         from .models import ManagerQPR, AdminQPR
-        mgr_qprs = ManagerQPR.objects.filter(quarter=current_quarter, financial_year=current_year, user__profile__office_code=office_code)
+        mgr_qprs = ManagerQPR.objects.filter(quarter__in=_quarter_query_values(current_quarter), financial_year=current_year, user__profile__office_code=office_code)
         for mq in mgr_qprs:
             try:
                 mvals = _serialize_managerqpr(mq)
@@ -7698,7 +7750,7 @@ def manager_state_qpr(request):
             except Exception:
                 pass
 
-        adm_qprs = AdminQPR.objects.filter(quarter=current_quarter, financial_year=current_year, user__profile__office_code=office_code)
+        adm_qprs = AdminQPR.objects.filter(quarter__in=_quarter_query_values(current_quarter), financial_year=current_year, user__profile__office_code=office_code)
         for aq in adm_qprs:
             try:
                 avals = _serialize_adminqpr(aq)
@@ -8150,6 +8202,36 @@ def certificate_part2_new(request):
     return render(request, 'qpr/certificate_part2_select_quarter.html', context)
 
 
+def _part2_related_context(certificate):
+    staff_data = {
+        item.category: item
+        for item in certificate.staff_knowledge.all()
+    }
+    typing_data = {
+        item.category: item
+        for item in certificate.typing_knowledge.all()
+    }
+    codes_data = {
+        item.category: item
+        for item in certificate.codes_manuals.all()
+    }
+    translation_data = {}
+    for item in certificate.translation_knowledge.all():
+        key = 'yet' if item.category == 'yet_to_be_trained' else item.category
+        translation_data[key] = {
+            'officers': item.officers_count,
+            'employees': item.employees_count,
+            'total': item.total_count,
+        }
+
+    return {
+        'staff_data': staff_data,
+        'typing_data': typing_data,
+        'translation_data': translation_data,
+        'codes_data': codes_data,
+    }
+
+
 @login_required
 def certificate_part2_form(request, pk):
     """Form to edit/view certificate"""
@@ -8456,7 +8538,8 @@ def certificate_part2_form(request, pk):
                     'part2': certificate,
                     'quarter': certificate.quarter,
                     'year': certificate.year,
-                    'current_lang': lang
+                    'current_lang': lang,
+                    **_part2_related_context(certificate),
                 })
             
             certificate.is_submitted = True
@@ -8476,7 +8559,8 @@ def certificate_part2_form(request, pk):
         'part2': certificate,
         'quarter': certificate.quarter,
         'year': certificate.year,
-        'current_lang': lang
+        'current_lang': lang,
+        **_part2_related_context(certificate),
     }
     return render(request, 'qpr/certificate_part2_form.html', context)
 
@@ -8504,7 +8588,8 @@ def certificate_part2_view(request, pk):
         'quarter': certificate.quarter,
         'year': certificate.year,
         'current_lang': lang,
-        'readonly': True
+        'readonly': True,
+        **_part2_related_context(certificate),
     }
     return render(request, 'qpr/certificate_part2_form.html', context)
 
@@ -8659,13 +8744,20 @@ def print_all_qpr_reports(request, year, quarter):
                 'is_notified_rule_10_4': bool(part2.is_notified_rule_10_4),
                 'total_sub_offices': part2.total_sub_offices,
                 'notified_sub_offices': part2.notified_sub_offices,
-                'staff_knowledge': list(part2.staff_knowledge.values('category', 'officers_count', 'employees_count', 'total_count')),
-                'hindi_posts': list(part2.hindi_posts.values('designation', 'sanctioned', 'vacant')),
+                'staff_knowledge': list(part2.staff_knowledge.values(
+                    'category', 'officers_total', 'employees_total',
+                    'officers_working', 'officers_proficient',
+                    'employees_working', 'employees_proficient', 'total_count'
+                )),
+                'hindi_posts': list(part2.hindi_posts.values(
+                    'designation', 'hq_sanctioned', 'hq_vacant',
+                    'sub_sanctioned', 'sub_vacant'
+                )),
                 'typing_knowledge': list(part2.typing_knowledge.values('category', 'total_no', 'trained_in_hindi', 'work_in_hindi', 'yet_to_be_trained')),
                 'translation_knowledge': list(part2.translation_knowledge.values('category', 'officers_count', 'employees_count', 'total_count')),
                 'code_manuals': list(part2.codes_manuals.values('category', 'total_no', 'bilingual_no')),
                 'officers_work': list(part2.officers_work.values('level', 'total_officers', 'knowledge_of_hindi', 'not_doing', 'doing_upto_25', 'doing_26_to_50', 'doing_51_to_75', 'doing_more_76', 'doing_cent_percent')),
-                'websites': list(part2.websites.values('url', 'status')),
+                'websites': list(part2.websites.values('url', 'status', 'has_language_option')),
                 'chairperson': {
                     'name': part2.chairperson_name or '',
                     'designation': part2.chairperson_designation or '',
