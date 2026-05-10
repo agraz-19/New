@@ -427,7 +427,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             {% csrf_token %}
                             <input type="hidden" name="quarter" value="{{ current_quarter }}">
                             <input type="hidden" name="year" value="{{ current_year }}">
-                            <button type="submit" class="btn btn-sm btn-outline-danger" id="freezeBtn" {% if not all_finalized %}disabled title="All employees must finalize their QPR first"{% endif %}>Freeze</button>
+                            <button type="submit" class="btn btn-sm btn-outline-danger" id="freezeBtn" {% if not can_freeze_division %}disabled title="{{ freeze_disabled_reason }}"{% endif %}>Freeze</button>
                         </form>
                     </td>
                 </tr>

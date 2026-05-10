@@ -430,6 +430,109 @@ class QPROverlapRestrictionTests(TestCase):
         self.assertEqual(april_snapshot.s2_meetings, 0)
         self.assertEqual(may_snapshot.s2_meetings, 7)
 
+    def test_monthly_fill_is_added_to_existing_daily_values_in_monthly_snapshot(self):
+        for selected_date, meetings in [('2026-04-06', 2), ('2026-04-07', 3)]:
+            request = self.factory.post('/qpr/records/save/', {
+                'status': 'Submitted',
+                'officeName': 'Office',
+                'officeCode': 'OFF',
+                'region': 'Region A',
+                'quarter': '30 जून / Jun 30',
+                'year': '2026-2027',
+                'frequency': 'daily',
+                'selected_date': selected_date,
+                'details': json.dumps({'s2_meetings': meetings}),
+            })
+            request.user = self.user
+            SessionMiddleware(lambda req: None).process_request(request)
+            request.session.save()
+            setattr(request, '_messages', FallbackStorage(request))
+            response = qpr_save_record.__wrapped__(request)
+            self.assertEqual(response.status_code, 302)
+
+        request = self.factory.post('/qpr/records/save/', {
+            'status': 'Submitted',
+            'officeName': 'Office',
+            'officeCode': 'OFF',
+            'region': 'Region A',
+            'quarter': '30 जून / Jun 30',
+            'year': '2026-2027',
+            'frequency': 'monthly',
+            'selected_date': '2026-04-30',
+            'details': '{"s2_meetings": "10"}',
+        })
+        request.user = self.user
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        setattr(request, '_messages', FallbackStorage(request))
+
+        with patch('website.views.timezone.localdate', return_value=date(2026, 5, 10)):
+            response = qpr_save_record.__wrapped__(request)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(MonthlyFill.objects.filter(user=self.user, s2_meetings=10).exists())
+        monthly_snapshot = MonthlySnapshot.objects.get(
+            user=self.user,
+            period_start=date(2026, 4, 1),
+            period_end=date(2026, 4, 30),
+        )
+        self.assertEqual(monthly_snapshot.s2_meetings, 15)
+
+    def test_monthly_fill_includes_daily_values_even_when_daily_quarter_is_stale(self):
+        for selected_date, meetings in [('2026-04-06', 2), ('2026-04-07', 3)]:
+            request = self.factory.post('/qpr/records/save/', {
+                'status': 'Submitted',
+                'officeName': 'Office',
+                'officeCode': 'OFF',
+                'region': 'Region A',
+                'quarter': '31 मार्च / Mar 31',
+                'year': '2026-2027',
+                'frequency': 'daily',
+                'selected_date': selected_date,
+                'details': json.dumps({'s2_meetings': meetings}),
+            })
+            request.user = self.user
+            SessionMiddleware(lambda req: None).process_request(request)
+            request.session.save()
+            setattr(request, '_messages', FallbackStorage(request))
+            response = qpr_save_record.__wrapped__(request)
+            self.assertEqual(response.status_code, 302)
+
+        daily_records = QPRRecord.objects.filter(user=self.user, frequency='daily')
+        self.assertEqual(daily_records.count(), 2)
+        self.assertTrue(daily_records.filter(quarter='30 जून / Jun 30', year='2026-2027').exists())
+
+        daily_records.update(quarter='31 मार्च / Mar 31')
+        WeeklySnapshot.objects.filter(user=self.user).delete()
+        MonthlySnapshot.objects.filter(user=self.user).delete()
+
+        request = self.factory.post('/qpr/records/save/', {
+            'status': 'Submitted',
+            'officeName': 'Office',
+            'officeCode': 'OFF',
+            'region': 'Region A',
+            'quarter': '30 जून / Jun 30',
+            'year': '2026-2027',
+            'frequency': 'monthly',
+            'selected_date': '2026-04-30',
+            'details': '{"s2_meetings": "10"}',
+        })
+        request.user = self.user
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        setattr(request, '_messages', FallbackStorage(request))
+
+        with patch('website.views.timezone.localdate', return_value=date(2026, 5, 10)):
+            response = qpr_save_record.__wrapped__(request)
+
+        self.assertEqual(response.status_code, 302)
+        monthly_snapshot = MonthlySnapshot.objects.get(
+            user=self.user,
+            period_start=date(2026, 4, 1),
+            period_end=date(2026, 4, 30),
+        )
+        self.assertEqual(monthly_snapshot.s2_meetings, 15)
+
     def test_cross_month_weekly_fill_is_cumulated_to_month_with_missing_days(self):
         for day in [27, 28, 29, 30]:
             self._record('daily', date(2026, 4, day), date(2026, 4, day))
