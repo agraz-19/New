@@ -1,0 +1,68 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+
+{% block title %}{{ "Certificate"|t:current_lang }}{% endblock %}
+
+{% block content %}
+<style>
+    .certificate-form { max-width: 760px; margin: 40px auto; padding: 30px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .meta { margin-bottom: 24px; padding: 14px; background: #f8f9fa; border-left: 4px solid #0066cc; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-weight: 600; margin-bottom: 6px; color: #333; }
+    .form-control { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+    .btn { padding: 10px 18px; border-radius: 4px; text-decoration: none; border: none; cursor: pointer; font-weight: 600; }
+    .btn-primary { background: #0066cc; color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+    @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="certificate-form">
+    <h2>{{ "Certificate"|t:current_lang }}</h2>
+    <div class="meta">
+        <p><strong>{{ "Office Code:"|t:current_lang }}</strong> {{ certificate.office_code }}</p>
+        <p><strong>{{ "Financial Year:"|t:current_lang }}</strong> {{ certificate.financial_year }}</p>
+        <p><strong>{{ "Quarter Ending:"|t:current_lang }}</strong> {{ certificate.quarter }}</p>
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="chairperson_name">{{ "Name of the chairperson of the O.L.I.C of Min./Dep./Org."|t:current_lang }}</label>
+                <input type="text" id="chairperson_name" name="chairperson_name" class="form-control" value="{{ certificate.chairperson_name|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="chairperson_designation">{{ "Designation"|t:current_lang }}</label>
+                <input type="text" id="chairperson_designation" name="chairperson_designation" class="form-control" value="{{ certificate.chairperson_designation|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="organization_name">{{ "Name of Min./Dep./Org."|t:current_lang }}</label>
+                <input type="text" id="organization_name" name="organization_name" class="form-control" value="{{ certificate.organization_name|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="phone_fax">{{ "Telephone/ Fax No."|t:current_lang }}</label>
+                <input type="text" id="phone_fax" name="phone_fax" class="form-control" value="{{ certificate.phone_fax|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="email">{{ "Email address"|t:current_lang }}</label>
+                <input type="text" id="email" name="email" class="form-control" value="{{ certificate.email|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="certificate_date">{{ "Date"|t:current_lang }}</label>
+                <input type="date" id="certificate_date" name="certificate_date" class="form-control" value="{{ certificate.certificate_date|date:'Y-m-d' }}">
+            </div>
+            <div class="form-group">
+                <label for="place">{{ "Place"|t:current_lang }}</label>
+                <input type="text" id="place" name="place" class="form-control" value="{{ certificate.place|default:'' }}">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'manager_certificate_list' %}" class="btn btn-secondary">{{ "Cancel"|t:current_lang }}</a>
+            <button type="submit" class="btn btn-primary">{{ "Submit"|t:current_lang }}</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -8,6 +8,7 @@
     @media print {
         body { margin: 0; padding: 0; }
         .no-print { display: none !important; }
+        .print-heading { display: none !important; }
         .print-container { box-shadow: none; max-width: 100%; font-size: 11px; }
     }
     
@@ -103,7 +104,7 @@
 </div>
 
 <div class="print-container">
-    <h2 style="text-align: center; margin-bottom: 20px; font-size: 1.2rem;">{{ "Quarterly Progress Report - Part II"|t:current_lang }}</h2>
+    <h2 class="print-heading" style="text-align: center; margin-bottom: 20px; font-size: 1.2rem;">{{ "Quarterly Progress Report - Part II"|t:current_lang }}</h2>
     
     <!-- Header Information -->
     <div class="header-info">

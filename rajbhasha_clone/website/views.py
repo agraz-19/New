@@ -44,12 +44,11 @@ from weasyprint import HTML
 from .employeeform import EmployeeForm
 from .forms import (
     CustomLoginForm,
-    CustomUserCreationForm,
-    TypingUsageReportForm
+    CustomUserCreationForm
 )
 from .models import (
-    ArchivedUser, CertificateData, CustomUser, DataAccessLog,
-    EditRequest, Employee, HindiPost, ManagerRequest, MonthlyFill,
+    ArchivedUser, CertificateData, CodeManualStandardForms, CustomUser, DataAccessLog,
+    EditRequest, Employee, HindiPost, ManagerCertificate, ManagerRequest, MonthlyFill,
     MonthlySnapshot, ProfileChangeRequest, QPRPartTwo, QPRRecord, QuarterlyFill,
     QuarterlySnapshot, Role, Section1FilesData, Section2MeetingsData,
     Section3OfficialLanguagesData, Section4HindiLettersData,
@@ -57,8 +56,8 @@ from .models import (
     Section7NotingsData, Section8WorkshopsData,
     Section9ImplementationCommitteeData, Section10HindiAdvisoryData,
     Section11SpecificAchievementsData, StaffHindiKnowledge,
-    TranslationKnowledge, TypingStenographyKnowledge, TypingUsageReport,
-    UserProfile, WeeklyFill, WeeklySnapshot
+    TranslationKnowledge, TypingStenographyKnowledge,
+    UserProfile, WebsiteDetail, WeeklyFill, WeeklySnapshot
 )
 from .signals import User
 from .static_event_service import (
@@ -188,7 +187,7 @@ def submit_profile_change_request(request):
                 'message': 'You already have a pending request. Please wait for approval.'
             })
 
-        # 🔍 Find HOD (same logic, untouched)
+        # Find HOD (same logic, untouched)
         hod_profile = UserProfile.objects.filter(
             Q(roles__name='hod') | Q(user__roles__name='hod'),
             Q(employee_code=hod_identifier) |
@@ -3933,6 +3932,7 @@ def qpr_form(request):
         'financial_years': financial_years,
         'user_role': getattr(request.user, 'role', None),
         'active_role': request.session.get('active_role', getattr(request.user, 'role', None)),
+        'has_hod_role': user_has_role(request.user, 'hod'),
         'server_month': today.month,
         'server_year': today.year,
         'profile_language_region': profile.language_region if profile else '',
@@ -5148,96 +5148,6 @@ def report_detail(request, record_id):
         record_json = '{}'
 
     return render(request, 'qpr/report_detail.html', {'record_id': record_id, 'is_hod_view': is_hod_view, 'target_user_id': target_user_id, 'record_json': record_json})
-
-@login_required
-def typing_usage_report_form(request, record_id):
-    """Display form for typing usage report"""
-    qpr_record = get_object_or_404(QPRRecord, id=record_id, user=request.user)
-    
-    if request.method == 'POST':
-        form = TypingUsageReportForm(request.POST)
-        if form.is_valid():
-            total_words = form.cleaned_data['total_words']
-            hindi_words = form.cleaned_data['hindi_words']
-            
-            # Create or update the typing usage report
-            report, created = TypingUsageReport.objects.update_or_create(
-                qpr_record=qpr_record,
-                defaults={'total_words': total_words, 'hindi_words': hindi_words}
-            )
-            
-            return redirect('typing_usage_report_view', record_id=record_id)
-    else:
-        # Pre-fill form if report exists
-        try:
-            report = TypingUsageReport.objects.get(qpr_record=qpr_record)
-            form = TypingUsageReportForm(initial={
-                'total_words': report.total_words,
-                'hindi_words': report.hindi_words
-            })
-        except TypingUsageReport.DoesNotExist:
-            form = TypingUsageReportForm()
-    
-    context = {
-        'form': form,
-        'record_id': record_id,
-        'office_name': qpr_record.officeName
-    }
-    return render(request, 'qpr/typing_usage_report.html', context)
-
-@login_required
-def typing_usage_report_view(request, record_id):
-    """Display typing usage report with details"""
-    qpr_record = get_object_or_404(QPRRecord, id=record_id, user=request.user)
-    
-    # Get employee profile
-    user_profile = request.user.profile
-    employee_name = user_profile.name or request.user.username
-    designation = user_profile.office_name  # Or you can get it from Employee model
-    
-    # Try to get designation from Employee model if available
-    try:
-        employee = Employee.objects.get(empcode=user_profile.employee_code)
-        designation = employee.designation or designation
-    except Employee.DoesNotExist:
-        pass
-    
-    # Get section7 data (notings data) using safe attribute access
-    section7 = getattr(qpr_record, 'section7', None)
-    if section7:
-        total_notes = getattr(section7, 'total_pages', 0) or 0
-        hindi_notes = getattr(section7, 'hindi_pages', 0) or 0
-    else:
-        total_notes = 0
-        hindi_notes = 0
-    
-    # Get typing usage report data
-    try:
-        typing_report = TypingUsageReport.objects.get(qpr_record=qpr_record)
-        total_words = typing_report.total_words or 0
-        hindi_words = typing_report.hindi_words or 0
-    except TypingUsageReport.DoesNotExist:
-        total_words = 0
-        hindi_words = 0
-    
-    # Calculate percentages
-    notes_hindi_percentage = (hindi_notes / total_notes * 100) if total_notes > 0 else 0
-    words_hindi_percentage = (hindi_words / total_words * 100) if total_words > 0 else 0
-    
-    context = {
-        'record_id': record_id,
-        'office_name': qpr_record.officeName,
-        'employee_name': employee_name,
-        'designation': designation,
-        'total_notes': total_notes,
-        'hindi_notes': hindi_notes,
-        'notes_hindi_percentage': round(notes_hindi_percentage, 2),
-        'total_words': total_words,
-        'hindi_words': hindi_words,
-        'words_hindi_percentage': round(words_hindi_percentage, 2),
-    }
-    
-    return render(request, 'qpr/typing_usage_report_view.html', context)
 
 @login_required
 def hod_detail_list(request):
@@ -8022,64 +7932,6 @@ def reject_edit_request(request, request_id):
     return render(request, 'qpr/reject_edit_request.html', context)
 
 
-def typing_data_report(request):
-    lang = request.session.get('lang', 'en')
-    typing_reports = TypingUsageReport.objects.select_related(
-        'qpr_record__user__profile',
-        'qpr_record__section7'
-    ).all()
-    data = []
-    for report in typing_reports:
-        qpr_record = report.qpr_record
-        user_profile = qpr_record.user.profile if qpr_record.user else None
-        employee_name = (user_profile.name if user_profile else None) or (qpr_record.user.username if qpr_record.user else 'Unknown')
-        designation = 'N/A'
-        office_code = (user_profile.office_code if user_profile else None) or 'N/A'
-
-        try:
-            if user_profile and user_profile.employee_code:
-                employee = Employee.objects.get(empcode=user_profile.employee_code)
-                designation = employee.designation or 'N/A'
-                office_code = (user_profile.office_code if user_profile else None) or 'N/A'
-        except Employee.DoesNotExist:
-            pass
-        
-        # Get section7 data using safe attribute access
-        section7 = getattr(qpr_record, 'section7', None)
-        if section7:
-            total_notes = getattr(section7, 'total_pages', 0) or 0
-            hindi_notes = getattr(section7, 'hindi_pages', 0) or 0
-        else:
-            total_notes = 0
-            hindi_notes = 0
-        
-        notes_hindi_percentage = (hindi_notes / total_notes * 100) if total_notes > 0 else 0
-        words_hindi_percentage = ((report.hindi_words or 0) / (report.total_words or 1) * 100) if (report.total_words and report.total_words > 0) else 0
-        
-        data.append({
-            'serial_no': len(data) + 1,
-            'employee_name': employee_name,
-            'designation': designation,
-            'office_code': office_code,
-            'total_notes': total_notes,
-            'hindi_notes': hindi_notes,
-            'notes_hindi_percentage': round(notes_hindi_percentage, 2),
-            'total_words': report.total_words or 0,
-            'hindi_words': report.hindi_words or 0,
-            'words_hindi_percentage': round(words_hindi_percentage, 2),
-            'year': qpr_record.year,
-            'quarter': qpr_record.quarter,
-        })
-    
-    context = {
-        'typing_data': data,
-        'years': sorted(set(r['year'] for r in data if r['year']), reverse=True),
-        'quarters': sorted(set(r['quarter'] for r in data if r['quarter'])),
-        'current_lang': lang,
-    }
-    return render(request, 'qpr/typing_data_report.html', context)
-
-
 # ==================== USER HOD SELECTION ====================
 
 @login_required
@@ -8395,10 +8247,19 @@ def manager_report(request):
 
     manager_profile = getattr(request.user, 'userprofile', None) or getattr(request.user, 'profile', None)
     office_code = getattr(manager_profile, 'office_code', None)
+    current_quarter = (request.GET.get('quarter') or get_current_quarter()).strip()
+    current_year = (request.GET.get('year') or get_current_year_label()).strip()
+    try:
+        _quarter_label_to_daterange(current_quarter, current_year)
+    except Exception:
+        current_quarter = get_current_quarter()
+        current_year = get_current_year_label()
 
     manager_data = []
     hod_profiles = UserProfile.objects.none()
+    office_profiles = UserProfile.objects.none()
     if office_code:
+        office_profiles = UserProfile.objects.filter(office_code=office_code).select_related('user').distinct()
         hod_profiles = UserProfile.objects.filter(
             office_code=office_code,
             roles__name__iexact='hod',
@@ -8518,8 +8379,6 @@ def manager_report(request):
                 hod_user_map[hid] = idx
                 hod_user_ids.append(hid)
 
-        current_quarter = get_current_quarter()
-        current_year = get_current_year_label()
         total_hods = len(hod_user_ids)
 
         state_totals = {k: 0 for k in NUMERIC_KEYS}
@@ -8620,6 +8479,7 @@ def manager_report(request):
             state_qpr_items.append((k, state_qpr[k]))
     except Exception:
         state_qpr = None
+    report_query = urlencode({'quarter': current_quarter, 'year': current_year})
 
     return render(request, 'qpr/manager_report.html', {
         'manager_data': manager_data,
@@ -8628,6 +8488,11 @@ def manager_report(request):
         'state_qpr_items': state_qpr_items,
         'frozen_count': frozen_count,
         'total_hods': total_hods,
+        'quarter_filter': current_quarter,
+        'year_filter': current_year,
+        'quarter_options': _qpr_filter_quarter_options(),
+        'year_options': _qpr_filter_year_options_for_users([up.user for up in office_profiles if getattr(up, 'user', None)]),
+        'report_query': report_query,
         'current_lang': request.session.get('lang', 'en'),
     })
 
@@ -8642,7 +8507,7 @@ def manager_state_qpr(request):
     if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
         return redirect('/')
 
-    manager_profile = getattr(request.user, 'profile', None)
+    manager_profile = getattr(request.user, 'userprofile', None) or getattr(request.user, 'profile', None)
     office_code = getattr(manager_profile, 'office_code', None)
 
     if not office_code:
@@ -8652,8 +8517,13 @@ def manager_state_qpr(request):
     hod_profiles = UserProfile.objects.filter(office_code=office_code, roles__name__iexact='hod').select_related('user')
     hod_user_ids = [getattr(h.user, 'id', None) for h in hod_profiles if getattr(h.user, 'id', None) is not None]
 
-    current_quarter = get_current_quarter()
-    current_year = get_current_year_label()
+    current_quarter = (request.GET.get('quarter') or get_current_quarter()).strip()
+    current_year = (request.GET.get('year') or get_current_year_label()).strip()
+    try:
+        _quarter_label_to_daterange(current_quarter, current_year)
+    except Exception:
+        current_quarter = get_current_quarter()
+        current_year = get_current_year_label()
 
     # Aggregate from frozen HOD snapshots for current quarter/year
     state_totals = {k: 0 for k in NUMERIC_KEYS}
@@ -8994,6 +8864,121 @@ def certificate_display_view(request, record_id):
     return render(request, 'qpr/certificate_display.html', context)
 
 
+def _certificate_year_options():
+    today = timezone.localdate()
+    fiscal_year_start = today.year if today.month >= 4 else today.year - 1
+    return [f"{year}-{year + 1}" for year in range(2024, fiscal_year_start + 1)]
+
+
+@login_required
+def manager_certificate_list(request):
+    """List standalone manager certificates."""
+    if not user_has_role(request.user, 'manager'):
+        return HttpResponseForbidden('Only managers can access certificates.')
+
+    certificates = ManagerCertificate.objects.filter(user=request.user).order_by('-created_at')
+    return render(request, 'qpr/manager_certificate_list.html', {
+        'certificates': certificates,
+        'current_lang': request.session.get('lang', 'en'),
+    })
+
+
+@login_required
+def manager_certificate_new(request):
+    """Create a standalone certificate by quarter and financial year."""
+    if not user_has_role(request.user, 'manager'):
+        return HttpResponseForbidden('Only managers can access certificates.')
+
+    if request.method == 'POST':
+        quarter = request.POST.get('quarter', '').strip()
+        year = request.POST.get('year', '').strip()
+        if not quarter or not year:
+            messages.error(request, 'Quarter and Year are required.')
+            return redirect('manager_certificate_new')
+
+        manager_profile = getattr(request.user, 'userprofile', None) or getattr(request.user, 'profile', None)
+        office_code = getattr(manager_profile, 'office_code', '') or ''
+        certificate, _ = ManagerCertificate.objects.get_or_create(
+            user=request.user,
+            quarter=quarter,
+            year=year,
+            defaults={
+                'financial_year': year,
+                'office_code': office_code,
+            }
+        )
+        if certificate.is_submitted:
+            return redirect('manager_certificate_view', pk=certificate.id)
+        return redirect('manager_certificate_form', pk=certificate.id)
+
+    return render(request, 'qpr/manager_certificate_select_quarter.html', {
+        'quarters': ['Q1', 'Q2', 'Q3', 'Q4'],
+        'years': _certificate_year_options(),
+        'current_lang': request.session.get('lang', 'en'),
+    })
+
+
+@login_required
+def manager_certificate_form(request, pk):
+    """Fill and submit standalone manager certificate details."""
+    if not user_has_role(request.user, 'manager'):
+        return HttpResponseForbidden('Only managers can access certificates.')
+
+    certificate = get_object_or_404(ManagerCertificate, pk=pk, user=request.user)
+    if certificate.is_submitted:
+        return redirect('manager_certificate_view', pk=certificate.id)
+
+    if request.method == 'POST':
+        certificate.chairperson_name = request.POST.get('chairperson_name', '').strip()
+        certificate.chairperson_designation = request.POST.get('chairperson_designation', '').strip()
+        certificate.organization_name = request.POST.get('organization_name', '').strip()
+        certificate.phone_fax = request.POST.get('phone_fax', '').strip()
+        certificate.email = request.POST.get('email', '').strip()
+        certificate.place = request.POST.get('place', '').strip()
+        certificate_date = request.POST.get('certificate_date', '').strip()
+        certificate.certificate_date = certificate_date or None
+        certificate.is_submitted = True
+        certificate.submitted_at = timezone.now()
+        certificate.save()
+        messages.success(request, 'Certificate submitted.')
+        return redirect('manager_certificate_view', pk=certificate.id)
+
+    return render(request, 'qpr/manager_certificate_form.html', {
+        'certificate': certificate,
+        'current_lang': request.session.get('lang', 'en'),
+    })
+
+
+@login_required
+def manager_certificate_view(request, pk):
+    """View standalone manager certificate."""
+    if not user_has_role(request.user, 'manager'):
+        return HttpResponseForbidden('Only managers can access certificates.')
+
+    certificate = get_object_or_404(ManagerCertificate, pk=pk, user=request.user)
+    return render(request, 'qpr/certificate.html', {
+        'manager_certificate': certificate,
+        'current_lang': request.session.get('lang', 'en'),
+    })
+
+
+@login_required
+def manager_certificate_print(request, pk):
+    return manager_certificate_view(request, pk)
+
+
+@login_required
+def manager_certificate_delete(request, pk):
+    if not user_has_role(request.user, 'manager'):
+        return HttpResponseForbidden('Only managers can access certificates.')
+    if request.method != 'POST':
+        return redirect('manager_certificate_list')
+    certificate = get_object_or_404(ManagerCertificate, pk=pk, user=request.user)
+    certificate.delete()
+    messages.success(request, 'Certificate deleted.')
+    return redirect('manager_certificate_list')
+
+
 @login_required
 def certificate_part2_view(request):
     """Standalone Certificate Part II view.
@@ -9275,7 +9260,9 @@ def certificate_part2_new(request):
     
     # Show quarter/year selection form
     quarters = ['Q1', 'Q2', 'Q3', 'Q4']
-    years = ['2024-25', '2025-26']  # Adjust as needed
+    today = timezone.localdate()
+    fiscal_year_start = today.year if today.month >= 4 else today.year - 1
+    years = [f"{year}-{year + 1}" for year in range(2024, fiscal_year_start + 1)]
     
     context = {
         'quarters': quarters,
@@ -9532,17 +9519,21 @@ def certificate_part2_form(request, pk):
 # Section 14 - Websites
 
         urls = request.POST.getlist('section14_url')
+        website_indexes = request.POST.getlist('section14_index')
 
         certificate.websites.all().delete()
 
         for i, url in enumerate(urls):
             if url:  # only create if URL is not empty
-                status_key = f'section14_status_{i + 1}'
+                row_index = website_indexes[i] if i < len(website_indexes) else str(i + 1)
+                status_key = f'section14_status_{row_index}'
+                option_key = f'section14_option_{row_index}'
                 status = request.POST.get(status_key, '')
                 WebsiteDetail.objects.create(
                     report=certificate,
                     url=url,
-                    status=status
+                    status=status,
+                    has_language_option=option_key in request.POST
                 )
         
         # Section 11 - DS and Above

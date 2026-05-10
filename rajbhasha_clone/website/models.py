@@ -599,17 +599,6 @@ class Section11SpecificAchievementsData(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
-class TypingUsageReport(models.Model):
-    """Store typing usage report data for users"""
-    qpr_record = models.OneToOneField(QPRRecord, on_delete=models.CASCADE, related_name='typing_usage_report')
-    total_words = models.IntegerField(null=True, blank=True)
-    hindi_words = models.IntegerField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"Typing Usage Report - {self.qpr_record.officeName}"
-    
 class CertificateData(models.Model):
     """Store certificate data (year and quarter) selected by manager for each QPR submission"""
     qpr_record = models.OneToOneField(QPRRecord, on_delete=models.CASCADE, related_name='certificate_data')
@@ -623,6 +612,35 @@ class CertificateData(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class ManagerCertificate(models.Model):
+    """Standalone manager certificate by quarter and financial year."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='manager_certificates')
+    quarter = models.CharField(max_length=20)
+    year = models.CharField(max_length=20)
+    financial_year = models.CharField(max_length=20)
+    office_code = models.CharField(max_length=50, blank=True, null=True)
+    chairperson_name = models.CharField(max_length=255, blank=True, null=True)
+    chairperson_designation = models.CharField(max_length=255, blank=True, null=True)
+    organization_name = models.CharField(max_length=255, blank=True, null=True)
+    phone_fax = models.CharField(max_length=100, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    certificate_date = models.DateField(blank=True, null=True)
+    place = models.CharField(max_length=100, blank=True, null=True)
+    is_submitted = models.BooleanField(default=False)
+    submitted_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = (('user', 'quarter', 'year'),)
+
+    def __str__(self):
+        return f"Certificate - {self.user.username} ({self.quarter} {self.year})"
+
+
 class QPRPartTwo(models.Model):
     qpr_record = models.OneToOneField(
         QPRRecord,
@@ -955,6 +973,7 @@ class WebsiteDetail(models.Model):
     report = models.ForeignKey(QPRPartTwo, on_delete=models.CASCADE, related_name='websites')
     url = models.URLField(verbose_name="Address of Website") # [cite: 110]
     status = models.CharField(max_length=50, choices=STATUS_CHOICES) # [cite: 110]
+    has_language_option = models.BooleanField(default=False)
 
 
 class QPRFinalization(models.Model):
@@ -1418,4 +1437,3 @@ class QuarterlySnapshot(models.Model):
     
     def __str__(self):
         return f"QuarterlySnapshot {self.user.username} {self.quarter} {self.year}"
-

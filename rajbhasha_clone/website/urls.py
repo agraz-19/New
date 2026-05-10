@@ -49,6 +49,12 @@ urlpatterns = [
     path('certificate-part2/<int:pk>/view/', views.certificate_part2_view, name='certificate_part2_view'),
     path('certificate-part2/<int:pk>/print/', views.certificate_part2_print, name='certificate_part2_print'),
     path('certificate-part2/<int:pk>/delete/', views.certificate_part2_delete, name='certificate_part2_delete'),
+    path('manager/certificates/', views.manager_certificate_list, name='manager_certificate_list'),
+    path('manager/certificates/new/', views.manager_certificate_new, name='manager_certificate_new'),
+    path('manager/certificates/<int:pk>/form/', views.manager_certificate_form, name='manager_certificate_form'),
+    path('manager/certificates/<int:pk>/view/', views.manager_certificate_view, name='manager_certificate_view'),
+    path('manager/certificates/<int:pk>/print/', views.manager_certificate_print, name='manager_certificate_print'),
+    path('manager/certificates/<int:pk>/delete/', views.manager_certificate_delete, name='manager_certificate_delete'),
     
     # Debug
     path('debug/whoami/', views.debug_whoami, name='debug_whoami'),
@@ -63,8 +69,6 @@ urlpatterns = [
     path('qpr/reports/<int:record_id>/', views.report_detail, name='qpr_report_detail'),
     path('qpr/reports/<int:record_id>/print/', views.print_qpr_report, name='qpr_report_print'),
     path('qpr/snapshot/<str:quarter>/<str:year>/edit/', views.snapshot_edit, name='snapshot_edit'),
-    path('qpr/reports/<int:record_id>/typing-usage-report/', views.typing_usage_report_form, name='typing_usage_report_form'),
-    path('qpr/reports/<int:record_id>/typing-usage-report/view/', views.typing_usage_report_view, name='typing_usage_report_view'),
     path('qpr/reports/<int:record_id>/request-edit/', views.request_qpr_edit, name='request_qpr_edit'),
     path('qpr/finalize/', views.finalize_qpr, name='finalize_qpr'),
 
@@ -93,7 +97,6 @@ urlpatterns = [
     path('qpr/admin/edit-requests/', views.admin_edit_requests, name='admin_edit_requests'),
     path('qpr/admin/approve-edit/<int:request_id>/', views.approve_edit_request, name='approve_edit_request'),
     path('qpr/admin/reject-edit/<int:request_id>/', views.reject_edit_request, name='reject_edit_request'),
-    path('qpr/admin/typing-data-report/', views.typing_data_report, name='typing_data_report'),
     path('update-designation/<int:user_id>/', views.update_designation, name='update_designation'),
     path('action/<int:user_id>/<str:action>/', views.manage_user_action, name='manage_user_action'),
 

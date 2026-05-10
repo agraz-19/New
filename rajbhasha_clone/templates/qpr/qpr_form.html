@@ -141,7 +141,7 @@
                     <hr>
 
                     <div class="row">
-                        {% if active_role == 'hod' %}
+                        {% if has_hod_role %}
                         <div class="col-md-6 section-box">
                             <div class="section-title">1. माननीय मंत्री जी को भेजी गयी फाइलों का ब्यौरा <span class="d-block small text-muted">(Details Of Files Sent To The Minister)</span></div>
                             
@@ -447,11 +447,14 @@
             // Get form_type to determine which sections to clear
             var formTypeInput = document.querySelector('input[name="form_type"]');
             var formType = formTypeInput ? formTypeInput.value : 'user';
+            var hasHodRole = "{{ has_hod_role|yesno:'true,false' }}" === "true";
             
             // Clear values for sections that shouldn't be submitted based on form_type
             if(formType === 'user'){
-                // Clear admin-only sections (1, 3) and manager-only sections (8, 9, 10)
-                var fieldsToClean = ['s1_', 's3_', 's8_', 's9_', 's10_'];
+                // Clear sections not applicable to this user-form role.
+                var fieldsToClean = hasHodRole
+                    ? ['s3_', 's8_', 's9_', 's10_']
+                    : ['s1_', 's3_', 's8_', 's9_', 's10_'];
                 var elems = form.querySelectorAll('[id^="s"]');
                 elems.forEach(function(el){
                     var id = el.id;
@@ -485,6 +488,7 @@
         if(!formTypeInput) return;
         
         var formType = formTypeInput.value;
+        var hasHodRole = "{{ has_hod_role|yesno:'true,false' }}" === "true";
         
         // If form_type is "user", hide manager and admin sections
         if(formType === 'user'){
@@ -492,13 +496,14 @@
             var sectionTitles = document.querySelectorAll('.section-title');
             sectionTitles.forEach(function(title){
                 var titleText = title.textContent;
-                // Hide admin-only sections (1, 3)
-                if(titleText.includes('माननीय मंत्री') || 
+                var isHodSection = titleText.includes('माननीय मंत्री');
+                var shouldHideHodSection = isHodSection && !hasHodRole;
+                var shouldHideOtherRoleSection =
                    titleText.includes('धारा 3(3)') ||
-                   // Hide manager-only sections (8, 9, 10)
-                   titleText.includes('कार्यशालाएं') || 
+                   titleText.includes('कार्यशालाएं') ||
                    titleText.includes('कार्यान्वयन समिति') ||
-                   titleText.includes('सलाहकार समिति')){
+                   titleText.includes('सलाहकार समिति');
+                if(shouldHideHodSection || shouldHideOtherRoleSection){
                     
                     // Find the parent section container and hide it
                     var parent = title.closest('.section-box');
