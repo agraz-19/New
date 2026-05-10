@@ -54,14 +54,8 @@ class CustomUserManager(UserManager["CustomUser"]):
         return user
 
 class CustomUser(AbstractUser):
-    # TEMPORARY FOR TESTING: email_hash uniqueness constraint intentionally disabled.
-    # To revert, uncomment the original line below and remove the non-unique field.
-    #email_hash = models.CharField(max_length=64, unique=True, null=True, blank=True)
     email_hash = models.CharField(max_length=64, unique=False, null=True, blank=True)
     encrypted_email_data = models.BinaryField(null=True, blank=True)
-    # TEMPORARY FOR TESTING: email uniqueness constraint intentionally disabled.
-    # To revert, uncomment the original line below and remove the explicit non-unique field.
-    #email = models.EmailField(unique=True, null=True, blank=True)
     email = models.EmailField(unique=False, null=True, blank=True)
     roles = models.ManyToManyField(Role, related_name='users', blank=True)
     otp = models.CharField(max_length=6, blank=True, null=True)

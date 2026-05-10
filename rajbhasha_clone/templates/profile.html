@@ -1,4 +1,4 @@
-{% extends 'master.html' %}
+﻿{% extends 'master.html' %}
 {% load translate_tags %}
 
 {% block content %}
@@ -25,7 +25,7 @@
             {% if profile_approval_required and profile_approved and not can_edit and not has_pending_change_request %}
                 <div id="profileLockedAlert" class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
                     <i class="fas fa-lock"></i> 
-                    <strong>{{ "Profile Locked"|t:current_lang }}</strong> — {{ "Your profile has been approved. To make changes, please submit a request below."|t:current_lang }}
+                    <strong>{{ "Profile Locked"|t:current_lang }}</strong> â€” {{ "Your profile has been approved. To make changes, please submit a request below."|t:current_lang }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
 
@@ -335,7 +335,7 @@
                                 <input type="date"
                                 name="super_annuation_date"
                                 class="form-control"
-                                value="{{ employee.super_annuation_date|date:'Y-m-d' }}"
+                                value="{% if form.super_annuation_date.value %}{{ form.super_annuation_date.value|date:'Y-m-d' }}{% else %}{{ super_annuation_date_value|default:'' }}{% endif %}"
                                 {% if not can_edit %}disabled{% endif %}>
                             </div>
                         </div>
@@ -470,6 +470,7 @@
     const profileUpdated = {{ profile_updated|yesno:"true,false" }};
     const profileApprovalRequired = {{ profile_approval_required|yesno:"true,false" }};
     const approvedProfileFields = {{ approved_profile_fields_json|default:"[]"|safe }};
+    const serverSuperAnnuationDate = "{{ super_annuation_date_value|default:'' }}";
     let isProfileLocked = false;
 
     function getSelectedText(selectElement) {
@@ -497,35 +498,35 @@
             return;
         }
 
-        // 🔓 STEP 1: NEW USER (no profile status) → UNLOCK
+        // ðŸ”“ STEP 1: NEW USER (no profile status) â†’ UNLOCK
         if (!profileUpdated) {
             isProfileLocked = false;
             unlockFormFields();
             return;
         }
 
-        // 🔒 STEP 2: Pending profile → LOCK
+        // ðŸ”’ STEP 2: Pending profile â†’ LOCK
         if (profileStatus === 'pending' || profileStatus === 'pending_admin') {
             isProfileLocked = true;
             lockAllFormFields();
             return;
         }
 
-        // STEP 3: Approved profile with pending change request → LOCK
+        // STEP 3: Approved profile with pending change request â†’ LOCK
         if (profileStatus === 'approved' && hasPendingRequest) {
             isProfileLocked = true;
             lockAllFormFields();
             return;
         }
 
-        // STEP 4: Approved profile with edit permission (from HOD approval) → UNLOCK
+        // STEP 4: Approved profile with edit permission (from HOD approval) â†’ UNLOCK
         if (profileStatus === 'approved' && isEditAllowed) {
             isProfileLocked = false;
             unlockApprovedProfileFields();
             return;
         }
 
-        // 🔒 STEP 5: Approved profile with no pending request → LOCK (user must request change)
+        // ðŸ”’ STEP 5: Approved profile with no pending request â†’ LOCK (user must request change)
         if (profileStatus === 'approved' && !hasPendingRequest) {
             isProfileLocked = true;
             lockAllFormFields();
@@ -700,7 +701,7 @@
             return;
         }
 
-        // ✅ Case 1: New user (no profile at all) → UNLOCK
+        // âœ… Case 1: New user (no profile at all) â†’ UNLOCK
         if (!profileUpdated || (!profileApproved && !hasPendingRequest)) {
             const profileStatus = "{{ profile.approval_status|default:'' }}";
             if (!profileUpdated) {
@@ -714,28 +715,28 @@
                 if (requestChangeSection) requestChangeSection.style.display = 'none';
                 unlockFormFields();
             } else {
-                // pending/rejected — keep locked
+                // pending/rejected â€” keep locked
                 if (profileLockedAlert) profileLockedAlert.style.display = 'none';
                 if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
                 if (requestChangeSection) requestChangeSection.style.display = 'none';
                 lockAllFormFields();
             }
         } 
-        // Case 2: Profile approved with pending change request → LOCK
+        // Case 2: Profile approved with pending change request â†’ LOCK
         else if (profileApproved && hasPendingRequest) {
             if (profileLockedAlert) profileLockedAlert.style.display = 'none';
             if (pendingChangeAlert) pendingChangeAlert.style.display = 'block';
             if (requestChangeSection) requestChangeSection.style.display = 'none';
             lockAllFormFields();
         }
-        // ✅ Case 3: HOD approved change request → UNLOCK (must check BEFORE case 4)
+        // âœ… Case 3: HOD approved change request â†’ UNLOCK (must check BEFORE case 4)
         else if (profileApproved && hasApprovedRequest) {
             if (profileLockedAlert) profileLockedAlert.style.display = 'none';
             if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
             if (requestChangeSection) requestChangeSection.style.display = 'none';
             unlockApprovedProfileFields();
         }
-        // ✅ Case 4: Profile approved, NO pending request, NO approved request → LOCK, show request box
+        // âœ… Case 4: Profile approved, NO pending request, NO approved request â†’ LOCK, show request box
         else if (profileApproved && !hasPendingRequest) {
             if (profileLockedAlert) profileLockedAlert.style.display = 'none';
             if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
@@ -850,10 +851,10 @@ function fetchEmployeeData() {
             const designationSelect = document.getElementById("designation");
             if(designationSelect) designationSelect.value = data.designation || "";
 
-            feedback.innerHTML = "✔ Verified";
+            feedback.innerHTML = "&#10004; Verified";
             feedback.style.color = "green";
         } else {
-            feedback.innerHTML = "✖ Invalid Employee Code";
+            feedback.innerHTML = "&#10006; Invalid Employee Code";
             feedback.style.color = "red";
         }
     })
@@ -938,24 +939,27 @@ function fetchEmployeeData() {
         const isHindi = currentLang === 'hi';
 
         const headers = isHindi ? [
-            "कर्मचारी कोड",
-            "कर्मचारी नाम",
-            "फोन नंबर",
-            "आईपी नंबर",
-            "कार्यालय स्थिति",
-            "कार्यालय कोड",
-            "कार्यालय का नाम",
-            "भाषा क्षेत्र",
-            "अधिसूचना ईमेल",
-            "वैकल्पिक ईमेल",
-            "अंग्रेजी में नाम",
-            "हिंदी में नाम",
-            "पदनाम",
-            "टाइपिंग",
-            "हिंदी दक्षता",
-            "राजपत्र",
-            "सर्वोच्च हिंदी परीक्षा उत्तीर्ण",
-            "सुपरएनुएशन तारीख"
+            "à¤•à¤°à¥à¤®à¤šà¤¾à¤°à¥€ à¤•à¥‹à¤¡",
+            "à¤•à¤°à¥à¤®à¤šà¤¾à¤°à¥€ à¤¨à¤¾à¤®",
+            "à¤«à¥‹à¤¨ à¤¨à¤‚à¤¬à¤°",
+            "à¤†à¤ˆà¤ªà¥€ à¤¨à¤‚à¤¬à¤°",
+            "à¤•à¤¾à¤°à¥à¤¯à¤¾à¤²à¤¯ à¤¸à¥à¤¥à¤¿à¤¤à¤¿",
+            "à¤•à¤¾à¤°à¥à¤¯à¤¾à¤²à¤¯ à¤•à¥‹à¤¡",
+            "à¤•à¤¾à¤°à¥à¤¯à¤¾à¤²à¤¯ à¤•à¤¾ à¤¨à¤¾à¤®",
+            "à¤­à¤¾à¤·à¤¾ à¤•à¥à¤·à¥‡à¤¤à¥à¤°",
+            "Approver",
+            "à¤…à¤§à¤¿à¤¸à¥‚à¤šà¤¨à¤¾ à¤ˆà¤®à¥‡à¤²",
+            "à¤µà¥ˆà¤•à¤²à¥à¤ªà¤¿à¤• à¤ˆà¤®à¥‡à¤²",
+            "à¤…à¤‚à¤—à¥à¤°à¥‡à¤œà¥€ à¤®à¥‡à¤‚ à¤¨à¤¾à¤®",
+            "à¤¹à¤¿à¤‚à¤¦à¥€ à¤®à¥‡à¤‚ à¤¨à¤¾à¤®",
+            "à¤ªà¤¦à¤¨à¤¾à¤®",
+            "à¤Ÿà¤¾à¤‡à¤ªà¤¿à¤‚à¤—",
+            "à¤¹à¤¿à¤‚à¤¦à¥€ à¤¦à¤•à¥à¤·à¤¤à¤¾",
+            "à¤°à¤¾à¤œà¤ªà¤¤à¥à¤°",
+            "Stenographer",
+            "à¤¸à¤°à¥à¤µà¥‹à¤šà¥à¤š à¤¹à¤¿à¤‚à¤¦à¥€ à¤ªà¤°à¥€à¤•à¥à¤·à¤¾ à¤‰à¤¤à¥à¤¤à¥€à¤°à¥à¤£",
+            "OLIC Affiliate",
+            "à¤¸à¥à¤ªà¤°à¤à¤¨à¥à¤à¤¶à¤¨ à¤¤à¤¾à¤°à¥€à¤–"
         ] : [
             '{{ "Employee Code"|t:current_lang }}',
             '{{ "Employee Name"|t:current_lang }}',
@@ -965,17 +969,24 @@ function fetchEmployeeData() {
             '{{ "Office Code"|t:current_lang }}',
             '{{ "Office Name"|t:current_lang }}',
             '{{ "Language Region"|t:current_lang }}',
+            '{{ "Select HOD"|t:current_lang }}',
             '{{ "Email"|t:current_lang }}',
             '{{ "Alternate Email"|t:current_lang }}',
             '{{ "Employee Name (English)"|t:current_lang }}',
             '{{ "Employee Name (Hindi)"|t:current_lang }}',
             '{{ "Designation"|t:current_lang }}',
-            '{{ "Typing (English)"|t:current_lang }}',
+            '{{ "Typing"|t:current_lang }}',
             '{{ "Hindi Proficiency"|t:current_lang }}',
             '{{ "Gazette Notification"|t:current_lang }}',
+            'Stenographer',
             '{{ "Highest Hindi Exam Passed"|t:current_lang }}',
+            '{{ "OLIC Affiliate"|t:current_lang }}',
             '{{ "Super Annuation Date"|t:current_lang }}'
         ];
+
+        const selectedHindiExams = Array.from(
+            document.querySelectorAll('[name="hindi_exam"]:checked')
+        ).map(el => el.value).join(", ");
 
         const data = [
             headers,
@@ -988,6 +999,7 @@ function fetchEmployeeData() {
                 document.querySelector('[name="office_code"]')?.value || "",
                 document.querySelector('[name="office_name"]')?.value || "",
                 getTranslatedValue(document.querySelector('[name="language_region"]')),
+                getTranslatedValue(document.querySelector('[name="hod_name"]')),
                 document.querySelector('[name="email"]')?.value || "",
                 document.querySelector('[name="alternate_email"]')?.value || "",
                 document.querySelector('[name="ename"]')?.value || "",
@@ -996,24 +1008,22 @@ function fetchEmployeeData() {
                 getTranslatedValue(document.querySelector('[name="typing"]')),
                 getTranslatedValue(document.querySelector('[name="hindiproficiency"]')),
                 getTranslatedValue(document.querySelector('[name="gazet"]')),
-                document.querySelector('[name="highest_hindi_exam_passed"]')?.value || "",
-                document.querySelector('[name="super_annuation_date"]')?.value || ""
+                getTranslatedValue(document.querySelector('[name="stenographer"]')),
+                selectedHindiExams,
+                getTranslatedValue(document.querySelector('[name="olic_affiliate"]')),
+                document.querySelector('[name="super_annuation_date"]')?.value || serverSuperAnnuationDate
             ]
         ];
-
-        data[0].splice(17, 0, "Stenographer");
-        data[1].splice(17, 0, getTranslatedValue(document.querySelector('[name="stenographer"]')));
-        data[1][18] = Array.from(document.querySelectorAll('[name="hindi_exam"]:checked')).map(el => el.value).join(", ");
 
         const ws = XLSX.utils.aoa_to_sheet(data);
 
         ws['!cols'] = [
             { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 15 },
             { wch: 15 }, { wch: 18 }, { wch: 15 }, { wch: 18 }, { wch: 18 },
-            { wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 15 }, { wch: 18 },
-            { wch: 18 }, { wch: 25 }, { wch: 20 }
+            { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 15 },
+            { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 25 }, { wch: 20 },
+            { wch: 18 }
         ];
-        ws['!cols'].splice(17, 0, { wch: 18 });
 
         const range = XLSX.utils.decode_range(ws['!ref']);
 
@@ -1047,7 +1057,7 @@ function fetchEmployeeData() {
         }
 
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, isHindi ? "प्रोफाइल विवरण" : "Profile Details");
+        XLSX.utils.book_append_sheet(wb, ws, isHindi ? "à¤ªà¥à¤°à¥‹à¤«à¤¾à¤‡à¤² à¤µà¤¿à¤µà¤°à¤£" : "Profile Details");
 
         const timestamp = new Date().toISOString().slice(0, 10);
         const empCode = document.querySelector('[name="empcode"]')?.value || "Employee";

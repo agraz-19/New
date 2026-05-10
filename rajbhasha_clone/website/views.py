@@ -7,9 +7,12 @@ import os
 import random
 import openpyxl
 import tempfile
+import logging
 from datetime import date, datetime, timedelta
 from typing import cast
 from urllib.parse import urlencode
+from urllib import request
+import subprocess
 
 # Django / stdlib
 from django.conf import settings
@@ -22,6 +25,114 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Min, Q
 from django.http import FileResponse, HttpResponse, HttpResponseForbidden, JsonResponse
+from django.db import OperationalError, ProgrammingError, transaction
+from django.db.models import Count, Min, Q
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
+from django.urls import reverse
+from django.template.loader import render_to_string
+from django.utils import timezone
+from django.utils.timezone import now
+from django.contrib import messages
+from django.contrib.auth import login as auth_login, logout, get_user_model
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.views import LoginView
+from django.contrib.admin.views.decorators import staff_member_required
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.views import View
+
+# Third-party
+from weasyprint import HTML
+from pypdf import PdfWriter, PdfReader
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from gtts import gTTS
+from captcha.models import CaptchaStore, logger
+from deep_translator import GoogleTranslator
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+
+from website import urls
+
+# Local App Imports
+from .utils import (
+    load_employee_data, send_system_email, get_allowed_quarters,
+    ensure_current_financial_year
+)
+from .employeeform import EmployeeForm
+from .forms import (
+    CertificateDataForm, CustomLoginForm,
+    CustomUserCreationForm
+)
+from .models import (
+    ArchivedUser, CertificateData, CustomUser, DataAccessLog,
+    EditRequest, Employee, FinancialYear, HindiPost, ManagerRequest, Office,
+    QPRPartTwo, QPRRecord, Role, Section1FilesData, Section2MeetingsData,
+    Section3OfficialLanguagesData, Section4HindiLettersData,
+    Section5EnglishRepliedHindiData, Section6IssuedLettersData,
+    Section7NotingsData, Section8WorkshopsData,
+    Section9ImplementationCommitteeData, Section10HindiAdvisoryData,
+    Section11SpecificAchievementsData, StaffHindiKnowledge, TranslationKnowledge, TypingStenographyKnowledge,
+    UserProfile, cipher_suite, ProfileChangeRequest,
+    ManagerRequest, EditRequest
+)
+from .serializers import EmployeeSerializer
+from .signals import User
+from .static_event_service import (
+    delete_event, get_all_events, update_event_meta,
+    upload_event, upload_images_to_existing_event
+)
+
+# Font Registration
+FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
+if os.path.exists(FONT_PATH):
+    pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
+from .templatetags.translate_tags import translate_text
+from .utils import (
+    ensure_current_financial_year, get_allowed_quarters, 
+    load_employee_data, send_system_email
+)
+
+# Font Registration
+FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
+pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
+from django.contrib.admin.views.decorators import staff_member_required
+from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.contrib import messages
+from .utils import load_employee_data
+from .utils import ensure_current_financial_year
+from .models import FinancialYear
+from django.http import JsonResponse
+import csv
+import hashlib
+import io
+import json
+import os
+import random
+import tempfile
+from datetime import date, datetime, timedelta
+from typing import cast
+from urllib import request
+
+# Third-party / Django Imports
+from captcha.models import CaptchaStore, logger
+from deep_translator import GoogleTranslator
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth import get_user_model, logout
+from django.contrib.auth import login as auth_login
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.views import LoginView
+from django.core.cache import cache
+from django.core.exceptions import PermissionDenied
+from django.db.models import Count, Min, Q
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -38,6 +149,8 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 from weasyprint import HTML
+
+app_logger = logging.getLogger(__name__)
 
 # Local App Imports
 from .forms import (
@@ -91,16 +204,13 @@ def get_employee_details_form(request):
             if not os.path.exists(excel_file):
                 return JsonResponse({'status': 'error', 'message': 'Employee database file not found'})
             
-            # Open Excel workbook
             wb = openpyxl.load_workbook(excel_file)
             ws = wb.active
             
-            # Get headers from first row
             headers = []
             for cell in ws[1]:
                 headers.append(cell.value)
             
-            # Search for employee by Empcode
             found = False
             row_data = {}
             
@@ -109,7 +219,6 @@ def get_employee_details_form(request):
                 for col_idx, header in enumerate(headers, 1):
                     row_data[header] = ws.cell(row=row, column=col_idx).value
                 
-                # Match empcode
                 if str(row_data.get('Empcode', '')).strip() == str(empcode).strip():
                     found = True
                     break
@@ -1643,11 +1752,11 @@ def serialize_qpr_record(record):
         data['details'] = {}
     return data
 
-def send_otp_email(user, lang, target_email=None):
+def send_otp_email(user, lang, target_email=None, email_type='otp'):
     user.otp = str(random.randint(100000, 999999))
     user.otp_created_at = timezone.now()
     user.save(update_fields=['otp', 'otp_created_at'])
-    send_system_email(user, None, 'otp', extra_context={'otp': user.otp, 'lang': lang}, target_email=target_email)
+    send_system_email(user, None, email_type, extra_context={'otp': user.otp, 'lang': lang}, target_email=target_email)
     return user.otp
 
 
@@ -1768,7 +1877,7 @@ class CustomLoginView(LoginView):
                 messages.warning(self.request, translate_text("No alternate email found in your profile. Sending to official email.", current_lang))
 
         # Send OTP
-        send_otp_email(user, current_lang, target_email=target_email)
+        send_otp_email(user, current_lang, target_email=target_email, email_type='login_otp')
         
         # Save pre-login state
         self.request.session['pre_login_user_id'] = user.id
@@ -1874,8 +1983,6 @@ class LoginOTPView(View):
         if action == 'send_otp':
             email_choice = request.POST.get('email_choice', 'primary')
             target_email = user.get_email()
-            
-            # Switch to alternate if selected and it exists
             if email_choice == 'alternate' and profile and profile.alternate_email:
                 target_email = profile.alternate_email
                 
@@ -1901,12 +2008,10 @@ class LoginOTPView(View):
                 
                 auth_login(request, user)
                 
-                # Execute your standard post-login actions
                 send_system_email(user, request, 'login')
                 if user_role(user) == 'user' and profile and not profile.profile_updated:
                     return redirect('qpr_user_profile')
                     
-                # Clean up session
                 request.session.pop('pre_otp_user_id', None)
                 return redirect('dashboard')
             else:
@@ -1925,7 +2030,7 @@ class ForgotPasswordView(View):
         username = request.POST.get('username', '').strip()
         user = CustomUser.objects.filter(username=username).first()
         if user:
-            send_otp_email(user, lang)
+            send_otp_email(user, lang, email_type='reset_otp')
             email = user.get_email()
             if email:
                 request.session['reset_email_hash'] = hashlib.sha256(email.encode()).hexdigest()
@@ -1938,11 +2043,14 @@ class VerifyOTPView(View):
     def get(self, request):
         if not request.session.get('reset_email_hash') and not request.session.get('is_signup') and not request.session.get('is_login_otp'): 
             return redirect('forgot_password')
-            
         lang = request.session.get('lang', 'en')
         context = {'title_text': translate_text("Verify OTP", lang), 'button_text': translate_text("Verify Code", lang), 'current_lang': lang}
         return render(request, 'registration/verify_otp.html', context)
+
     def post(self, request):
+        if request.user.is_authenticated:
+            return redirect('dashboard')
+
         otp_input = request.POST.get('otp', '').strip()
         lang = request.session.get('lang', 'en')
         if request.session.get('is_login_otp'):
@@ -1965,12 +2073,9 @@ class VerifyOTPView(View):
             if is_real_otp_valid or is_magic_code:
                 user.otp = None
                 user.save(update_fields=['otp'])
-                
-                # Log them in for real
                 auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
                 send_system_email(user, request, 'login')
                 
-                # Cleanup session
                 request.session.pop('pre_login_user_id', None)
                 request.session.pop('is_login_otp', None)
                 request.session.pop('login_target_email', None)
@@ -1979,7 +2084,13 @@ class VerifyOTPView(View):
                 if user_role(user) == 'user' and profile and not profile.profile_updated:
                     return redirect('qpr_user_profile')
                 return redirect('dashboard')
-        if request.session.get('is_signup'):
+            else:
+                attempts = cache.get(att_key, 0) + 1
+                cache.set(att_key, attempts, 600)
+                if attempts >= 5: cache.set(blk_key, True, 600)
+                messages.error(request, translate_text("Invalid or expired OTP.", lang))
+                return render(request, 'registration/verify_otp.html', {'current_lang': lang})
+        elif request.session.get('is_signup'):
             signup_data = request.session.get('signup_data')
             if not signup_data:
                 messages.error(request, "Session expired. Please sign up again.")
@@ -1989,10 +2100,9 @@ class VerifyOTPView(View):
             if cache.get(blk_key):
                 return render(request, 'registration/verify_otp.html', {'is_blocked': True, 'current_lang': lang})  
             if otp_input == signup_data['otp']:
-                if (timezone.now().timestamp() - signup_data['otp_time']) < 300: # 5 min expiry
+                if (timezone.now().timestamp() - signup_data['otp_time']) < 300: 
                     try:
                         with transaction.atomic():
-                            # Safely get or create to handle race conditions
                             user, created = CustomUser.objects.get_or_create(
                                 username=signup_data['username'],
                                 defaults={
@@ -2001,11 +2111,9 @@ class VerifyOTPView(View):
                                     'consent_given_at': timezone.now()
                                 }
                             )
-                            # Set password and email securely
                             user.password = signup_data['password']
                             user.set_email(signup_data['email'])
                             user.save()
-                            
                             profile, _ = UserProfile.objects.get_or_create(
                                 user=user,
                                 defaults={"employee_code": user.username}
@@ -2013,8 +2121,6 @@ class VerifyOTPView(View):
                             profile.approval_status = 'pending'
                             profile.profile_updated = False
                             profile.save()
-                            
-                        # Log them in after the transaction is fully successful
                         auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
                         request.session['lang'] = lang
                         request.session['active_role'] = 'user'
@@ -2031,21 +2137,24 @@ class VerifyOTPView(View):
             if attempts >= 5: cache.set(blk_key, True, 600)
             messages.error(request, translate_text("Invalid or expired OTP.", lang))
             return render(request, 'registration/verify_otp.html', {'current_lang': lang})
-        email_hash = request.session.get('reset_email_hash')
-        if not email_hash: return redirect('forgot_password')
-        att_key, blk_key = f"otp_att_{email_hash}", f"otp_blk_{email_hash}"
-        if cache.get(blk_key):
-            return render(request, 'registration/verify_otp.html', {'is_blocked': True, 'current_lang': lang})
-        user = CustomUser.objects.filter(email_hash=email_hash).first()
-        if user and user.otp == otp_input:
-            if user.otp_created_at and (timezone.now() - user.otp_created_at).total_seconds() < 300:
-                request.session['otp_verified'] = True
-                return redirect('reset_password')
-        attempts = cache.get(att_key, 0) + 1
-        cache.set(att_key, attempts, 600)
-        if attempts >= 5: cache.set(blk_key, True, 600)
-        messages.error(request, translate_text("Invalid or expired OTP.", lang))
-        return render(request, 'registration/verify_otp.html', {'current_lang': lang})
+        elif request.session.get('reset_email_hash'):
+            email_hash = request.session.get('reset_email_hash')
+            att_key, blk_key = f"otp_att_{email_hash}", f"otp_blk_{email_hash}"
+            if cache.get(blk_key):
+                return render(request, 'registration/verify_otp.html', {'is_blocked': True, 'current_lang': lang})
+            user = CustomUser.objects.filter(email_hash=email_hash).first()
+            if user and user.otp == otp_input:
+                if user.otp_created_at and (timezone.now() - user.otp_created_at).total_seconds() < 300:
+                    request.session['otp_verified'] = True
+                    return redirect('reset_password')
+            attempts = cache.get(att_key, 0) + 1
+            cache.set(att_key, attempts, 600)
+            if attempts >= 5: cache.set(blk_key, True, 600)
+            messages.error(request, translate_text("Invalid or expired OTP.", lang))
+            return render(request, 'registration/verify_otp.html', {'current_lang': lang})
+            
+        else:
+            return redirect('login')
 
 class ResendOTPView(View):
     def get(self, request):
@@ -2067,14 +2176,14 @@ class ResendOTPView(View):
             target_email = request.session.get('login_target_email')
             if not user_id: return redirect('login')
             user = CustomUser.objects.get(id=user_id)
-            send_otp_email(user, lang, target_email=target_email)
+            send_otp_email(user, lang, target_email=target_email, email_type='login_otp')
             messages.success(request, translate_text("New OTP sent.", lang))
             return redirect('verify_otp')
         email_hash = request.session.get('reset_email_hash')
         if not email_hash: return redirect('forgot_password')
         user = CustomUser.objects.filter(email_hash=email_hash).first()
         if not user: return redirect('forgot_password')
-        send_otp_email(user, lang)
+        send_otp_email(user, lang, email_type='reset_otp')
         messages.success(request, translate_text("New OTP sent.", lang))
         return redirect('verify_otp')
 
@@ -2212,24 +2321,16 @@ def download_db_backup(request):
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
-# ==================== ARCHIVE HELPERS (RESTORED) ====================
-
 @login_required
-@user_passes_test(is_admin)  # This checks user.role == 'admin', so NO Superuser required
-def archive_user(request, user_id):  # FIXED: Added 'request' argument
-    # 1. Fetch User
+@user_passes_test(is_admin) 
+def archive_user(request, user_id):  
     user_to_archive = get_object_or_404(CustomUser, id=user_id)
     
-    # 2. Prevent archiving yourself
     if getattr(user_to_archive, 'id', None) == getattr(request.user, 'id', None):
         messages.error(request, "You cannot archive yourself.")
         return redirect('dashboard')
 
-    # 3. Create Snapshot for Archive
-    # Employee.empcode is an IntegerField. Try to resolve a numeric empcode
-    # from the user's username or from their profile.employee_code.
     empcode_val = None
-    # Prefer profile.employee_code if available
     profile = getattr(user_to_archive, 'profile', None)
     if profile and getattr(profile, 'employee_code', None):
         try:
@@ -2266,14 +2367,12 @@ def archive_user(request, user_id):  # FIXED: Added 'request' argument
         employee_snapshot=json.dumps(snapshot) 
     )
     
-    # 5. Soft Delete (Deactivate)
     user_to_archive.is_active = False    
     user_to_archive.is_archived = True
     user_to_archive.save()
 
-    # 6. Success Message & Redirect
     messages.success(request, f"User {user_to_archive.username} has been archived successfully.")
-    return redirect('dashboard')  # FIXED: Added return statement
+    return redirect('dashboard')
 
 @login_required
 @user_passes_test(is_admin)
@@ -2487,6 +2586,7 @@ def profile_view(request):
             # 3. Update Employee Model
             emp_instance = form.save(commit=False)
             emp_instance.highest_exam = ",".join(request.POST.getlist("hindi_exam"))
+            emp_instance.super_annuation_date = form.cleaned_data.get('super_annuation_date')
             emp_instance.empcode = empcode
             emp_instance.save()
             if profile:
@@ -2512,6 +2612,11 @@ def profile_view(request):
     employee = Employee.objects.filter(empcode=empcode).first() if empcode else None
     form = EmployeeForm(instance=employee)
     current_office_code = profile.office_code if profile else "0012"
+    super_annuation_date_value = ''
+    if employee:
+        decrypted_super_annuation_date = employee.get_super_annuation_date()
+        if decrypted_super_annuation_date:
+            super_annuation_date_value = decrypted_super_annuation_date.strftime('%Y-%m-%d')
 
     # Context Generation
     offices = Office.objects.all()
@@ -2527,6 +2632,7 @@ def profile_view(request):
         'current_hod': profile.hod_name if profile else None,
         'ip_number': profile.ip_number if profile else '',
         'alternate_email': profile.alternate_email if profile else '',
+        'super_annuation_date_value': super_annuation_date_value,
 
         # Flags for Template
         'can_edit': can_edit,
@@ -3078,9 +3184,7 @@ def qpr_hod_dashboard(request):
     hod_profile = UserProfile.objects.select_related('user').get(user=request.user)
     hod_name = (hod_profile.hod_name or hod_profile.name or "").strip()
 
-    # ===============================
-    # USERS UNDER HOD
-    # ===============================
+
     if hod_name:
         user_role_q = Q(roles__name='user') | Q(user__roles__name='user')
 
@@ -3093,13 +3197,8 @@ def qpr_hod_dashboard(request):
         users_under_hod = UserProfile.objects.filter(user=request.user, approval_status__iexact='approved').distinct()
 
     total_users = users_under_hod.count()
-
-    # ===============================
-    # QPR COUNTS (FIXED LOOP)
-    # ===============================
     qpr_submitted_count = 0
 
-    # Count users who submitted a daily QPR for today's server date.
     today = timezone.localdate()
     for up in users_under_hod:
         try:
@@ -3115,10 +3214,6 @@ def qpr_hod_dashboard(request):
             continue
 
     qpr_pending = total_users - qpr_submitted_count
-
-    # ===============================
-    # PROFILE STATUS
-    # ===============================
     profile_updated_count = users_under_hod.filter(profile_updated=True).count()
 
     pending_approvals = UserProfile.objects.filter(
@@ -3275,23 +3370,22 @@ def manager_dashboard(request):
 @login_required
 def admin_dashboard(request):
     if user_role(request.user) != 'admin': return redirect('/')
+    admin_state = request.user.profile.office_state
     
-    # --- ACTIVE USERS ---
-    users = CustomUser.objects.filter(is_active=True, is_archived=False).order_by('-date_joined')
+    users = CustomUser.objects.filter(is_active=True, is_archived=False, profile__office_state=admin_state).order_by('-date_joined')
     
-    # --- ARCHIVED USERS ---
     archived_users = ArchivedUser.objects.all().order_by('-archived_at')
 
     current_quarter = get_current_quarter()
     current_year = get_current_year_label()
     
     hod_stats = []
-    hods = UserProfile.objects.filter(roles__name='hod').order_by('name')
+    hods = UserProfile.objects.filter(roles__name='hod', office_state=admin_state).order_by('name')
     for hod_profile in hods:
         hod_key = hod_profile.hod_name or hod_profile.name or hod_profile.employee_code
         hod_display = hod_profile.name or hod_key or 'UNKNOWN'
         # Count only approved users for admin HOD statistics
-        users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_key, approval_status__iexact='approved')
+        users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_key, approval_status__iexact='approved',office_state=admin_state)
         total_users = users_under_hod.count()
         profile_complete = sum(1 for p in users_under_hod if p.profile_updated)
         qpr_complete = sum( 1 for p in users_under_hod if QPRRecord.objects.filter( user=p.user, quarter=current_quarter, year=current_year, is_submitted=True ).exists())
@@ -3304,11 +3398,11 @@ def admin_dashboard(request):
             'completion_percentage': completion_pct,
         })
     # Consider only approved users when deriving unique HOD names
-    unique_hod_names = set(UserProfile.objects.filter(roles__name='user', approval_status__iexact='approved').exclude(hod_name__isnull=True).values_list('hod_name', flat=True))
-    actual_hod_names = set(UserProfile.objects.filter(roles__name='hod').values_list('hod_name', flat=True))
+    unique_hod_names = set(UserProfile.objects.filter(roles__name='user', approval_status__iexact='approved', office_state=admin_state).exclude(hod_name__isnull=True).values_list('hod_name', flat=True))
+    actual_hod_names = set(UserProfile.objects.filter(roles__name='hod', office_state=admin_state).values_list('hod_name', flat=True))
     uncovered = unique_hod_names - actual_hod_names
     for hod_name in sorted(uncovered):
-        users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_name, approval_status__iexact='approved')
+        users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_name, approval_status__iexact='approved', office_state=admin_state)
         total_users = users_under_hod.count()
         qpr_complete = sum(1 for p in users_under_hod if QPRRecord.objects.filter(user=p.user, status='Submitted').exists())
         completion_pct = int((qpr_complete / total_users) * 100) if total_users > 0 else 0
@@ -3320,7 +3414,7 @@ def admin_dashboard(request):
             'completion_percentage': completion_pct,
         })
     # 3. Pending Requests
-    pending_requests = ManagerRequest.objects.filter(status='pending', hod__roles__name='user')
+    pending_requests = ManagerRequest.objects.filter(status='pending', hod__roles__name='user', hod__profile__office_state=admin_state)
     context = {
         'role': 'admin',  # Explicitly set role for template to avoid showing other roles' content
         'hod_stats': hod_stats, 
@@ -3339,6 +3433,7 @@ def admin_dashboard(request):
 @login_required
 def admin_create_hod(request):
     if not user_has_role(request.user, 'admin'): return redirect('/')
+    admin_state = request.user.profile.office_state
     found_name = ''
     if request.method == 'POST':
         emp_code = request.POST.get('emp_code', '').strip()
@@ -3347,7 +3442,7 @@ def admin_create_hod(request):
         else:
             # Check if employee code exists in registered users
             try:
-                profile = UserProfile.objects.get(employee_code=emp_code)
+                profile = UserProfile.objects.get(employee_code=emp_code, office_state=admin_state)
                 display_name = profile.name or profile.user.get_full_name() or profile.user.username
                 found_name = display_name
                 if profile.roles.filter(name='hod').exists():
@@ -3376,21 +3471,20 @@ def admin_create_hod(request):
 @login_required
 def admin_create_manager(request):
     if not user_has_role(request.user, 'admin'): return redirect('/')
+    admin_state = request.user.profile.office_state
     found_name = ''
     if request.method == 'POST':
         emp_code = request.POST.get('emp_code', '').strip()
         if not emp_code:
             messages.error(request, 'Employee code is required')
         else:
-            # Check if employee code exists in registered users
             try:
-                profile = UserProfile.objects.get(employee_code=emp_code)
+                profile = UserProfile.objects.get(employee_code=emp_code, office_state=admin_state)
                 display_name = profile.name or profile.user.get_full_name() or profile.user.username
                 found_name = display_name
                 if profile.roles.filter(name='manager').exists():
                     messages.error(request, 'This user is already assigned a Manager role')
                 else:
-                    # Assign Manager role (sync to both profile and user)
                     manager_role = Role.objects.get(name='manager')
                     user_role_obj = Role.objects.get(name='user')
                     profile.roles.add(manager_role, user_role_obj)
@@ -3408,6 +3502,29 @@ def admin_create_manager(request):
                 messages.error(request, 'User has not registered or entered employee code is incorrect')
     return render(request, 'qpr/admin_create_manager.html', {'found_name': found_name})
 
+
+def admin_api_get_employee_details(request):
+    """API endpoint to fetch employee details by employee code"""
+    admin_state = request.user.profile.office_state
+    emp_code = request.GET.get('emp_code', '').strip()
+    
+    if not emp_code:
+        return JsonResponse({'error': 'Employee code is required'}, status=400)
+    
+    try:
+        profile = UserProfile.objects.get(employee_code=emp_code, office_state=admin_state)
+        roles = list(profile.roles.values_list('name', flat=True))
+        display_name = profile.name or profile.user.get_full_name() or profile.user.username
+        return JsonResponse({
+            'success': True,
+            'name': display_name,
+            'employee_code': profile.employee_code,
+            'roles': roles or ['user']
+        })
+    except UserProfile.DoesNotExist:
+        return JsonResponse({
+            'error': 'User has not registered or entered employee code is incorrect'
+        }, status=404)
 
 @login_required
 def api_create_office(request):
@@ -3468,6 +3585,7 @@ def admin_approve_request(request, request_id):
 @login_required
 def admin_employee_list(request):
     if not user_has_role(request.user, 'admin'): return redirect('/')
+    admin_state = request.user.profile.office_state
     employee_code_filter = request.GET.get('employee_code', '').strip()
     name_filter = request.GET.get('name', '').strip()
     quarter_filter = request.GET.get('quarter', '').strip()
@@ -3477,7 +3595,7 @@ def admin_employee_list(request):
     if not year_filter:
         year_filter = get_current_year_label()
 
-    hods = UserProfile.objects.filter(roles__name='hod').order_by('name')
+    hods = UserProfile.objects.filter(roles__name='hod', office_state=admin_state).order_by('name')
     hod_groups = []
     
     # Collect all unique quarters and years for filter dropdowns
@@ -3576,13 +3694,6 @@ def update_designation(request, user_id):
 
 @user_passes_test(lambda u: u.is_authenticated and (user_has_role(u, ['hod', 'admin']) or u.is_superuser))
 def manage_user_action(request, user_id, action):
-    """Restored Full Action Logic: Archive, Unarchive, Unlock
-
-    This handler accepts either a user id (for user-level actions) or a QPR id
-    for the special-case action 'unlock_qpr'. We handle 'unlock_qpr' first to
-    avoid attempting to resolve a CustomUser for a QPR id (which caused 404s).
-    """
-    # Special-case: treat provided id as QPR id when unlocking a QPR
     if action == 'unlock_qpr':
         if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):
             messages.error(request, translate_text("Unauthorized", request.session.get('lang', 'en')))
@@ -3611,6 +3722,12 @@ def manage_user_action(request, user_id, action):
         if not (user_has_role(request.user, ['admin']) or request.user.is_superuser):
             messages.error(request, translate_text("Only Admins can perform this action.", lang))
             return redirect('manager_dashboard')
+        if not request.user.is_superuser:
+            admin_state = request.user.profile.office_state
+            target_state = getattr(target_user.profile, 'office_state', None)
+            if admin_state != target_state:
+                messages.error(request, translate_text("You can only manage users within your own state.", lang))
+                return redirect('dashboard')
         
         if action == 'archive':
             target_user.is_active = False
@@ -4491,10 +4608,9 @@ def finalize_qpr(request):
             'success': True,
             'message': f'QPR finalized for {quarter} {year}'
         })
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({'error': str(e)}, status=500)
+    except Exception:
+        app_logger.exception("QPR finalization failed.")
+        return JsonResponse({'error': 'Unable to finalize QPR at this time.'}, status=500)
 
 
 @login_required
@@ -7062,11 +7178,14 @@ def admin_edit_requests(request):
     if not user_has_role(request.user, ['admin']):
         return redirect('/')
     lang = request.session.get('lang', 'en')
+    admin_state = request.user.profile.office_state
     
     status_filter = request.GET.get('status', 'pending')
     request_type_filter = request.GET.get('type', '')
     
-    edit_requests = EditRequest.objects.select_related('user', 'approved_by').all()
+    edit_requests = EditRequest.objects.filter(
+        user__profile__office_state=admin_state
+    ).select_related('user', 'approved_by')
     
     if status_filter:
         edit_requests = edit_requests.filter(status=status_filter)

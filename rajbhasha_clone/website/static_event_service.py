@@ -2,6 +2,7 @@
 import json
 import os
 import shutil
+import logging
 from datetime import datetime
 
 from django.conf import settings
@@ -9,6 +10,7 @@ from django.conf import settings
 # ── Paths ──────────────────────────────────────────────────────────────────────
 EVENTS_ROOT = os.path.join(settings.BASE_DIR, "static", "images", "events")
 STATIC_URL_PREFIX = "/static/images/events"   # used to build URLs in templates
+logger = logging.getLogger(__name__)
 
 
 def _ensure_dirs():
@@ -26,14 +28,14 @@ def _read_meta(folder):
         return {}
 
     if not os.path.isfile(path):
-        print(f"[ERROR] meta.json is not a file: {path}")
+        logger.warning("Event metadata path is not a regular file.")
         return {}
 
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception as e:
-        print(f"[ERROR] Failed to read meta.json in {folder}: {e}")
+    except Exception:
+        logger.exception("Failed to read event metadata.")
         return {}
 
 
@@ -61,8 +63,8 @@ def update_event_meta(folder, title_en, title_hi, thumbnail=None):
         try:
             with open(meta_path, "r", encoding="utf-8") as f:
                 meta = json.load(f)
-        except Exception as e:
-            print(f"[ERROR] Failed reading meta: {e}")
+        except Exception:
+            logger.exception("Failed reading existing event metadata.")
 
     # Update titles
     if title_en:
@@ -75,14 +77,14 @@ def update_event_meta(folder, title_en, title_hi, thumbnail=None):
         if thumbnail in os.listdir(folder_path):
             meta["thumbnail"] = thumbnail
         else:
-            print(f"[WARNING] Thumbnail file not found: {thumbnail}")
+            logger.warning("Requested event thumbnail was not found in the event folder.")
 
     # Save
     try:
         with open(meta_path, "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print(f"[ERROR] Failed writing meta.json: {e}")
+    except Exception:
+        logger.exception("Failed writing event metadata.")
         raise Exception("Could not update event metadata.")
 def _format_title(slug):
     return slug.replace("-", " ").title()
