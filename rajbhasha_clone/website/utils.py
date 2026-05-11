@@ -8,10 +8,13 @@ from django.utils import timezone
 from .templatetags.translate_tags import translate_text
 import pandas as pd
 import os
+import logging
 from datetime import date
 from .models import FinancialYear
 from django.conf import settings
 from zoneinfo import ZoneInfo
+
+logger = logging.getLogger(__name__)
 
     
 
@@ -244,8 +247,8 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
         email.attach_alternative(html_msg, "text/html")    
         email.send(fail_silently=False)
         # Email sent successfully
-    except Exception as e:
-        print(f"--- SMTP Error: {e} ---")
+    except Exception:
+        logger.exception("System email delivery failed.")
 EXCEL_PATH = os.path.join(settings.MEDIA_ROOT, "data", "tg_hod_officers_employee_report.xlsx")
 
 def load_employee_data():

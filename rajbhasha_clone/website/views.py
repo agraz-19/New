@@ -4,6 +4,7 @@ import csv
 import hashlib
 import json
 import tempfile
+import logging
 from datetime import date, datetime, timedelta
 from typing import cast
 from urllib import request
@@ -12,7 +13,7 @@ import secrets
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.core.cache import cache
-from django.db import transaction
+from django.db import OperationalError, ProgrammingError, transaction
 from django.db.models import Count, Min, Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
@@ -125,6 +126,10 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from weasyprint import HTML
+
+app_logger = logging.getLogger(__name__)
+
+# Local App Imports
 from .employeeform import EmployeeForm
 from .forms import (
     CertificateDataForm, CustomLoginForm, 
@@ -3594,10 +3599,9 @@ def finalize_qpr(request):
             'success': True,
             'message': f'QPR finalized for {quarter} {year}'
         })
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({'error': str(e)}, status=500)
+    except Exception:
+        app_logger.exception("QPR finalization failed.")
+        return JsonResponse({'error': 'Unable to finalize QPR at this time.'}, status=500)
 
 
 @login_required
@@ -4210,11 +4214,17 @@ def hod_detail_list(request):
     finalized_count = 0
     if total_users > 0:
         from .models import QPRFinalization
-        finalized_count = QPRFinalization.objects.filter(
-            user_id__in=all_users_ids,
-            quarter=current_quarter,
-            year=current_year
-        ).count()
+        try:
+            finalized_count = QPRFinalization.objects.filter(
+                user_id__in=all_users_ids,
+                quarter=current_quarter,
+                year=current_year
+            ).count()
+        except (OperationalError, ProgrammingError):
+            app_logger.warning(
+                "QPR finalization table is unavailable while rendering HOD detail list."
+            )
+            finalized_count = 0
     
     all_finalized = (total_users > 0 and finalized_count == total_users)
 
