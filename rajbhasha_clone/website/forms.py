@@ -64,10 +64,8 @@ class CustomUserCreationForm(UserCreationForm):
             'invalid': translate_text("Enter a valid username. This value may contain only letters, numbers, and @/./+/-/_ characters.", lang),
             'unique': translate_text("A user with that username already exists.", lang)
         })
-        # 4. Apply classes and placeholders CAREFULLY
         for field_name, field in self.fields.items():
             if field_name == 'consent':
-                # DO NOT add form-control or placeholders to the checkbox
                 field.widget.attrs.update({'class': 'form-check-input'})
             else:
                 field.widget.attrs.update({
@@ -79,7 +77,8 @@ class CustomUserCreationForm(UserCreationForm):
         self.error_messages['password_mismatch'] = translate_text(
             "The two password fields didn't match.", lang
         )
-
+        self.fields['password1'].widget.attrs['autocomplete'] = 'new-password'
+        self.fields['password2'].widget.attrs['autocomplete'] = 'new-password'
 
     def clean_username(self):
         username = self.cleaned_data.get('username')
@@ -175,7 +174,7 @@ class CustomLoginForm(AuthenticationForm):
             
             # Apply translated labels as placeholders
             field.widget.attrs['placeholder'] = field.label
-
+        self.fields['password'].widget.attrs['autocomplete'] = 'current-password'
     def clean(self):
         """Authenticate using ONLY employee code"""
         
@@ -203,7 +202,6 @@ class CustomLoginForm(AuthenticationForm):
                 employee_code=emp_code
             )
         except UserProfile.DoesNotExist:
-            # Increment failed attempts even for invalid users to prevent brute-force enumeration
             cache.set(cache_key, attempts + 1, 7200)
             raise forms.ValidationError("Invalid Employee Code")
         
@@ -229,7 +227,36 @@ class CustomLoginForm(AuthenticationForm):
 
         return cleaned_data
 
+<<<<<<< HEAD
 
+=======
+class TypingUsageReportForm(forms.Form):
+    """Form for entering typing usage report data"""
+    total_words = forms.IntegerField(
+        label="Total Number of Words in All Notes",
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Enter total words', 'min': '0'}),
+        required=True,
+        min_value=0
+    )
+    hindi_words = forms.IntegerField(
+        label="Total Number of Hindi Words in All Notes",
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Enter hindi words', 'min': '0'}),
+        required=True,
+        min_value=0
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        total_words = cleaned_data.get('total_words')
+        hindi_words = cleaned_data.get('hindi_words')
+
+        if total_words is not None and hindi_words is not None:
+            if hindi_words > total_words:
+                raise forms.ValidationError(
+                    "Hindi words cannot be greater than total words."
+                )
+        return cleaned_data
+>>>>>>> 39aa6f93a6cd70c0cd913c145ab2850b3d4ecf79
 
 class CertificateDataForm(forms.Form):
     """Form for manager to select financial year and quarter ending"""
