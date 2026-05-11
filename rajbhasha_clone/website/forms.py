@@ -64,10 +64,8 @@ class CustomUserCreationForm(UserCreationForm):
             'invalid': translate_text("Enter a valid username. This value may contain only letters, numbers, and @/./+/-/_ characters.", lang),
             'unique': translate_text("A user with that username already exists.", lang)
         })
-        # 4. Apply classes and placeholders CAREFULLY
         for field_name, field in self.fields.items():
             if field_name == 'consent':
-                # DO NOT add form-control or placeholders to the checkbox
                 field.widget.attrs.update({'class': 'form-check-input'})
             else:
                 field.widget.attrs.update({
@@ -79,7 +77,8 @@ class CustomUserCreationForm(UserCreationForm):
         self.error_messages['password_mismatch'] = translate_text(
             "The two password fields didn't match.", lang
         )
-
+        self.fields['password1'].widget.attrs['autocomplete'] = 'new-password'
+        self.fields['password2'].widget.attrs['autocomplete'] = 'new-password'
 
     def clean_username(self):
         username = self.cleaned_data.get('username')
@@ -175,7 +174,7 @@ class CustomLoginForm(AuthenticationForm):
             
             # Apply translated labels as placeholders
             field.widget.attrs['placeholder'] = field.label
-
+        self.fields['password'].widget.attrs['autocomplete'] = 'current-password'
     def clean(self):
         """Authenticate using ONLY employee code"""
         
@@ -203,7 +202,6 @@ class CustomLoginForm(AuthenticationForm):
                 employee_code=emp_code
             )
         except UserProfile.DoesNotExist:
-            # Increment failed attempts even for invalid users to prevent brute-force enumeration
             cache.set(cache_key, attempts + 1, 7200)
             raise forms.ValidationError("Invalid Employee Code")
         
@@ -228,8 +226,6 @@ class CustomLoginForm(AuthenticationForm):
         self.user_cache = user
 
         return cleaned_data
-
-
 
 class TypingUsageReportForm(forms.Form):
     """Form for entering typing usage report data"""
