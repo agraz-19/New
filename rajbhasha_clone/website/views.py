@@ -5646,10 +5646,9 @@ def _create_or_update_weekly_fill(user, period_start, period_end, details, quart
         fill.save()
         print(f"[SUCCESS] Weekly Fill created for {user.id}: {period_start} to {period_end}")
         return fill, ""
-    except Exception as e:
-        error_msg = f"Failed to create WeeklyFill: {str(e)}"
-        print(f"[ERROR] {error_msg}")
-        return None, error_msg
+    except Exception:
+        logger.exception("Failed to create WeeklyFill")
+        return None, "An error occurred while creating the weekly fill. Please try again."
 
 
 def _create_or_update_monthly_fill(user, period_start, period_end, details, quarter, year):
@@ -5699,10 +5698,9 @@ def _create_or_update_monthly_fill(user, period_start, period_end, details, quar
         fill.save()
         print(f"[SUCCESS] Monthly Fill created for {user.id}: {period_start} to {period_end}")
         return fill, ""
-    except Exception as e:
-        error_msg = f"Failed to create MonthlyFill: {str(e)}"
-        print(f"[ERROR] {error_msg}")
-        return None, error_msg
+    except Exception:
+        logger.exception("Failed to create MonthlyFill")
+        return None, "An error occurred while creating the monthly fill. Please try again."
 
 
 def _create_or_update_quarterly_fill(user, details, quarter, year, period_start=None, period_end=None):
