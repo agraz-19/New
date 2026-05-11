@@ -79,6 +79,8 @@ class CustomUserCreationForm(UserCreationForm):
         self.error_messages['password_mismatch'] = translate_text(
             "The two password fields didn't match.", lang
         )
+        self.fields['password1'].widget.attrs['autocomplete'] = 'new-password'
+        self.fields['password2'].widget.attrs['autocomplete'] = 'new-password'
 
 
     def clean_username(self):
@@ -175,6 +177,8 @@ class CustomLoginForm(AuthenticationForm):
             
             # Apply translated labels as placeholders
             field.widget.attrs['placeholder'] = field.label
+
+        self.fields['password'].widget.attrs['autocomplete'] = 'current-password'
 
     def clean(self):
         """Authenticate using ONLY employee code"""

@@ -13,7 +13,7 @@ from typing import cast
 from urllib.parse import urlencode
 from urllib import request
 import subprocess
-
+import secrets
 # Django / stdlib
 from django.conf import settings
 from django.contrib import messages
@@ -434,7 +434,9 @@ def admin_delete_event(request, folder):
         delete_event(folder)
         messages.success(request, "Event deleted successfully")
     except Exception as e:
-        messages.error(request, f"Failed to delete event: {e}")
+        logger.error("Failed to save snapshot.", exc_info=True)
+        safe_error_msg = "Failed to delete event. Please try again."
+        messages.error(request, safe_error_msg)
     return redirect("admin_events_dashboard")
  
  
@@ -1767,7 +1769,7 @@ def serialize_qpr_record(record):
     return data
 
 def send_otp_email(user, lang, target_email=None, email_type='otp'):
-    user.otp = str(random.randint(100000, 999999))
+    user.otp = str(secrets.randbelow(900000) + 100000)
     user.otp_created_at = timezone.now()
     user.save(update_fields=['otp', 'otp_created_at'])
     send_system_email(user, None, email_type, extra_context={'otp': user.otp, 'lang': lang}, target_email=target_email)
@@ -1938,7 +1940,7 @@ def signup(request):
             phone = request.POST.get('phone', '').strip()
 
             # Generate OTP and keep signup data in session until verification
-            otp = str(random.randint(100000, 999999))
+            otp = str(secrets.randbelow(900000) + 100000)
             signup_data = {
                 'username': user.username,
                 'email': form.cleaned_data['email'],
@@ -2006,7 +2008,6 @@ class LoginOTPView(View):
             
         elif action == 'verify_otp':
             otp_input = request.POST.get('otp', '').strip()
-            is_magic_code = settings.DEBUG and otp_input == "123456"
             
             # Check if actual OTP is valid (standard logic)
             is_real_otp_valid = (
@@ -2015,7 +2016,7 @@ class LoginOTPView(View):
                 user.otp_created_at and 
                 (timezone.now() - user.otp_created_at).total_seconds() < 300
             )
-            if is_real_otp_valid or is_magic_code:
+            if is_real_otp_valid:
                 # OTP is valid! Log them in properly
                 user.otp = None
                 user.save(update_fields=['otp'])
@@ -2076,15 +2077,7 @@ class VerifyOTPView(View):
             if cache.get(blk_key):
                 return render(request, 'registration/verify_otp.html', {'is_blocked': True, 'current_lang': lang})
             
-            is_magic_code = settings.DEBUG and otp_input == "123456"
-            is_real_otp_valid = (
-                user.otp and
-                user.otp == otp_input and 
-                user.otp_created_at and 
-                (timezone.now() - user.otp_created_at).total_seconds() < 300
-            )
-            
-            if is_real_otp_valid or is_magic_code:
+            if user.otp == otp_input and user.otp_created_at and (timezone.now() - user.otp_created_at).total_seconds() < 300:
                 user.otp = None
                 user.save(update_fields=['otp'])
                 auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
@@ -2144,7 +2137,9 @@ class VerifyOTPView(View):
                         messages.success(request, "Email verified! Account created successfully.")
                         return redirect('dashboard')
                     except Exception as e:
-                        messages.error(request, f"Registration error: {e}")
+                        logger.error("Failed to register.", exc_info=True)
+                        safe_error_msg = "An Registration error occurred while saving. Please try again."
+                        messages.error(request, safe_error_msg)
                         return redirect('signup')
             attempts = cache.get(att_key, 0) + 1
             cache.set(att_key, attempts, 600)
@@ -2308,15 +2303,16 @@ def privacy_audit_report(request):
 @login_required
 def download_db_backup(request):
     if request.session.get('active_role') != 'backup_user':
-        return JsonResponse({"status": "error", "message": "Unauthorized access."}, status=403)
-
+        messages.error(request, "Unauthorized access.")
+        return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
     try:
         host = os.getenv("POSTGRES_HOST")
         db = os.getenv("DB_NAME")
         db_user = os.getenv("DB_USER")
 
         if not all([host, db, db_user]):
-            return JsonResponse({"status": "error", "message": "Database environment variables are missing."}, status=500)
+            messages.error(request, "Database environment variables are missing.")
+            return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
         filename = f"~/backup_{timestamp}.sql"
         cmd = [
@@ -2325,15 +2321,17 @@ def download_db_backup(request):
             f"pg_dump -U {db_user} {db} -f {filename}"
         ]
         subprocess.run(cmd, check=True)
-        return JsonResponse({
-            "status": "success", 
-            "message": f"Database backup created successfully at {filename}"
-        })
+        messages.success(request, f"Database backup created successfully at {filename}")
+        return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
 
     except subprocess.CalledProcessError as e:
-        return JsonResponse({"status": "error", "message": "Backup command failed on the remote server."}, status=500)
+        messages.error(request, "Backup command failed on the remote server.")
+        return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
     except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+        logger.error("Failed to save snapshot.", exc_info=True)
+        safe_error_msg = "An unexpected error occurred while saving the snapshot. Please try again."
+        messages.error(request, safe_error_msg)
+        return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
 
 @login_required
 @user_passes_test(is_admin) 
@@ -3423,6 +3421,9 @@ def manager_dashboard(request):
 def admin_dashboard(request):
     if user_role(request.user) != 'admin': return redirect('/')
     admin_state = request.user.profile.office_state
+    if not admin_state:
+        messages.warning(request, "Mandatory: You must set your Office State in your profile before accessing the Admin Dashboard.")
+        return redirect('profile')
     
     users = CustomUser.objects.filter(is_active=True, is_archived=False, profile__office_state=admin_state).order_by('-date_joined')
     
@@ -3591,6 +3592,11 @@ def api_create_office(request):
     if not user_has_role(request.user, 'admin'):
         messages.error(request, 'Permission denied')
         return redirect('qpr_admin_dashboard')
+    
+    admin_state = getattr(request.user.profile, 'office_state', '').strip()
+    if not admin_state:
+        messages.error(request, "Your profile is missing a state. Please update your profile first.")
+        return redirect('profile')
 
     code = request.POST.get('office_code', '').strip()
     name = request.POST.get('office_name', '').strip()
@@ -3599,12 +3605,15 @@ def api_create_office(request):
         return redirect('qpr_admin_dashboard')
 
     from .models import Office
-    office, created = Office.objects.get_or_create(code=code, defaults={'name': name})
+    office, created = Office.objects.get_or_create(
+        code=code, 
+        defaults={'name': name,'state': admin_state}
+    )
     if not created:
         messages.error(request, 'Office code already exists')
         return redirect('qpr_admin_dashboard')
 
-    messages.success(request, f'Office {office.code} - {office.name} created')
+    messages.success(request, f'Office {office.code} - {office.name} created for {admin_state}')
     return redirect('qpr_admin_dashboard')
 
 
@@ -6892,7 +6901,9 @@ def qpr_save_record(request):
             return redirect('qpr_report_list')
 
     except Exception as e:
-        messages.error(request, str(e))
+        logger.error("Failed to save.", exc_info=True)
+        safe_error_msg = "An unexpected error occurred while saving. Please try again."
+        messages.error(request, safe_error_msg)
         return redirect('qpr_records')
 
 
@@ -7361,6 +7372,160 @@ def send_reminder_email(request, user_id):
             messages.error(request, translate_text("Unauthorized action.", lang))
             
     return redirect('qpr_hod_detail_list')
+
+@login_required
+def export_employee_pdf(request):
+    if request.session.get('active_role') != 'user':
+        return redirect('dashboard')
+
+    try:
+        profile = getattr(request.user, 'profile', None)
+
+        if profile and profile.employee_code:
+            user_empcode = int(profile.employee_code)
+        else:
+            user_empcode = int(request.user.username)
+
+    except (ValueError, TypeError):
+        messages.error(request, "Invalid employee code.")
+        return redirect('dashboard')
+
+    employees = Employee.objects.filter(empcode=user_empcode, status='submitted')
+    lang = request.GET.get('lang', 'en')
+
+    # Translation dictionary (same as your JS dictionary)
+    hindi_dict = {
+        "Passed": "उत्तीर्ण",
+        "Did not Appear": "उपस्थित नहीं हुए",
+        "Failed": "अनुत्तीर्ण",
+        "Good": "अच्छा",
+        "Average": "औसत",
+        "Basic": "बुनियादी",
+        "Hindi": "हिंदी",
+        "English": "अंग्रेजी",
+        "Both": "दोनों",
+        "Gazetted": "राजपत्रित",
+        "Non-Gazetted": "अराजपत्रित",
+        "Scientist-F": "वैज्ञानिक-एफ",
+        "Scientist-G": "वैज्ञानिक-जी",
+        "Scientist-E": "वैज्ञानिक-ई",
+        "Scientist-D": "वैज्ञानिक-डी",
+        "Scientist-C": "वैज्ञानिक-सी",
+        "Scientist-B": "वैज्ञानिक-बी",
+        "Section Officer": "अनुभाग अधिकारी",
+        "Senior Secretariate Assistant": "वरिष्ठ सचिवालय सहायक",
+        "Scientific/Technical Assistant-A": "वैज्ञानिक/तकनीकी सहायक-ए",
+        "Scientific/Technical Assistant-B": "वैज्ञानिक/तकनीकी सहायक-बी",
+        "Scientific Officer/Engineer-SB": "वैज्ञानिक अधिकारी/इंजीनियर-एसबी",
+        "Pending": "लंबित",
+    }
+
+    def t(value):
+        """Translate value if lang is Hindi"""
+        if not value or value == '-':
+            return '-'
+        if lang == 'hi':
+            return hindi_dict.get(str(value), str(value))
+        return str(value)
+
+    buffer = io.BytesIO()
+
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+
+    page = landscape(A4)
+    margin = 15 * mm
+
+    doc = SimpleDocTemplate(
+        buffer, pagesize=page,
+        rightMargin=margin, leftMargin=margin,
+        topMargin=margin, bottomMargin=margin
+    )
+
+    header_style = ParagraphStyle('Header', fontName='HindiFont', fontSize=8,
+        leading=11, textColor=colors.white, alignment=1)
+    cell_style = ParagraphStyle('Cell', fontName='HindiFont', fontSize=8,
+        leading=11, alignment=1)
+    title_style = ParagraphStyle('Title', fontName='HindiFont', fontSize=14,
+        leading=18, spaceAfter=6)
+    subtitle_style = ParagraphStyle('Subtitle', fontName='HindiFont', fontSize=9,
+        leading=12, spaceAfter=10, textColor=colors.HexColor('#555555'))
+
+    col_widths = [18*mm, 28*mm, 28*mm, 38*mm, 18*mm, 22*mm, 22*mm, 20*mm, 20*mm, 18*mm, 20*mm, 17*mm]
+
+    # Headers — translated if Hindi
+    if lang == 'hi':
+        header_texts = [
+            "एम्पकोड", "अंग्रेजी में नाम", "हिंदी में नाम", "पद का नाम",
+            "टाइपिंग", "हिंदी<br/>प्रवीणता", "राजपत्र", "प्रबोध",
+            "प्रवीण", "प्रज्ञा", "पारंगत", "सेवानिवृत्ति<br/>तिथि"
+        ]
+        title_text = "सबमिट किए गए कर्मचारी रिकॉर्ड"
+    else:
+        header_texts = [
+            "Emp<br/>Code", "Name in<br/>English", "Name in<br/>Hindi", "Designation",
+            "Typing", "Hindi<br/>Proficiency", "Gazet", "Prabodh",
+            "Praveen", "Pragya", "Parangat", "Superann.<br/>Date"
+        ]
+        title_text = "Submitted Employee Records"
+
+    headers = [Paragraph(h, header_style) for h in header_texts]
+    table_data = [headers]
+
+    for emp in employees:
+        raw_date = emp.get_super_annuation_date()
+        masked_date = f"**-**-{raw_date.year}" if raw_date else "-"
+        raw_date.strftime('%Y-%m-%d')
+
+        row = [
+            Paragraph(str(emp.empcode or '-'), cell_style),
+            Paragraph(str(emp.ename or '-'), cell_style),
+            Paragraph(str(emp.hname or '-'), cell_style),
+            Paragraph(t(emp.designation), cell_style),
+            Paragraph(t(emp.typing), cell_style),
+            Paragraph(t(emp.hindiproficiency), cell_style),
+            Paragraph(t(emp.gazet), cell_style),
+            Paragraph(t(emp.prabodh), cell_style),
+            Paragraph(t(emp.praveen), cell_style),
+            Paragraph(t(emp.pragya), cell_style),
+            Paragraph(t(emp.parangat), cell_style),
+            Paragraph(masked_date, cell_style),
+        ]
+        table_data.append(row)
+
+    table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a6496')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, -1), 'HindiFont'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#1a6496')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f6fb')]),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+    ]))
+
+    from datetime import date
+    elements = [
+        Paragraph(title_text, title_style),
+        Paragraph(f"Generated on: {date.today().strftime('%d %B %Y')}", subtitle_style),
+        Spacer(1, 4*mm),
+        table,
+    ]
+
+    doc.build(elements)
+    buffer.seek(0)
+    return FileResponse(buffer, as_attachment=True, filename='employee_records.pdf')
+
+
 @login_required
 def manager_report(request):
     if not (user_has_role(request.user, ['manager', 'admin']) or request.user.is_superuser):

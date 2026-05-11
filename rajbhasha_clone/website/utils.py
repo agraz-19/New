@@ -190,6 +190,7 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
             'subject': "Password Reset OTP | पासवर्ड रीसेट ओटीपी",
             'headline': "Reset Your Password | अपना पासवर्ड रीसेट करें",
             'body': "Use the OTP below to reset your password. If you did not request this, please ignore this email.\n\nअपना पासवर्ड रीसेट करने के लिए नीचे दिए गए ओटीपी का उपयोग करें। यदि आपने इसका अनुरोध नहीं किया है, तो कृपया इस ईमेल को अनदेखा करें।",
+            'details': {'OTP | ओटीपी': extra_context.get('otp')},
             'skip_translation': True
         },
         'reset': {
