@@ -33,6 +33,9 @@
                     <span class="english-title text-body-secondary border-start border-secondary ps-3">
                         DEPARTMENT OF OFFICIAL LANGUAGE
                     </span>
+                    {% if user_state %}
+                        <span class="text-warning">| {{ user_state }}</span>
+                    {% endif %}
                 </div>
             </div>
             <div class="col-md-3 text-end">

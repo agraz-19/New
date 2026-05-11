@@ -10,49 +10,6 @@
     {% endif %}
 {% endblock %}
 
-{% block extra_css %}
-<style>
-    /* Stats Cards */
-    .stat-card {
-        background: white;
-        border-radius: 12px;
-        padding: 25px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        margin-bottom: 20px;
-        border-left: 5px solid #2c5a86;
-        transition: transform 0.2s;
-    }
-    .stat-card:hover { transform: translateY(-5px); }
-    .stat-number { font-size: 32px; font-weight: bold; color: #2c5a86; }
-    .stat-label { color: #666; font-size: 14px; }
-    .stat-icon { font-size: 32px; margin-bottom: 10px; color: #2c5a86; }
-
-    /* HOD Floating Menu */
-    .menu-toggle {
-        position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px;
-        background-color: #2c5a86; color: white; border: none; border-radius: 50%;
-        font-size: 24px; cursor: pointer; z-index: 1000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-    .menu-items {
-        position: fixed; bottom: 100px; right: 30px; background: white;
-        border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-        display: none; z-index: 1000; min-width: 200px;
-    }
-    .menu-items.active { display: block; }
-    .menu-item { padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 10px; color: #333; text-decoration: none; }
-    .menu-item:hover { background: #f8f9fa; }
-    
-    /* User Profile Avatar */
-    .profile-avatar {
-        width: 80px; height: 80px; font-size: 2rem; 
-        font-weight: bold; background-color: #0d6efd; 
-        color: white; display: inline-flex; 
-        align-items: center; justify-content: center;
-        border-radius: 50%;
-    }
-</style>
-{% endblock %}
 
 {% block content %}
 {% if messages %}
@@ -186,7 +143,6 @@
                 <thead class="table-light">
                     <tr>
                         <th>{{ "Username"|t:current_lang }}</th>
-                        <th>{{ "Email"|t:current_lang }}</th>
                         <th>{{ "Role"|t:current_lang }}</th>
                         <th>{{ "Status"|t:current_lang }}</th>
                         <th>{{ "Actions"|t:current_lang }}</th>
@@ -196,7 +152,6 @@
                     {% for u in users %}
                     <tr>
                         <td class="fw-bold">{{ u.username }}</td>
-                        <td>{{ u.email }}</td>
                         <td><span class="badge bg-secondary">{{ u.role }}</span></td>
                         <td>
                             {% if u.is_active %}
