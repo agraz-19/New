@@ -1,0 +1,88 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+
+{% block title %}{{ "Certificates"|t:current_lang }}{% endblock %}
+
+{% block content %}
+<style>
+    .container-main { max-width: 1100px; margin: 40px auto; padding: 20px; }
+    .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .btn-new { background-color: #28a745; color: white; padding: 10px 18px; border-radius: 4px; text-decoration: none; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+    th { background-color: #f8f9fa; font-weight: 700; }
+    .status-submitted { color: #155724; background-color: #d4edda; padding: 4px 10px; border-radius: 4px; }
+    .status-draft { color: #856404; background-color: #fff3cd; padding: 4px 10px; border-radius: 4px; }
+    .action-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-action { padding: 6px 10px; border: none; border-radius: 4px; text-decoration: none; font-size: 13px; cursor: pointer; color: white; }
+    .btn-view { background-color: #007bff; }
+    .btn-edit { background-color: #28a745; }
+    .btn-print { background-color: #6f42c1; }
+    .btn-delete { background-color: #dc3545; }
+    .empty-state { text-align: center; padding: 40px 20px; background-color: #f8f9fa; border-radius: 4px; margin-top: 20px; }
+</style>
+
+<div class="container-main">
+    <div class="header-section">
+        <h2>{{ "Certificates"|t:current_lang }}</h2>
+        <a href="{% url 'manager_certificate_new' %}" class="btn-new">{{ "Submit New Certificate"|t:current_lang }}</a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags %}{{ message.tags }}{% else %}info{% endif %}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if certificates %}
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>{{ "Quarter"|t:current_lang }}</th>
+                        <th>{{ "Year"|t:current_lang }}</th>
+                        <th>{{ "Submitted Date"|t:current_lang }}</th>
+                        <th>{{ "Status"|t:current_lang }}</th>
+                        <th>{{ "Actions"|t:current_lang }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cert in certificates %}
+                    <tr>
+                        <td>{{ cert.quarter }}</td>
+                        <td>{{ cert.year }}</td>
+                        <td>{% if cert.submitted_at %}{{ cert.submitted_at|date:"d/m/Y H:i" }}{% else %}-{% endif %}</td>
+                        <td>
+                            {% if cert.is_submitted %}
+                                <span class="status-submitted">{{ "Submitted"|t:current_lang }}</span>
+                            {% else %}
+                                <span class="status-draft">{{ "Draft"|t:current_lang }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                {% if cert.is_submitted %}
+                                    <a href="{% url 'manager_certificate_view' cert.id %}" class="btn-action btn-view">{{ "View"|t:current_lang }}</a>
+                                    <a href="{% url 'manager_certificate_print' cert.id %}" class="btn-action btn-print">{{ "Print"|t:current_lang }}</a>
+                                {% else %}
+                                    <a href="{% url 'manager_certificate_form' cert.id %}" class="btn-action btn-edit">{{ "Edit"|t:current_lang }}</a>
+                                {% endif %}
+                                <form action="{% url 'manager_certificate_delete' cert.id %}" method="POST" style="display:inline;" onsubmit="return confirm('{{ "Are you sure?"|t:current_lang }}');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-action btn-delete">{{ "Delete"|t:current_lang }}</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <p>{{ "No certificates submitted yet."|t:current_lang }}</p>
+            <p>{{ "Click the 'Submit New Certificate' button to create one."|t:current_lang }}</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

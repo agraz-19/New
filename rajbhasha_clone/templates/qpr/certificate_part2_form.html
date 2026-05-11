@@ -1032,6 +1032,7 @@
 
             {% for item in part2.websites.all %}
             <tr>
+                <input type="hidden" name="section14_index" value="{{ forloop.counter }}">
                 <td>
                     <input type="url" class="form-control"
                         name="section14_url"
@@ -1276,6 +1277,7 @@ function addSection14Row() {
     const row = document.createElement('tr');
 
     row.innerHTML = `
+        <input type="hidden" name="section14_index" value="${section14Index}">
         <td>
             <input type="url" class="form-control"
                 name="section14_url"

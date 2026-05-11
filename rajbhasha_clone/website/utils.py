@@ -1,4 +1,3 @@
-from multiprocessing import context
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
@@ -13,11 +12,14 @@ from datetime import date
 from .models import FinancialYear
 from django.conf import settings
 from zoneinfo import ZoneInfo
+import logging
 
 logger = logging.getLogger(__name__)
 
-    
+##################################################################################################################################################################################################################################
 
+
+# This section contains utility functions for financial year and quarter handling. Used for consistent logic and no duplication.
 QUARTERS = [
     ("30 जून / Jun 30", 6),
     ("30 सितंबर / Sep 30", 9),
@@ -29,29 +31,27 @@ def get_allowed_quarters(selected_year):
     today = timezone.localdate()
     current_start = today.year if today.month >= 4 else today.year - 1
 
-    # Debug: record incoming year and computed current start
-    print(f"[get_allowed_quarters] received selected_year={selected_year!r}, today={today}, current_start={current_start}")
-
     if not selected_year:
         selected_year = f"{current_start}-{current_start+1}"
 
     try:
         selected_start = int(selected_year.split('-')[0])
-    except Exception as e:
-        print(f"[get_allowed_quarters] failed to parse selected_year={selected_year!r}: {e}")
+    except Exception:
+        logger.exception(f"Failed to parse selected_year")
         return []
 
     if selected_start < current_start:
         return [q[0] for q in QUARTERS]
 
     if selected_start > current_start:
-        print(f"[get_allowed_quarters] selected_start {selected_start} > current_start {current_start} -> returning []")
+        logger.warning(f"Selected financial year {selected_year} is in the future. No quarters allowed.")
         return []
-
-    month = today.month
 
     # Determine current quarter number based on server month using the same
     # mapping as the frontend: Apr-Jun -> 1, Jul-Sep -> 2, Oct-Dec -> 3, Jan-Mar -> 4
+
+    month = today.month
+
     if month <= 3:
         current_q = 4
     elif month <= 6:
@@ -69,7 +69,7 @@ def get_allowed_quarters(selected_year):
     if not allowed and selected_start == current_start:
         allowed = [QUARTERS[0][0]]
 
-    print(f"[get_allowed_quarters] month={month}, current_q={current_q}, allowed_quarters={allowed}")
+    logger.debug(f"month={month}, current_q={current_q}, allowed_quarters={allowed}")
     return allowed
 
 def get_current_financial_year():
@@ -89,6 +89,9 @@ def ensure_current_financial_year():
         end_year=end
     )
 
+
+
+# This section contains utility functions for sending system-generated emails to users.
 def send_system_email(user, request, email_type, extra_context=None, target_email=None):    
     if extra_context is None:
         extra_context = {}
@@ -97,7 +100,6 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
     if not user_email: 
         return
 
-    lang = request.session.get('lang', 'en') if request else 'en'
     if request:
         lang = request.session.get('lang', 'en')
     else:
@@ -208,6 +210,8 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
 }
     }
     cfg = configs.get(email_type)
+    if not cfg:
+        return
     skip_translation = cfg.get('skip_translation', False)
     
     if skip_translation:
@@ -218,7 +222,6 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
         body_en = cfg.get('body') 
         body_hi = translate_text(body_en, 'hi')
         subject = translate_text(cfg['subject'], lang)
-    if not cfg: return
     body_en = cfg.get('body') 
     body_hi = translate_text(body_en, 'hi')
     context = {
