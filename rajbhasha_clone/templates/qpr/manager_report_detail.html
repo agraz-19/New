@@ -10,13 +10,6 @@
     <h4>{{ "Report Submitted"|t:current_lang }} — {{ year }} / {{ quarter }}</h4>
     <p class="text-muted">{{ "Office Code"|t:current_lang }}: <strong>{{ office_code }}</strong></p>
     <p class="text-muted">{{ submitted_users_count }} {{ "of"|t:current_lang }} {{ total_users }} {{ "users have submitted"|t:current_lang }}</p>
-    {% if all_submitted or submitted_users_count > 0 %}
-    <div>
-        <a href="{% url 'print_all_qpr_reports' year quarter %}" target="_blank" class="btn btn-primary">
-            <i class="bi bi-printer"></i> Print All Reports
-        </a>
-    </div>
-    {% endif %}
 
     {% for hod, users in grouped.items %}
     <div class="card mb-3">

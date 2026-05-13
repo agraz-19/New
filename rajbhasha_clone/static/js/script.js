@@ -442,22 +442,8 @@ function populateQuarterDropdown() {
     const currentFiscalStart = (currentMonth >= 4) ? currentYear : (currentYear - 1);
     const selectedFiscalStart = selectedYearStart;
 
-    // Decide which quarter indices to include in the dropdown
-    let includeIndices = [];
-    if (selectedFiscalStart < currentFiscalStart) {
-        // Past financial year: show all quarters (Q1..Q4)
-        includeIndices = [0,1,2,3];
-    } else if (selectedFiscalStart === currentFiscalStart) {
-        // Current financial year: show quarters up to the current quarter
-        // quarterNumber mapping: idx+1 -> 1..4 aligned with quarters array
-        for (let idx = 0; idx < quarters.length; idx++) {
-            const quarterNumber = idx + 1;
-            if (quarterNumber <= currentQuarter) includeIndices.push(idx);
-        }
-    } else {
-        // Future financial year: reset to Q1 only
-        includeIndices = [0];
-    }
+    // Always show all quarters (Q1..Q4) regardless of selected year
+    let includeIndices = [0, 1, 2, 3];
 
     includeIndices.forEach(idx => {
         const q = quarters[idx];
