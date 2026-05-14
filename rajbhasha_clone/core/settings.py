@@ -4,8 +4,8 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY
-SECRET_KEY = 'django-insecure-ymob%9c8jb8=ld@^f(*(sc-)m7i=zgvcn6c+k85l7s5m@&hce('
-DEBUG = False
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ymob%9c8jb8=ld@^f(*(sc-)m7i=zgvcn6c+k85l7s5m@&hce(')
+DEBUG = True
 SECURE_HSTS_SECONDS = int(os.getenv('DJANGO_SECURE_HSTS_SECONDS', '31536000'))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
@@ -53,8 +53,6 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'core.urls'
 WSGI_APPLICATION = 'core.wsgi.application'
 
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
 CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:8000',
     'http://localhost:8000'
@@ -135,8 +133,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'petertriffle@gmail.com'
-EMAIL_HOST_PASSWORD = 'eetekzvolwnphbqf'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'petertriffle@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'eetekzvolwnphbqf')
 
 
 # CSRF / SECURITY
@@ -180,9 +178,23 @@ CAPTCHA_CHALLENGE_FUNCT = 'captcha.helpers.random_char_challenge'
 CAPTCHA_FLITE_PATH = os.path.join(BASE_DIR, 'espeak_wrapper.sh')
 
 # ENCRYPTION
-ENCRYPTION_KEY = 'EOxZWt1RC6O9GKhF8d30FUxyCyjGAz29smC5i8tWA0I='
+ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY', 'EOxZWt1RC6O9GKhF8d30FUxyCyjGAz29smC5i8tWA0I=')
 CSRF_FAILURE_VIEW = 'website.views.csrf_failure'
 
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = "/media/"
+
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+
+CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_HTTPONLY = True
+
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 31536000 
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True

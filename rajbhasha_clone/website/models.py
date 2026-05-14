@@ -116,6 +116,7 @@ class Office(models.Model):
     """Office lookup table created by admin via Quick Actions"""
     code = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=255)
+    state = models.CharField(max_length=100, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -593,17 +594,6 @@ class Section11SpecificAchievementsData(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
-class TypingUsageReport(models.Model):
-    """Store typing usage report data for users"""
-    qpr_record = models.OneToOneField(QPRRecord, on_delete=models.CASCADE, related_name='typing_usage_report')
-    total_words = models.IntegerField(null=True, blank=True)
-    hindi_words = models.IntegerField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"Typing Usage Report - {self.qpr_record.officeName}"
-    
 class CertificateData(models.Model):
     """Store certificate data (year and quarter) selected by manager for each QPR submission"""
     qpr_record = models.OneToOneField(QPRRecord, on_delete=models.CASCADE, related_name='certificate_data')
@@ -617,6 +607,35 @@ class CertificateData(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class ManagerCertificate(models.Model):
+    """Standalone manager certificate by quarter and financial year."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='manager_certificates')
+    quarter = models.CharField(max_length=20)
+    year = models.CharField(max_length=20)
+    financial_year = models.CharField(max_length=20)
+    office_code = models.CharField(max_length=50, blank=True, null=True)
+    chairperson_name = models.CharField(max_length=255, blank=True, null=True)
+    chairperson_designation = models.CharField(max_length=255, blank=True, null=True)
+    organization_name = models.CharField(max_length=255, blank=True, null=True)
+    phone_fax = models.CharField(max_length=100, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    certificate_date = models.DateField(blank=True, null=True)
+    place = models.CharField(max_length=100, blank=True, null=True)
+    is_submitted = models.BooleanField(default=False)
+    submitted_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = (('user', 'quarter', 'year'),)
+
+    def __str__(self):
+        return f"Certificate - {self.user.username} ({self.quarter} {self.year})"
+
+
 class QPRPartTwo(models.Model):
     qpr_record = models.OneToOneField(
         QPRRecord,
@@ -778,7 +797,7 @@ class ManagerQPR(models.Model):
         return f"Manager QPR - {self.user.username} ({self.quarter})"
 
     class Meta:
-        unique_together = (('user', 'quarter'),)
+        unique_together = (('user', 'quarter', 'financial_year'),)
         ordering = ['-created_at']
 
 
@@ -838,7 +857,7 @@ class AdminQPR(models.Model):
         return f"Admin QPR - {self.user.username} ({self.quarter})"
 
     class Meta:
-        unique_together = (('user', 'quarter'),)
+        unique_together = (('user', 'quarter', 'financial_year'),)
         ordering = ['-created_at']
     
 class StaffHindiKnowledge(models.Model):
@@ -949,6 +968,7 @@ class WebsiteDetail(models.Model):
     report = models.ForeignKey(QPRPartTwo, on_delete=models.CASCADE, related_name='websites')
     url = models.URLField(verbose_name="Address of Website") # [cite: 110]
     status = models.CharField(max_length=50, choices=STATUS_CHOICES) # [cite: 110]
+    has_language_option = models.BooleanField(default=False)
 
 
 class QPRFinalization(models.Model):
@@ -965,3 +985,450 @@ class QPRFinalization(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.quarter} {self.year}"
 
+
+# ---------- Weekly Fill & Snapshot Models ----------
+
+class WeeklyFill(models.Model):
+    """
+    Stores only user inputs for missing days in a week.
+    One record per user per week per quarter.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='weekly_fills')
+    quarter = models.CharField(max_length=20)  # Q1, Q2, Q3, Q4
+    year = models.CharField(max_length=20)
+    period_start = models.DateField()  # Monday of the week
+    period_end = models.DateField()    # Saturday of the week
+    
+    # Section 1 fields
+    s1_total = models.IntegerField(null=True, blank=True)
+    s1_hindi = models.IntegerField(null=True, blank=True)
+    
+    # Section 2 fields
+    s2_meetings = models.IntegerField(null=True, blank=True)
+    s2_minutes = models.IntegerField(null=True, blank=True)
+    s2_papers_total = models.IntegerField(null=True, blank=True)
+    s2_papers_hindi = models.IntegerField(null=True, blank=True)
+    
+    # Section 3 fields
+    s3_total = models.IntegerField(null=True, blank=True)
+    s3_bilingual = models.IntegerField(null=True, blank=True)
+    s3_english = models.IntegerField(null=True, blank=True)
+    s3_hindi_only = models.IntegerField(null=True, blank=True)
+    
+    # Section 4 fields
+    s4_total = models.IntegerField(null=True, blank=True)
+    s4_no_reply = models.IntegerField(null=True, blank=True)
+    s4_replied_hindi = models.IntegerField(null=True, blank=True)
+    s4_replied_eng = models.IntegerField(null=True, blank=True)
+    
+    # Section 5 fields
+    s5_total = models.IntegerField(null=True, blank=True)
+    s5_hindi = models.IntegerField(null=True, blank=True)
+    s5_english = models.IntegerField(null=True, blank=True)
+    s5_noreply = models.IntegerField(null=True, blank=True)
+    
+    # Section 6 fields (Region A, B, C)
+    s6_a_hindi = models.IntegerField(null=True, blank=True)
+    s6_a_eng = models.IntegerField(null=True, blank=True)
+    s6_a_total = models.IntegerField(null=True, blank=True)
+    s6_b_hindi = models.IntegerField(null=True, blank=True)
+    s6_b_eng = models.IntegerField(null=True, blank=True)
+    s6_b_total = models.IntegerField(null=True, blank=True)
+    s6_c_hindi = models.IntegerField(null=True, blank=True)
+    s6_c_eng = models.IntegerField(null=True, blank=True)
+    s6_c_total = models.IntegerField(null=True, blank=True)
+    
+    # Section 7 fields
+    s7_hindi = models.IntegerField(null=True, blank=True)
+    s7_eng = models.IntegerField(null=True, blank=True)
+    s7_total = models.IntegerField(null=True, blank=True)
+    s7_eoffice = models.IntegerField(null=True, blank=True)
+    
+    # Section 8 fields
+    s8_workshops = models.IntegerField(null=True, blank=True)
+    s8_officers = models.IntegerField(null=True, blank=True)
+    s8_employees = models.IntegerField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('user', 'period_start', 'period_end', 'quarter', 'year')
+        ordering = ['-period_start']
+    
+    def __str__(self):
+        return f"WeeklyFill {self.user.username} {self.period_start}-{self.period_end}"
+
+
+class WeeklySnapshot(models.Model):
+    """
+    Stores final aggregated values for a week (computed or edited).
+    Automatically updated with aggregation or overwritten by edit.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='weekly_snapshots')
+    quarter = models.CharField(max_length=20)
+    year = models.CharField(max_length=20)
+    period_start = models.DateField()  # Monday of the week
+    period_end = models.DateField()    # Saturday of the week
+    
+    # Section 1 fields
+    s1_total = models.IntegerField(null=True, blank=True, default=0)
+    s1_hindi = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 2 fields
+    s2_meetings = models.IntegerField(null=True, blank=True, default=0)
+    s2_minutes = models.IntegerField(null=True, blank=True, default=0)
+    s2_papers_total = models.IntegerField(null=True, blank=True, default=0)
+    s2_papers_hindi = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 3 fields
+    s3_total = models.IntegerField(null=True, blank=True, default=0)
+    s3_bilingual = models.IntegerField(null=True, blank=True, default=0)
+    s3_english = models.IntegerField(null=True, blank=True, default=0)
+    s3_hindi_only = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 4 fields
+    s4_total = models.IntegerField(null=True, blank=True, default=0)
+    s4_no_reply = models.IntegerField(null=True, blank=True, default=0)
+    s4_replied_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s4_replied_eng = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 5 fields
+    s5_total = models.IntegerField(null=True, blank=True, default=0)
+    s5_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s5_english = models.IntegerField(null=True, blank=True, default=0)
+    s5_noreply = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 6 fields
+    s6_a_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s6_a_eng = models.IntegerField(null=True, blank=True, default=0)
+    s6_a_total = models.IntegerField(null=True, blank=True, default=0)
+    s6_b_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s6_b_eng = models.IntegerField(null=True, blank=True, default=0)
+    s6_b_total = models.IntegerField(null=True, blank=True, default=0)
+    s6_c_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s6_c_eng = models.IntegerField(null=True, blank=True, default=0)
+    s6_c_total = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 7 fields
+    s7_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s7_eng = models.IntegerField(null=True, blank=True, default=0)
+    s7_total = models.IntegerField(null=True, blank=True, default=0)
+    s7_eoffice = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 8 fields
+    s8_workshops = models.IntegerField(null=True, blank=True, default=0)
+    s8_officers = models.IntegerField(null=True, blank=True, default=0)
+    s8_employees = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Tracking whether this snapshot has been manually edited (overwritten)
+    is_overwritten = models.BooleanField(default=False)
+    overwritten_at = models.DateTimeField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('user', 'period_start', 'period_end', 'quarter', 'year')
+        ordering = ['-period_start']
+    
+    def __str__(self):
+        return f"WeeklySnapshot {self.user.username} {self.period_start}-{self.period_end}"
+
+
+# ---------- Monthly Fill & Snapshot Models ----------
+
+class MonthlyFill(models.Model):
+    """
+    Stores only user inputs for missing days in a month.
+    One record per user per month per quarter.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='monthly_fills')
+    quarter = models.CharField(max_length=20)
+    year = models.CharField(max_length=20)
+    period_start = models.DateField()  # 1st of month
+    period_end = models.DateField()    # Last day of month
+    
+    # Section 1 fields
+    s1_total = models.IntegerField(null=True, blank=True)
+    s1_hindi = models.IntegerField(null=True, blank=True)
+    
+    # Section 2 fields
+    s2_meetings = models.IntegerField(null=True, blank=True)
+    s2_minutes = models.IntegerField(null=True, blank=True)
+    s2_papers_total = models.IntegerField(null=True, blank=True)
+    s2_papers_hindi = models.IntegerField(null=True, blank=True)
+    
+    # Section 3 fields
+    s3_total = models.IntegerField(null=True, blank=True)
+    s3_bilingual = models.IntegerField(null=True, blank=True)
+    s3_english = models.IntegerField(null=True, blank=True)
+    s3_hindi_only = models.IntegerField(null=True, blank=True)
+    
+    # Section 4 fields
+    s4_total = models.IntegerField(null=True, blank=True)
+    s4_no_reply = models.IntegerField(null=True, blank=True)
+    s4_replied_hindi = models.IntegerField(null=True, blank=True)
+    s4_replied_eng = models.IntegerField(null=True, blank=True)
+    
+    # Section 5 fields
+    s5_total = models.IntegerField(null=True, blank=True)
+    s5_hindi = models.IntegerField(null=True, blank=True)
+    s5_english = models.IntegerField(null=True, blank=True)
+    s5_noreply = models.IntegerField(null=True, blank=True)
+    
+    # Section 6 fields
+    s6_a_hindi = models.IntegerField(null=True, blank=True)
+    s6_a_eng = models.IntegerField(null=True, blank=True)
+    s6_a_total = models.IntegerField(null=True, blank=True)
+    s6_b_hindi = models.IntegerField(null=True, blank=True)
+    s6_b_eng = models.IntegerField(null=True, blank=True)
+    s6_b_total = models.IntegerField(null=True, blank=True)
+    s6_c_hindi = models.IntegerField(null=True, blank=True)
+    s6_c_eng = models.IntegerField(null=True, blank=True)
+    s6_c_total = models.IntegerField(null=True, blank=True)
+    
+    # Section 7 fields
+    s7_hindi = models.IntegerField(null=True, blank=True)
+    s7_eng = models.IntegerField(null=True, blank=True)
+    s7_total = models.IntegerField(null=True, blank=True)
+    s7_eoffice = models.IntegerField(null=True, blank=True)
+    
+    # Section 8 fields
+    s8_workshops = models.IntegerField(null=True, blank=True)
+    s8_officers = models.IntegerField(null=True, blank=True)
+    s8_employees = models.IntegerField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('user', 'period_start', 'period_end', 'quarter', 'year')
+        ordering = ['-period_start']
+    
+    def __str__(self):
+        return f"MonthlyFill {self.user.username} {self.period_start}-{self.period_end}"
+
+
+class MonthlySnapshot(models.Model):
+    """
+    Stores final aggregated values for a month (computed or edited).
+    Automatically updated with aggregation or overwritten by edit.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='monthly_snapshots')
+    quarter = models.CharField(max_length=20)
+    year = models.CharField(max_length=20)
+    period_start = models.DateField()
+    period_end = models.DateField()
+    
+    # Section 1 fields
+    s1_total = models.IntegerField(null=True, blank=True, default=0)
+    s1_hindi = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 2 fields
+    s2_meetings = models.IntegerField(null=True, blank=True, default=0)
+    s2_minutes = models.IntegerField(null=True, blank=True, default=0)
+    s2_papers_total = models.IntegerField(null=True, blank=True, default=0)
+    s2_papers_hindi = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 3 fields
+    s3_total = models.IntegerField(null=True, blank=True, default=0)
+    s3_bilingual = models.IntegerField(null=True, blank=True, default=0)
+    s3_english = models.IntegerField(null=True, blank=True, default=0)
+    s3_hindi_only = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 4 fields
+    s4_total = models.IntegerField(null=True, blank=True, default=0)
+    s4_no_reply = models.IntegerField(null=True, blank=True, default=0)
+    s4_replied_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s4_replied_eng = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 5 fields
+    s5_total = models.IntegerField(null=True, blank=True, default=0)
+    s5_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s5_english = models.IntegerField(null=True, blank=True, default=0)
+    s5_noreply = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 6 fields
+    s6_a_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s6_a_eng = models.IntegerField(null=True, blank=True, default=0)
+    s6_a_total = models.IntegerField(null=True, blank=True, default=0)
+    s6_b_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s6_b_eng = models.IntegerField(null=True, blank=True, default=0)
+    s6_b_total = models.IntegerField(null=True, blank=True, default=0)
+    s6_c_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s6_c_eng = models.IntegerField(null=True, blank=True, default=0)
+    s6_c_total = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 7 fields
+    s7_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s7_eng = models.IntegerField(null=True, blank=True, default=0)
+    s7_total = models.IntegerField(null=True, blank=True, default=0)
+    s7_eoffice = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 8 fields
+    s8_workshops = models.IntegerField(null=True, blank=True, default=0)
+    s8_officers = models.IntegerField(null=True, blank=True, default=0)
+    s8_employees = models.IntegerField(null=True, blank=True, default=0)
+    
+    is_overwritten = models.BooleanField(default=False)
+    overwritten_at = models.DateTimeField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('user', 'period_start', 'period_end', 'quarter', 'year')
+        ordering = ['-period_start']
+    
+    def __str__(self):
+        return f"MonthlySnapshot {self.user.username} {self.period_start}-{self.period_end}"
+
+
+# ---------- Quarterly Fill & Snapshot Models ----------
+
+class QuarterlyFill(models.Model):
+    """
+    Stores only user inputs for missing days in a quarter.
+    One record per user per quarter.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='quarterly_fills')
+    quarter = models.CharField(max_length=20)
+    year = models.CharField(max_length=20)
+    period_start = models.DateField()  # Start of quarter
+    period_end = models.DateField()    # End of quarter
+    
+    # Section 1 fields
+    s1_total = models.IntegerField(null=True, blank=True)
+    s1_hindi = models.IntegerField(null=True, blank=True)
+    
+    # Section 2 fields
+    s2_meetings = models.IntegerField(null=True, blank=True)
+    s2_minutes = models.IntegerField(null=True, blank=True)
+    s2_papers_total = models.IntegerField(null=True, blank=True)
+    s2_papers_hindi = models.IntegerField(null=True, blank=True)
+    
+    # Section 3 fields
+    s3_total = models.IntegerField(null=True, blank=True)
+    s3_bilingual = models.IntegerField(null=True, blank=True)
+    s3_english = models.IntegerField(null=True, blank=True)
+    s3_hindi_only = models.IntegerField(null=True, blank=True)
+    
+    # Section 4 fields
+    s4_total = models.IntegerField(null=True, blank=True)
+    s4_no_reply = models.IntegerField(null=True, blank=True)
+    s4_replied_hindi = models.IntegerField(null=True, blank=True)
+    s4_replied_eng = models.IntegerField(null=True, blank=True)
+    
+    # Section 5 fields
+    s5_total = models.IntegerField(null=True, blank=True)
+    s5_hindi = models.IntegerField(null=True, blank=True)
+    s5_english = models.IntegerField(null=True, blank=True)
+    s5_noreply = models.IntegerField(null=True, blank=True)
+    
+    # Section 6 fields
+    s6_a_hindi = models.IntegerField(null=True, blank=True)
+    s6_a_eng = models.IntegerField(null=True, blank=True)
+    s6_a_total = models.IntegerField(null=True, blank=True)
+    s6_b_hindi = models.IntegerField(null=True, blank=True)
+    s6_b_eng = models.IntegerField(null=True, blank=True)
+    s6_b_total = models.IntegerField(null=True, blank=True)
+    s6_c_hindi = models.IntegerField(null=True, blank=True)
+    s6_c_eng = models.IntegerField(null=True, blank=True)
+    s6_c_total = models.IntegerField(null=True, blank=True)
+    
+    # Section 7 fields
+    s7_hindi = models.IntegerField(null=True, blank=True)
+    s7_eng = models.IntegerField(null=True, blank=True)
+    s7_total = models.IntegerField(null=True, blank=True)
+    s7_eoffice = models.IntegerField(null=True, blank=True)
+    
+    # Section 8 fields
+    s8_workshops = models.IntegerField(null=True, blank=True)
+    s8_officers = models.IntegerField(null=True, blank=True)
+    s8_employees = models.IntegerField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('user', 'quarter', 'year')
+        ordering = ['-period_start']
+    
+    def __str__(self):
+        return f"QuarterlyFill {self.user.username} {self.quarter} {self.year}"
+
+
+class QuarterlySnapshot(models.Model):
+    """
+    Stores final aggregated values for a quarter (computed or edited).
+    Automatically updated with aggregation or overwritten by edit.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='quarterly_snapshots')
+    quarter = models.CharField(max_length=20)
+    year = models.CharField(max_length=20)
+    period_start = models.DateField()
+    period_end = models.DateField()
+    
+    # Section 1 fields
+    s1_total = models.IntegerField(null=True, blank=True, default=0)
+    s1_hindi = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 2 fields
+    s2_meetings = models.IntegerField(null=True, blank=True, default=0)
+    s2_minutes = models.IntegerField(null=True, blank=True, default=0)
+    s2_papers_total = models.IntegerField(null=True, blank=True, default=0)
+    s2_papers_hindi = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 3 fields
+    s3_total = models.IntegerField(null=True, blank=True, default=0)
+    s3_bilingual = models.IntegerField(null=True, blank=True, default=0)
+    s3_english = models.IntegerField(null=True, blank=True, default=0)
+    s3_hindi_only = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 4 fields
+    s4_total = models.IntegerField(null=True, blank=True, default=0)
+    s4_no_reply = models.IntegerField(null=True, blank=True, default=0)
+    s4_replied_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s4_replied_eng = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 5 fields
+    s5_total = models.IntegerField(null=True, blank=True, default=0)
+    s5_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s5_english = models.IntegerField(null=True, blank=True, default=0)
+    s5_noreply = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 6 fields
+    s6_a_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s6_a_eng = models.IntegerField(null=True, blank=True, default=0)
+    s6_a_total = models.IntegerField(null=True, blank=True, default=0)
+    s6_b_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s6_b_eng = models.IntegerField(null=True, blank=True, default=0)
+    s6_b_total = models.IntegerField(null=True, blank=True, default=0)
+    s6_c_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s6_c_eng = models.IntegerField(null=True, blank=True, default=0)
+    s6_c_total = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 7 fields
+    s7_hindi = models.IntegerField(null=True, blank=True, default=0)
+    s7_eng = models.IntegerField(null=True, blank=True, default=0)
+    s7_total = models.IntegerField(null=True, blank=True, default=0)
+    s7_eoffice = models.IntegerField(null=True, blank=True, default=0)
+    
+    # Section 8 fields
+    s8_workshops = models.IntegerField(null=True, blank=True, default=0)
+    s8_officers = models.IntegerField(null=True, blank=True, default=0)
+    s8_employees = models.IntegerField(null=True, blank=True, default=0)
+    
+    is_overwritten = models.BooleanField(default=False)
+    overwritten_at = models.DateTimeField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('user', 'quarter', 'year')
+        ordering = ['-period_start']
+    
+    def __str__(self):
+        return f"QuarterlySnapshot {self.user.username} {self.quarter} {self.year}"

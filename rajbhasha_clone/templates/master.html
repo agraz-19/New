@@ -33,10 +33,13 @@
                     <span class="english-title text-body-secondary border-start border-secondary ps-3">
                         DEPARTMENT OF OFFICIAL LANGUAGE
                     </span>
+                    {% if user_state %}
+                        <span class="text-warning">| {{ user_state }}</span>
+                    {% endif %}
                 </div>
             </div>
             <div class="col-md-3 text-end">
-                <img src="{% static 'images/logos/rightlogo.jpg' %}" class="logo-img" height="60" alt="NIC Logo">
+                <img src="{% static 'images/logos/RightLogo.jpg' %}" class="logo-img" height="60" alt="NIC Logo">
             </div>
         </div>
     </header>

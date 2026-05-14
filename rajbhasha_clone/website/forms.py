@@ -79,6 +79,8 @@ class CustomUserCreationForm(UserCreationForm):
         self.error_messages['password_mismatch'] = translate_text(
             "The two password fields didn't match.", lang
         )
+        self.fields['password1'].widget.attrs['autocomplete'] = 'new-password'
+        self.fields['password2'].widget.attrs['autocomplete'] = 'new-password'
 
 
     def clean_username(self):
@@ -176,6 +178,8 @@ class CustomLoginForm(AuthenticationForm):
             # Apply translated labels as placeholders
             field.widget.attrs['placeholder'] = field.label
 
+        self.fields['password'].widget.attrs['autocomplete'] = 'current-password'
+
     def clean(self):
         """Authenticate using ONLY employee code"""
         
@@ -231,33 +235,6 @@ class CustomLoginForm(AuthenticationForm):
 
 
 
-class TypingUsageReportForm(forms.Form):
-    """Form for entering typing usage report data"""
-    total_words = forms.IntegerField(
-        label="Total Number of Words in All Notes",
-        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Enter total words', 'min': '0'}),
-        required=True,
-        min_value=0
-    )
-    hindi_words = forms.IntegerField(
-        label="Total Number of Hindi Words in All Notes",
-        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Enter hindi words', 'min': '0'}),
-        required=True,
-        min_value=0
-    )
-
-    def clean(self):
-        cleaned_data = super().clean()
-        total_words = cleaned_data.get('total_words')
-        hindi_words = cleaned_data.get('hindi_words')
-
-        if total_words is not None and hindi_words is not None:
-            if hindi_words > total_words:
-                raise forms.ValidationError(
-                    "Hindi words cannot be greater than total words."
-                )
-        return cleaned_data
-
 class CertificateDataForm(forms.Form):
     """Form for manager to select financial year and quarter ending"""
     financial_year = forms.ChoiceField(
@@ -293,7 +270,84 @@ class CertificateDataForm(forms.Form):
         self.fields['quarter_ending'].choices = quarter_choices
 
 
-from .models import ManagerQPR, AdminQPR, QPRRecord, Section1FilesData, Section2MeetingsData, Section3OfficialLanguagesData, Section4HindiLettersData, Section5EnglishRepliedHindiData, Section6IssuedLettersData, Section7NotingsData
+from .models import ManagerQPR, AdminQPR, FinancialYear, QPRRecord, Section1FilesData, Section2MeetingsData, Section3OfficialLanguagesData, Section4HindiLettersData, Section5EnglishRepliedHindiData, Section6IssuedLettersData, Section7NotingsData
+
+QPR_QUARTER_CHOICES = [
+    ('Q1', 'Q1'),
+    ('Q2', 'Q2'),
+    ('Q3', 'Q3'),
+    ('Q4', 'Q4'),
+]
+
+
+def _current_financial_year_bounds():
+    today = timezone.localdate()
+    start = today.year if today.month >= 4 else today.year - 1
+    return start, start + 1
+
+
+def _financial_year_choices():
+    start, end = _current_financial_year_bounds()
+    current_label = f"{start}-{end}"
+    labels = ['2024-2025', '2025-2026', current_label]
+    try:
+        FinancialYear.objects.get_or_create(start_year=start, end_year=end)
+        for fy in FinancialYear.objects.filter(is_active=True).order_by('-start_year', '-end_year'):
+            label = str(fy)
+            if label not in labels:
+                labels.append(label)
+    except Exception:
+        pass
+    return [(label, label) for label in labels]
+
+
+def _current_quarter_code():
+    month = timezone.localdate().month
+    if month <= 3:
+        return 'Q4'
+    if month <= 6:
+        return 'Q1'
+    if month <= 9:
+        return 'Q2'
+    return 'Q3'
+
+
+def _quarter_code_from_label(value):
+    q = (value or '').strip()
+    normalized = q.upper()
+    if normalized in {'Q1', 'Q2', 'Q3', 'Q4'}:
+        return normalized
+    if 'Jun' in q or 'जून' in q:
+        return 'Q1'
+    if 'Sep' in q or 'सितंबर' in q or 'सित' in q:
+        return 'Q2'
+    if 'Dec' in q or 'दिसंबर' in q or 'दिस' in q:
+        return 'Q3'
+    if 'Mar' in q or 'मार्च' in q:
+        return 'Q4'
+    return _current_quarter_code()
+
+
+def _configure_manager_admin_period_fields(form):
+    if 'financial_year' in form.fields:
+        choices = _financial_year_choices()
+        initial = form.initial.get('financial_year') or choices[0][0]
+        if initial and initial not in {value for value, _ in choices}:
+            choices.append((initial, initial))
+        form.initial['financial_year'] = initial
+        form.fields['financial_year'] = forms.ChoiceField(
+            choices=choices,
+            initial=initial,
+            widget=forms.Select(attrs={'class': 'form-select form-select-sm'})
+        )
+    if 'quarter' in form.fields:
+        quarter = _quarter_code_from_label(form.initial.get('quarter'))
+        form.initial['quarter'] = quarter
+        form.fields['quarter'] = forms.ChoiceField(
+            choices=QPR_QUARTER_CHOICES,
+            initial=quarter,
+            widget=forms.Select(attrs={'class': 'form-select form-select-sm'})
+        )
 
 
 class UserQPRForm(forms.Form):
@@ -367,34 +421,7 @@ class ManagerQPRForm(forms.ModelForm):
         if 's9_agenda_hindi' in self.fields:
             # Represent Yes/No question as a select with Yes/No choices
             self.fields['s9_agenda_hindi'] = forms.ChoiceField(required=False, choices=[('', ''), ('Yes', 'Yes'), ('No', 'No')], widget=forms.Select())
-        # Auto-fill and lock current financial year and quarter (readonly so value still submits)
-        try:
-            from datetime import date
-            today = date.today()
-            month = today.month
-            # Quarter mapping (Indian FY Apr-Mar)
-            if 4 <= month <= 6:
-                current_quarter = '30 जून / Jun 30'
-            elif 7 <= month <= 9:
-                current_quarter = '30 सितंबर / Sep 30'
-            elif 10 <= month <= 12:
-                current_quarter = '31 दिसंबर / Dec 31'
-            else:
-                current_quarter = '31 मार्च / Mar 31'
-
-            fiscal_year_start = today.year - 1 if month < 4 else today.year
-            current_financial_year = f"{fiscal_year_start}-{fiscal_year_start + 1}"
-
-            if 'financial_year' in self.fields:
-                self.fields['financial_year'].initial = current_financial_year
-                # Use a readonly text input so value is submitted but non-editable
-                self.fields['financial_year'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-            if 'quarter' in self.fields:
-                self.fields['quarter'].initial = current_quarter
-                # Render quarter as readonly text input to prevent selection changes
-                self.fields['quarter'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-        except Exception:
-            pass
+        _configure_manager_admin_period_fields(self)
         for name, field in self.fields.items():
             # add bootstrap small inputs for numeric/text/date fields
             existing = field.widget.attrs.get('class', '')
@@ -428,30 +455,4 @@ class AdminQPRForm(forms.ModelForm):
             existing = field.widget.attrs.get('class', '')
             field.widget.attrs['class'] = (existing + ' form-control form-control-sm').strip()
 
-        # Auto-fill and lock current financial year and quarter for Admin form too
-        try:
-            from datetime import date
-            today = date.today()
-            month = today.month
-            if 4 <= month <= 6:
-                current_quarter = '30 जून / Jun 30'
-            elif 7 <= month <= 9:
-                current_quarter = '30 सितंबर / Sep 30'
-            elif 10 <= month <= 12:
-                current_quarter = '31 दिसंबर / Dec 31'
-            else:
-                current_quarter = '31 मार्च / Mar 31'
-
-            fiscal_year_start = today.year - 1 if month < 4 else today.year
-            current_financial_year = f"{fiscal_year_start}-{fiscal_year_start + 1}"
-
-            if 'financial_year' in self.fields:
-                self.fields['financial_year'].initial = current_financial_year
-                self.fields['financial_year'].widget = forms.TextInput(attrs={'readonly': 'readonly', 'class': 'form-control form-control-sm'})
-            if 'quarter' in self.fields:
-                self.fields['quarter'].initial = current_quarter
-                self.fields['quarter'].widget = forms.TextInput(attrs={'readonly': 'readonly', 'class': 'form-control form-control-sm'})
-        except Exception:
-            pass
-
-
+        _configure_manager_admin_period_fields(self)

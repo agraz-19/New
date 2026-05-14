@@ -248,6 +248,33 @@
         <i class="fas fa-arrow-left"></i> {{ "Back"|t:current_lang }}
     </a>
 
+    <form method="get" class="row g-2 align-items-end mb-4">
+        <div class="col-md-4">
+            <label for="quarterFilter" class="form-label mb-1">{{ "Quarter"|t:current_lang }}</label>
+            <select id="quarterFilter" name="quarter" class="form-select form-select-sm">
+                {% for q in quarter_options %}
+                <option value="{{ q }}" {% if quarter_filter == q %}selected{% endif %}>{{ q }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="yearFilter" class="form-label mb-1">{{ "Financial Year"|t:current_lang }}</label>
+            <select id="yearFilter" name="year" class="form-select form-select-sm">
+                {% for y in year_options %}
+                <option value="{{ y }}" {% if year_filter == y %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-auto">
+            <button type="submit" class="btn btn-primary btn-sm" style="background-color:#2c5a86;">{{ "Filter"|t:current_lang }}</button>
+            <a href="{% url 'manager_report' %}" class="btn btn-outline-secondary btn-sm ms-1">{{ "Current"|t:current_lang }}</a>
+        </div>
+    </form>
+
+    <div class="text-muted small mb-3">
+        {{ "Showing manager report for"|t:current_lang }} <strong>{{ quarter_filter }}</strong>, {{ "financial year"|t:current_lang }} <strong>{{ year_filter }}</strong>.
+    </div>
+
     <!-- Manager groups -->
 
     <table class="report-table">
@@ -285,11 +312,11 @@
                                     {% endif %}
                                 </td>
                                 <td>{{ emp.ip }}</td>
-                                <td><a class="action-link" href="{% url 'qpr_report_list' %}?emp_code={{ emp.empcode }}">{{ "View"|t:current_lang }}</a></td>
+                                <td><a class="action-link" href="{% url 'qpr_report_list' %}?emp_code={{ emp.empcode }}&{{ report_query }}">{{ "View"|t:current_lang }}</a></td>
                                 {% if forloop.first %}
                                     <td rowspan="{{ group.employees|length }}">
                                         {% if group.division_frozen and group.division_qpr_id %}
-                                            <a class="action-link" href="{% url 'qpr_report_detail' group.division_qpr_id %}?division=1">{{ "View"|t:current_lang }}</a>
+                                            <a class="action-link" href="{% url 'qpr_report_detail' group.division_qpr_id %}?division=1&{{ report_query }}">{{ "View"|t:current_lang }}</a>
                                         {% else %}
                                             <span class="text-muted">{{ "Not Frozen"|t:current_lang }}</span>
                                         {% endif %}
@@ -305,14 +332,14 @@
                             <td class="text-muted">-</td>
                             <td>
                                 {% if group.employees and group.employees|length > 0 %}
-                                    <a class="action-link" href="{% url 'qpr_report_list' %}?emp_code={{ group.employees.0.empcode }}">View</a>
+                                    <a class="action-link" href="{% url 'qpr_report_list' %}?emp_code={{ group.employees.0.empcode }}&{{ report_query }}">View</a>
                                 {% else %}
-                                    <a class="action-link" href="{% url 'qpr_report_list' %}">View</a>
+                                    <a class="action-link" href="{% url 'qpr_report_list' %}?{{ report_query }}">View</a>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if group.division_frozen and group.division_qpr_id %}
-                                    <a class="action-link" href="{% url 'qpr_report_detail' group.division_qpr_id %}?division=1">View</a>
+                                    <a class="action-link" href="{% url 'qpr_report_detail' group.division_qpr_id %}?division=1&{{ report_query }}">View</a>
                                 {% else %}
                                     <span class="text-muted">Not Frozen</span>
                                 {% endif %}
@@ -335,7 +362,7 @@
             <div>{{ "Quarter:"|t:current_lang }} {{ state_qpr.quarter }} — {{ "Year:"|t:current_lang }} {{ state_qpr.year }}</div>
             <div>{{ "Frozen HODs:"|t:current_lang }} {{ frozen_count }} / {{ total_hods }}</div>
             <div>
-                <a href="{% url 'manager_state_qpr' %}" class="btn btn-sm btn-primary">{{ "View State QPR"|t:current_lang }}</a>
+                <a href="{% url 'manager_state_qpr' %}?{{ report_query }}" class="btn btn-sm btn-primary">{{ "View State QPR"|t:current_lang }}</a>
             </div>
         </div>
     </div>

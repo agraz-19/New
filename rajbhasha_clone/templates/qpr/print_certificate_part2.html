@@ -104,8 +104,22 @@ h3,h4{
 
 <tr>
 <td class="text-left">{{ item.category }}</td>
-<td>{{ item.officers_count }}</td>
-<td>{{ item.employees_count }}</td>
+<td>
+{% if item.category == 'knowledge' %}
+Working: {{ item.officers_working|default:"0" }}<br>
+Proficient: {{ item.officers_proficient|default:"0" }}
+{% else %}
+{{ item.officers_total|default:"0" }}
+{% endif %}
+</td>
+<td>
+{% if item.category == 'knowledge' %}
+Working: {{ item.employees_working|default:"0" }}<br>
+Proficient: {{ item.employees_proficient|default:"0" }}
+{% else %}
+{{ item.employees_total|default:"0" }}
+{% endif %}
+</td>
 <td>{{ item.total_count }}</td>
 </tr>
 
@@ -260,7 +274,7 @@ h3,h4{
 
 <tbody>
 
-{% for item in part2.code_manuals %}
+{% for item in part2.codes_manuals.all %}
 
 <tr>
 <td class="text-left">{{ item.category }}</td>
@@ -288,8 +302,10 @@ h3,h4{
 <thead>
 <tr>
 <th>Designation</th>
-<th>Sanctioned</th>
-<th>Vacant</th>
+<th>HQ Sanctioned</th>
+<th>HQ Vacant</th>
+<th>Subordinate Sanctioned</th>
+<th>Subordinate Vacant</th>
 </tr>
 </thead>
 
@@ -299,8 +315,10 @@ h3,h4{
 
 <tr>
 <td class="text-left">{{ post.designation }}</td>
-<td>{{ post.sanctioned }}</td>
-<td>{{ post.vacant }}</td>
+<td>{{ post.hq_sanctioned }}</td>
+<td>{{ post.hq_vacant }}</td>
+<td>{{ post.sub_sanctioned }}</td>
+<td>{{ post.sub_vacant }}</td>
 </tr>
 
 {% endfor %}
@@ -351,10 +369,10 @@ h3,h4{
 
 <h4>16. Certificate Contact Info</h4>
 
-<p>Name: {{ part2.chairperson.name }}</p>
-<p>Designation: {{ part2.chairperson.designation }}</p>
-<p>Phone: {{ part2.chairperson.phone }}</p>
-<p>Email: {{ part2.chairperson.email }}</p>
+<p>Name: {{ part2.chairperson_name }}</p>
+<p>Designation: {{ part2.chairperson_designation }}</p>
+<p>Phone: {{ part2.chairperson_phone }}</p>
+<p>Email: {{ part2.chairperson_email }}</p>
 
 </div>
 
