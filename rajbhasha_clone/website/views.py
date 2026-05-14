@@ -2862,9 +2862,15 @@ def manager_dashboard(request):
     
     manager_office = getattr(request.user.profile, 'office_code', None)
 
-    users = CustomUser.objects.select_related('profile').filter(profile__office_code=manager_office).order_by('-date_joined')
+    users = CustomUser.objects.select_related('profile').filter(
+        profile__office_code=manager_office,
+        profile__approval_status='approved'
+    ).order_by('-date_joined')
 
-    office_employee_codes_qs = CustomUser.objects.filter(profile__office_code=manager_office).values_list('profile__employee_code', flat=True)
+    office_employee_codes_qs = CustomUser.objects.filter(
+        profile__office_code=manager_office,
+        profile__approval_status='approved'
+    ).values_list('profile__employee_code', flat=True)
     office_employee_codes = []
     for code in office_employee_codes_qs:
         if code is None:
@@ -7702,8 +7708,16 @@ def process_user_approval(request, profile_id, action):
         messages.success(request, f"User {target_profile.employee_code} approved.")
         
     elif action == 'reject':
+        # If the profile was rejected, detach any pending employee record created during registration
+        if target_profile.employee:
+            employee = target_profile.employee
+            target_profile.employee = None
+            target_profile.save(update_fields=['employee'])
+            if employee.user_profiles.count() == 0:
+                employee.delete()
+
         target_profile.approval_status = 'rejected'
-        target_profile.save()
+        target_profile.save(update_fields=['approval_status'])
         send_system_email(target_profile.user, request, 'rejected_alert')
         messages.warning(request, f"User {target_profile.employee_code} rejected.")
 

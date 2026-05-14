@@ -34,7 +34,13 @@
                         DEPARTMENT OF OFFICIAL LANGUAGE
                     </span>
                     {% if user_state %}
-                        <span class="text-warning">| {{ user_state }}</span>
+                        <div class="mt-1">
+                        <span class="text-warning">| {{ user_state }}
+                            {%if user_office %}
+                                | {{ user_office }}
+                            {% endif %}
+                        </span>
+                        </div>
                     {% endif %}
                 </div>
             </div>
