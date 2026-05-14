@@ -1,0 +1,209 @@
+{% extends "qpr/qpr_form.html" %}
+{% load translate_tags %}
+{% block qpr_form_action %}{% if instance %}{% url 'admin_qpr_form_edit' instance.id %}{% else %}{% url 'admin_qpr_form' %}{% endif %}{% endblock %}
+{% block qpr_form_type %}<input type="hidden" name="form_type" value="admin">{% endblock %}
+{% block title %}{{ "Admin QPR"|t:current_lang }}{% endblock %}
+{% block qpr_form_inner %}
+    <div class="col-12 mb-3">
+        <h5 class="mb-3">{{ "Admin Quarterly Progress Report"|t:current_lang }}</h5>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card section-box">
+            <div class="card-body">
+                <h6 class="section-title">1. सामान्य जानकारी</h6>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">समाप्त तिमाही</span><span class="lbl-eng">(Quarter Ending)</span></div>
+                    <div class="lbl-input">{{ form.quarter }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">वित्तीय वर्ष</span><span class="lbl-eng">(Financial Year)</span></div>
+                    <div class="lbl-input">{{ form.financial_year }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card section-box">
+            <div class="card-body">
+                <div class="section-title">2. सचिव/समकक्ष स्तर पर बैठकों/फाइलों का ब्यौरा <span class="d-block small text-muted">(Details of meetings/files at Secretary/Equivalent level)</span></div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">सचिव/समकक्ष स्तर पर कितनी बैठकें आयोजित की गयीं</span><span class="lbl-eng">(How many meetings were held at Secretary/equivalent)</span></div>
+                    <div class="lbl-input">{{ form.a_s2_meetings_count }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">कार्यवाही हिंदी में की गयी/कार्यवृत्त हिंदी में जारी किये गए</span><span class="lbl-eng">(Meetings were conducted in Hindi/Minutes were published in Hindi)</span></div>
+                    <div class="lbl-input">{{ form.a_s2_hindi_minutes }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">सचिव/समकक्ष स्तर से सीधे जारी किये गए कुल कागजात</span><span class="lbl-eng">(Total papers issued directly from Secretary/equivalent)</span></div>
+                    <div class="lbl-input">{{ form.a_s2_total_papers }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">हिंदी में जारी किये गए कुल कागजात</span><span class="lbl-eng">(Total documents issued in Hindi)</span></div>
+                    <div class="lbl-input">{{ form.a_s2_hindi_papers }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card section-box">
+            <div class="card-body">
+                <div class="section-title">3. राजभाषा अधिनियम 1963 की धारा 3(3) के अंतर्गत जारी कागजात <span class="d-block small text-muted">(Documents issued under Section 3(3) of the Official Languages Act, 1963)</span></div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">जारी कागजात की कुल संख्या</span><span class="lbl-eng">(Total no. of documents issued)</span></div>
+                    <div class="lbl-input">{{ form.a_s3_total_documents }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">द्विभाषी रूप में जारी कागजात की संख्या</span><span class="lbl-eng">(Total No. of documents issued bilingually)</span></div>
+                    <div class="lbl-input">{{ form.a_s3_bilingual_documents }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">इनमें से केवल अंग्रेजी में जारी किये गए कागजात</span><span class="lbl-eng">(No. of documents issued only in English)</span></div>
+                    <div class="lbl-input">{{ form.a_s3_english_only_documents }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">केवल हिन्दी में जारी किए गए कागजात</span><span class="lbl-eng">(No. of documents issued only in Hindi)</span></div>
+                    <div class="lbl-input">{{ form.a_s3_hindi_only_documents }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card section-box">
+            <div class="card-body">
+                <div class="section-title">4. हिंदी में प्राप्त पत्र (राजभाषा नियम - 5) <span class="d-block small text-muted">(Letters received in Hindi (Official Language Rule- 5))</span></div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">हिंदी में प्राप्त कुल पत्रों की संख्या</span><span class="lbl-eng">(Total no.of letters received in Hindi)</span></div>
+                    <div class="lbl-input">{{ form.a_s4_total_letters }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">इनमें से कितनों के उत्तर दिए जाने अपेक्षित नहीं थे</span><span class="lbl-eng">(No. of letters not to be replied to)</span></div>
+                    <div class="lbl-input">{{ form.a_s4_no_reply_letters }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">इनमें से कितनों के उत्तर हिंदी/द्विभाषी में दिए गए</span><span class="lbl-eng">(Out of these, no.of letters replied to in Hindi)</span></div>
+                    <div class="lbl-input">{{ form.a_s4_replied_hindi_letters }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">इनमें से कितनों के उत्तर अंग्रेजी में दिए गए</span><span class="lbl-eng">(Total no.of letters replied in English)</span></div>
+                    <div class="lbl-input">{{ form.a_s4_replied_english_letters }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card section-box">
+            <div class="card-body">
+                <div class="section-title">5. विभिन्न क्षेत्रों से प्राप्त पत्रों का विवरण <span class="d-block small text-muted">(Details of letters received from different regions)</span></div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">'क' क्षेत्र से प्राप्त अंग्रेजी पत्रों की संख्या</span><span class="lbl-eng">(No. of English letters received from Region A)</span></div>
+                    <div class="lbl-input">{{ form.a_s5_region_a_english_letters }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">इनमें से हिंदी में उत्तर दिए गए</span><span class="lbl-eng">(Of these, replied in Hindi)</span></div>
+                    <div class="lbl-input">{{ form.a_s5_region_a_replied_hindi }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">इनमें से अंग्रेजी में उत्तर दिए गए</span><span class="lbl-eng">(Of these, replied in English)</span></div>
+                    <div class="lbl-input">{{ form.a_s5_region_a_replied_english }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">कितनों के उत्तर देना शेष है</span><span class="lbl-eng">(No. of letters pending reply)</span></div>
+                    <div class="lbl-input">{{ form.a_s5_region_a_no_reply }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card section-box">
+            <div class="card-body">
+                <div class="section-title">6. जारी किये गए पत्र (क्षेत्रवार) <span class="d-block small text-muted">(Letters issued region-wise)</span></div>
+                <div class="mb-3"><strong class="d-block small text-primary">'क' क्षेत्र / From Region 'A'</strong></div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">हिन्दी/द्विभाषी में जारी पत्र</span><span class="lbl-eng">(Letters issued in Hindi/Bilingual)</span></div>
+                    <div class="lbl-input">{{ form.a_s6_region_a_hindi_bilingual }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">केवल अंग्रेजी में जारी पत्र</span><span class="lbl-eng">(Letters issued only in English)</span></div>
+                    <div class="lbl-input">{{ form.a_s6_region_a_english_only }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">कुल जारी पत्र</span><span class="lbl-eng">(Total letters issued)</span></div>
+                    <div class="lbl-input">{{ form.a_s6_region_a_total }}</div>
+                </div>
+
+                <div class="mb-3"><strong class="d-block small text-primary">'ख' क्षेत्र / From Region 'B'</strong></div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">हिन्दी/द्विभाषी में जारी पत्र</span><span class="lbl-eng">(Letters issued in Hindi/Bilingual)</span></div>
+                    <div class="lbl-input">{{ form.a_s6_region_b_hindi_bilingual }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">केवल अंग्रेजी में जारी पत्र</span><span class="lbl-eng">(Letters issued only in English)</span></div>
+                    <div class="lbl-input">{{ form.a_s6_region_b_english_only }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">कुल जारी पत्र</span><span class="lbl-eng">(Total letters issued)</span></div>
+                    <div class="lbl-input">{{ form.a_s6_region_b_total }}</div>
+                </div>
+
+                <div class="mb-3"><strong class="d-block small text-primary">'ग' क्षेत्र / From Region 'C'</strong></div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">हिन्दी/द्विभाषी में जारी पत्र</span><span class="lbl-eng">(Letters issued in Hindi/Bilingual)</span></div>
+                    <div class="lbl-input">{{ form.a_s6_region_c_hindi_bilingual }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">केवल अंग्रेजी में जारी पत्र</span><span class="lbl-eng">(Letters issued only in English)</span></div>
+                    <div class="lbl-input">{{ form.a_s6_region_c_english_only }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">कुल जारी पत्र</span><span class="lbl-eng">(Total letters issued)</span></div>
+                    <div class="lbl-input">{{ form.a_s6_region_c_total }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card section-box">
+            <div class="card-body">
+                <div class="section-title">7. पृष्ठों का विवरण और e-Office नोटिंग्स <span class="d-block small text-muted">(Pages summary and e-Office notings)</span></div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">हिंदी में कुल पृष्ठ</span><span class="lbl-eng">(Total pages in Hindi)</span></div>
+                    <div class="lbl-input">{{ form.a_s7_hindi_pages }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">अंग्रेजी में कुल पृष्ठ</span><span class="lbl-eng">(Total pages in English)</span></div>
+                    <div class="lbl-input">{{ form.a_s7_english_pages }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">कुल पृष्ठ</span><span class="lbl-eng">(Total pages)</span></div>
+                    <div class="lbl-input">{{ form.a_s7_total_pages }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">e-Office नोटिंग्स संख्या</span><span class="lbl-eng">(No. of e-Office notings)</span></div>
+                    <div class="lbl-input">{{ form.a_s7_eoffice_notings }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+        <div class="col-12">
+            <div class="d-flex justify-content-end mt-3">
+                <a href="{% url 'admin_qpr_list' %}" class="btn btn-outline-secondary me-2">{{ "Table List"|t:current_lang }}</a>
+                {% if not readonly %}
+                <input type="hidden" name="frequency" value="quarterly">
+                <input type="hidden" name="year" value="{{ form.financial_year.value }}">
+                <input type="hidden" name="role_form" value="admin">
+                <button type="submit" class="btn btn-primary" style="background-color: #2c5a86;" name="status" value="Submitted">{{ "Submit"|t:current_lang }}</button>
+                {% endif %}
+            </div>
+        </div>
+
+{% endblock %}
+
+{% block qpr_report_list %}{% endblock %}

@@ -1,0 +1,512 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+
+{% block title %}{{ "Certificate Part 2 - Print"|t:current_lang }}{% endblock %}
+
+{% block content %}
+<style>
+    @media print {
+        body { margin: 0; padding: 0; }
+        .no-print { display: none !important; }
+        .print-heading { display: none !important; }
+        .print-container { box-shadow: none; max-width: 100%; font-size: 11px; }
+    }
+    
+    .print-toolbar {
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        text-align: center;
+    }
+    
+    .print-toolbar button, .print-toolbar a {
+        padding: 8px 15px;
+        margin: 0 5px;
+        border: 1px solid #ccc;
+        background-color: white;
+        cursor: pointer;
+        border-radius: 4px;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .print-toolbar .btn-print {
+        background-color: #007bff;
+        color: white;
+        border-color: #007bff;
+    }
+    
+    .print-container {
+        max-width: 1000px;
+        margin: 20px auto;
+        padding: 30px;
+        background: white;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    
+    .qpr-section {
+        margin-bottom: 20px;
+        page-break-inside: avoid;
+    }
+    
+    .qpr-section h4 {
+        font-size: 1rem;
+        margin: 15px 0 10px 0;
+        font-weight: bold;
+    }
+    
+    .qpr-section p {
+        margin-bottom: 8px;
+        line-height: 1.4;
+    }
+    
+    .qpr-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 10px 0;
+        font-size: 11px;
+    }
+    
+    .qpr-table th, .qpr-table td {
+        border: 1px solid #000;
+        padding: 5px;
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    .qpr-table th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+    
+    .qpr-table td.text-left {
+        text-align: left;
+    }
+    
+    .header-info {
+        background-color: #f9f9f9;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        font-size: 11px;
+    }
+    
+    .header-info p {
+        margin: 3px 0;
+    }
+</style>
+
+<div class="no-print print-toolbar">
+    <button class="btn-print" onclick="window.print()">{{ "Print"|t:current_lang }}</button>
+    <a href="{% url 'certificate_part2_list' %}">{{ "Back"|t:current_lang }}</a>
+</div>
+
+<div class="print-container">
+    <h2 class="print-heading" style="text-align: center; margin-bottom: 20px; font-size: 1.2rem;">{{ "Quarterly Progress Report - Part II"|t:current_lang }}</h2>
+    
+    <!-- Header Information -->
+    <div class="header-info">
+        <p><strong>Office:</strong> {{ office_name|default:"" }}</p>
+        <p><strong>Quarter:</strong> {{ certificate.quarter }} | <strong>Year:</strong> {{ certificate.year }}</p>
+        {% if certificate.submitted_at %}<p><strong>Submitted:</strong> {{ certificate.submitted_at|date:"d M Y" }}</p>{% endif %}
+    </div>
+
+    <!-- Section 1 -->
+    <div class="qpr-section">
+        <h4>1. Rule 10(4) Notification & Sub-office Details</h4>
+        <p><strong>Notified under Rule 10(4):</strong> {% if certificate.is_notified_rule_10_4 %}Yes{% else %}No{% endif %}</p>
+        <p><strong>Total Sub-offices:</strong> {{ certificate.total_sub_offices|default:"0" }} | <strong>Notified Sub-offices:</strong> {{ certificate.notified_sub_offices|default:"0" }}</p>
+    </div>
+
+    <!-- Section 2 - Staff Knowledge -->
+    <div class="qpr-section">
+        <h4>2. Staff Knowledge of Hindi</h4>
+        <table class="qpr-table">
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Officers</th>
+                    <th>Employees</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in certificate.staff_knowledge.all %}
+                <tr>
+                    <td class="text-left">{{ item.category }}</td>
+                    <td>
+                        {% if item.category == 'knowledge' %}
+                            Working: {{ item.officers_working|default:"0" }}<br>
+                            Proficient: {{ item.officers_proficient|default:"0" }}
+                        {% else %}
+                            {{ item.officers_total|default:"0" }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.category == 'knowledge' %}
+                            Working: {{ item.employees_working|default:"0" }}<br>
+                            Proficient: {{ item.employees_proficient|default:"0" }}
+                        {% else %}
+                            {{ item.employees_total|default:"0" }}
+                        {% endif %}
+                    </td>
+                    <td>{{ item.total_count|default:"0" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4">No data</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 3 - Typing Knowledge -->
+    <div class="qpr-section">
+        <h4>3. Hindi Stenography/Typing Knowledge</h4>
+        <table class="qpr-table">
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Total</th>
+                    <th>Trained</th>
+                    <th>Working</th>
+                    <th>Yet to Train</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in certificate.typing_knowledge.all %}
+                <tr>
+                    <td class="text-left">{{ item.category }}</td>
+                    <td>{{ item.total_no|default:"0" }}</td>
+                    <td>{{ item.trained_in_hindi|default:"0" }}</td>
+                    <td>{{ item.work_in_hindi|default:"0" }}</td>
+                    <td>{{ item.yet_to_be_trained|default:"0" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5">No data</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 4 - Translation -->
+    <div class="qpr-section">
+        <h4>4. Knowledge of Translation</h4>
+        <table class="qpr-table">
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Officers</th>
+                    <th>Employees</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in certificate.translation_knowledge.all %}
+                <tr>
+                    <td class="text-left">{{ item.category }}</td>
+                    <td>{{ item.officers_count|default:"0" }}</td>
+                    <td>{{ item.employees_count|default:"0" }}</td>
+                    <td>{{ item.total_count|default:"0" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4">No data</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 5 - Codes/Manuals -->
+    <div class="qpr-section">
+        <h4>5. Code, Manuals, Standard Forms</h4>
+        <table class="qpr-table">
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Total</th>
+                    <th>Bilingual</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in certificate.codes_manuals.all %}
+                <tr>
+                    <td class="text-left">{{ item.category }}</td>
+                    <td>{{ item.total_no|default:"0" }}</td>
+                    <td>{{ item.bilingual_no|default:"0" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3">No data</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 6 - Rule 8(4) Orders -->
+    <div class="qpr-section">
+        <h4>6. Officials Issued Rule 8(4) Orders</h4>
+        <p><strong>Number of Officials:</strong> {{ certificate.officials_issued_rule_8_4_orders|default:"0" }}</p>
+    </div>
+
+    <!-- Section 7 - Training Programme -->
+    <div class="qpr-section">
+        <h4>7. Training Programme</h4>
+        <table class="qpr-table">
+            <thead>
+                <tr>
+                    <th>Duration</th>
+                    <th>Hindi</th>
+                    <th>English</th>
+                    <th>Mixed</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ certificate.training_total_duration_hours|default:"0" }}</td>
+                    <td>{{ certificate.training_imparted_hindi|default:"0" }}</td>
+                    <td>{{ certificate.training_imparted_english|default:"0" }}</td>
+                    <td>{{ certificate.training_imparted_mixed|default:"0" }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 8 - Inspections -->
+    <div class="qpr-section">
+        <h4>8. Inspections (Sections & Subordinate Offices)</h4>
+        <p><strong>Total Sections:</strong> {{ certificate.sec8_total_sections|default:"0" }}</p>
+        <p><strong>Sections Inspected:</strong> {{ certificate.sec8_inspected_sections|default:"0" }}</p>
+        <p><strong>Total Subordinate Offices:</strong> {{ certificate.sec8_total_sub_offices|default:"0" }}</p>
+        <p><strong>Subordinate Offices Inspected:</strong> {{ certificate.sec8_inspected_sub_offices|default:"0" }}</p>
+    </div>
+
+    <!-- Section 9 - Publication of Magazines -->
+    <div class="qpr-section">
+        <h4>9. Publication of Magazines</h4>
+        <table class="qpr-table">
+            <thead>
+                <tr>
+                    <th>Total</th>
+                    <th>Hindi</th>
+                    <th>English</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ certificate.magazines_total|default:"0" }}</td>
+                    <td>{{ certificate.magazines_hindi|default:"0" }}</td>
+                    <td>{{ certificate.magazines_english|default:"0" }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 10 - Hindi Books Purchase Expenditure -->
+    <div class="qpr-section">
+        <h4>10. Hindi Books Purchase Expenditure</h4>
+        <p><strong>Total expenditure on books:</strong> Rs. {{ certificate.expenditure_total_books|default:"0" }}</p>
+        <p><strong>Expenditure on Hindi books:</strong> Rs. {{ certificate.expenditure_hindi_books|default:"0" }}</p>
+    </div>
+
+    <!-- Section 11 - Work in Hindi by Officers DS & Above -->
+    <div class="qpr-section">
+        <h4>11. Work Done in Hindi by Officers (Deputy Secretary & Above)</h4>
+        <table class="qpr-table">
+            <thead>
+                <tr>
+                    <th>Total</th>
+                    <th>Knowledge</th>
+                    <th>Not Doing</th>
+                    <th>Upto 25%</th>
+                    <th>26-50%</th>
+                    <th>51-75%</th>
+                    <th>More 76%</th>
+                    <th>100%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in certificate.officers_work.all %}
+                    {% if item.level == 'ds_and_above' %}
+                    <tr>
+                        <td>{{ item.total_officers|default:"0" }}</td>
+                        <td>{{ item.knowledge_of_hindi|default:"0" }}</td>
+                        <td>{{ item.not_doing|default:"0" }}</td>
+                        <td>{{ item.doing_upto_25|default:"0" }}</td>
+                        <td>{{ item.doing_26_to_50|default:"0" }}</td>
+                        <td>{{ item.doing_51_to_75|default:"0" }}</td>
+                        <td>{{ item.doing_more_76|default:"0" }}</td>
+                        <td>{{ item.doing_cent_percent|default:"0" }}</td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 12 - Work in Hindi by Staff Below DS -->
+    <div class="qpr-section">
+        <h4>12. Work Done in Hindi by Staff (Below Deputy Secretary)</h4>
+        <table class="qpr-table">
+            <thead>
+                <tr>
+                    <th>Total</th>
+                    <th>Knowledge</th>
+                    <th>Not Doing</th>
+                    <th>Upto 25%</th>
+                    <th>26-50%</th>
+                    <th>51-75%</th>
+                    <th>More 76%</th>
+                    <th>100%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in certificate.officers_work.all %}
+                    {% if item.level == 'below_ds' %}
+                    <tr>
+                        <td>{{ item.total_officers|default:"0" }}</td>
+                        <td>{{ item.knowledge_of_hindi|default:"0" }}</td>
+                        <td>{{ item.not_doing|default:"0" }}</td>
+                        <td>{{ item.doing_upto_25|default:"0" }}</td>
+                        <td>{{ item.doing_26_to_50|default:"0" }}</td>
+                        <td>{{ item.doing_51_to_75|default:"0" }}</td>
+                        <td>{{ item.doing_more_76|default:"0" }}</td>
+                        <td>{{ item.doing_cent_percent|default:"0" }}</td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 13 - Hindi Posts -->
+    <div class="qpr-section">
+        <h4>13. Hindi Posts</h4>
+        <table class="qpr-table">
+            <thead>
+                <tr>
+                    <th>Designation</th>
+                    <th colspan="2">Headquarters</th>
+                    <th colspan="2">Subordinate Office</th>
+                </tr>
+                <tr>
+                    <th></th>
+                    <th>Sanctioned</th>
+                    <th>Vacant</th>
+                    <th>Sanctioned</th>
+                    <th>Vacant</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in certificate.hindi_posts.all %}
+                <tr>
+                    <td class="text-left">{{ item.designation }}</td>
+                    <td>{{ item.hq_sanctioned|default:"0" }}</td>
+                    <td>{{ item.hq_vacant|default:"0" }}</td>
+                    <td>{{ item.sub_sanctioned|default:"0" }}</td>
+                    <td>{{ item.sub_vacant|default:"0" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5">No data</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 14 - Website Status -->
+    <div class="qpr-section">
+        <h4>14. Website Status</h4>
+        <table class="qpr-table">
+            <thead>
+                <tr>
+                    <th>Website URL</th>
+                    <th>Only English</th>
+                    <th>Partially Bilingual</th>
+                    <th>Fully Bilingual</th>
+                    <th>Language Option</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in certificate.websites.all %}
+                <tr>
+                    <td class="text-left" style="font-size: 10px;">{{ item.url }}</td>
+                    <td>{% if item.status == 'english_only' %}✓{% endif %}</td>
+                    <td>{% if item.status == 'partially_bilingual' %}✓{% endif %}</td>
+                    <td>{% if item.status == 'fully_bilingual' %}✓{% endif %}</td>
+                    <td>{% if item.has_language_option %}✓{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5">No data</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 15 - Other Outstanding Achievements -->
+    <div class="qpr-section">
+        <h4>15. Other Outstanding Achievements</h4>
+        <p><strong>(a) Hindi Day/Week/Fortnight/Month:</strong></p>
+        <p style="margin-left: 20px;">
+            From: {{ certificate.hindi_event_start_date|date:"d M Y"|default:"-" }} 
+            To: {{ certificate.hindi_event_end_date|date:"d M Y"|default:"-" }}
+        </p>
+        <p><strong>(b) Hindi Seminar (Date & Subject):</strong></p>
+        <p style="margin-left: 20px;">
+            Date: {{ certificate.seminar_date|date:"d M Y"|default:"-" }} | 
+            Subject: {{ certificate.seminar_subject|default:"-" }}
+        </p>
+        <p><strong>(c) Other Activities:</strong></p>
+        <p style="margin-left: 20px;">
+            Date: {{ certificate.other_activities_date|date:"d M Y"|default:"-" }} | 
+            Description: {{ certificate.other_activities_subject|default:"-" }}
+        </p>
+    </div>
+
+    <!-- Section 16 - Certificate Contact Information -->
+    <div class="qpr-section">
+        <h4>16. Certificate Contact Information</h4>
+        <table class="qpr-table" style="font-size: 10px;">
+            <tr>
+                <th>Name of Chairperson</th>
+                <td>{{ certificate.chairperson_name|default:"-" }}</td>
+            </tr>
+            <tr>
+                <th>Designation</th>
+                <td>{{ certificate.chairperson_designation|default:"-" }}</td>
+            </tr>
+            <tr>
+                <th>Telephone</th>
+                <td>{{ certificate.chairperson_phone|default:"-" }}</td>
+            </tr>
+            <tr>
+                <th>Fax</th>
+                <td>{{ certificate.chairperson_fax|default:"-" }}</td>
+            </tr>
+            <tr>
+                <th>Email</th>
+                <td>{{ certificate.chairperson_email|default:"-" }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Signature -->
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #333;">
+        <table style="width: 100%; border: none; font-size: 11px;">
+            <tr>
+                <td style="text-align: center; border: none; width: 50%; padding: 20px 10px;">
+                    <div style="border-top: 1px solid #000; padding-top: 5px;">Signature</div>
+                </td>
+                <td style="text-align: center; border: none; width: 50%; padding: 20px 10px;">
+                    <div style="border-top: 1px solid #000; padding-top: 5px;">Seal/Stamp</div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Footer -->
+    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #999; text-align: center; font-size: 9px; color: #666;">
+        <p>Certified on: {{ certificate.submitted_at|date:"d M Y"|default:"" }}</p>
+        <p>This is a computerized printout. Original must be signed by authorized person.</p>
+    </div>
+</div>
+
+{% endblock %}

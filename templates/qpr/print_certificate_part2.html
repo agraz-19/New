@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+
+<style>
+
+body{
+    font-family: Arial, sans-serif;
+    font-size:12px;
+}
+
+.qpr-section{
+    margin-bottom:20px;
+}
+
+.qpr-table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:8px;
+}
+
+.qpr-table th,
+.qpr-table td{
+    border:1px solid #000;
+    padding:6px;
+    text-align:center;
+}
+
+.qpr-table td.text-left{
+    text-align:left;
+}
+
+h3,h4{
+    margin-bottom:5px;
+}
+
+@page{
+    size:A4 portrait;
+    margin:15mm;
+}
+
+</style>
+</head>
+
+<body>
+
+<h3 style="text-align:center">Manager Certificate – Part II</h3>
+
+<div class="qpr-section">
+<p><strong>Office:</strong> {{ record.officeName }}</p>
+<p><strong>Year:</strong> {{ record.year }}</p>
+</div>
+
+
+<!-- SECTION 1 -->
+
+<div class="qpr-section">
+
+<p><strong>1. (i) Whether the Office has been notified under Rule 10(4)</strong></p>
+
+<p>{{ part2.is_notified_rule_10_4|yesno:"Yes,No" }}</p>
+
+<table class="qpr-table">
+<thead>
+<tr>
+<th>Total No. of Offices</th>
+<th>No. of Offices Notified</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>{{ part2.total_sub_offices|default:"-" }}</td>
+<td>{{ part2.notified_sub_offices|default:"-" }}</td>
+</tr>
+</tbody>
+
+</table>
+
+</div>
+
+
+<!-- SECTION 2(i) -->
+
+<div class="qpr-section">
+
+<p><strong>2. Officers/Employees possessing knowledge of Hindi</strong></p>
+
+<table class="qpr-table">
+
+<thead>
+<tr>
+<th></th>
+<th>Officers</th>
+<th>Employees</th>
+<th>Total</th>
+</tr>
+</thead>
+
+<tbody>
+
+{% for item in part2.staff_knowledge.all %}
+
+<tr>
+<td class="text-left">{{ item.category }}</td>
+<td>
+{% if item.category == 'knowledge' %}
+Working: {{ item.officers_working|default:"0" }}<br>
+Proficient: {{ item.officers_proficient|default:"0" }}
+{% else %}
+{{ item.officers_total|default:"0" }}
+{% endif %}
+</td>
+<td>
+{% if item.category == 'knowledge' %}
+Working: {{ item.employees_working|default:"0" }}<br>
+Proficient: {{ item.employees_proficient|default:"0" }}
+{% else %}
+{{ item.employees_total|default:"0" }}
+{% endif %}
+</td>
+<td>{{ item.total_count }}</td>
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+
+<!-- SECTION 2(ii) -->
+
+<div class="qpr-section">
+
+<p><strong>Knowledge of Hindi Stenography/Typing</strong></p>
+
+<table class="qpr-table">
+
+<thead>
+<tr>
+<th>Category</th>
+<th>Total</th>
+<th>Trained</th>
+<th>Working in Hindi</th>
+<th>Yet to be trained</th>
+</tr>
+</thead>
+
+<tbody>
+
+{% for item in part2.typing_knowledge.all %}
+
+<tr>
+<td class="text-left">{{ item.category }}</td>
+<td>{{ item.total_no }}</td>
+<td>{{ item.trained_in_hindi }}</td>
+<td>{{ item.work_in_hindi }}</td>
+<td>{{ item.yet_to_be_trained }}</td>
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+
+<!-- SECTION 2(iii) -->
+
+<div class="qpr-section">
+
+<p><strong>Knowledge of Translation</strong></p>
+
+<table class="qpr-table">
+
+<thead>
+<tr>
+<th>Category</th>
+<th>Officers</th>
+<th>Employees</th>
+<th>Total</th>
+</tr>
+</thead>
+
+<tbody>
+
+{% for item in part2.translation_knowledge.all %}
+
+<tr>
+<td class="text-left">{{ item.category }}</td>
+<td>{{ item.officers_count }}</td>
+<td>{{ item.employees_count }}</td>
+<td>{{ item.total_count }}</td>
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+
+<!-- SECTION 3 -->
+
+<div class="qpr-section">
+
+<h4>3. Training for doing work in Hindi on Computer</h4>
+
+<table class="qpr-table">
+
+<tr>
+<th>Total Staff</th>
+<th>Trained</th>
+<th>Working</th>
+</tr>
+
+<tr>
+<td>{{ part2.computer_training_total_staff }}</td>
+<td>{{ part2.computer_training_trained }}</td>
+<td>{{ part2.computer_training_working }}</td>
+</tr>
+
+</table>
+
+</div>
+
+
+<!-- SECTION 4 -->
+
+<div class="qpr-section">
+
+<h4>4. Details regarding Computers/Laptops</h4>
+
+<table class="qpr-table">
+
+<tr>
+<th>Total Computers</th>
+<th>Hindi Enabled</th>
+</tr>
+
+<tr>
+<td>{{ part2.total_computers }}</td>
+<td>{{ part2.hindi_enabled_computers }}</td>
+</tr>
+
+</table>
+
+</div>
+
+
+<!-- SECTION 5 -->
+
+<div class="qpr-section">
+
+<h4>5. Code / Manuals / Forms</h4>
+
+<table class="qpr-table">
+
+<thead>
+<tr>
+<th>Category</th>
+<th>Total</th>
+<th>Bilingual</th>
+</tr>
+</thead>
+
+<tbody>
+
+{% for item in part2.codes_manuals.all %}
+
+<tr>
+<td class="text-left">{{ item.category }}</td>
+<td>{{ item.total_no }}</td>
+<td>{{ item.bilingual_no }}</td>
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+
+<!-- SECTION 13 -->
+
+<div class="qpr-section">
+
+<h4>13. Hindi Posts</h4>
+
+<table class="qpr-table">
+
+<thead>
+<tr>
+<th>Designation</th>
+<th>HQ Sanctioned</th>
+<th>HQ Vacant</th>
+<th>Subordinate Sanctioned</th>
+<th>Subordinate Vacant</th>
+</tr>
+</thead>
+
+<tbody>
+
+{% for post in part2.hindi_posts.all %}
+
+<tr>
+<td class="text-left">{{ post.designation }}</td>
+<td>{{ post.hq_sanctioned }}</td>
+<td>{{ post.hq_vacant }}</td>
+<td>{{ post.sub_sanctioned }}</td>
+<td>{{ post.sub_vacant }}</td>
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+
+<!-- SECTION 14 -->
+
+<div class="qpr-section">
+
+<h4>14. Website</h4>
+
+<table class="qpr-table">
+
+<thead>
+<tr>
+<th>Website</th>
+<th>Status</th>
+</tr>
+</thead>
+
+<tbody>
+
+{% for site in part2.websites.all %}
+
+<tr>
+<td class="text-left">{{ site.url }}</td>
+<td>{{ site.status }}</td>
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+
+<!-- SECTION 16 -->
+
+<div class="qpr-section">
+
+<h4>16. Certificate Contact Info</h4>
+
+<p>Name: {{ part2.chairperson_name }}</p>
+<p>Designation: {{ part2.chairperson_designation }}</p>
+<p>Phone: {{ part2.chairperson_phone }}</p>
+<p>Email: {{ part2.chairperson_email }}</p>
+
+</div>
+
+
+</body>
+</html>

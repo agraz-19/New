@@ -1,0 +1,1138 @@
+﻿{% extends 'master.html' %}
+{% load translate_tags %}
+{% load static %}
+{% block content %}
+<script src="{% static 'js/xlsx.full.min.js' %}"></script>
+<script src="{% static 'js/html2canvas.min.js' %}"></script>
+<script src="{% static 'js/jspdf.umd.min.js' %}"></script>
+
+<div class="container mt-5 mb-5">
+    <div class="row justify-content-center">
+        <div id="captureArea" class="col-lg-10">
+            <div class="mb-4">
+                <h2 class="fw-bold text-primary mb-2">
+                    <i class="fas fa-user-circle"></i> {{ "Edit Profile Details"|t:current_lang }}
+                </h2>
+                <p class="text-muted">{{ "Manage your profile and office information"|t:current_lang }}</p>
+            </div>
+
+            {% if pending_edit_request %}
+            <div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
+                <i class="fas fa-info-circle"></i> {{ "Edit request is pending approval. You cannot edit until it is approved."|t:current_lang }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+            {% if profile_approval_required and profile_approved and not can_edit and not has_pending_change_request %}
+                <div id="profileLockedAlert" class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
+                    <i class="fas fa-lock"></i> 
+                    <strong>{{ "Profile Locked"|t:current_lang }}</strong> â€” {{ "Your profile has been approved. To make changes, please submit a request below."|t:current_lang }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+
+                <div id="requestChangeSection" class="card shadow-lg border-0 mb-4">
+                    <div class="card-header bg-light border-bottom">
+                        <h5 class="fw-bold text-primary mb-0">
+                            <i class="fas fa-edit"></i> {{ "Request Change to Profile"|t:current_lang }}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">
+                            {{ "Your profile is locked. To make changes, please describe why you need to update your information."|t:current_lang }}
+                        </p>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">{{ "Fields You Want to Edit"|t:current_lang }} <span class="text-danger">*</span></label>
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input profile-change-field" type="checkbox" value="alternate_email" id="requestAlternateEmail">
+                                        <label class="form-check-label" for="requestAlternateEmail">{{ "Alternate Email"|t:current_lang }}</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input profile-change-field" type="checkbox" value="designation" id="requestDesignation">
+                                        <label class="form-check-label" for="requestDesignation">{{ "Designation"|t:current_lang }}</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input profile-change-field" type="checkbox" value="highest_exam" id="requestHighestExam">
+                                        <label class="form-check-label" for="requestHighestExam">{{ "Highest Hindi Exam"|t:current_lang }}</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-text">{{ "Only the approved selected fields will unlock for editing."|t:current_lang }}</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">{{ "Reason for Change"|t:current_lang }} <span class="text-danger">*</span></label>
+                            <textarea id="changeReason" class="form-control" rows="3" placeholder="{{ 'Describe why you need to make these changes...'|t:current_lang }}"></textarea>
+                        </div>
+                        <p class="text-muted small"><i>{{ "This will be sent to your HOD for approval."|t:current_lang }}</i></p>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-warning px-4" onclick="submitChangeRequest()">
+                                {{ "Submit Request for Change"|t:current_lang }}
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="window.location.reload()">
+                                {{ "Cancel"|t:current_lang }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if profile_approval_required and has_pending_change_request %}
+                <div id="pendingChangeAlert" class="alert alert-warning border-warning shadow-sm mb-4">
+                    <i class="fas fa-clock"></i> {{ "Your change request is pending HOD approval. Form is locked until approved."|t:current_lang }}
+                </div>
+            {% endif %}
+
+            {% if profile_approval_required and profile.approval_status == 'pending' and not can_edit %}
+                <div class="alert alert-warning border-warning shadow-sm mb-4">
+                    <i class="fas fa-clock"></i> {{ "Your registration is currently pending HOD approval. Your form is locked until you are verified."|t:current_lang }}
+                </div>
+            {% endif %}
+            <div class="card shadow-lg border-0">
+                <div class="card-body p-5">
+                    <form method="post" id="employeeForm" class="needs-validation" novalidate>
+                        {% csrf_token %}
+
+                        <h5 class="fw-bold text-primary mb-4 pb-2 border-bottom">
+                            <i class="fas fa-id-card"></i> {{ "User Account Information"|t:current_lang }}
+                        </h5>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">{{ "Employee Code"|t:current_lang }}</label>
+                                <input type="text" name="empcode" id="empcode" class="form-control" value="{{ profile.employee_code|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
+                                <div id="empcodeFeedback" style="margin-top:5px; font-size:14px;"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">{{ "Employee Name"|t:current_lang }}</label>
+                                <input type="text" name="username" id="username" class="form-control" value="{{ employee.ename|default:user.username|default:'' }}" {% if not can_edit %}disabled{% endif %} required>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">{{ "Phone Number"|t:current_lang }}</label>
+                                <input type="text" name="phone" id="phone" class="form-control" value="{{ profile.phone|default:'' }}" {% if not can_edit %}disabled{% endif %}>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">{{ "IP Number"|t:current_lang }}</label>
+                               <input type="text" name="ip_number" id="ip_number" class="form-control"value="{{ profile.ip_number|default:'' }}"{% if not can_edit %}disabled{% endif %}>
+
+                            </div>
+                        </div>
+
+                        <h5 class="fw-bold text-primary mb-4 pb-2 border-bottom">
+                            <i class="fas fa-building"></i> {{ "Office Information"|t:current_lang }}
+                        </h5>
+
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">{{ "Office State"|t:current_lang }} <span class="text-danger">*</span></label>
+                                <input type="text" name="office_state" id="office_state" class="form-control"value="{{ profile.office_state|default:'' }}"{% if not can_edit %}disabled{% endif %}>
+
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">{{ "Office Code"|t:current_lang }}</label>
+                                <select name="office_code" id="office_code_select" class="form-select" {% if not can_edit %}disabled{% endif %} required>
+                                    <option value="">-- {{ "Select Office"|t:current_lang }} --</option>
+                                    {% for o in offices %}
+                                        <option value="{{ o.code }}" data-name="{{ o.name }}" {% if o.code == profile.office_code %}selected{% endif %}>{{ o.code }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">{{ "Office Name"|t:current_lang }}</label>
+                                <input type="text" name="office_name" id="office_name_field" class="form-control"value="{{ profile.office_name|default:'' }}"{% if not can_edit %}disabled{% endif %}>
+
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">{{ "Language Region"|t:current_lang }}</label>
+                                <select name="language_region" class="form-select" {% if not can_edit %}disabled{% endif %}>
+                                    <option value="">-- Select Region --</option>
+                                    {% for value,label in region_choices %}
+                                        <option value="{{ value }}"
+                                        {% if profile.language_region == value %}selected{% endif %}>
+                                        {{ label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">
+                                    {{ "Select HOD"|t:current_lang }}
+                                    {% if profile_approval_required %}<span class="text-danger">*</span>{% endif %}
+                                </label>
+                                <select name="hod_name" class="form-select" {% if not can_edit %}disabled{% endif %} {% if profile_approval_required %}required{% endif %}>
+                                    <option value="">-- Select Approver --</option>
+                                    {% for hod in available_hods %}
+                                        <option value="{{ hod }}" {% if profile_approval_required and hod == current_hod %}selected{% endif %}>
+                                            {{ hod }}
+                                        </option>
+                                    {% endfor %}
+                                    <option value="ADMIN" {% if current_hod == "ADMIN" or not profile_approval_required %}selected{% endif %}>
+                                        Request via Admin
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">{{ "Notification Email"|t:current_lang }} <span class="text-danger">*</span></label>
+                                <input type="email" name="email" class="form-control" value="{{ profile.email|default:'' }}" required {% if not can_edit %}disabled{% endif %}>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">{{ "Alternate Email"|t:current_lang }}</label>
+                                <input type="email" name="alternate_email" id="alternate_email" class="form-control" value="{{ profile.alternate_email|default:'' }}" {% if not can_edit %}disabled{% endif %}>
+                            </div>
+                        </div>
+
+                        <h5 class="fw-bold text-primary mb-4 pb-2 border-bottom">
+                            <i class="fas fa-user-tie"></i> {{ "Employee Information"|t:current_lang }}
+                        </h5>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">{{ "Name in English"|t:current_lang }}</label>
+                                <input type="text"
+                                name="ename"
+                                id="name_english"
+                                class="form-control"
+                                value="{{ employee.ename }}"
+                                {% if not can_edit %}disabled{% endif %}>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">{{ "Name in Hindi"|t:current_lang }}</label>
+                                <input type="text"
+                                name="hname"
+                                id="name_hindi"
+                                class="form-control"
+                                value="{{ employee.hname }}"
+                                {% if not can_edit %}disabled{% endif %}>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">{{ "Designation"|t:current_lang }}</label>
+                                <select name="designation"
+                                id="designation"
+                                class="form-select"
+                                {% if not can_edit %}disabled{% endif %}>
+                                <option value="">--Select--</option>
+                                {% for value,label in form.fields.designation.choices %}
+                                <option value="{{ value }}"
+                                {% if employee.designation == value %}selected{% endif %}>
+                                {{ label }}
+                                </option>
+                                {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Highest Hindi Exam Passed <span class="text-muted fw-normal">(select the applicable)</span></label>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <input type="checkbox" class="btn-check" id="prabodh" name="hindi_exam" value="Prabodh"
+                                    {% if employee.highest_exam and "Prabodh" in employee.highest_exam %}checked{% endif %}>
+                                    <label class="btn btn-outline-primary" for="prabodh">Prabodh</label>
+
+                                    <input type="checkbox" class="btn-check" id="praveen" name="hindi_exam" value="Praveen"
+                                    {% if employee.highest_exam and "Praveen" in employee.highest_exam %}checked{% endif %}>
+                                    <label class="btn btn-outline-primary" for="praveen">Praveen</label>
+
+                                    <input type="checkbox" class="btn-check" id="pragya" name="hindi_exam" value="Pragya"
+                                    {% if employee.highest_exam and "Pragya" in employee.highest_exam %}checked{% endif %}>
+                                    <label class="btn btn-outline-primary" for="pragya">Pragya</label>
+
+                                    <input type="checkbox" class="btn-check" id="parangat" name="hindi_exam" value="Parangat"
+                                    {% if employee.highest_exam and "Parangat" in employee.highest_exam %}checked{% endif %}>
+                                    <label class="btn btn-outline-primary" for="parangat">Parangat</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Typing</label>
+                                <select name="typing"
+                                class="form-select"
+                                {% if not can_edit %}disabled{% endif %}>
+                                <option value="">--Select--</option>
+                                {% for value,label in form.fields.typing.choices %}
+                                <option value="{{ value }}"
+                                {% if employee.typing == value %}selected{% endif %}>
+                                {{ label }}
+                                </option>
+                                {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Hindi Proficiency</label>
+                                <select name="hindiproficiency"
+                                class="form-select"
+                                {% if not can_edit %}disabled{% endif %}>
+                                <option value="">--Select--</option>
+                                {% for value,label in form.fields.hindiproficiency.choices %}
+                                <option value="{{ value }}"
+                                {% if employee.hindiproficiency == value %}selected{% endif %}>
+                                {{ label }}
+                                </option>
+                                {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Gazet</label>
+                                <select name="gazet"
+                                class="form-select"
+                                {% if not can_edit %}disabled{% endif %}>
+                                <option value="">--Select--</option>
+                                {% for value,label in form.fields.gazet.choices %}
+                                <option value="{{ value }}"
+                                {% if employee.gazet == value %}selected{% endif %}>
+                                {{ label }}
+                                </option>
+                                {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Stenographer</label>
+                                <select name="stenographer"
+                                class="form-select"
+                                {% if not can_edit %}disabled{% endif %}>
+                                <option value="">--Select--</option>
+                                {% for value,label in form.fields.stenographer.choices %}
+                                <option value="{{ value }}"
+                                {% if employee.stenographer == value %}selected{% endif %}>
+                                {{ label }}
+                                </option>
+                                {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">{{ "OLIC Affiliate"|t:current_lang }}</label>
+                                <select name="olic_affiliate"
+                                class="form-select"
+                                {% if not can_edit %}disabled{% endif %}>
+                                <option value="">--Select--</option>
+                                {% for value,label in form.fields.olic_affiliate.choices %}
+                                    <option value="{{ value }}"
+                                    {% if employee.olic_affiliate == value %}selected{% endif %}>
+                                    {{ label }}
+                                    </option>
+                                {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">{{ "Superannuation Date"|t:current_lang }}</label>
+                                <input type="date"
+                                name="super_annuation_date"
+                                class="form-control"
+                                value="{% if form.super_annuation_date.value %}{{ form.super_annuation_date.value|date:'Y-m-d' }}{% else %}{{ super_annuation_date_value|default:'' }}{% endif %}"
+                                {% if not can_edit %}disabled{% endif %}>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-3 pt-3" id="actionRow">
+                            <div class="d-flex gap-3">
+                                <button type="submit" id="submitBtn" class="btn btn-primary btn-lg" {% if not can_edit %}disabled{% endif %}>
+                                    <i class="fas fa-save"></i> {{ "Save Changes"|t:current_lang }}
+                                </button>
+                                <a href="{% url 'qpr_user_dashboard' %}" class="btn btn-outline-secondary btn-lg">
+                                    <i class="fas fa-times"></i> {{ "Cancel"|t:current_lang }}
+                                </a>
+                                {% if not user.is_frozen %}
+                                    <a href="{% url 'freeze_profile' %}" class="btn btn-outline-warning btn-lg">
+                                        <i class="fas fa-snowflake"></i> {{ "Freeze Profile"|t:current_lang }}
+                                    </a>
+                                {% endif %}
+                            </div>
+
+                            <div class="d-flex gap-3">
+                                <a href="javascript:void(0)" onclick="downloadExcel()" title="Download Excel">
+                                    <img src="https://cdn-icons-png.flaticon.com/512/732/732220.png" alt="Excel" style="width: 35px; height: 35px;">
+                                </a>
+                                <a href="javascript:void(0)" onclick="downloadPDF()" title="Download PDF">
+                                    <img src="https://cdn-icons-png.flaticon.com/512/337/337946.png" alt="PDF" style="width: 35px; height: 35px;">
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    body {
+        background-color: #f8f9fa;
+    }
+
+    .card {
+        border-radius: 12px;
+    }
+
+    .form-label {
+        color: #2c5a86;
+        margin-bottom: 0.5rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #2c5a86 0%, #1f4788 100%);
+        border: none;
+    }
+
+    h5.text-primary {
+        color: #2c5a86 !important;
+        font-size: 1.3rem;
+    }
+
+    .form-control:disabled,
+    .form-select:disabled {
+        background-color: #e9ecef;
+        color: #6c757d;
+    }
+
+    .border-bottom {
+        border-bottom-color: #d4e2f0 !important;
+    }
+
+    form {
+        width: 100%;
+    }
+
+    input,
+    select {
+        min-height: 38px;
+    }
+
+    #requestChangeSection {
+        border-left: 4px solid #ffc107;
+    }
+
+    #requestChangeSection .card-header {
+        background: linear-gradient(135deg, #fff8e1 0%, #fff3cd 100%) !important;
+    }
+
+    textarea.form-control {
+        border: 2px solid #2c5a86;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    textarea.form-control:focus {
+        border-color: #1f4788;
+        box-shadow: 0 0 0 0.2rem rgba(44, 90, 134, 0.25);
+    }
+
+    /* Lock visual styling */
+    input:disabled, select:disabled, textarea:disabled {
+        background-color: #e9ecef !important;
+        color: #6c757d !important;
+        cursor: not-allowed !important;
+        opacity: 0.7 !important;
+        pointer-events: none !important;
+    }
+
+    button:disabled {
+        opacity: 0.6 !important;
+        cursor: not-allowed !important;
+    }
+
+    .profile-change-field {
+        width: 16px !important;
+        height: 16px !important;
+        min-width: 16px !important;
+        min-height: 16px !important;
+        padding: 0 !important;
+        margin-top: 0.2em;
+        aspect-ratio: 1 / 1;
+        border-radius: 3px;
+    }
+
+</style>
+
+<script>
+    const currentLang = "{{ current_lang|default:'hi' }}";
+    // const profileLocked = {{ profile_locked|default:"false" }};
+    // const hasPendingRequest = {{ has_pending_change_request|default:"false" }};
+    // const hasApprovedRequest = {{ has_approved_change_request|default:"false" }};
+    const profileLocked = {{ profile_locked|yesno:"true,false" }};
+    const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
+    const hasApprovedRequest = {{ has_approved_change_request|yesno:"true,false" }};
+    const profileUpdated = {{ profile_updated|yesno:"true,false" }};
+    const profileApprovalRequired = {{ profile_approval_required|yesno:"true,false" }};
+    const approvedProfileFields = {{ approved_profile_fields_json|default:"[]"|safe }};
+    const serverSuperAnnuationDate = "{{ super_annuation_date_value|default:'' }}";
+    let isProfileLocked = false;
+
+    function getSelectedText(selectElement) {
+        if (!selectElement) return "";
+        return selectElement.options[selectElement.selectedIndex]
+            ? selectElement.options[selectElement.selectedIndex].text.trim()
+            : "";
+    }
+//     if (!profileStatus || profileStatus === '' || profileStatus === null) {
+//     isProfileLocked = false;
+//     unlockFormFields();
+//     return;
+// }
+
+    function checkProfileLockState() {
+        const profileStatus = "{{ profile.approval_status|default:'' }}";
+        const isEditAllowed = {{ user.is_edit_allowed|yesno:"true,false" }};
+        const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
+
+        console.log("STATE CHECK:", { profileStatus, profileUpdated, isEditAllowed, hasPendingRequest });
+
+        if (!profileApprovalRequired) {
+            isProfileLocked = false;
+            unlockFormFields();
+            return;
+        }
+
+        // ðŸ”“ STEP 1: NEW USER (no profile status) â†’ UNLOCK
+        if (!profileUpdated) {
+            isProfileLocked = false;
+            unlockFormFields();
+            return;
+        }
+
+        // ðŸ”’ STEP 2: Pending profile â†’ LOCK
+        if (profileStatus === 'pending' || profileStatus === 'pending_admin') {
+            isProfileLocked = true;
+            lockAllFormFields();
+            return;
+        }
+
+        // STEP 3: Approved profile with pending change request â†’ LOCK
+        if (profileStatus === 'approved' && hasPendingRequest) {
+            isProfileLocked = true;
+            lockAllFormFields();
+            return;
+        }
+
+        // STEP 4: Approved profile with edit permission (from HOD approval) â†’ UNLOCK
+        if (profileStatus === 'approved' && isEditAllowed) {
+            isProfileLocked = false;
+            unlockApprovedProfileFields();
+            return;
+        }
+
+        // ðŸ”’ STEP 5: Approved profile with no pending request â†’ LOCK (user must request change)
+        if (profileStatus === 'approved' && !hasPendingRequest) {
+            isProfileLocked = true;
+            lockAllFormFields();
+            return;
+        }
+
+        // DEFAULT: Allow editing
+        isProfileLocked = false;
+        unlockFormFields();
+    }
+    function lockAllFormFields() {
+        const form = document.getElementById("employeeForm");
+        if (!form) return;
+        
+        const allControls = form.querySelectorAll("input, select, textarea");
+        allControls.forEach(el => {
+            if (el.name === 'csrfmiddlewaretoken' || el.type === 'hidden') return;
+            el.disabled = true;
+        });
+        
+        const submitBtn = document.getElementById("submitBtn");
+        if (submitBtn) submitBtn.disabled = true;
+    }
+
+    
+
+    function unlockFormFields() {
+        const form = document.getElementById("employeeForm");
+        if (!form) return;
+        
+        // Select all inputs, selects, and textareas
+        const allControls = form.querySelectorAll("input, select, textarea");
+        allControls.forEach(el => {
+            // Keep standard Django CSRF or hidden fields as they are
+            if (el.name === 'csrfmiddlewaretoken' || el.type === 'hidden') return;
+            
+            // Remove the disabled attribute from every field
+            el.disabled = false;
+            
+            // Optional: Remove any readonly attributes if you used them
+            el.readOnly = false;
+        });
+        
+        // Ensure the main save button is active
+        const submitBtn = document.getElementById("submitBtn");
+        if (submitBtn) submitBtn.disabled = false;
+    }
+
+    function unlockApprovedProfileFields() {
+        if (!Array.isArray(approvedProfileFields) || approvedProfileFields.length === 0) {
+            lockAllFormFields();
+            return;
+        }
+
+        lockAllFormFields();
+
+        approvedProfileFields.forEach(field => {
+            if (field === "alternate_email") {
+                const alternateEmail = document.querySelector('[name="alternate_email"]');
+                if (alternateEmail) alternateEmail.disabled = false;
+            }
+
+            if (field === "designation") {
+                const designation = document.querySelector('[name="designation"]');
+                if (designation) designation.disabled = false;
+            }
+
+            if (field === "highest_exam") {
+                document.querySelectorAll('[name="hindi_exam"]').forEach(el => {
+                    el.disabled = false;
+                });
+            }
+        });
+
+        const submitBtn = document.getElementById("submitBtn");
+        if (submitBtn) submitBtn.disabled = false;
+    }
+    
+
+    function showProfileLockedUI() {
+        document.getElementById("profileLockedAlert").style.display = "block";
+        document.getElementById("requestChangeSection").style.display = "block";
+    }
+
+    function submitChangeRequest() {
+        const reason = document.getElementById("changeReason").value.trim();
+        const requestedFields = Array.from(document.querySelectorAll(".profile-change-field:checked"))
+            .map(field => field.value);
+
+        if (requestedFields.length === 0) {
+            alert("Please select at least one field to edit.");
+            return;
+        }
+
+        if (!reason) {
+            alert("Please provide a reason.");
+            return;
+        }
+        const csrftoken = document.querySelector('[name="csrfmiddlewaretoken"]').value;
+        fetch("{% url 'submit_profile_change_request' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrftoken
+            },
+            body: JSON.stringify({ change_reason: reason, requested_fields: requestedFields })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert("Request submitted. Awaiting approval.");
+                location.reload();
+            } else {
+                alert("Failed: " + (data.message || data.error || "Unknown error"));
+            }
+        })
+        .catch(err => alert("Error: " + err));
+    }
+
+    function setupExplicitSaveOnly() {
+        const form = document.getElementById("employeeForm");
+        const submitBtn = document.getElementById("submitBtn");
+        if (!form || !submitBtn) return;
+
+        let saveClicked = false;
+
+        form.addEventListener("keydown", function(e) {
+            if (e.key !== "Enter") return;
+            if (e.target && e.target.tagName === "TEXTAREA") return;
+
+            e.preventDefault();
+        }, true);
+
+        submitBtn.addEventListener("click", function() {
+            saveClicked = true;
+            setTimeout(function() {
+                saveClicked = false;
+            }, 0);
+        });
+
+        form.addEventListener("submit", function(e) {
+            if (!saveClicked) {
+                e.preventDefault();
+                return;
+            }
+
+            saveClicked = false;
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const profileLocked = {{ profile_locked|yesno:"true,false" }};
+        const hasPendingRequest = {{ has_pending_change_request|yesno:"true,false" }};
+        const hasApprovedRequest = {{ has_approved_change_request|yesno:"true,false" }};
+        const profileApproved = {{ profile_approved|yesno:"true,false" }};
+        const profileUpdated = {{ profile_updated|yesno:"true,false" }};
+        const profileApprovalRequired = {{ profile_approval_required|yesno:"true,false" }};
+        
+        const profileLockedAlert = document.getElementById('profileLockedAlert');
+        const pendingChangeAlert = document.getElementById('pendingChangeAlert');
+        const requestChangeSection = document.getElementById('requestChangeSection');
+
+        setupExplicitSaveOnly();
+
+        console.log("DOMContentLoaded - Flags:", { profileLocked, hasPendingRequest, hasApprovedRequest, profileApproved, profileUpdated, profileApprovalRequired });
+
+        if (!profileApprovalRequired) {
+            if (profileLockedAlert) profileLockedAlert.style.display = 'none';
+            if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
+            if (requestChangeSection) requestChangeSection.style.display = 'none';
+            unlockFormFields();
+            return;
+        }
+
+        // âœ… Case 1: New user (no profile at all) â†’ UNLOCK
+        if (!profileUpdated || (!profileApproved && !hasPendingRequest)) {
+            const profileStatus = "{{ profile.approval_status|default:'' }}";
+            if (!profileUpdated) {
+                if (profileLockedAlert) profileLockedAlert.style.display = 'none';
+                if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
+                if (requestChangeSection) requestChangeSection.style.display = 'none';
+                unlockFormFields();
+            } else if (profileStatus === "rejected") {
+                if (profileLockedAlert) profileLockedAlert.style.display = 'none';
+                if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
+                if (requestChangeSection) requestChangeSection.style.display = 'none';
+                unlockFormFields();
+            } else {
+                // pending/rejected â€” keep locked
+                if (profileLockedAlert) profileLockedAlert.style.display = 'none';
+                if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
+                if (requestChangeSection) requestChangeSection.style.display = 'none';
+                lockAllFormFields();
+            }
+        } 
+        // Case 2: Profile approved with pending change request â†’ LOCK
+        else if (profileApproved && hasPendingRequest) {
+            if (profileLockedAlert) profileLockedAlert.style.display = 'none';
+            if (pendingChangeAlert) pendingChangeAlert.style.display = 'block';
+            if (requestChangeSection) requestChangeSection.style.display = 'none';
+            lockAllFormFields();
+        }
+        // âœ… Case 3: HOD approved change request â†’ UNLOCK (must check BEFORE case 4)
+        else if (profileApproved && hasApprovedRequest) {
+            if (profileLockedAlert) profileLockedAlert.style.display = 'none';
+            if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
+            if (requestChangeSection) requestChangeSection.style.display = 'none';
+            unlockApprovedProfileFields();
+        }
+        // âœ… Case 4: Profile approved, NO pending request, NO approved request â†’ LOCK, show request box
+        else if (profileApproved && !hasPendingRequest) {
+            if (profileLockedAlert) profileLockedAlert.style.display = 'none';
+            if (pendingChangeAlert) pendingChangeAlert.style.display = 'none';
+            if (requestChangeSection) requestChangeSection.style.display = 'block';
+            lockAllFormFields();
+        }
+
+        const submitChangeBtn = document.getElementById("submitChangeRequest");
+        if (submitChangeBtn) {
+            submitChangeBtn.addEventListener("click", function(e) {
+                e.preventDefault();
+                const reason = document.getElementById("changeReason").value.trim();
+                const requestedFields = Array.from(document.querySelectorAll(".profile-change-field:checked"))
+                    .map(field => field.value);
+                if (requestedFields.length === 0) {
+                    alert("Please select at least one field to edit.");
+                    return;
+                }
+                if (!reason) {
+                    alert("Please provide a reason.");
+                    return;
+                }
+                const csrftoken = document.querySelector('[name="csrfmiddlewaretoken"]').value;
+                fetch("{% url 'submit_profile_change_request' %}", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrftoken
+                    },
+                    body: JSON.stringify({ change_reason: reason, requested_fields: requestedFields })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        alert("Request submitted. Awaiting approval.");
+                        location.reload();
+                    }
+                })
+                .catch(err => alert("Error: " + err));
+            });
+        }
+
+        const cancelChangeBtn = document.getElementById("cancelChangeRequest");
+        if (cancelChangeBtn) {
+            cancelChangeBtn.addEventListener("click", function() {
+                document.getElementById("changeReason").value = "";
+                document.getElementById("requestChangeSection").style.display = "none";
+            });
+        }
+
+    });
+        
+
+    const empcodeField = document.getElementById("empcode");
+    const feedback = document.getElementById("empcodeFeedback");
+
+    function setGazetFromDesignation() {
+        let designationField = document.getElementById("designation");
+        let gazetField = document.querySelector("select[name='gazet']");
+
+        let designation = designationField.options[designationField.selectedIndex].text.trim();
+
+        let nonGazettedList = [
+            "Senior Secretariate Assistant",
+            "Scientific/Technical Assistant-A",
+            "Scientific/Technical Assistant-B"
+        ];
+
+        if (!designation || nonGazettedList.includes(designation)) {
+            gazetField.value = "Non-Gazetted";
+        } else {
+            gazetField.value = "Gazetted";
+        }
+    }
+
+// In profile.html inside <script>
+function fetchEmployeeData() {
+    let empcode = empcodeField.value.trim();
+    if (!empcode) { feedback.innerHTML = ""; return; }
+
+    const csrftoken = document.querySelector('[name="csrfmiddlewaretoken"]').value;
+
+    fetch("{% url 'get_employee_details_form' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-CSRFToken": csrftoken
+        },
+        body: `empcode=${empcode}`
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === "success") {
+            // 1. User Account Information Section
+            document.getElementById("username").value = data.name || "";
+            document.getElementById("phone").value = data.mobile || "";
+            document.getElementById("ip_number").value = data.ip_number || "";
+
+            // 2. Office Information Section
+            document.getElementById("office_state").value = data.state || "";
+            document.getElementById("office_name_field").value = data.office_name || "";
+            
+            // Notification Email (uses name="email", no ID in your HTML)
+            const emailField = document.querySelector('input[name="email"]');
+            if(emailField) emailField.value = data.email || "";
+
+            // 3. Employee Information Section
+            document.getElementById("name_english").value = data.name || "";
+            document.getElementById("name_hindi").value = data.hindi_name || "";
+            
+            // For Designation Select
+            const designationSelect = document.getElementById("designation");
+            if(designationSelect) designationSelect.value = data.designation || "";
+
+            feedback.innerHTML = "&#10004; Verified";
+            feedback.style.color = "green";
+        } else {
+            feedback.innerHTML = "&#10006; Invalid Employee Code";
+            feedback.style.color = "red";
+        }
+    })
+
+    .catch(err => {
+        feedback.innerHTML = `Error fetching data`;
+        feedback.style.color = "red";
+        console.error(err);
+    });
+}
+
+    empcodeField.addEventListener("keydown", function(e){
+        if(e.key === "Enter"){
+            e.preventDefault();
+            fetchEmployeeData();
+        }
+    });
+
+    empcodeField.addEventListener("blur", fetchEmployeeData);
+
+    const examCheckboxes = document.querySelectorAll("input[name='hindi_exam']");
+    const typingField = document.querySelector("select[name='typing']");
+    const proficiencyField = document.querySelector("select[name='hindiproficiency']");
+
+    const triggerExams = ["Prabodh", "Praveen", "Pragya", "Parangat"];
+
+    const originalTyping = typingField.value;
+    const originalProficiency = proficiencyField.value;
+
+    examCheckboxes.forEach(cb => {
+        cb.addEventListener("change", function(){
+
+            let selected = Array.from(examCheckboxes)
+                .filter(c => c.checked)
+                .map(c => c.value);
+
+            let shouldAuto = selected.some(val => triggerExams.includes(val));
+
+            if(shouldAuto){
+                typingField.value = "Both";
+                proficiencyField.value = "Yes";
+            } else {
+                typingField.value = originalTyping;
+                proficiencyField.value = originalProficiency;
+            }
+        });
+    });
+
+    document.getElementById("designation").addEventListener("change", function(){
+        setGazetFromDesignation();
+    });
+
+    (function() {
+        const officeSelect = document.getElementById('office_code_select');
+        const officeNameField = document.getElementById('office_name_field');
+        if (!officeSelect) return;
+
+        const map = {};
+        for (let i = 0; i < officeSelect.options.length; i++) {
+            const opt = officeSelect.options[i];
+            if (!opt.value) continue;
+            map[opt.value] = opt.dataset.name || '';
+        }
+
+        officeSelect.addEventListener('change', function() {
+            officeNameField.value = map[this.value] || '';
+        });
+    })();
+
+    document.addEventListener("DOMContentLoaded", function(){
+        setGazetFromDesignation();
+    });
+
+    function getTranslatedValue(selectElement) {
+        if (!selectElement) return "";
+        return selectElement.options[selectElement.selectedIndex]
+            ? selectElement.options[selectElement.selectedIndex].text.trim()
+            : "";
+    }
+
+    function downloadExcel() {
+        const isHindi = currentLang === 'hi';
+
+        const headers = isHindi ? [
+            "à¤•à¤°à¥à¤®à¤šà¤¾à¤°à¥€ à¤•à¥‹à¤¡",
+            "à¤•à¤°à¥à¤®à¤šà¤¾à¤°à¥€ à¤¨à¤¾à¤®",
+            "à¤«à¥‹à¤¨ à¤¨à¤‚à¤¬à¤°",
+            "à¤†à¤ˆà¤ªà¥€ à¤¨à¤‚à¤¬à¤°",
+            "à¤•à¤¾à¤°à¥à¤¯à¤¾à¤²à¤¯ à¤¸à¥à¤¥à¤¿à¤¤à¤¿",
+            "à¤•à¤¾à¤°à¥à¤¯à¤¾à¤²à¤¯ à¤•à¥‹à¤¡",
+            "à¤•à¤¾à¤°à¥à¤¯à¤¾à¤²à¤¯ à¤•à¤¾ à¤¨à¤¾à¤®",
+            "à¤­à¤¾à¤·à¤¾ à¤•à¥à¤·à¥‡à¤¤à¥à¤°",
+            "Approver",
+            "à¤…à¤§à¤¿à¤¸à¥‚à¤šà¤¨à¤¾ à¤ˆà¤®à¥‡à¤²",
+            "à¤µà¥ˆà¤•à¤²à¥à¤ªà¤¿à¤• à¤ˆà¤®à¥‡à¤²",
+            "à¤…à¤‚à¤—à¥à¤°à¥‡à¤œà¥€ à¤®à¥‡à¤‚ à¤¨à¤¾à¤®",
+            "à¤¹à¤¿à¤‚à¤¦à¥€ à¤®à¥‡à¤‚ à¤¨à¤¾à¤®",
+            "à¤ªà¤¦à¤¨à¤¾à¤®",
+            "à¤Ÿà¤¾à¤‡à¤ªà¤¿à¤‚à¤—",
+            "à¤¹à¤¿à¤‚à¤¦à¥€ à¤¦à¤•à¥à¤·à¤¤à¤¾",
+            "à¤°à¤¾à¤œà¤ªà¤¤à¥à¤°",
+            "Stenographer",
+            "à¤¸à¤°à¥à¤µà¥‹à¤šà¥à¤š à¤¹à¤¿à¤‚à¤¦à¥€ à¤ªà¤°à¥€à¤•à¥à¤·à¤¾ à¤‰à¤¤à¥à¤¤à¥€à¤°à¥à¤£",
+            "OLIC Affiliate",
+            "à¤¸à¥à¤ªà¤°à¤à¤¨à¥à¤à¤¶à¤¨ à¤¤à¤¾à¤°à¥€à¤–"
+        ] : [
+            '{{ "Employee Code"|t:current_lang }}',
+            '{{ "Employee Name"|t:current_lang }}',
+            '{{ "Phone Number"|t:current_lang }}',
+            '{{ "IP Number"|t:current_lang }}',
+            '{{ "Office State"|t:current_lang }}',
+            '{{ "Office Code"|t:current_lang }}',
+            '{{ "Office Name"|t:current_lang }}',
+            '{{ "Language Region"|t:current_lang }}',
+            '{{ "Select HOD"|t:current_lang }}',
+            '{{ "Email"|t:current_lang }}',
+            '{{ "Alternate Email"|t:current_lang }}',
+            '{{ "Employee Name (English)"|t:current_lang }}',
+            '{{ "Employee Name (Hindi)"|t:current_lang }}',
+            '{{ "Designation"|t:current_lang }}',
+            '{{ "Typing"|t:current_lang }}',
+            '{{ "Hindi Proficiency"|t:current_lang }}',
+            '{{ "Gazette Notification"|t:current_lang }}',
+            'Stenographer',
+            '{{ "Highest Hindi Exam Passed"|t:current_lang }}',
+            '{{ "OLIC Affiliate"|t:current_lang }}',
+            '{{ "Super Annuation Date"|t:current_lang }}'
+        ];
+
+        const selectedHindiExams = Array.from(
+            document.querySelectorAll('[name="hindi_exam"]:checked')
+        ).map(el => el.value).join(", ");
+
+        const data = [
+            headers,
+            [
+                document.querySelector('[name="empcode"]')?.value || "",
+                document.querySelector('[name="username"]')?.value || "",
+                document.querySelector('[name="phone"]')?.value || "",
+                document.querySelector('[name="ip_number"]')?.value || "",
+                document.querySelector('[name="office_state"]')?.value || "",
+                document.querySelector('[name="office_code"]')?.value || "",
+                document.querySelector('[name="office_name"]')?.value || "",
+                getTranslatedValue(document.querySelector('[name="language_region"]')),
+                getTranslatedValue(document.querySelector('[name="hod_name"]')),
+                document.querySelector('[name="email"]')?.value || "",
+                document.querySelector('[name="alternate_email"]')?.value || "",
+                document.querySelector('[name="ename"]')?.value || "",
+                document.querySelector('[name="hname"]')?.value || "",
+                getTranslatedValue(document.querySelector('[name="designation"]')),
+                getTranslatedValue(document.querySelector('[name="typing"]')),
+                getTranslatedValue(document.querySelector('[name="hindiproficiency"]')),
+                getTranslatedValue(document.querySelector('[name="gazet"]')),
+                getTranslatedValue(document.querySelector('[name="stenographer"]')),
+                selectedHindiExams,
+                getTranslatedValue(document.querySelector('[name="olic_affiliate"]')),
+                document.querySelector('[name="super_annuation_date"]')?.value || serverSuperAnnuationDate
+            ]
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+
+        ws['!cols'] = [
+            { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 15 },
+            { wch: 15 }, { wch: 18 }, { wch: 15 }, { wch: 18 }, { wch: 18 },
+            { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 15 },
+            { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 25 }, { wch: 20 },
+            { wch: 18 }
+        ];
+
+        const range = XLSX.utils.decode_range(ws['!ref']);
+
+        for (let col = range.s.c; col <= range.e.c; col++) {
+            const cellAddress = XLSX.utils.encode_col(col) + "1";
+            if (!ws[cellAddress]) continue;
+            ws[cellAddress].s = {
+                font: { bold: true, color: { rgb: "FFFFFF" }, name: "Arial", sz: 11 },
+                fill: { patternType: "solid", fgColor: { rgb: "366092" } },
+                alignment: { horizontal: "center", vertical: "center", wrapText: true },
+                border: {
+                    left: { style: "thin" }, right: { style: "thin" },
+                    top: { style: "thin" }, bottom: { style: "thin" }
+                }
+            };
+        }
+
+        for (let row = 1; row <= range.e.r; row++) {
+            for (let col = range.s.c; col <= range.e.c; col++) {
+                const cellAddress = XLSX.utils.encode_col(col) + (row + 1);
+                if (!ws[cellAddress]) continue;
+                ws[cellAddress].s = {
+                    font: { name: "Arial", sz: 11, color: { rgb: "000000" } },
+                    alignment: { horizontal: "left", vertical: "top", wrapText: true },
+                    border: {
+                        left: { style: "thin" }, right: { style: "thin" },
+                        top: { style: "thin" }, bottom: { style: "thin" }
+                    }
+                };
+            }
+        }
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, isHindi ? "à¤ªà¥à¤°à¥‹à¤«à¤¾à¤‡à¤² à¤µà¤¿à¤µà¤°à¤£" : "Profile Details");
+
+        const timestamp = new Date().toISOString().slice(0, 10);
+        const empCode = document.querySelector('[name="empcode"]')?.value || "Employee";
+        XLSX.writeFile(wb, `Profile_${empCode}_${timestamp}.xlsx`);
+    }
+
+    function downloadPDF() {
+        const element = document.getElementById('captureArea');
+        if (!element) {
+            alert("Form not found.");
+            return;
+        }
+
+        const clone = element.cloneNode(true);
+
+        const actionRow = clone.querySelector('#actionRow');
+        if (actionRow) {
+            actionRow.remove();
+        }
+
+        clone.style.width = "1200px";
+        clone.style.maxWidth = "1200px";
+        clone.style.background = "#ffffff";
+        clone.style.padding = "20px";
+        clone.style.boxSizing = "border-box";
+
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'fixed';
+        wrapper.style.left = '-99999px';
+        wrapper.style.top = '0';
+        wrapper.style.width = '1200px';
+        wrapper.style.background = '#ffffff';
+        wrapper.style.zIndex = '-1';
+        wrapper.appendChild(clone);
+        document.body.appendChild(wrapper);
+
+        setTimeout(() => {
+            html2canvas(clone, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: "#ffffff",
+                scrollX: 0,
+                scrollY: 0,
+                windowWidth: clone.scrollWidth,
+                windowHeight: clone.scrollHeight
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+
+                const pageWidth = 210;
+                const pageHeight = 297;
+
+                let imgWidth = pageWidth;
+                let imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                if (imgHeight > pageHeight) {
+                    imgHeight = pageHeight;
+                    imgWidth = (canvas.width * imgHeight) / canvas.height;
+                }
+
+                const x = (pageWidth - imgWidth) / 2;
+                const y = 0;
+
+                pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight);
+                pdf.save('Edit_Profile_Details.pdf');
+
+                document.body.removeChild(wrapper);
+            }).catch(error => {
+                document.body.removeChild(wrapper);
+                console.error(error);
+                alert("PDF generation failed.");
+            });
+        }, 300);
+    }
+</script>
+{% endblock %}

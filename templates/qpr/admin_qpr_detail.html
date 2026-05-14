@@ -1,0 +1,38 @@
+{% extends "master.html" %}
+{% block title %}Admin QPR Detail{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h3>Admin QPR - {{ record.quarter }}</h3>
+    <dl class="row">
+        <dt class="col-sm-3">Financial Year</dt><dd class="col-sm-9">{{ record.financial_year }}</dd>
+        <dt class="col-sm-3">Section 2 - Meetings Count</dt><dd class="col-sm-9">{{ record.a_s2_meetings_count }}</dd>
+        <dt class="col-sm-3">Section 2 - Hindi Minutes</dt><dd class="col-sm-9">{{ record.a_s2_hindi_minutes }}</dd>
+        <dt class="col-sm-3">Section 2 - Total Papers</dt><dd class="col-sm-9">{{ record.a_s2_total_papers }}</dd>
+        <dt class="col-sm-3">Section 2 - Hindi Papers</dt><dd class="col-sm-9">{{ record.a_s2_hindi_papers }}</dd>
+
+        <dt class="col-sm-3">Section 3 - Total Documents</dt><dd class="col-sm-9">{{ record.a_s3_total_documents }}</dd>
+        <dt class="col-sm-3">Section 3 - Bilingual Documents</dt><dd class="col-sm-9">{{ record.a_s3_bilingual_documents }}</dd>
+        <dt class="col-sm-3">Section 3 - English Only</dt><dd class="col-sm-9">{{ record.a_s3_english_only_documents }}</dd>
+        <dt class="col-sm-3">Section 3 - Hindi Only</dt><dd class="col-sm-9">{{ record.a_s3_hindi_only_documents }}</dd>
+
+        <dt class="col-sm-3">Section 4 - Total Letters</dt><dd class="col-sm-9">{{ record.a_s4_total_letters }}</dd>
+        <dt class="col-sm-3">Section 4 - No Reply</dt><dd class="col-sm-9">{{ record.a_s4_no_reply_letters }}</dd>
+        <dt class="col-sm-3">Section 4 - Replied Hindi</dt><dd class="col-sm-9">{{ record.a_s4_replied_hindi_letters }}</dd>
+        <dt class="col-sm-3">Section 4 - Replied English</dt><dd class="col-sm-9">{{ record.a_s4_replied_english_letters }}</dd>
+
+        <dt class="col-sm-3">Section 5 - Region A English Letters</dt><dd class="col-sm-9">{{ record.a_s5_region_a_english_letters }}</dd>
+        <dt class="col-sm-3">Section 5 - Replied Hindi</dt><dd class="col-sm-9">{{ record.a_s5_region_a_replied_hindi }}</dd>
+        <dt class="col-sm-3">Section 5 - Replied English</dt><dd class="col-sm-9">{{ record.a_s5_region_a_replied_english }}</dd>
+        <dt class="col-sm-3">Section 5 - No Reply</dt><dd class="col-sm-9">{{ record.a_s5_region_a_no_reply }}</dd>
+
+        <dt class="col-sm-3">Section 6 - Region A Hindi/Bilingual</dt><dd class="col-sm-9">{{ record.a_s6_region_a_hindi_bilingual }}</dd>
+        <dt class="col-sm-3">Section 6 - Region A English Only</dt><dd class="col-sm-9">{{ record.a_s6_region_a_english_only }}</dd>
+        <dt class="col-sm-3">Section 6 - Region A Total</dt><dd class="col-sm-9">{{ record.a_s6_region_a_total }}</dd>
+
+        <dt class="col-sm-3">Section 7 - Hindi Pages</dt><dd class="col-sm-9">{{ record.a_s7_hindi_pages }}</dd>
+        <dt class="col-sm-3">Section 7 - English Pages</dt><dd class="col-sm-9">{{ record.a_s7_english_pages }}</dd>
+        <dt class="col-sm-3">Section 7 - Total Pages</dt><dd class="col-sm-9">{{ record.a_s7_total_pages }}</dd>
+        <dt class="col-sm-3">Section 7 - E-Office Notings</dt><dd class="col-sm-9">{{ record.a_s7_eoffice_notings }}</dd>
+    </dl>
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+
+{% block title %}{{ "Manager Report Detail"|t:current_lang }}{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <a href="{% url 'manager_report' %}" class="btn btn-secondary mb-3">← {{ "Back"|t:current_lang }}</a>
+
+    <h4>{{ "Report Submitted"|t:current_lang }} — {{ year }} / {{ quarter }}</h4>
+    <p class="text-muted">{{ "Office Code"|t:current_lang }}: <strong>{{ office_code }}</strong></p>
+    <p class="text-muted">{{ submitted_users_count }} {{ "of"|t:current_lang }} {{ total_users }} {{ "users have submitted"|t:current_lang }}</p>
+    {% for hod, users in grouped.items %}
+    <div class="card mb-3">
+        <div class="card-header bg-light">
+            <strong>{{ hod }}</strong>
+        </div>
+        <div class="card-body">
+                <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>{{ "Employee"|t:current_lang }}</th>
+                        <th>{{ "Emp Code"|t:current_lang }}</th>
+                        <th>{{ "QPR Status"|t:current_lang }}</th>
+                        <th>{{ "Action"|t:current_lang }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td>
+                            {% if current_lang == 'hi' %}
+                                {{ u.hname }}
+                            {% else %}
+                                {{ u.name }}
+                            {% endif %}
+                        </td>
+                        <td>{{ u.empcode }}</td>
+                        <td>
+                            {% if u.submitted %}
+                                <span class="badge bg-success">{{ "Submitted"|t:current_lang }}</span>
+                                {% if u.submitted_at %}
+                                    <br><small class="text-muted">{{ u.submitted_at|date:"d M Y, H:i" }}</small>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-warning">{{ "Pending"|t:current_lang }}</span>
+                            {% endif %}
+                        </td>
+                            <td>
+                                {% if u.submitted and u.qpr_record_id %}
+                                    <a href="{% url 'qpr_report_detail' u.qpr_record_id %}?back_to=manager_report" class="btn btn-sm btn-primary" title="{{ 'View submitted QPR form'|t:current_lang }}">
+                                        <i class="fas fa-eye"></i> {{ "View QPR"|t:current_lang }}
+                                    </a>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ "Pending"|t:current_lang }}</span>
+                                {% endif %}
+                            </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% empty %}
+    <p class="text-muted">{{ "No submissions found."|t:current_lang }}</p>
+    {% endfor %}
+</div>
+{% endblock %}

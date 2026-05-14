@@ -1,0 +1,65 @@
+{% extends "master.html" %}
+{% load static %}
+{% load translate_tags %}
+
+{% block title %}{{ "Manager Dashboard"|t:current_lang }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-container {
+        margin-top: 30px;
+    }
+
+    .dashboard-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+
+    .card-title {
+        color: #2c5a86;
+        font-weight: bold;
+        margin-bottom: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container dashboard-container">
+
+    <div class="dashboard-card">
+        <h3><i class="fas fa-users"></i> {{ "Manager Dashboard"|t:current_lang }}</h3>
+        <p class="text-muted">{{ "View employee QPR submissions and manage requests"|t:current_lang }}</p>
+    </div>
+
+    <div class="dashboard-card">
+        <h5>{{ "Employee Overview"|t:current_lang }}</h5>
+
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>{{ "Employee Code"|t:current_lang }}</th>
+                    <th>{{ "Name"|t:current_lang }}</th>
+                    <th>{{ "QPR Status"|t:current_lang }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for emp in employees %}
+                <tr>
+                    <td>{{ emp.employee_code }}</td>
+                    <td>{{ emp.name }}</td>
+                    <td>{{ emp.qpr_status }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="text-center">{{ "No employees found"|t:current_lang }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}

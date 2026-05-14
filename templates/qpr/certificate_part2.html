@@ -1,0 +1,815 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+
+{% block title %}{{ "Certificate Part 2"|t:current_lang }}{% endblock %}
+
+{% block content %}
+<style>
+    /* Clean, official-looking form styles */
+    .qpr-form-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        font-family: Arial, sans-serif;
+        color: #333;
+    }
+    .qpr-section {
+        margin-bottom: 30px;
+    }
+    .qpr-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        margin-bottom: 15px;
+    }
+    .qpr-table th, .qpr-table td {
+        border: 1px solid #000;
+        padding: 8px;
+        text-align: center;
+        vertical-align: middle;
+    }
+    .qpr-table th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+    .qpr-table td.text-left {
+        text-align: left;
+    }
+    .form-control {
+        width: 100%;
+        padding: 5px;
+        box-sizing: border-box;
+        border: 1px solid #ccc;
+    }
+    .form-control[type="number"] {
+        text-align: center;
+    }
+    .btn-add-row {
+        background-color: #4CAF50;
+        color: white;
+        padding: 6px 12px;
+        border: none;
+        cursor: pointer;
+        margin-top: 5px;
+    }
+    .btn-remove-row {
+        background-color: #f44336;
+        color: white;
+        padding: 4px 8px;
+        border: none;
+        cursor: pointer;
+    }
+    </style>
+
+<div class="qpr-form-container" id="qprPartTwoForm">
+    <!-- Ensure CSRF token is available for AJAX POSTs -->
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+    <div class="qpr-section">
+        <p><strong>1. (i) Whether the Office has been notified under Rule 10(4) of Official Languages Rules, 1976</strong>
+            <select class="form-control" name="is_notified_rule_10_4" style="width: auto; display: inline-block;">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+            </select>
+        </p>
+        <p>(ii) Details regarding notification of subordinate offices (if any) under Rule 10(4) of the Official Languages Rules, 1976:</p>
+        <table class="qpr-table">
+            <thead>
+                <tr>
+                    <th>Total No. of Offices</th>
+                    <th>No. of Offices Notified</th>
+                </tr>
+                <tr>
+                    <th>1</th>
+                    <th>2</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><input type="number" class="form-control" name="total_sub_offices"></td>
+                    <td><input type="number" class="form-control" name="notified_sub_offices"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="qpr-section">
+        <p><strong>2. (i) Officers/Employees possessing knowledge of Official Language Hindi</strong></p>
+        <table class="qpr-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th></th>
+                    <th>Officers</th>
+                    <th>Employees</th>
+                    <th>Total No.</th>
+                </tr>
+                <tr>
+                    <th></th>
+                    <th></th>
+                    <th>1</th>
+                    <th>2</th>
+                    <th>3</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>(a)</td>
+                    <td class="text-left">Total No. of Officers and Employees</td>
+                    <td><input type="number" class="form-control" name="staff_total_officers" data-field="officers"></td>
+                    <td><input type="number" class="form-control" name="staff_total_employees" data-field="employees"></td>
+                    <td><input type="number" class="form-control" name="staff_total_total" data-field="total"></td>
+                </tr>
+
+                <tr>
+                    <td>(b)</td>
+                    <td class="text-left">Out of (a) above No. of Officers/ Employees possessing knowledge of Hindi..</td>
+                    <td>
+                        <div style="margin-bottom:6px;"><label style="font-weight:normal;">Proficient:</label> <input type="number" class="form-control" data-group="staff_knowledge" data-category="proficient" data-field="officers" style="width:120px; display:inline-block; margin-left:8px;"></div>
+                        <div><label style="font-weight:normal;">Working Knowledge:</label> <input type="number" class="form-control" data-group="staff_knowledge" data-category="working_knowledge" data-field="officers" style="width:120px; display:inline-block; margin-left:8px;"></div>
+                    </td>
+                    <td>
+                        <div style="margin-bottom:6px;"><label style="font-weight:normal;">Proficient:</label> <input type="number" class="form-control" data-group="staff_knowledge" data-category="proficient" data-field="employees" style="width:120px; display:inline-block; margin-left:8px;"></div>
+                        <div><label style="font-weight:normal;">Working Knowledge:</label> <input type="number" class="form-control" data-group="staff_knowledge" data-category="working_knowledge" data-field="employees" style="width:120px; display:inline-block; margin-left:8px;"></div>
+                    </td>
+                    <td>
+                        <input type="number" class="form-control" data-group="staff_knowledge" data-category="b_row_total" data-field="total" style="width:140px;">
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>(c)</td>
+                    <td class="text-left">No. of personnel being trained in Hindi</td>
+                    <td><input type="number" class="form-control" data-group="staff_knowledge" data-category="being_trained" data-field="officers"></td>
+                    <td><input type="number" class="form-control" data-group="staff_knowledge" data-category="being_trained" data-field="employees"></td>
+                    <td><input type="number" class="form-control" data-group="staff_knowledge" data-category="being_trained" data-field="total"></td>
+                </tr>
+
+                <tr>
+                    <td>(d)</td>
+                    <td class="text-left">Yet to be trained in Hindi</td>
+                    <td><input type="number" class="form-control" data-group="staff_knowledge" data-category="yet_to_be_trained" data-field="officers"></td>
+                    <td><input type="number" class="form-control" data-group="staff_knowledge" data-category="yet_to_be_trained" data-field="employees"></td>
+                    <td><input type="number" class="form-control" data-group="staff_knowledge" data-category="yet_to_be_trained" data-field="total"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+
+    <div class="qpr-section">
+        <p><strong>2. (ii) Knowledge of Hindi Stenography/Typing</strong></p>
+        <table class="qpr-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Total No.</th>
+                    <th>No. of personnel trained in Hindi</th>
+                    <th>Out of trained how many work in Hindi</th>
+                    <th>Yet to be trained</th>
+                </tr>
+                <tr>
+                    <th></th>
+                    <th>1</th>
+                    <th>2</th>
+                    <th>3</th>
+                    <th>4</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>(a) Stenographer</td>
+                    <td><input type="number" class="form-control" data-group="typing_knowledge" data-category="stenographer" data-field="total_no"></td>
+                    <td><input type="number" class="form-control" data-group="typing_knowledge" data-category="stenographer" data-field="trained_in_hindi"></td>
+                    <td><input type="number" class="form-control" data-group="typing_knowledge" data-category="stenographer" data-field="work_in_hindi"></td>
+                    <td><input type="number" class="form-control" data-group="typing_knowledge" data-category="stenographer" data-field="yet_to_be_trained"></td>
+                </tr>
+                <tr>
+                    <td>(b) Typists/Clerks/ASO</td>
+                    <td><input type="number" class="form-control" data-group="typing_knowledge" data-category="typist_clerk" data-field="total_no"></td>
+                    <td><input type="number" class="form-control" data-group="typing_knowledge" data-category="typist_clerk" data-field="trained_in_hindi"></td>
+                    <td><input type="number" class="form-control" data-group="typing_knowledge" data-category="typist_clerk" data-field="work_in_hindi"></td>
+                    <td><input type="number" class="form-control" data-group="typing_knowledge" data-category="typist_clerk" data-field="yet_to_be_trained"></td>
+                </tr>
+                <tr>
+                    <td>(c) Tax/Postal Asstt. etc.</td>
+                    <td><input type="number" class="form-control" data-group="typing_knowledge" data-category="tax_postal" data-field="total_no"></td>
+                    <td><input type="number" class="form-control" data-group="typing_knowledge" data-category="tax_postal" data-field="trained_in_hindi"></td>
+                    <td><input type="number" class="form-control" data-group="typing_knowledge" data-category="tax_postal" data-field="work_in_hindi"></td>
+                    <td><input type="number" class="form-control" data-group="typing_knowledge" data-category="tax_postal" data-field="yet_to_be_trained"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="qpr-section">
+        <p><strong>2. (iii) Knowledge of Translation</strong></p>
+        <table class="qpr-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Officers</th>
+                    <th>Employees</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>(a) Total No. engaged in Translation Work</td>
+                    <td><input type="number" class="form-control" data-group="translation_knowledge" data-category="engaged" data-field="officers"></td>
+                    <td><input type="number" class="form-control" data-group="translation_knowledge" data-category="engaged" data-field="employees"></td>
+                    <td><input type="number" class="form-control" data-group="translation_knowledge" data-category="engaged" data-field="total"></td>
+                </tr>
+                <tr>
+                    <td>(b) Out of (a) trained in Translation</td>
+                    <td><input type="number" class="form-control" data-group="translation_knowledge" data-category="trained" data-field="officers"></td>
+                    <td><input type="number" class="form-control" data-group="translation_knowledge" data-category="trained" data-field="employees"></td>
+                    <td><input type="number" class="form-control" data-group="translation_knowledge" data-category="trained" data-field="total"></td>
+                </tr>
+                <tr>
+                    <td>(c) No. of Officials yet to be trained</td>
+                    <td><input type="number" class="form-control" data-group="translation_knowledge" data-category="yet_to_be_trained" data-field="officers"></td>
+                    <td><input type="number" class="form-control" data-group="translation_knowledge" data-category="yet_to_be_trained" data-field="employees"></td>
+                    <td><input type="number" class="form-control" data-group="translation_knowledge" data-category="yet_to_be_trained" data-field="total"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="qpr-section">
+        <h4>Section 3: Training for doing work in Hindi on Computer</h4>
+        <table class="qpr-table">
+            <thead><tr><th>Total Officers/Employees</th><th>No. trained in Hindi on Computer</th><th>No. working in Hindi on Computer</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td><input type="number" class="form-control" name="computer_training_total_staff"></td>
+                    <td><input type="number" class="form-control" name="computer_training_trained"></td>
+                    <td><input type="number" class="form-control" name="computer_training_working"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="qpr-section">
+        <h4>Section 4: Details regarding Computers/Laptops</h4>
+        <table class="qpr-table">
+            <thead><tr><th>Total No. of Computers/Laptops</th><th>Number of Hindi enabled Computers/Laptops</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td><input type="number" class="form-control" name="total_computers"></td>
+                    <td><input type="number" class="form-control" name="hindi_enabled_computers"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="qpr-section">
+        <h4>Section 5: Code, Manual, Standard Forms etc.</h4>
+        <table class="qpr-table">
+            <thead><tr><th></th><th>Total No. (1)</th><th>Bilingual (2)</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>(a) Acts/Rules/Official codes/Manuals/Procedural literature etc.</td>
+                    <td><input type="number" class="form-control" data-group="code_manuals" data-category="acts_rules" data-field="total_no"></td>
+                    <td><input type="number" class="form-control" data-group="code_manuals" data-category="acts_rules" data-field="bilingual_no"></td>
+                </tr>
+                <tr>
+                    <td>(b) Standard Forms</td>
+                    <td><input type="number" class="form-control" data-group="code_manuals" data-category="standard_forms" data-field="total_no"></td>
+                    <td><input type="number" class="form-control" data-group="code_manuals" data-category="standard_forms" data-field="bilingual_no"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="qpr-section">
+        <h4>Section 6: Rule 8(4) Orders</h4>
+        <p>6. No. of Officials issued individual orders under Rule 8(4) of the Official Language Rules, 1976 to perform whole work in Hindi: <input type="number" class="form-control" name="officials_issued_rule_8_4_orders" style="width:140px; display:inline-block;"></p>
+    </div>
+
+    <div class="qpr-section">
+        <h4>Section 7: Training Programme (only for training institutes)</h4>
+        <table class="qpr-table">
+            <thead><tr><th>Duration of training (hrs)</th><th>Training in Hindi</th><th>Training in English</th><th>Training mixed</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td><input type="number" class="form-control" name="training_total_duration_hours"></td>
+                    <td><input type="number" class="form-control" name="training_imparted_hindi"></td>
+                    <td><input type="number" class="form-control" name="training_imparted_english"></td>
+                    <td><input type="number" class="form-control" name="training_imparted_mixed"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="qpr-section">
+        <h4>Section 8: Inspections pertaining to Official Language</h4>
+        <p>(a) (i) Total No. of sections <input type="number" class="form-control" name="sec8_total_sections" style="width:120px; display:inline-block;"></p>
+        <p>(a) (ii) Out of the above No. of sections inspected <input type="number" class="form-control" name="sec8_inspected_sections" style="width:120px; display:inline-block;"></p>
+        <p>(b) (i) Total No. of Subordinate Offices (If any) <input type="number" class="form-control" name="sec8_total_sub_offices" style="width:120px; display:inline-block;"></p>
+        <p>(b) (ii) Out of the above No. of Offices inspected <input type="number" class="form-control" name="sec8_inspected_sub_offices" style="width:120px; display:inline-block;"></p>
+    </div>
+
+    <div class="qpr-section">
+        <h4>Section 9: Publication of Magazines etc.</h4>
+        <table class="qpr-table">
+            <thead><tr><th>Total No.</th><th>In Hindi</th><th>In English</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td><input type="number" class="form-control" name="magazines_total"></td>
+                    <td><input type="number" class="form-control" name="magazines_hindi"></td>
+                    <td><input type="number" class="form-control" name="magazines_english"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="qpr-section">
+        <h4>Section 10: Purchase of Hindi Books</h4>
+        <p>(i) Total Expenditure incurred on purchase of books during the year <input type="number" step="0.01" class="form-control" name="expenditure_total_books" style="width:240px; display:inline-block;"></p>
+        <p>(ii) Expenditure incurred on purchase of Hindi books <input type="number" step="0.01" class="form-control" name="expenditure_hindi_books" style="width:240px; display:inline-block;"></p>
+    </div>
+
+<div class="qpr-section">
+    <p><strong>11. उप सचिव/समकक्ष एवं उनसे उच्च स्तर के अधिकारियों द्वारा हिंदी में कार्य <br> Work done in Hindi by DS/Equivalent and above officers</strong></p>
+
+    <table class="qpr-table">
+        <thead>
+            <tr>
+                <th>Total Officers</th>
+                <th>Officers knowing Hindi</th>
+                <th>Not doing</th>
+                <th>Up to 25%</th>
+                <th>26–50%</th>
+                <th>51–75%</th>
+                <th>Above 75%</th>
+                <th>100%</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td><input type="number" name="sec11_total" class="form-control"></td>
+
+                <td><input type="number" name="sec11_knowledge"
+                    value="{{ sec11.knowledge_of_hindi|default:0 }}" class="form-control"></td>
+
+                <td><input type="number" name="sec11_0_25"
+                    value="{{ sec11.doing_upto_25|default:0 }}" class="form-control"></td>
+
+                <td><input type="number" name="sec11_26_50"
+                    value="{{ sec11.doing_26_to_50|default:0 }}" class="form-control"></td>
+
+                <td><input type="number" name="sec11_51_75"
+                    value="{{ sec11.doing_51_to_75|default:0 }}" class="form-control"></td>
+
+                <td><input type="number" name="sec11_76_99"
+                    value="{{ sec11.doing_more_76|default:0 }}" class="form-control"></td>
+
+                <td><input type="number" name="sec11_100"
+                    value="{{ sec11.doing_cent_percent|default:0 }}" class="form-control"></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+    <div class="qpr-section">
+        <h4>Section 12: Work done by Officials below the level of Deputy Secretary</h4>
+        <table class="qpr-table">
+            <thead>
+                <tr>
+                    <th>Total No. of Officers</th>
+                    <th>No. of Officers having knowledge of Hindi</th>
+                    <th colspan="6">Out of Column(2) No. of those working in Hindi</th>
+                </tr>
+                <tr>
+                    <th></th>
+                    <th></th>
+                    <th>Not doing</th>
+                    <th>Doing Upto 25%</th>
+                    <th>Doing upto 26 to 50%</th>
+                    <th>Doing upto 51 to 75%</th>
+                    <th>Doing more than 76%</th>
+                    <th>Doing Cent percent</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><input type="number" class="form-control" data-group="officers_work" data-level="below_ds" data-field="total_officers"></td>
+                    <td><input type="number" class="form-control" data-group="officers_work" data-level="below_ds" data-field="knowledge_of_hindi"></td>
+                    <td><input type="number" class="form-control" data-group="officers_work" data-level="below_ds" data-field="not_doing"></td>
+                    <td><input type="number" class="form-control" data-group="officers_work" data-level="below_ds" data-field="doing_upto_25"></td>
+                    <td><input type="number" class="form-control" data-group="officers_work" data-level="below_ds" data-field="doing_26_to_50"></td>
+                    <td><input type="number" class="form-control" data-group="officers_work" data-level="below_ds" data-field="doing_51_to_75"></td>
+                    <td><input type="number" class="form-control" data-group="officers_work" data-level="below_ds" data-field="doing_more_76"></td>
+                    <td><input type="number" class="form-control" data-group="officers_work" data-level="below_ds" data-field="doing_cent_percent"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="qpr-section">
+        <p><strong>13. Hindi Posts</strong></p>
+        <table class="qpr-table" id="hindiPostsTable">
+            <thead>
+                <tr>
+                    <th rowspan="2">Designation</th>
+                    <th colspan="2">No. of posts</th>
+                    <th rowspan="2">Action</th>
+                </tr>
+                <tr>
+                    <th>Sanctioned</th>
+                    <th>Vacant</th>
+                </tr>
+                <tr>
+                    <th>(1)</th>
+                    <th>(2)</th>
+                    <th>(3)</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="hindi-post-row">
+                    <td><input type="text" class="form-control post-designation"></td>
+                    <td><input type="number" class="form-control post-sanctioned"></td>
+                    <td><input type="number" class="form-control post-vacant"></td>
+                    <td><button type="button" class="btn-remove-row" onclick="removeRow(this)">X</button></td>
+                </tr>
+            </tbody>
+        </table>
+        <button type="button" class="btn-add-row" onclick="addHindiPostRow()">+ Add Row</button>
+    </div>
+
+    <div class="qpr-section">
+        <h4>Section 14: Website</h4>
+        <table class="qpr-table" id="websitesTable">
+            <thead>
+                <tr>
+                    <th>Address of Website</th>
+                    <th>Only in English</th>
+                    <th>Partially Bilingual</th>
+                    <th>Fully Bilingual</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="website-row">
+                    <td><input type="url" class="form-control site-url" placeholder="https://"></td>
+                    <td><input type="radio" name="site_status_0" value="english_only"></td>
+                    <td><input type="radio" name="site_status_0" value="partially_bilingual"></td>
+                    <td><input type="radio" name="site_status_0" value="fully_bilingual"></td>
+                    <td><button type="button" class="btn-remove-row" onclick="removeRow(this)">X</button></td>
+                </tr>
+            </tbody>
+        </table>
+        <button type="button" class="btn-add-row" onclick="addWebsiteRow()">+ Add Website</button>
+    </div>
+
+    <div class="qpr-section">
+        <h4>Section 15: Brief description of other outstanding achievements</h4>
+        <p>(a) Hindi Day/Hindi Week/Fortnight/Month (From <input type="date" class="form-control" name="hindi_event_start_date" style="width:160px; display:inline-block;"> To <input type="date" class="form-control" name="hindi_event_end_date" style="width:160px; display:inline-block;"></p>
+        <p>(b) Date & subject of Hindi Seminar <input type="date" class="form-control" name="seminar_date" style="width:160px; display:inline-block;"> <input type="text" class="form-control" name="seminar_subject" style="width:50%; display:inline-block; margin-left:10px;"></p>
+        <p>(c) Date & subject of activities other than (a) above related to Hindi (if any) <input type="date" class="form-control" name="other_activities_date" style="width:160px; display:inline-block;"> <input type="text" class="form-control" name="other_activities_subject" style="width:50%; display:inline-block; margin-left:10px;"></p>
+    </div>
+
+    <div class="qpr-section">
+        <h4>Section 16: Certificate Contact Info</h4>
+        <p>Name of the Chairperson of the O.L.I.C of Min./Dep./Org. <input type="text" class="form-control" name="chair_name" style="width:50%; display:inline-block;"></p>
+        <p>Designation <input type="text" class="form-control" name="chair_designation" style="width:50%; display:inline-block;"></p>
+        <p>Telephone No. <input type="tel" class="form-control" name="chair_phone" style="width:200px; display:inline-block;"></p>
+        <p>Fax No. <input type="tel" class="form-control" name="chair_fax" style="width:200px; display:inline-block;"></p>
+        <p>E mail address <input type="email" class="form-control" name="chair_email" style="width:300px; display:inline-block;"></p>
+    </div>
+
+</div>
+<script>
+    // --- UI Logic: Add/Remove Rows ---
+    function addHindiPostRow() {
+        const tbody = document.querySelector('#hindiPostsTable tbody');
+        const newRow = document.createElement('tr');
+        newRow.className = 'hindi-post-row';
+        newRow.innerHTML = `
+            <td><input type="text" class="form-control post-designation"></td>
+            <td><input type="number" class="form-control post-sanctioned"></td>
+            <td><input type="number" class="form-control post-vacant"></td>
+            <td><button type="button" class="btn-remove-row" onclick="removeRow(this)">X</button></td>
+        `;
+        tbody.appendChild(newRow);
+    }
+
+    function addWebsiteRow() {
+        const tbody = document.querySelector('#websitesTable tbody');
+        const idx = tbody.querySelectorAll('.website-row').length;
+        const newRow = document.createElement('tr');
+        newRow.className = 'website-row';
+        newRow.innerHTML = `
+            <td><input type="url" class="form-control site-url" placeholder="https://"></td>
+            <td><input type="radio" name="site_status_${idx}" value="english_only"></td>
+            <td><input type="radio" name="site_status_${idx}" value="partially_bilingual"></td>
+            <td><input type="radio" name="site_status_${idx}" value="fully_bilingual"></td>
+            <td><button type="button" class="btn-remove-row" onclick="removeRow(this)">X</button></td>
+        `;
+        tbody.appendChild(newRow);
+    }
+
+    function removeRow(btn) {
+        const row = btn.closest('tr');
+        row.remove();
+    }
+
+    // --- Data Extraction Logic: Building the JSON ---
+    function collectFormData() {
+        const payload = {};
+
+        // Section 1
+        payload.is_notified_rule_10_4 = document.querySelector('[name="is_notified_rule_10_4"]').value === 'true';
+        payload.total_sub_offices = parseInt(document.querySelector('[name="total_sub_offices"]').value) || 0;
+        payload.notified_sub_offices = parseInt(document.querySelector('[name="notified_sub_offices"]').value) || 0;
+
+        // Section 2(i) Staff knowledge
+        payload.staff_knowledge = [];
+        ['proficient','working_knowledge','being_trained','yet_to_be_trained'].forEach(cat=>{
+            const officers = document.querySelector(`input[data-group=\"staff_knowledge\"][data-category=\"${cat}\"][data-field=\"officers\"]`)
+            const employees = document.querySelector(`input[data-group=\"staff_knowledge\"][data-category=\"${cat}\"][data-field=\"employees\"]`)
+            const total = document.querySelector(`input[data-group=\"staff_knowledge\"][data-category=\"${cat}\"][data-field=\"total\"]`)
+            if (officers || employees || total) {
+                payload.staff_knowledge.push({
+                    category: cat,
+                    officers_count: parseInt(officers?.value||0) || 0,
+                    employees_count: parseInt(employees?.value||0) || 0,
+                    total_count: parseInt(total?.value||0) || 0
+                });
+            }
+        });
+
+        // Section 2(ii) Typing/Stenography
+        payload.typing_knowledge = [];
+        ['stenographer','typist_clerk','tax_postal'].forEach(cat=>{
+            const prefix = `input[data-group="typing_knowledge"][data-category="${cat}"]`;
+            const total = document.querySelector(prefix + `[data-field="total_no"]`);
+            const trained = document.querySelector(prefix + `[data-field="trained_in_hindi"]`);
+            const work = document.querySelector(prefix + `[data-field="work_in_hindi"]`);
+            const yet = document.querySelector(prefix + `[data-field="yet_to_be_trained"]`);
+            if (total||trained||work||yet) {
+                payload.typing_knowledge.push({
+                    category: cat,
+                    total_no: parseInt(total?.value||0) || 0,
+                    trained_in_hindi: parseInt(trained?.value||0) || 0,
+                    work_in_hindi: parseInt(work?.value||0) || 0,
+                    yet_to_be_trained: parseInt(yet?.value||0) || 0
+                });
+            }
+        });
+
+        // Section 2(iii) Translation
+        payload.translation_knowledge = [];
+        ['engaged','trained','yet_to_be_trained'].forEach(cat=>{
+            const off = document.querySelector(`input[data-group="translation_knowledge"][data-category="${cat}"][data-field="officers"]`);
+            const emp = document.querySelector(`input[data-group="translation_knowledge"][data-category="${cat}"][data-field="employees"]`);
+            const tot = document.querySelector(`input[data-group="translation_knowledge"][data-category="${cat}"][data-field="total"]`);
+            if (off||emp||tot) {
+                payload.translation_knowledge.push({
+                    category: cat,
+                    officers_count: parseInt(off?.value||0) || 0,
+                    employees_count: parseInt(emp?.value||0) || 0,
+                    total_count: parseInt(tot?.value||0) || 0
+                });
+            }
+        });
+
+        // Sections 3,4,6,7,8,9,10,15 scalars
+        payload.computer_training_total_staff = parseInt(document.querySelector('[name="computer_training_total_staff"]').value) || 0;
+        payload.computer_training_trained = parseInt(document.querySelector('[name="computer_training_trained"]').value) || 0;
+        payload.computer_training_working = parseInt(document.querySelector('[name="computer_training_working"]').value) || 0;
+        payload.total_computers = parseInt(document.querySelector('[name="total_computers"]').value) || 0;
+        payload.hindi_enabled_computers = parseInt(document.querySelector('[name="hindi_enabled_computers"]').value) || 0;
+        payload.officials_issued_rule_8_4_orders = parseInt(document.querySelector('[name="officials_issued_rule_8_4_orders"]').value) || 0;
+        payload.training_total_duration_hours = parseInt(document.querySelector('[name="training_total_duration_hours"]').value) || 0;
+        payload.training_imparted_hindi = parseInt(document.querySelector('[name="training_imparted_hindi"]').value) || 0;
+        payload.training_imparted_english = parseInt(document.querySelector('[name="training_imparted_english"]').value) || 0;
+        payload.training_imparted_mixed = parseInt(document.querySelector('[name="training_imparted_mixed"]').value) || 0;
+        payload.sec8_total_sections = parseInt(document.querySelector('[name="sec8_total_sections"]').value) || 0;
+        payload.sec8_inspected_sections = parseInt(document.querySelector('[name="sec8_inspected_sections"]').value) || 0;
+        payload.sec8_total_sub_offices = parseInt(document.querySelector('[name="sec8_total_sub_offices"]').value) || 0;
+        payload.sec8_inspected_sub_offices = parseInt(document.querySelector('[name="sec8_inspected_sub_offices"]').value) || 0;
+        payload.magazines_total = parseInt(document.querySelector('[name="magazines_total"]').value) || 0;
+        payload.magazines_hindi = parseInt(document.querySelector('[name="magazines_hindi"]').value) || 0;
+        payload.magazines_english = parseInt(document.querySelector('[name="magazines_english"]').value) || 0;
+        payload.expenditure_total_books = parseFloat(document.querySelector('[name="expenditure_total_books"]').value) || 0.00;
+        payload.expenditure_hindi_books = parseFloat(document.querySelector('[name="expenditure_hindi_books"]').value) || 0.00;
+        payload.hindi_event_start_date = document.querySelector('[name="hindi_event_start_date"]').value || '';
+        payload.hindi_event_end_date = document.querySelector('[name="hindi_event_end_date"]').value || '';
+        payload.seminar_date = document.querySelector('[name="seminar_date"]').value || '';
+        payload.seminar_subject = document.querySelector('[name="seminar_subject"]').value || '';
+        payload.other_activities_date = document.querySelector('[name="other_activities_date"]').value || '';
+        payload.other_activities_subject = document.querySelector('[name="other_activities_subject"]').value || '';
+
+        // Section 5 code/manuals
+        payload.code_manuals = [];
+        ['acts_rules','standard_forms'].forEach(cat=>{
+            const total = document.querySelector(`input[data-group="code_manuals"][data-category="${cat}"][data-field="total_no"]`);
+            const bi = document.querySelector(`input[data-group="code_manuals"][data-category="${cat}"][data-field="bilingual_no"]`);
+            if (total||bi) payload.code_manuals.push({category:cat, total_no: parseInt(total?.value||0)||0, bilingual_no: parseInt(bi?.value||0)||0});
+        });
+
+        // Section 11 & 12 officers work
+        payload.officers_work = [];
+        document.querySelectorAll('[data-group="officers_work"]').forEach(el=>{
+            const level = el.getAttribute('data-level');
+            const field = el.getAttribute('data-field');
+            // accumulate by level
+            let entry = payload.officers_work.find(x=>x.level===level);
+            if (!entry) { entry = {level: level}; payload.officers_work.push(entry); }
+            entry[field] = parseInt(el.value||0) || 0;
+        });
+
+        // Section 13 hindi posts
+        payload.hindi_posts = [];
+        document.querySelectorAll('.hindi-post-row').forEach(row => {
+            const designation = row.querySelector('.post-designation').value;
+            const sanctioned = parseInt(row.querySelector('.post-sanctioned').value) || 0;
+            const vacant = parseInt(row.querySelector('.post-vacant').value) || 0;
+            if (designation) payload.hindi_posts.push({designation, sanctioned, vacant});
+        });
+
+        // Section 14 websites
+        payload.websites = [];
+        document.querySelectorAll('.website-row').forEach((row, idx) => {
+            const url = row.querySelector('.site-url').value;
+            const radios = row.querySelectorAll(`input[type=radio][name^=site_status_]`);
+            let status = '';
+            radios.forEach(r => { if (r.checked) status = r.value; });
+            if (url) payload.websites.push({url, status});
+        });
+
+        // Section 16 chairperson
+        payload.chairperson = {
+            name: document.querySelector('[name="chair_name"]').value || '',
+            designation: document.querySelector('[name="chair_designation"]').value || '',
+            phone: document.querySelector('[name="chair_phone"]').value || '',
+            fax: document.querySelector('[name="chair_fax"]').value || '',
+            email: document.querySelector('[name="chair_email"]').value || ''
+        };
+
+        // financial year
+        payload.financial_year = '{{ record.year|default:"" }}';
+
+        return payload;
+    }
+
+    // --- Prefill logic ---
+    document.addEventListener('DOMContentLoaded', function() {
+        var initial = {{ part2_json|default:'{}'|safe }};
+        if (initial && Object.keys(initial).length > 0) {
+            if (initial.is_notified_rule_10_4) document.querySelector('[name="is_notified_rule_10_4"]').value = 'true';
+            else document.querySelector('[name="is_notified_rule_10_4"]').value = 'false';
+            if (initial.total_sub_offices !== undefined) document.querySelector('[name="total_sub_offices"]').value = initial.total_sub_offices;
+            if (initial.notified_sub_offices !== undefined) document.querySelector('[name="notified_sub_offices"]').value = initial.notified_sub_offices;
+
+            // staff knowledge
+            if (initial.staff_knowledge) initial.staff_knowledge.forEach(function(item){
+                var off = document.querySelector(`input[data-category="${item.category}"][data-field="officers"]`);
+                var emp = document.querySelector(`input[data-category="${item.category}"][data-field="employees"]`);
+                if (off) off.value = item.officers_count;
+                if (emp) emp.value = item.employees_count;
+            });
+
+            // typing knowledge
+            if (initial.typing_knowledge) initial.typing_knowledge.forEach(function(item){
+                ['total_no','trained_in_hindi','work_in_hindi','yet_to_be_trained'].forEach(function(f){
+                    var el = document.querySelector(`input[data-group=\"typing_knowledge\"][data-category=\"${item.category}\"][data-field=\"${f}\"]`);
+                    if (el) el.value = item[f] || 0;
+                });
+            });
+
+            // translation knowledge
+            if (initial.translation_knowledge) initial.translation_knowledge.forEach(function(item){
+                ['officers','employees','total'].forEach(function(f){
+                    var el = document.querySelector(`input[data-group=\"translation_knowledge\"][data-category=\"${item.category}\"][data-field=\"${f}\"]`);
+                    if (el) el.value = item[f] || 0;
+                });
+            });
+
+            // scalar fields
+            ['computer_training_total_staff','computer_training_trained','computer_training_working','total_computers','hindi_enabled_computers','officials_issued_rule_8_4_orders','training_total_duration_hours','training_imparted_hindi','training_imparted_english','training_imparted_mixed','sec8_total_sections','sec8_inspected_sections','sec8_total_sub_offices','sec8_inspected_sub_offices','magazines_total','magazines_hindi','magazines_english','expenditure_total_books','expenditure_hindi_books','hindi_event_start_date','hindi_event_end_date','seminar_date','seminar_subject','other_activities_date','other_activities_subject'].forEach(function(k){
+                if (initial[k] !== undefined && document.querySelector(`[name=\"${k}\"]`)) document.querySelector(`[name=\"${k}\"]`).value = initial[k];
+            });
+
+            // code manuals
+            if (initial.code_manuals) initial.code_manuals.forEach(function(item){
+                var total = document.querySelector(`input[data-group=\"code_manuals\"][data-category=\"${item.category}\"][data-field=\"total_no\"]`);
+                var bi = document.querySelector(`input[data-group=\"code_manuals\"][data-category=\"${item.category}\"][data-field=\"bilingual_no\"]`);
+                if (total) total.value = item.total_no || 0;
+                if (bi) bi.value = item.bilingual_no || 0;
+            });
+
+            // officers_work
+            if (initial.officers_work) initial.officers_work.forEach(function(item){
+                Object.keys(item).forEach(function(k){
+                    if (k === 'level') return;
+                    var el = document.querySelector(`[data-group=\"officers_work\"][data-level=\"${item.level}\"][data-field=\"${k}\"]`);
+                    if (el) el.value = item[k] || 0;
+                });
+            });
+
+            // hindi posts
+            if (initial.hindi_posts) {
+                const tbody = document.querySelector('#hindiPostsTable tbody'); tbody.innerHTML = '';
+                initial.hindi_posts.forEach(function(p){
+                    const newRow = document.createElement('tr'); newRow.className='hindi-post-row';
+                    newRow.innerHTML = `\
+                        <td><input type="text" class="form-control post-designation" value="${(p.designation||'').replace(/"/g,'&quot;')}"></td>\
+                        <td><input type="number" class="form-control post-sanctioned" value="${p.sanctioned||0}"></td>\
+                        <td><input type="number" class="form-control post-vacant" value="${p.vacant||0}"></td>\
+                        <td><button type="button" class="btn-remove-row" onclick="removeRow(this)">X</button></td>`;
+                    tbody.appendChild(newRow);
+                });
+            }
+
+            // websites
+            if (initial.websites) {
+                const tbody = document.querySelector('#websitesTable tbody'); tbody.innerHTML = '';
+                initial.websites.forEach(function(w, idx){
+                    const newRow = document.createElement('tr'); newRow.className='website-row';
+                    newRow.innerHTML = `\
+                        <td><input type="url" class="form-control site-url" value="${(w.url||'').replace(/"/g,'&quot;')}"></td>\
+                        <td><input type="radio" name="site_status_${idx}" value="english_only" ${w.status==='english_only'?'checked':''}></td>\
+                        <td><input type="radio" name="site_status_${idx}" value="partially_bilingual" ${w.status==='partially_bilingual'?'checked':''}></td>\
+                        <td><input type="radio" name="site_status_${idx}" value="fully_bilingual" ${w.status==='fully_bilingual'?'checked':''}></td>\
+                        <td><button type="button" class="btn-remove-row" onclick="removeRow(this)">X</button></td>`;
+                    tbody.appendChild(newRow);
+                });
+            }
+
+            // chairperson
+            if (initial.chairperson) {
+                document.querySelector('[name="chair_name"]').value = initial.chairperson.name || '';
+                document.querySelector('[name="chair_designation"]').value = initial.chairperson.designation || '';
+                document.querySelector('[name="chair_phone"]').value = initial.chairperson.phone || '';
+                document.querySelector('[name="chair_fax"]').value = initial.chairperson.fax || '';
+                document.querySelector('[name="chair_email"]').value = initial.chairperson.email || '';
+            }
+        }
+    });
+
+    // --- Submit / Save handlers ---
+    function postPayload(payload, cb) {
+        const csrfInput = document.querySelector('[name="csrfmiddlewaretoken"]');
+        const csrfToken = csrfInput ? csrfInput.value : '';
+        fetch(window.location.pathname, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(payload)
+        }).then(r => {
+            const ct = (r.headers.get('content-type') || '').toLowerCase();
+            if (ct.indexOf('application/json') !== -1) {
+                return r.json().then(data => {
+                    if (!r.ok) return cb(new Error(data.error || ('HTTP ' + r.status)), data);
+                    return cb(null, data);
+                }).catch(err => cb(err));
+            }
+            // Non-JSON response (likely an HTML error page) - surface text for debugging
+            return r.text().then(text => {
+                const msg = 'Server returned non-JSON response (status ' + r.status + ').';
+                const err = new Error(msg);
+                err.status = r.status;
+                err.text = text;
+                return cb(err, {text: text, status: r.status});
+            }).catch(err => cb(err));
+        }).catch(err => cb(err));
+    }
+
+    function savePart2() {
+        const payload = collectFormData();
+        payload.action = 'save';
+        postPayload(payload, function(err, resp){
+            if (err) return alert('Server error: ' + err);
+            if (resp && resp.success) { alert('Saved successfully.'); location.reload(); }
+            else alert('Save failed: ' + (resp.error || 'unknown'));
+        });
+    }
+
+    function submitPart2() {
+        if (!confirm('Submit Part II and lock editing? You can unlock edits later up to 2 times via manager edit option.')) return;
+        const payload = collectFormData();
+        payload.action = 'submit';
+        postPayload(payload, function(err, resp){
+            if (err) return alert('Server error: ' + err);
+            if (resp && resp.success) { alert('Submitted successfully. Form is now locked.'); location.reload(); }
+            else alert('Submit failed: ' + (resp.error || 'unknown'));
+        });
+    }
+</script>
+
+<div class="text-end my-3">
+    <button type="button" class="btn btn-success" onclick="submitPart2()">Submit & Lock</button>
+
+    <a href="javascript:history.back()" class="btn btn-secondary" style="margin-left:8px;"> Back </a>
+</div>
+
+    </form>
+</div>
+{% endblock %}
