@@ -1,0 +1,59 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+
+{% block title %}{{ "New Certificate"|t:current_lang }}{% endblock %}
+
+{% block content %}
+<style>
+    .container-form { max-width: 500px; margin: 40px auto; padding: 30px; background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
+    .form-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+    .form-actions { display: flex; gap: 10px; margin-top: 30px; }
+    .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; transition: background-color 0.3s; }
+    .btn-submit { background-color: #28a745; color: white; flex: 1; }
+    .btn-submit:hover { background-color: #218838; }
+    .btn-cancel { background-color: #6c757d; color: white; flex: 1; text-align: center; }
+    .btn-cancel:hover { background-color: #5a6268; }
+    h2 { margin-top: 0; color: #333; }
+</style>
+
+<div class="container-form">
+    <h2>{{ "Create New Certificate"|t:current_lang }}</h2>
+    <p>{{ "Please select the quarter and year for which you want to submit the certificate."|t:current_lang }}</p>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags %}{{ message.tags }}{% else %}info{% endif %}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    
+    <form method="POST">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="quarter">{{ "Quarter"|t:current_lang }} *</label>
+            <select name="quarter" id="quarter" required>
+                <option value="">{{ "Select Quarter"|t:current_lang }}</option>
+                {% for q in quarters %}
+                    <option value="{{ q }}">{{ q }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="year">{{ "Financial Year"|t:current_lang }} *</label>
+            <select name="year" id="year" required>
+                <option value="">{{ "Select Year"|t:current_lang }}</option>
+                {% for y in years %}
+                    <option value="{{ y }}">{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-submit">{{ "Continue"|t:current_lang }}</button>
+            <a href="{% url 'manager_certificate_list' %}" class="btn btn-cancel">{{ "Cancel"|t:current_lang }}</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

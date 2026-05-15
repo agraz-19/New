@@ -155,6 +155,7 @@ const recordId = pathParts[pathParts.length - 2];
 const params = new URLSearchParams(window.location.search);
 const backTo = params.get("back_to");
 const viewAs = params.get("view_as");  // detect if viewing as weekly/monthly/quarterly
+const isFillView = (viewAs || '').toLowerCase() === 'fill';
 
 if (backTo === "manager_report") {
     document.getElementById("backBtn").href = "/manager/report/";
@@ -202,7 +203,7 @@ async function loadReport() {
         function valFor(key) {
             try {
                 // If viewing as weekly/monthly/quarterly, force that frequency's cumulative
-                let period = viewAs ? viewAs.toLowerCase() : (r.frequency || 'daily').toLowerCase();
+                let period = isFillView ? 'daily' : (viewAs ? viewAs.toLowerCase() : (r.frequency || 'daily').toLowerCase());
                 const cumPeriod = (r.cumulative && r.cumulative[period]);
                 // Prefer cumulative for non-daily frequencies when available.
                 // Treat missing/null values as 0 for numeric fields.
@@ -222,7 +223,7 @@ async function loadReport() {
         // Helper to pick cumulative text for Section 11 fields for weekly/monthly/quarterly
         function valForText(textKey) {
             try {
-                let period = viewAs ? viewAs.toLowerCase() : (r.frequency || 'daily').toLowerCase();
+                let period = isFillView ? 'daily' : (viewAs ? viewAs.toLowerCase() : (r.frequency || 'daily').toLowerCase());
                 let textVal = '';
                 let src = 'rec';
                 
@@ -250,7 +251,7 @@ async function loadReport() {
 
     <!-- HEADER -->
     <div class="qpr-header">
-        <div class="title-hi">त्रैमासिक प्रगति रिपोर्ट (तिप्र)</div>
+        <div class="title-hi">तिमाही प्रगति रिपोर्ट</div>
         <div class="title-en">Quarterly Progress Report (QPR) — Official Language Implementation / राजभाषा कार्यान्वयन</div>
     </div>
 

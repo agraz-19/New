@@ -44,8 +44,14 @@
                 <a href="{% url 'manager_report' %}" class="btn btn-primary" style="background-color: #0066cc;">
                     <i class="fas fa-chart-bar"></i> {{ "Manager Report"|t:current_lang }}
                 </a>
+                <a href="{% url 'manager_employee_master_list' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-users-cog"></i> {{ "Manage Employees"|t:current_lang }}
+                </a>
                 <a href="{% url 'certificate_part2_list' %}" class="btn btn-info">
-                    <i class="fas fa-certificate"></i> {{ "Certificate"|t:current_lang }}
+                    <i class="fas fa-certificate"></i> {{ "QPR-II"|t:current_lang }}
+                </a>
+                <a href="{% url 'manager_certificate_list' %}" class="btn btn-outline-info">
+                    <i class="fas fa-award"></i> {{ "Certificate"|t:current_lang }}
                 </a>
                 <a href="{% url 'change_password' %}" class="btn btn-secondary">
                     <i class="fas fa-lock"></i> {{ "Change Password"|t:current_lang }}

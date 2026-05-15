@@ -195,7 +195,7 @@
                                     </form>
                                     
                                     {% if cert.is_submitted %}
-                                        <a href="{% url 'certificate_part2_print' cert.id %}" target="_blank" class="btn-action btn-print">{{ "Print"|t:current_lang }}</a>
+                                        <a href="{% url 'certificate_part2_print' cert.id %}" class="btn-action btn-print">{{ "Print"|t:current_lang }}</a>
                                     {% endif %}
                                     
                                     {% if not cert.is_submitted %}

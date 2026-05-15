@@ -1,0 +1,210 @@
+{% extends "master.html" %}
+{% load static %}
+{% load translate_tags %}
+
+{% block title %}{{ "Edit Quarterly Snapshot"|t:current_lang }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .snapshot-edit-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+    .snapshot-warning {
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    .snapshot-field {
+        margin-bottom: 15px;
+    }
+    .snapshot-composition {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        border-left: 4px solid #667eea;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <div class="snapshot-edit-header">
+        <h2>{{ "Edit Quarterly Snapshot"|t:current_lang }}</h2>
+        <p class="mb-0">
+            {{ quarter }} {{ year }} 
+            ({{ period_start }} {{ "to"|t:current_lang }} {{ period_end }})
+        </p>
+    </div>
+
+    <div class="snapshot-warning">
+        <h5>⚠️ {{ "Important"|t:current_lang }}</h5>
+        <p class="mb-0">
+            {{ "Once you save this snapshot, automatic aggregation will be LOCKED. This means future daily/weekly/monthly submissions will not update this snapshot automatically. You can only manually edit it again."|t:current_lang }}
+        </p>
+        {% if is_overwritten %}
+        <p class="mt-2 text-muted mb-0">
+            {{ "This snapshot was previously edited on:"|t:current_lang }} <strong>{{ overwritten_at }}</strong>
+        </p>
+        {% endif %}
+    </div>
+
+    <div class="snapshot-composition">
+        <h5>{{ "Snapshot Composition"|t:current_lang }}</h5>
+        <p class="mb-1">
+            {{ "This snapshot is composed of:"|t:current_lang }}
+        </p>
+        <ul class="mb-0">
+            <li>Daily submissions you made</li>
+            <li>Weekly/Monthly/Quarterly fill entries for missing days</li>
+            <li>Auto-aggregated values from above sources</li>
+        </ul>
+    </div>
+
+    <form method="post" id="snapshotForm">
+        {% csrf_token %}
+
+        <!-- Field Sections (matching QPRForm structure) -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">{{ "Section 1: Files"|t:current_lang }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 snapshot-field">
+                        <label for="s1_total" class="form-label">{{ "s1_total"|t:current_lang }}</label>
+                        <input type="number" id="s1_total" name="s1_total" class="form-control" value="{{ s1_total }}" min="0">
+                    </div>
+                    <div class="col-md-6 snapshot-field">
+                        <label for="s1_hindi" class="form-label">{{ "s1_hindi"|t:current_lang }}</label>
+                        <input type="number" id="s1_hindi" name="s1_hindi" class="form-control" value="{{ s1_hindi }}" min="0">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">{{ "Section 2: Meetings"|t:current_lang }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 snapshot-field">
+                        <label for="s2_meetings" class="form-label">{{ "s2_meetings"|t:current_lang }}</label>
+                        <input type="number" id="s2_meetings" name="s2_meetings" class="form-control" value="{{ s2_meetings }}" min="0">
+                    </div>
+                    <div class="col-md-4 snapshot-field">
+                        <label for="s2_minutes" class="form-label">{{ "s2_minutes"|t:current_lang }}</label>
+                        <input type="number" id="s2_minutes" name="s2_minutes" class="form-control" value="{{ s2_minutes }}" min="0">
+                    </div>
+                    <div class="col-md-4 snapshot-field">
+                        <label for="s2_papers_total" class="form-label">{{ "s2_papers_total"|t:current_lang }}</label>
+                        <input type="number" id="s2_papers_total" name="s2_papers_total" class="form-control" value="{{ s2_papers_total }}" min="0">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Official Languages -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">{{ "Section 3: Languages"|t:current_lang }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 snapshot-field">
+                        <label for="s3_total" class="form-label">{{ "s3_total"|t:current_lang }}</label>
+                        <input type="number" id="s3_total" name="s3_total" class="form-control" value="{{ s3_total }}" min="0">
+                    </div>
+                    <div class="col-md-6 snapshot-field">
+                        <label for="s3_bilingual" class="form-label">{{ "s3_bilingual"|t:current_lang }}</label>
+                        <input type="number" id="s3_bilingual" name="s3_bilingual" class="form-control" value="{{ s3_bilingual }}" min="0">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Letters -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">{{ "Section 4: Letters"|t:current_lang }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 snapshot-field">
+                        <label for="s4_total" class="form-label">{{ "s4_total"|t:current_lang }}</label>
+                        <input type="number" id="s4_total" name="s4_total" class="form-control" value="{{ s4_total }}" min="0">
+                    </div>
+                    <div class="col-md-3 snapshot-field">
+                        <label for="s4_no_reply" class="form-label">{{ "s4_no_reply"|t:current_lang }}</label>
+                        <input type="number" id="s4_no_reply" name="s4_no_reply" class="form-control" value="{{ s4_no_reply }}" min="0">
+                    </div>
+                    <div class="col-md-3 snapshot-field">
+                        <label for="s4_replied_hindi" class="form-label">{{ "s4_replied_hindi"|t:current_lang }}</label>
+                        <input type="number" id="s4_replied_hindi" name="s4_replied_hindi" class="form-control" value="{{ s4_replied_hindi }}" min="0">
+                    </div>
+                    <div class="col-md-3 snapshot-field">
+                        <label for="s4_replied_eng" class="form-label">{{ "s4_replied_eng"|t:current_lang }}</label>
+                        <input type="number" id="s4_replied_eng" name="s4_replied_eng" class="form-control" value="{{ s4_replied_eng }}" min="0">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5-8 (abbreviated - keep key fields) -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">{{ "Other Sections"|t:current_lang }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 snapshot-field">
+                        <label for="s5_total" class="form-label">{{ "s5_total"|t:current_lang }}</label>
+                        <input type="number" id="s5_total" name="s5_total" class="form-control" value="{{ s5_total }}" min="0">
+                    </div>
+                    <div class="col-md-4 snapshot-field">
+                        <label for="s7_total" class="form-label">{{ "s7_total"|t:current_lang }}</label>
+                        <input type="number" id="s7_total" name="s7_total" class="form-control" value="{{ s7_total }}" min="0">
+                    </div>
+                    <div class="col-md-4 snapshot-field">
+                        <label for="s8_workshops" class="form-label">{{ "s8_workshops"|t:current_lang }}</label>
+                        <input type="number" id="s8_workshops" name="s8_workshops" class="form-control" value="{{ s8_workshops }}" min="0">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-flex gap-2 mb-4">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="fas fa-save"></i> {{ "Save and Lock"|t:current_lang }}
+            </button>
+            <a href="{% url 'qpr_report_list' %}" class="btn btn-secondary btn-lg">
+                {{ "Cancel"|t:current_lang }}
+            </a>
+        </div>
+
+        <!-- Info about all fields -->
+        <div class="alert alert-info">
+            <strong>{{ "Note:"|t:current_lang }}</strong>
+            {{ "Edit any of the numerical fields above. When you save, this snapshot will be marked as manually edited and will no longer receive automatic updates from daily/weekly/monthly submissions."|t:current_lang }}
+        </div>
+    </form>
+
+</div>
+
+<script>
+    document.getElementById('snapshotForm').addEventListener('submit', function(e) {
+        if (!confirm("{{ 'Are you sure you want to save this snapshot? It will be locked from automatic aggregation.|t:current_lang' }}")) {
+            e.preventDefault();
+        }
+    });
+</script>
+{% endblock %}

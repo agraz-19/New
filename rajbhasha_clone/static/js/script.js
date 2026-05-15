@@ -82,6 +82,25 @@ function populateMonthDropdown() {
 let API_URL = window.QPR_API_URL || null;
 let records = []; // Store data globally
 
+function unlockQprFillControls() {
+    const frequencyEl = document.getElementById('frequency');
+    if (frequencyEl) {
+        frequencyEl.disabled = false;
+        Array.from(frequencyEl.options).forEach(opt => {
+            opt.disabled = false;
+        });
+    }
+
+    const selectedDateEl = document.getElementById('selectedDate');
+    if (selectedDateEl) {
+        selectedDateEl.disabled = false;
+        selectedDateEl.readOnly = false;
+        selectedDateEl.removeAttribute('min');
+        selectedDateEl.setCustomValidity('');
+        selectedDateEl.classList.remove('text-muted');
+    }
+}
+
 // Function to mask sensitive fields
 function maskSensitiveData(value) {
     if (!value || value === '-') return '-';
@@ -131,6 +150,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             const availabilityBoxId = 'qprAvailabilityBox';
+            function isScopedSnapshotEditMode() {
+                const params = new URLSearchParams(window.location.search || '');
+                const urlScope = (params.get('edit_scope') || '').toLowerCase();
+                const hiddenScope = (document.getElementById('snapshotEditScope')?.value || '').toLowerCase();
+                return ['weekly', 'monthly', 'quarterly'].includes(urlScope || hiddenScope);
+            }
             function showAvailabilityBox(html) {
                 let box = document.getElementById(availabilityBoxId);
                 if (!box) {
@@ -163,21 +188,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         const j = await res.json();
                     }
-                    // set min/max/default
+                    // Set a default and max date; previous dates must remain selectable.
                     if (selectedDateEl) {
-                        selectedDateEl.min = j.min_date;
-                        selectedDateEl.max = j.max_date;
                         if (!selectedDateEl.value) selectedDateEl.value = j.default_date;
+                        if (j.max_date) selectedDateEl.max = j.max_date;
                     }
-                    // enable/disable frequency options
-                    if (frequencyEl) {
-                        Array.from(frequencyEl.options).forEach(opt => {
-                            if (opt.value === '') return; // keep placeholder
-                            opt.disabled = !j.allowed.includes(opt.value);
-                        });
-                        // default to daily if current selection is invalid
-                        if (!j.allowed.includes(frequencyEl.value)) frequencyEl.value = 'daily';
-                    }
+                    unlockQprFillControls();
+                    if (selectedDateEl && j.max_date) selectedDateEl.max = j.max_date;
                     // show missing days summary
                     const missing = [];
                     if (j.missing_week && j.missing_week.length) missing.push('<strong>Missing (week):</strong> ' + j.missing_week.join(', '));
@@ -190,77 +207,101 @@ document.addEventListener('DOMContentLoaded', () => {
             if (selectedDateEl) {
                 // initialize and fetch
                 if (!selectedDateEl.value) selectedDateEl.value = (new Date()).toISOString().slice(0,10);
+                unlockQprFillControls();
                 fetchAvailability(selectedDateEl.value);
                 selectedDateEl.addEventListener('change', (e) => {
+                    unlockQprFillControls();
                     fetchAvailability(e.target.value);
                 });
             }
 
             if (frequencyEl) {
                 frequencyEl.addEventListener('change', () => {
-                    // if non-daily selected, make date input read-only instead of disabled
-                    // so its value is still submitted to the server
-                    if (frequencyEl.value && frequencyEl.value !== 'daily') {
-                        if (selectedDateEl) {
-                            selectedDateEl.readOnly = true;
-                            selectedDateEl.classList.add('text-muted');
+                    // Update missing days alert based on frequency
+                    const missingDaysAlert = document.getElementById('missingDaysAlert');
+                    if (missingDaysAlert && window.MISSING_DAYS_DATA) {
+                        const freq = frequencyEl.value;
+                        if (freq && freq !== 'daily') {
+                            const missingInfo = window.MISSING_DAYS_DATA[freq];
+                            if (missingInfo && missingInfo.message) {
+                                document.getElementById('missingDaysTitle').textContent = `${freq.charAt(0).toUpperCase() + freq.slice(1)} - Missing Days Info`;
+                                document.getElementById('missingDaysMessage').textContent = missingInfo.message;
+                                
+                                // Show missing days list
+                                if (missingInfo.missing_days && missingInfo.missing_days.length) {
+                                    const daysList = missingInfo.missing_days.map(d => new Date(d + 'T00:00').toLocaleDateString('en-IN', {weekday: 'short', month: 'short', day: 'numeric'})).join(', ');
+                                    document.getElementById('missingDaysList').textContent = `Missing dates: ${daysList}`;
+                                } else {
+                                    document.getElementById('missingDaysList').textContent = 'No missing days - all days are covered.';
+                                }
+                                
+                                // Show info about existing Fill
+                                if (missingInfo.has_fill) {
+                                    document.getElementById('existingFillInfo').textContent = `✓ You have already filled ${missingInfo.fill_fields_count} field(s) for this ${freq}. Submitting will update these values.`;
+                                } else {
+                                    document.getElementById('existingFillInfo').textContent = '';
+                                }
+                                
+                                missingDaysAlert.classList.remove('d-none');
+                            } else {
+                                missingDaysAlert.classList.add('d-none');
+                            }
+                        } else {
+                            missingDaysAlert.classList.add('d-none');
                         }
-                        // disable/hide Save as Draft on non-daily frequencies
-                        try {
-                            const saveDraftBtn = document.getElementById('saveDraftBtn');
-                            if (saveDraftBtn) {
+                    }
+                    
+                    unlockQprFillControls();
+                    // Draft is valid for normal QPR entry flows, including weekly/monthly/quarterly
+                    // entries used to fill missed daily periods. Hide it only for snapshot overwrites.
+                    try {
+                        const saveDraftBtn = document.getElementById('saveDraftBtn');
+                        if (saveDraftBtn) {
+                            if (isScopedSnapshotEditMode()) {
                                 saveDraftBtn.disabled = true;
                                 saveDraftBtn.classList.add('d-none');
-                            }
-                        } catch(e) {}
-                    } else {
-                        if (selectedDateEl) {
-                            selectedDateEl.readOnly = false;
-                            selectedDateEl.classList.remove('text-muted');
-                        }
-                        try {
-                            const saveDraftBtn = document.getElementById('saveDraftBtn');
-                            if (saveDraftBtn) {
+                            } else {
                                 saveDraftBtn.disabled = false;
                                 saveDraftBtn.classList.remove('d-none');
                             }
-                        } catch(e) {}
-                    }
+                        }
+                    } catch(e) {}
                 });
-                // initialize draft button state based on current frequency
+                // initialize draft button state based on current edit mode
                 try {
                     const saveDraftBtn = document.getElementById('saveDraftBtn');
                     if (saveDraftBtn) {
-                        if (frequencyEl.value && frequencyEl.value !== 'daily') {
+                        if (isScopedSnapshotEditMode()) {
                             saveDraftBtn.disabled = true;
                             saveDraftBtn.classList.add('d-none');
                         } else {
                             saveDraftBtn.disabled = false;
                             saveDraftBtn.classList.remove('d-none');
                         }
-                        // prevent accidental usage if clicked while disabled
-                        saveDraftBtn.addEventListener('click', function(ev){
-                            if (frequencyEl.value !== 'daily') {
-                                ev.preventDefault();
-                                alert('Save as Draft is allowed only for Daily frequency. Please select Daily to save drafts.');
-                                return false;
-                            }
-                        });
+                        // prevent accidental usage during snapshot overwrite edits
+                        try {
+                            saveDraftBtn.addEventListener('click', function(ev){
+                                if (isScopedSnapshotEditMode()) {
+                                    ev.preventDefault();
+                                    alert('Draft is not available for snapshot overwrites. Please submit the snapshot changes.');
+                                    return false;
+                                }
+                            });
+                        } catch(e) {}
                     }
                 } catch(e) {}
 
-                // Prevent form submitting a draft when frequency is not daily (covers hidden inputs)
+                // Prevent form submitting a draft during snapshot overwrite edits (covers hidden inputs)
                 try {
                     const qprForm = document.getElementById('qprForm');
                     if (qprForm) {
                         qprForm.addEventListener('submit', function(ev){
                             try {
-                                const freq = (frequencyEl && frequencyEl.value) ? frequencyEl.value : 'daily';
                                 const statusInput = qprForm.querySelector('input[name="status"]');
                                 const statusVal = statusInput ? String(statusInput.value).toLowerCase() : null;
-                                if (freq !== 'daily' && statusVal === 'draft') {
+                                if (isScopedSnapshotEditMode() && statusVal === 'draft') {
                                     ev.preventDefault();
-                                    alert('Drafts are allowed only for Daily frequency. Change frequency to Daily to save as Draft.');
+                                    alert('Draft is not available for snapshot overwrites. Please submit the snapshot changes.');
                                     return false;
                                 }
                             } catch(e) { /* ignore */ }
@@ -552,7 +593,10 @@ async function loadData() {
         }
 
         // Check if we're coming from edit action in report list
-        const editId = localStorage.getItem('editRecordId');
+        const editParams = new URLSearchParams(window.location.search || '');
+        const editId = editParams.get('edit_record') || localStorage.getItem('editRecordId');
+        const editScopeFromUrl = (editParams.get('edit_scope') || '').toLowerCase();
+        if (editScopeFromUrl) localStorage.setItem('editSnapshotScope', editScopeFromUrl);
         console.log("After loadData - editId from localStorage:", editId);
         console.log("Total records loaded:", records.length);
         
@@ -611,6 +655,7 @@ async function saveData(status) {
         payload.frequency = 'daily';
         document.getElementById('frequency').value = 'daily';
     }
+    unlockQprFillControls();
 
     console.log("Payload being sent:", payload);
 
@@ -649,6 +694,24 @@ async function saveData(status) {
             form.appendChild(statusInput);
         }
         statusInput.value = status;
+
+        let frequencyInput = form.querySelector('input[name="frequency"][type="hidden"]');
+        if (!frequencyInput) {
+            frequencyInput = document.createElement('input');
+            frequencyInput.type = 'hidden';
+            frequencyInput.name = 'frequency';
+            form.appendChild(frequencyInput);
+        }
+        frequencyInput.value = payload.frequency;
+
+        let selectedDateInput = form.querySelector('input[name="selected_date"][type="hidden"]');
+        if (!selectedDateInput) {
+            selectedDateInput = document.createElement('input');
+            selectedDateInput.type = 'hidden';
+            selectedDateInput.name = 'selected_date';
+            form.appendChild(selectedDateInput);
+        }
+        selectedDateInput.value = payload.selected_date;
 
         form.submit();
         return;
@@ -698,6 +761,24 @@ function editRecord(id) {
         return;
     }
 
+    const editParams = new URLSearchParams(window.location.search || '');
+    const requestedSnapshotScope = (
+        editParams.get('edit_scope') ||
+        localStorage.getItem('editSnapshotScope') ||
+        record.edit_approved_scope ||
+        ''
+    ).toLowerCase();
+    const scopedEditRequested = ['weekly', 'monthly', 'quarterly'].includes(requestedSnapshotScope);
+    const snapshotEdit = (record.snapshot_edit && record.snapshot_edit.scope === requestedSnapshotScope) ? record.snapshot_edit : null;
+    const editFrequency = snapshotEdit ? snapshotEdit.scope : (scopedEditRequested ? requestedSnapshotScope : (record.frequency || 'daily'));
+    const canUseCurrentApproval = !(record.edit_approved_scope) || !!snapshotEdit || scopedEditRequested;
+    const canEditCurrentRecord = !!record.can_edit || (!!record.snapshot_can_edit && (!!snapshotEdit || scopedEditRequested)) || scopedEditRequested;
+    if (record.edit_approved_scope && record.edit_approved_scope !== requestedSnapshotScope && !snapshotEdit) {
+        alert('This approval is only for the ' + record.edit_approved_scope + ' cumulative QPR. Please open the matching ' + record.edit_approved_scope + ' row from the report list.');
+        window.location.href = '/qpr/reports/';
+        return;
+    }
+
     // Fill Main Fields - Apply masking to all records
     document.getElementById('recordId').value = record.id;
     const officeNameEl = document.getElementById('officeName');
@@ -709,6 +790,20 @@ function editRecord(id) {
     if (regionEl && String(regionEl.dataset.protected) !== '1') regionEl.value = record.region || '';
     const quarterEl = document.getElementById('quarter');
     if (quarterEl) quarterEl.value = record.quarter || '';
+    const yearEl = document.getElementById('year');
+    if (yearEl && record.year) yearEl.value = record.year;
+    const selectedDateEl = document.getElementById('selectedDate');
+    if (selectedDateEl) {
+        const editPeriodStart = snapshotEdit ? snapshotEdit.period_start : record.period_start;
+        if (editPeriodStart) selectedDateEl.value = String(editPeriodStart).slice(0, 10);
+        if (scopedEditRequested) {
+            selectedDateEl.removeAttribute('min');
+            selectedDateEl.removeAttribute('max');
+            selectedDateEl.setCustomValidity('');
+        }
+    }
+    const snapshotScopeEl = document.getElementById('snapshotEditScope');
+    if (snapshotScopeEl) snapshotScopeEl.value = snapshotEdit ? snapshotEdit.scope : (scopedEditRequested ? requestedSnapshotScope : '');
     
     // Handle phone field if it exists in details
     const phoneEl = document.getElementById('phone');
@@ -721,23 +816,41 @@ function editRecord(id) {
     if (emailEl && String(emailEl.dataset.protected) !== '1') {
         emailEl.value = record.email || '';
     }
-    // Fill Details - Apply masking to all records
-    if (record.details) {
-    for (const [key, value] of Object.entries(record.details)) {
-        const el = document.getElementById(key);
-        if (el) {
-            el.value = value;
+    // Edit mode must use the record's original entry type, not today's default.
+    const freqEl = document.getElementById('frequency');
+    if (freqEl) {
+        if (scopedEditRequested) {
+            Array.from(freqEl.options).forEach(opt => {
+                if (opt.value === requestedSnapshotScope) opt.disabled = false;
+            });
+        }
+        freqEl.value = editFrequency;
+        freqEl.dispatchEvent(new Event('change'));
+        if (scopedEditRequested) {
+            Array.from(freqEl.options).forEach(opt => {
+                if (opt.value === requestedSnapshotScope) opt.disabled = false;
+            });
+            freqEl.value = editFrequency;
+        }
+    }
+
+    // Fill Details after frequency handlers run so scoped snapshot values win.
+    const cumulativeDetails = (scopedEditRequested && record.cumulative && record.cumulative[requestedSnapshotScope])
+        ? record.cumulative[requestedSnapshotScope]
+        : null;
+    const detailSource = snapshotEdit ? snapshotEdit.details : (cumulativeDetails || record.details);
+    if (detailSource) {
+        for (const [key, value] of Object.entries(detailSource)) {
+            const el = document.getElementById(key);
+            if (el) {
+                el.value = value;
             }
         }
     }
-    // frequency is server-determined; ensure it defaults to 'daily' if empty
-    const freqEl = document.getElementById('frequency');
-    if (freqEl && (!freqEl.value || freqEl.value === '')) {
-        freqEl.value = record.frequency || 'daily';
-    }
+    localStorage.removeItem('editSnapshotScope');
     
     // Disable/Enable form based on edit permission
-    setFormEditability(record.can_edit, record.edit_approved);
+    setFormEditability(canEditCurrentRecord && canUseCurrentApproval, (record.edit_approved || scopedEditRequested) && canUseCurrentApproval);
 
     showTab(1);
 }
