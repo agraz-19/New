@@ -1,0 +1,100 @@
+{% extends "master.html" %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-primary mb-1">{{ page_title }}</h2>
+            <p class="text-muted mb-0">Enter all fields needed for the employee master table.</p>
+        </div>
+        <a href="{% url 'manager_employee_master_list' %}" class="btn btn-outline-secondary">Back to Employee Master</a>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" for="{{ form.empcode.id_for_label }}">Employee Code</label>
+                        {{ form.empcode }}
+                        {% if form.empcode.errors %}<div class="text-danger small mt-1">{{ form.empcode.errors|join:", " }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" for="{{ form.name.id_for_label }}">Name</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors|join:", " }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" for="{{ form.hindi_name.id_for_label }}">Name in Hindi</label>
+                        {{ form.hindi_name }}
+                        {% if form.hindi_name.errors %}<div class="text-danger small mt-1">{{ form.hindi_name.errors|join:", " }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" for="{{ form.designation.id_for_label }}">Designation</label>
+                        {{ form.designation }}
+                        {% if form.designation.errors %}<div class="text-danger small mt-1">{{ form.designation.errors|join:", " }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" for="{{ form.state.id_for_label }}">State</label>
+                        {{ form.state }}
+                        {% if form.state.errors %}<div class="text-danger small mt-1">{{ form.state.errors|join:", " }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" for="{{ form.mobile.id_for_label }}">Mobile</label>
+                        {{ form.mobile }}
+                        {% if form.mobile.errors %}<div class="text-danger small mt-1">{{ form.mobile.errors|join:", " }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" for="{{ form.ip_number.id_for_label }}">IP Number</label>
+                        {{ form.ip_number }}
+                        {% if form.ip_number.errors %}<div class="text-danger small mt-1">{{ form.ip_number.errors|join:", " }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" for="{{ form.emergency_contact.id_for_label }}">Emergency Contact</label>
+                        {{ form.emergency_contact }}
+                        {% if form.emergency_contact.errors %}<div class="text-danger small mt-1">{{ form.emergency_contact.errors|join:", " }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" for="{{ form.division.id_for_label }}">Division</label>
+                        {{ form.division }}
+                        {% if form.division.errors %}<div class="text-danger small mt-1">{{ form.division.errors|join:", " }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="form-check mt-4 pt-2">
+                            {{ form.is_active }}
+                            <label class="form-check-label fw-semibold" for="{{ form.is_active.id_for_label }}">Active employee</label>
+                        </div>
+                        {% if form.is_active.errors %}<div class="text-danger small mt-1">{{ form.is_active.errors|join:", " }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" for="{{ form.transferred_at.id_for_label }}">Transferred At</label>
+                        {{ form.transferred_at }}
+                        {% if form.transferred_at.errors %}<div class="text-danger small mt-1">{{ form.transferred_at.errors|join:", " }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" for="{{ form.remarks.id_for_label }}">Remarks</label>
+                        {{ form.remarks }}
+                        {% if form.remarks.errors %}<div class="text-danger small mt-1">{{ form.remarks.errors|join:", " }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+                    <a href="{% url 'manager_employee_master_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

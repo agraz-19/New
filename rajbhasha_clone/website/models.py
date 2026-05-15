@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser, UserManager, User
 from cryptography.fernet import Fernet
@@ -8,6 +10,9 @@ import hashlib
 import json
 import datetime
 from django.contrib.auth.models import BaseUserManager
+
+if TYPE_CHECKING:
+    from django.db.models.manager import RelatedManager
 
 cipher_suite = Fernet(settings.ENCRYPTION_KEY)
 
@@ -54,6 +59,10 @@ class CustomUserManager(UserManager["CustomUser"]):
         return user
 
 class CustomUser(AbstractUser):
+    #type check
+    id: int
+    profile: 'UserProfile'
+
     email_hash = models.CharField(max_length=64, unique=False, null=True, blank=True)
     encrypted_email_data = models.BinaryField(null=True, blank=True)
     email = models.EmailField(unique=False, null=True, blank=True)
@@ -121,6 +130,30 @@ class Office(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.name}"
+
+
+class EmployeeMaster(models.Model):
+    """Imported employee registry used for empcode validation and autofill."""
+    empcode = models.IntegerField(unique=True, db_index=True)
+    name = models.CharField(max_length=255, blank=True, null=True)
+    hindi_name = models.CharField(max_length=255, blank=True, null=True)
+    designation = models.CharField(max_length=255, blank=True, null=True)
+    state = models.CharField(max_length=100, blank=True, null=True)
+    mobile = models.CharField(max_length=20, blank=True, null=True)
+    ip_number = models.CharField(max_length=50, blank=True, null=True)
+    emergency_contact = models.CharField(max_length=20, blank=True, null=True)
+    division = models.CharField(max_length=255, blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    transferred_at = models.DateField(blank=True, null=True)
+    remarks = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['empcode']
+
+    def __str__(self):
+        return f"{self.empcode} - {self.name or ''}".strip()
 
 
 class Employee(models.Model):
@@ -425,11 +458,22 @@ class EditRequest(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.request_type} ({self.status})"
     
+    def get_request_type_display(self) -> str:
+        """Return the human-readable display value for request_type."""
+        return dict(self.REQUEST_TYPE_CHOICES).get(self.request_type, self.request_type)
+    
+    def get_status_display(self) -> str:
+        """Return the human-readable display value for status."""
+        return dict(self.STATUS_CHOICES).get(self.status, self.status)
+    
     class Meta:
         ordering = ['-created_at']
 
 
 class QPRRecord(models.Model):
+    #type check
+    id: int
+    user_id: int
     """Main QPR Record - stores header information"""
     user = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.CASCADE,related_name='qpr_records',null=True,blank=True)
     officeName = models.CharField(max_length=255)
@@ -610,6 +654,8 @@ class CertificateData(models.Model):
 
 
 class ManagerCertificate(models.Model):
+    #type check
+    id: int
     """Standalone manager certificate by quarter and financial year."""
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='manager_certificates')
     quarter = models.CharField(max_length=20)
@@ -637,6 +683,11 @@ class ManagerCertificate(models.Model):
 
 
 class QPRPartTwo(models.Model):
+    # Type hints for reverse relations (for Pylance)
+    id: int
+    websites: RelatedManager[WebsiteDetail]
+    hindi_posts: RelatedManager[HindiPost]
+    
     qpr_record = models.OneToOneField(
         QPRRecord,
         on_delete=models.CASCADE,
