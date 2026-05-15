@@ -1,4 +1,3 @@
-from django import urls
 from django.urls import path, include
 from captcha import views as captcha_views
 from website import views
@@ -37,7 +36,6 @@ urlpatterns = [
     path('qpr/admin/dashboard/', views.admin_dashboard, name='qpr_admin_dashboard'),
     path('manager/dashboard/', views.manager_dashboard, name='manager_dashboard'),
     path('manager/report/', views.manager_report, name='manager_report'),
-    path('manager/report/edit/<int:record_id>/', views.manager_report_edit_view, name='manager_report_edit'),
     path('manager/report/record/<int:record_id>/', views.manager_report_detail_by_record, name='manager_report_detail_by_record'),
     path('qpr/certificate/<int:record_id>/', views.qpr_certificate, name='qpr_certificate'),
     path('qpr/certificate/<int:record_id>/form/', views.certificate_form_view, name='certificate_form'),
@@ -56,8 +54,6 @@ urlpatterns = [
     path('manager/certificates/<int:pk>/print/', views.manager_certificate_print, name='manager_certificate_print'),
     path('manager/certificates/<int:pk>/delete/', views.manager_certificate_delete, name='manager_certificate_delete'),
     
-    # Debug
-    path('debug/whoami/', views.debug_whoami, name='debug_whoami'),
     path('qpr/hod/dashboard/', views.qpr_hod_dashboard, name='qpr_hod_dashboard'),
     path('qpr/user/dashboard/', views.user_dashboard, name='qpr_user_dashboard'),
 
@@ -113,8 +109,6 @@ urlpatterns = [
     path('download-backup/', views.download_db_backup, name='download_db_backup'),
     path('perform/archive/<int:user_id>/', views.archive_user, name='archive_user'),
     path('perform/unarchive/<int:archive_id>/', views.unarchive_user, name='unarchive_user'),
-
-    path('manager/report/<str:year>/<path:quarter>/print-all/', views.print_all_qpr_reports, name='print_all_qpr_reports'),
     path('manager/report/<str:year>/<path:quarter>/', views.manager_report_detail, name='manager_report_detail'),
     path('manager/state-qpr/', views.manager_state_qpr, name='manager_state_qpr'),
     path("event/<str:folder>/", views.event_detail, name="event_detail"),

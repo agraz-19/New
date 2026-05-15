@@ -1,10 +1,10 @@
 ﻿{% extends 'master.html' %}
 {% load translate_tags %}
-
+{% load static %}
 {% block content %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="{% static 'js/xlsx.full.min.js' %}"></script>
+<script src="{% static 'js/html2canvas.min.js' %}"></script>
+<script src="{% static 'js/jspdf.umd.min.js' %}"></script>
 
 <div class="container mt-5 mb-5">
     <div class="row justify-content-center">
