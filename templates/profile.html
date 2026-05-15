@@ -171,8 +171,8 @@
                                 <select name="hod_name" class="form-select" {% if not can_edit %}disabled{% endif %} {% if profile_approval_required %}required{% endif %}>
                                     <option value="">-- Select Approver --</option>
                                     {% for hod in available_hods %}
-                                        <option value="{{ hod }}" {% if profile_approval_required and hod == current_hod %}selected{% endif %}>
-                                            {{ hod }}
+                                        <option value="{{ hod.value }}" {% if current_hod == hod.value or current_hod == hod.username or current_hod == hod.name %}selected{% endif %}>
+                                            {{ hod.label }}
                                         </option>
                                     {% endfor %}
                                     <option value="ADMIN" {% if current_hod == "ADMIN" or not profile_approval_required %}selected{% endif %}>
