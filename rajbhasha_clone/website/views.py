@@ -5,13 +5,20 @@ import json
 import logging
 import os
 import random
+<<<<<<< HEAD
 import openpyxl
+=======
+>>>>>>> origin/main
 import subprocess
 import secrets
 
 # Django / stdlib
 from django.conf import settings
 from django.db.models import Q
+<<<<<<< HEAD
+=======
+from django.core.paginator import Paginator
+>>>>>>> origin/main
 from django.contrib import messages
 from django.contrib.auth import login as auth_login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -30,6 +37,10 @@ from django.views import View
 from website.models import QPRFinalization
 from .forms import ManagerQPRForm
 from .forms import AdminQPRForm
+<<<<<<< HEAD
+=======
+from .forms import EmployeeMasterForm
+>>>>>>> origin/main
 from datetime import date, datetime, timedelta
 from typing import Any, cast
 from urllib.parse import urlencode
@@ -65,7 +76,7 @@ from .templatetags.translate_tags import translate_text
 
 from .models import (
     ArchivedUser, CertificateData, CodeManualStandardForms, CustomUser, DataAccessLog,
-    EditRequest, Employee, HindiPost, ManagerCertificate, ManagerRequest, MonthlyFill,
+    EditRequest, Employee, EmployeeMaster, HindiPost, ManagerCertificate, ManagerRequest, MonthlyFill,
     MonthlySnapshot, ProfileChangeRequest, QPRPartTwo, QPRRecord, QuarterlyFill,
     QuarterlySnapshot, Role, Section1FilesData, Section2MeetingsData,
     Section3OfficialLanguagesData, Section4HindiLettersData,
@@ -95,6 +106,7 @@ def get_employee_details_form(request):
             return JsonResponse({'status': 'error', 'message': 'Employee code required'})
         
         try:
+<<<<<<< HEAD
             excel_file = os.path.join(settings.MEDIA_ROOT, 'data', 'tg_hod_officers_employee_report.xlsx')
             
             if not os.path.exists(excel_file):
@@ -120,16 +132,23 @@ def get_employee_details_form(request):
                     break
             
             if not found:
+=======
+            master_employee = EmployeeMaster.objects.filter(empcode=empcode, is_active=True).first()
+
+            if not master_employee:
+>>>>>>> origin/main
                 return JsonResponse({'status': 'error', 'message': 'Invalid Employee Code'})
             
             return JsonResponse({
                 'status': 'success',
-                'name': row_data.get('Name', '') or '',
-                'mobile': row_data.get('Mobile', '') or '',
-                'ip_number': row_data.get('IP Number', '') or '',
-                'state': row_data.get('State', '') or '',
-                'hindi_name': row_data.get('Name in Hindi', '') or '',
-                'designation': row_data.get('Designation', '') or '',
+                'name': master_employee.name or '',
+                'mobile': master_employee.mobile or '',
+                'ip_number': master_employee.ip_number or '',
+                'state': master_employee.state or '',
+                'hindi_name': master_employee.hindi_name or '',
+                'designation': master_employee.designation or '',
+                'division': master_employee.division or '',
+                'office_name': '',
                 'email': '',
             })
         
@@ -404,6 +423,7 @@ def is_admin(user):
     return user.is_authenticated and user_has_role(user, 'admin')
 
 def get_active_hods(office_code=None):
+<<<<<<< HEAD
     hod_query = UserProfile.objects.filter(Q(roles__name='hod') | Q(user__roles__name='hod'))
     hod_names = lambda qs: list(
         qs.exclude(user__username__isnull=True)
@@ -415,10 +435,43 @@ def get_active_hods(office_code=None):
     
     if office_code:
         specific_hods = hod_names(hod_query.filter(office_code=office_code))
+=======
+    hod_query = UserProfile.objects.filter(
+        Q(roles__name='hod') | Q(user__roles__name='hod')
+    ).select_related('user', 'employee').distinct()
+
+    def serialize_hods(qs):
+        items = []
+        seen_values = set()
+        for hod in qs.exclude(user__username__isnull=True).exclude(user__username=''):
+            value = (hod.employee_code or getattr(hod.user, 'username', '') or '').strip()
+            username = (getattr(hod.user, 'username', '') or '').strip()
+            name = (
+                (hod.name or '').strip()
+                or (getattr(hod.employee, 'ename', '') or '').strip()
+                or (hod.user.get_full_name() or '').strip()
+                or username
+            )
+            if not value or value in seen_values:
+                continue
+            seen_values.add(value)
+            label = f"{name} ({value})" if name and name != value else value
+            items.append({
+                'value': value,
+                'label': label,
+                'name': name,
+                'username': username,
+            })
+        items.sort(key=lambda item: item['label'].lower())
+        return items
+
+    if office_code:
+        specific_hods = serialize_hods(hod_query.filter(office_code=office_code))
+>>>>>>> origin/main
         if specific_hods:
             return specific_hods
-            
-    return hod_names(hod_query)
+
+    return serialize_hods(hod_query)
 
 def _convert_to_int(value):
     if value == '' or value is None: return None
@@ -2199,6 +2252,14 @@ def profile_view(request):
             messages.error(request, "HOD/Approver selection is required.")
             return redirect('profile')
 
+<<<<<<< HEAD
+=======
+        master_employee = EmployeeMaster.objects.filter(empcode=empcode, is_active=True).first()
+        if not master_employee:
+            messages.error(request, "Invalid Employee Code. Please enter a code available in the employee master table.")
+            return redirect('profile')
+
+>>>>>>> origin/main
         employee = Employee.objects.filter(empcode=empcode).first()
         form = EmployeeForm(request.POST, instance=employee)
         if not form.is_valid():
@@ -2218,14 +2279,14 @@ def profile_view(request):
                 profile = UserProfile(user=user)
 
             profile.employee_code = empcode
-            profile.phone = phone
+            profile.phone = phone or (master_employee.mobile or '').strip()
             profile.office_code = request.POST.get('office_code', '').strip()
             profile.office_name = request.POST.get('office_name', '').strip()
-            profile.office_state = request.POST.get('office_state', '').strip()
+            profile.office_state = request.POST.get('office_state', '').strip() or (master_employee.state or '').strip()
             profile.email = new_email
             profile.language_region = request.POST.get('language_region', '')
             profile.hod_name = hod_name_post
-            profile.ip_number = request.POST.get('ip_number', '').strip()
+            profile.ip_number = request.POST.get('ip_number', '').strip() or (master_employee.ip_number or '').strip()
             profile.alternate_email = request.POST.get('alternate_email', '').strip()
 
             if not profile_approval_required:
@@ -2240,6 +2301,12 @@ def profile_view(request):
             emp_instance.highest_exam = ",".join(request.POST.getlist("hindi_exam"))
             emp_instance.super_annuation_date = form.cleaned_data.get('super_annuation_date')
             emp_instance.empcode = empcode
+            if not emp_instance.ename:
+                emp_instance.ename = (master_employee.name or '').strip()
+            if not emp_instance.hname:
+                emp_instance.hname = (master_employee.hindi_name or '').strip()
+            if not emp_instance.designation:
+                emp_instance.designation = (master_employee.designation or '').strip() or emp_instance.designation
             emp_instance.save()
             if profile:
                 profile.employee = emp_instance
@@ -2862,9 +2929,21 @@ def manager_dashboard(request):
     
     manager_office = getattr(request.user.profile, 'office_code', None)
 
+<<<<<<< HEAD
     users = CustomUser.objects.select_related('profile').filter(profile__office_code=manager_office, profile_approval_status='approved').order_by('-date_joined')
 
     office_employee_codes_qs = CustomUser.objects.filter(profile__office_code=manager_office, profile_approval_status='approved').values_list('profile__employee_code', flat=True)
+=======
+    users = CustomUser.objects.select_related('profile').filter(
+        profile__office_code=manager_office,
+        profile__approval_status='approved',
+    ).order_by('-date_joined')
+
+    office_employee_codes_qs = CustomUser.objects.filter(
+        profile__office_code=manager_office,
+        profile__approval_status='approved',
+    ).values_list('profile__employee_code', flat=True)
+>>>>>>> origin/main
     office_employee_codes = []
     for code in office_employee_codes_qs:
         if code is None:
@@ -2952,6 +3031,165 @@ def manager_dashboard(request):
     }
     return render(request, 'manager_dashboard.html', context)
 
+<<<<<<< HEAD
+=======
+
+def _can_manage_employee_master(user):
+    return user.is_authenticated and (
+        user_has_role(user, ['manager', 'admin']) or user.is_superuser
+    )
+
+
+@login_required
+def manager_employee_master_list(request):
+    if not _can_manage_employee_master(request.user):
+        return redirect('/')
+
+    query = (request.GET.get('q') or '').strip()
+    designation = (request.GET.get('designation') or '').strip()
+    state = (request.GET.get('state') or '').strip()
+    status_filter = (request.GET.get('status') or 'active').strip().lower()
+
+    employees = EmployeeMaster.objects.all().order_by('empcode')
+
+    if query:
+        query_filter = (
+            Q(name__icontains=query) |
+            Q(hindi_name__icontains=query) |
+            Q(division__icontains=query)
+        )
+        if query.isdigit():
+            query_filter |= Q(empcode=int(query))
+        employees = employees.filter(query_filter)
+
+    if designation:
+        employees = employees.filter(designation__iexact=designation)
+
+    if state:
+        employees = employees.filter(state__iexact=state)
+
+    if status_filter == 'active':
+        employees = employees.filter(is_active=True)
+    elif status_filter == 'inactive':
+        employees = employees.filter(is_active=False)
+
+    paginator = Paginator(employees, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    context = {
+        'page_obj': page_obj,
+        'query': query,
+        'selected_designation': designation,
+        'selected_state': state,
+        'selected_status': status_filter,
+        'designation_options': EmployeeMaster.objects.exclude(
+            designation__isnull=True
+        ).exclude(
+            designation__exact=''
+        ).values_list('designation', flat=True).distinct().order_by('designation'),
+        'state_options': EmployeeMaster.objects.exclude(
+            state__isnull=True
+        ).exclude(
+            state__exact=''
+        ).values_list('state', flat=True).distinct().order_by('state'),
+    }
+    return render(request, 'manager_employee_master_list.html', context)
+
+
+@login_required
+def manager_employee_master_add(request):
+    if not _can_manage_employee_master(request.user):
+        return redirect('/')
+
+    if request.method == 'POST':
+        form = EmployeeMasterForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Employee added to master table successfully.")
+            return redirect('manager_employee_master_list')
+        messages.error(request, "Please correct the errors below.")
+    else:
+        form = EmployeeMasterForm(initial={'is_active': True})
+
+    return render(request, 'manager_employee_master_form.html', {
+        'form': form,
+        'page_title': 'Add Master Employee',
+        'submit_label': 'Add Employee',
+        'is_edit': False,
+    })
+
+
+@login_required
+def manager_employee_master_edit(request, employee_id):
+    if not _can_manage_employee_master(request.user):
+        return redirect('/')
+
+    employee = get_object_or_404(EmployeeMaster, id=employee_id)
+
+    if request.method == 'POST':
+        form = EmployeeMasterForm(request.POST, instance=employee)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Employee {employee.empcode} updated successfully.")
+            return redirect('manager_employee_master_list')
+        messages.error(request, "Please correct the errors below.")
+    else:
+        form = EmployeeMasterForm(instance=employee)
+
+    return render(request, 'manager_employee_master_form.html', {
+        'form': form,
+        'employee_master': employee,
+        'page_title': 'Edit Master Employee',
+        'submit_label': 'Save Changes',
+        'is_edit': True,
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def manager_employee_master_toggle_status(request, employee_id):
+    if not _can_manage_employee_master(request.user):
+        return redirect('/')
+
+    employee = get_object_or_404(EmployeeMaster, id=employee_id)
+    action = (request.POST.get('action') or '').strip().lower()
+    remarks = (request.POST.get('remarks') or '').strip()
+
+    if action == 'deactivate':
+        employee.is_active = False
+        employee.transferred_at = timezone.localdate()
+        if remarks:
+            employee.remarks = remarks
+        employee.save(update_fields=['is_active', 'transferred_at', 'remarks', 'updated_at'])
+        messages.success(request, f"Employee {employee.empcode} marked as transferred out.")
+    elif action == 'activate':
+        employee.is_active = True
+        employee.transferred_at = None
+        if remarks:
+            employee.remarks = remarks
+            employee.save(update_fields=['is_active', 'transferred_at', 'remarks', 'updated_at'])
+        else:
+            employee.save(update_fields=['is_active', 'transferred_at', 'updated_at'])
+        messages.success(request, f"Employee {employee.empcode} reactivated successfully.")
+    else:
+        messages.error(request, "Invalid employee master action.")
+
+    return redirect('manager_employee_master_list')
+
+
+@login_required
+@require_http_methods(["POST"])
+def manager_employee_master_delete(request, employee_id):
+    if not _can_manage_employee_master(request.user):
+        return redirect('/')
+
+    employee = get_object_or_404(EmployeeMaster, id=employee_id)
+    empcode = employee.empcode
+    employee.delete()
+    messages.success(request, f"Employee {empcode} deleted permanently from the master table.")
+    return redirect('manager_employee_master_list')
+
+>>>>>>> origin/main
 @login_required
 def admin_dashboard(request):
     if user_role(request.user) != 'admin': return redirect('/')

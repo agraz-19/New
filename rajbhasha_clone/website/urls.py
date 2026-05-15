@@ -35,6 +35,11 @@ urlpatterns = [
 
     path('qpr/admin/dashboard/', views.admin_dashboard, name='qpr_admin_dashboard'),
     path('manager/dashboard/', views.manager_dashboard, name='manager_dashboard'),
+    path('manager/employees/master/', views.manager_employee_master_list, name='manager_employee_master_list'),
+    path('manager/employees/master/add/', views.manager_employee_master_add, name='manager_employee_master_add'),
+    path('manager/employees/master/<int:employee_id>/edit/', views.manager_employee_master_edit, name='manager_employee_master_edit'),
+    path('manager/employees/master/<int:employee_id>/status/', views.manager_employee_master_toggle_status, name='manager_employee_master_toggle_status'),
+    path('manager/employees/master/<int:employee_id>/delete/', views.manager_employee_master_delete, name='manager_employee_master_delete'),
     path('manager/report/', views.manager_report, name='manager_report'),
     path('manager/report/record/<int:record_id>/', views.manager_report_detail_by_record, name='manager_report_detail_by_record'),
     path('qpr/certificate/<int:record_id>/', views.qpr_certificate, name='qpr_certificate'),

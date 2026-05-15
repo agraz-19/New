@@ -269,7 +269,7 @@ class CertificateDataForm(forms.Form):
         self.fields['quarter_ending'].choices = quarter_choices
 
 
-from .models import ManagerQPR, AdminQPR, FinancialYear, QPRRecord, Section1FilesData, Section2MeetingsData, Section3OfficialLanguagesData, Section4HindiLettersData, Section5EnglishRepliedHindiData, Section6IssuedLettersData, Section7NotingsData
+from .models import AdminQPR, EmployeeMaster, FinancialYear, ManagerQPR, QPRRecord, Section1FilesData, Section2MeetingsData, Section3OfficialLanguagesData, Section4HindiLettersData, Section5EnglishRepliedHindiData, Section6IssuedLettersData, Section7NotingsData
 
 QPR_QUARTER_CHOICES = [
     ('Q1', 'Q1'),
@@ -455,3 +455,52 @@ class AdminQPRForm(forms.ModelForm):
             field.widget.attrs['class'] = (existing + ' form-control form-control-sm').strip()
 
         _configure_manager_admin_period_fields(self)
+
+
+class EmployeeMasterForm(forms.ModelForm):
+    class Meta:
+        model = EmployeeMaster
+        fields = [
+            'empcode',
+            'name',
+            'hindi_name',
+            'designation',
+            'state',
+            'mobile',
+            'ip_number',
+            'emergency_contact',
+            'division',
+            'is_active',
+            'transferred_at',
+        ]
+        widgets = {
+            'empcode': forms.NumberInput(attrs={'class': 'form-control'}),
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'hindi_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'designation': forms.TextInput(attrs={'class': 'form-control'}),
+            'state': forms.TextInput(attrs={'class': 'form-control'}),
+            'mobile': forms.TextInput(attrs={'class': 'form-control'}),
+            'ip_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'emergency_contact': forms.TextInput(attrs={'class': 'form-control'}),
+            'division': forms.TextInput(attrs={'class': 'form-control'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'transferred_at': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+        }
+
+    def clean_empcode(self):
+        value = self.cleaned_data.get('empcode')
+        if value is None:
+            raise ValidationError("Employee code is required.")
+        return int(value)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        is_active = cleaned_data.get('is_active')
+        transferred_at = cleaned_data.get('transferred_at')
+
+        if is_active:
+            cleaned_data['transferred_at'] = None
+        elif transferred_at is None:
+            cleaned_data['transferred_at'] = timezone.localdate()
+
+        return cleaned_data

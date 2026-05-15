@@ -1,10 +1,17 @@
 ﻿{% extends 'master.html' %}
+{% load static %}
 {% load translate_tags %}
 {% load static %}
 {% block content %}
+<<<<<<< HEAD
 <script src="{% static 'js/xlsx.full.min.js' %}"></script>
 <script src="{% static 'js/html2canvas.min.js' %}"></script>
 <script src="{% static 'js/jspdf.umd.min.js' %}"></script>
+=======
+<script src="{% static 'vendor/xlsx.full.min.js' %}"></script>
+<script src="{% static 'vendor/html2canvas.min.js' %}"></script>
+<script src="{% static 'vendor/jspdf.umd.min.js' %}"></script>
+>>>>>>> origin/main
 
 <div class="container mt-5 mb-5">
     <div class="row justify-content-center">
@@ -93,7 +100,7 @@
             {% endif %}
             <div class="card shadow-lg border-0">
                 <div class="card-body p-5">
-                    <form method="post" id="employeeForm" class="needs-validation" novalidate>
+                    <form method="post" id="employeeForm" class="needs-validation">
                         {% csrf_token %}
 
                         <h5 class="fw-bold text-primary mb-4 pb-2 border-bottom">
@@ -171,8 +178,8 @@
                                 <select name="hod_name" class="form-select" {% if not can_edit %}disabled{% endif %} {% if profile_approval_required %}required{% endif %}>
                                     <option value="">-- Select Approver --</option>
                                     {% for hod in available_hods %}
-                                        <option value="{{ hod }}" {% if profile_approval_required and hod == current_hod %}selected{% endif %}>
-                                            {{ hod }}
+                                        <option value="{{ hod.value }}" {% if current_hod == hod.value or current_hod == hod.username or current_hod == hod.name %}selected{% endif %}>
+                                            {{ hod.label }}
                                         </option>
                                     {% endfor %}
                                     <option value="ADMIN" {% if current_hod == "ADMIN" or not profile_approval_required %}selected{% endif %}>

@@ -6,9 +6,10 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY
-SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = False
 SECURE_HSTS_SECONDS = os.getenv('DJANGO_SECURE_HSTS_SECONDS')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ymob%9c8jb8=ld@^f(*(sc-)m7i=zgvcn6c+k85l7s5m@&hce(')
+SECURE_HSTS_SECONDS = int(os.getenv('DJANGO_SECURE_HSTS_SECONDS', '31536000'))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
@@ -134,8 +135,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'petertriffle@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'eetekzvolwnphbqf')
 
 
 # CSRF / SECURITY
@@ -179,7 +180,7 @@ CAPTCHA_CHALLENGE_FUNCT = 'captcha.helpers.random_char_challenge'
 CAPTCHA_FLITE_PATH = os.path.join(BASE_DIR, 'espeak_wrapper.sh')
 
 # ENCRYPTION
-ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY')
+ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY', 'EOxZWt1RC6O9GKhF8d30FUxyCyjGAz29smC5i8tWA0I=')
 CSRF_FAILURE_VIEW = 'website.views.csrf_failure'
 
 
