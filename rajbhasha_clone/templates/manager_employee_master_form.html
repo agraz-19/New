@@ -82,11 +82,6 @@
                         {{ form.transferred_at }}
                         {% if form.transferred_at.errors %}<div class="text-danger small mt-1">{{ form.transferred_at.errors|join:", " }}</div>{% endif %}
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold" for="{{ form.remarks.id_for_label }}">Remarks</label>
-                        {{ form.remarks }}
-                        {% if form.remarks.errors %}<div class="text-danger small mt-1">{{ form.remarks.errors|join:", " }}</div>{% endif %}
-                    </div>
                 </div>
 
                 <div class="d-flex gap-2 mt-4">

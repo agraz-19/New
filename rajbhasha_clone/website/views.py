@@ -385,21 +385,41 @@ def is_admin(user):
     return user.is_authenticated and user_has_role(user, 'admin')
 
 def get_active_hods(office_code=None):
-    hod_query = UserProfile.objects.filter(Q(roles__name='hod') | Q(user__roles__name='hod'))
-    hod_names = lambda qs: list(
-        qs.exclude(user__username__isnull=True)
-          .exclude(user__username='')
-          .values_list('user__username', flat=True)
-          .order_by('user__username')
-          .distinct()
-    )
-    
+    hod_query = UserProfile.objects.filter(
+        Q(roles__name='hod') | Q(user__roles__name='hod')
+    ).select_related('user', 'employee').distinct()
+
+    def serialize_hods(qs):
+        items = []
+        seen_values = set()
+        for hod in qs.exclude(user__username__isnull=True).exclude(user__username=''):
+            value = (hod.employee_code or getattr(hod.user, 'username', '') or '').strip()
+            username = (getattr(hod.user, 'username', '') or '').strip()
+            name = (
+                (hod.name or '').strip()
+                or (getattr(hod.employee, 'ename', '') or '').strip()
+                or (hod.user.get_full_name() or '').strip()
+                or username
+            )
+            if not value or value in seen_values:
+                continue
+            seen_values.add(value)
+            label = f"{name} ({value})" if name and name != value else value
+            items.append({
+                'value': value,
+                'label': label,
+                'name': name,
+                'username': username,
+            })
+        items.sort(key=lambda item: item['label'].lower())
+        return items
+
     if office_code:
-        specific_hods = hod_names(hod_query.filter(office_code=office_code))
+        specific_hods = serialize_hods(hod_query.filter(office_code=office_code))
         if specific_hods:
             return specific_hods
-            
-    return hod_names(hod_query)
+
+    return serialize_hods(hod_query)
 
 def _convert_to_int(value):
     if value == '' or value is None: return None

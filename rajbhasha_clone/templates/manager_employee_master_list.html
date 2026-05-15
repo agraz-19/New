@@ -69,7 +69,6 @@
                         <th>Division</th>
                         <th>Status</th>
                         <th>Transferred</th>
-                        <th>Remarks</th>
                         <th class="text-end">Actions</th>
                     </tr>
                 </thead>
@@ -92,7 +91,6 @@
                             {% endif %}
                         </td>
                         <td>{{ employee.transferred_at|date:"Y-m-d"|default:"-" }}</td>
-                        <td>{{ employee.remarks|default:"-" }}</td>
                         <td class="text-end">
                             <div class="d-flex justify-content-end gap-2">
                                 {% if employee.is_active %}
@@ -118,7 +116,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="12" class="text-center text-muted py-4">No employee master records found.</td>
+                        <td colspan="11" class="text-center text-muted py-4">No employee master records found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

@@ -473,7 +473,6 @@ class EmployeeMasterForm(forms.ModelForm):
             'division',
             'is_active',
             'transferred_at',
-            'remarks',
         ]
         widgets = {
             'empcode': forms.NumberInput(attrs={'class': 'form-control'}),
@@ -487,7 +486,6 @@ class EmployeeMasterForm(forms.ModelForm):
             'division': forms.TextInput(attrs={'class': 'form-control'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'transferred_at': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'remarks': forms.TextInput(attrs={'class': 'form-control'}),
         }
 
     def clean_empcode(self):
