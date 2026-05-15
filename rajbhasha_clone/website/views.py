@@ -395,13 +395,24 @@ def get_active_hods(office_code=None):
         for hod in qs.exclude(user__username__isnull=True).exclude(user__username=''):
             value = (hod.employee_code or getattr(hod.user, 'username', '') or '').strip()
             username = (getattr(hod.user, 'username', '') or '').strip()
+            if not value:
+                continue
+            try:
+                active_master_exists = EmployeeMaster.objects.filter(
+                    empcode=int(value),
+                    is_active=True,
+                ).exists()
+            except (TypeError, ValueError):
+                active_master_exists = False
+            if not active_master_exists:
+                continue
             name = (
                 (hod.name or '').strip()
                 or (getattr(hod.employee, 'ename', '') or '').strip()
                 or (hod.user.get_full_name() or '').strip()
                 or username
             )
-            if not value or value in seen_values:
+            if value in seen_values:
                 continue
             seen_values.add(value)
             label = f"{name} ({value})" if name and name != value else value
