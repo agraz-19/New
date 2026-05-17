@@ -120,7 +120,9 @@ document.addEventListener('DOMContentLoaded', () => {
         initHindiKeyboard();
         bindHindiFocusHandlers();
         checkAuthentication();
-        loadData();
+            loadData();
+            // Attach live totals listeners (no API) for client-side immediate sums
+            try { attachLiveTotalsListeners(); } catch(e) { console.error('live totals init error', e); }
 
         // Prefill quarter/year from server (exposed as window globals in template)
         try {
@@ -1040,4 +1042,76 @@ function toggleDetailsRow(row, record) {
     // Insert after the clicked row
     row.parentNode.insertBefore(detailsRow, row.nextSibling);
     detailsRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// -----------------------
+// Live totals & constraints
+// -----------------------
+function isEditingMode() {
+    try {
+        var rid = document.getElementById('recordId');
+        return !!(rid && String(rid.value || '').trim());
+    } catch (e) { return false; }
+}
+
+function toIntSafe(v) {
+    var n = parseInt(String(v || '').replace(/[^0-9]/g, ''), 10);
+    return isNaN(n) ? 0 : n;
+}
+
+function updateSection6Totals() {
+    if (isEditingMode()) return; // do not auto-update totals when editing existing record
+    ['a','b','c'].forEach(function(region){
+        try {
+            var h = document.getElementById('s6_' + region + '_hindi');
+            var e = document.getElementById('s6_' + region + '_eng');
+            var t = document.getElementById('s6_' + region + '_total');
+            if (!t) return;
+            var sum = toIntSafe(h && h.value) + toIntSafe(e && e.value);
+            t.value = String(sum);
+        } catch(err) { /* ignore individual region errors */ }
+    });
+}
+
+function enforceSection1Constraint() {
+    try {
+        var totalEl = document.getElementById('s1_total');
+        var hindiEl = document.getElementById('s1_hindi');
+        if (!totalEl || !hindiEl) return;
+        var total = toIntSafe(totalEl.value);
+        if (!isEditingMode()) {
+            // set max and clamp
+            try { hindiEl.max = String(total); } catch(e) {}
+            if (toIntSafe(hindiEl.value) > total) hindiEl.value = String(total);
+        } else {
+            // when editing, don't interfere with values
+            try { hindiEl.removeAttribute('max'); } catch(e) {}
+        }
+    } catch(e) {}
+}
+
+function attachLiveTotalsListeners() {
+    // Attach listeners for section 6 totals and section 1 constraint
+    var fields = [];
+    ['a','b','c'].forEach(function(region){
+        var h = document.getElementById('s6_' + region + '_hindi');
+        var e = document.getElementById('s6_' + region + '_eng');
+        if (h) { h.addEventListener('input', updateSection6Totals); fields.push(h); }
+        if (e) { e.addEventListener('input', updateSection6Totals); fields.push(e); }
+    });
+
+    var s1Total = document.getElementById('s1_total');
+    var s1Hindi = document.getElementById('s1_hindi');
+    if (s1Total) s1Total.addEventListener('input', enforceSection1Constraint);
+    if (s1Hindi) {
+        s1Hindi.addEventListener('input', function(){
+            if (isEditingMode()) return; // do not clamp on edit
+            var tot = toIntSafe(document.getElementById('s1_total')?.value);
+            if (toIntSafe(s1Hindi.value) > tot) s1Hindi.value = String(tot);
+        });
+    }
+
+    // Run once to initialize totals/constraints on fresh form load
+    try { updateSection6Totals(); } catch(e) {}
+    try { enforceSection1Constraint(); } catch(e) {}
 }

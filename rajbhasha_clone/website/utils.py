@@ -5,11 +5,10 @@ from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
 from .templatetags.translate_tags import translate_text
-import pandas as pd
 import os
 import logging
 from datetime import date
-from .models import FinancialYear
+from .models import EmployeeMaster, FinancialYear
 from django.conf import settings
 from zoneinfo import ZoneInfo
 import logging
@@ -252,35 +251,28 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
         # Email sent successfully
     except Exception:
         logger.exception("System email delivery failed.")
-EXCEL_PATH = os.path.join(settings.MEDIA_ROOT, "data", "tg_hod_officers_employee_report.xlsx")
-
 def load_employee_data():
-    df = pd.read_excel(EXCEL_PATH)
-
     employee_dict = {}
 
-    for _, row in df.iterrows():
-        empcode = str(int(row["Empcode"])).strip()
-        empcode = empcode.replace(".0", "").strip()
-        
-
-        # clean name
-        name = str(row["Name"]).strip()
-        name = name.replace("Shri", "").replace("Ms.", "").replace("Ms", "").strip().upper()
-
-        mobile = str(row["Mobile"]).strip()
-
-        hindi_name = str(row["Name in Hindi"]).strip()
-        designation = str(row["Designation"]).strip()
-        
-
-        employee_dict[empcode] = {
-            "name": name,
-            "hindi_name": hindi_name,
-            "designation": designation,
-            "mobile": mobile,
-            "state": str(row.get("State", "")).strip(),
-            "ip_number": str(row.get("IP Number", "")).strip()
+    for row in EmployeeMaster.objects.all().only(
+        'empcode',
+        'name',
+        'hindi_name',
+        'designation',
+        'mobile',
+        'state',
+        'ip_number',
+        'is_active',
+    ):
+        if not row.is_active:
+            continue
+        employee_dict[str(row.empcode)] = {
+            "name": (row.name or "").strip(),
+            "hindi_name": (row.hindi_name or "").strip(),
+            "designation": (row.designation or "").strip(),
+            "mobile": (row.mobile or "").strip(),
+            "state": (row.state or "").strip(),
+            "ip_number": (row.ip_number or "").strip(),
         }
 
     return employee_dict
