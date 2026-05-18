@@ -2167,7 +2167,7 @@ def profile_view(request):
                 user.set_email(new_email)
                 user.save()
                 profile.email = new_email
-                profile.save(update_fields=['email'])
+                profile.save(update_fields=['encrypted_email'])
 
             if 'hod_name' in approved_fields:
                 hod_name_post = request.POST.get('hod_name', '').strip()
