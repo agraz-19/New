@@ -13,7 +13,7 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
 # 2. Allow local host (Required when DEBUG is False)
-ALLOWED_HOSTS = ['10.160.19.20', '192.168.56.101', '127.0.0.1', 'localhost', '192.168.1.8']
+ALLOWED_HOSTS = ['10.160.19.20', '192.168.56.101', '127.0.0.1', 'localhost']
 
 
 # APPLICATIONS

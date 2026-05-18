@@ -377,9 +377,12 @@ class ProfileChangeRequest(models.Model):
     @property
     def requested_field_labels(self):
         labels = {
+            'email': 'Notification Email',
             'alternate_email': 'Alternate Email',
             'designation': 'Designation',
             'highest_exam': 'Highest Hindi Exam',
+            'hod_name': 'Select Approver',
+        
         }
         return [labels.get(field, field) for field in self.requested_fields or []]
 

@@ -4,54 +4,6 @@
 
 {% block title %}{{ "Quarterly Progress Report"|t:current_lang }}{% endblock %}
 
-{% block extra_css %}
-<style>
-    .bg-header {
-        background-color: #f8f9fa;
-        border-bottom: 1px solid #dee2e6;
-    }
-
-    .part-badge {
-        background-color: #6c757d;
-        color: white;
-        padding: 5px 10px;
-        border-radius: 4px;
-        font-size: 0.9rem;
-    }
-
-    .section-title {
-        font-weight: bold;
-        margin-bottom: 15px;
-        border-bottom: 2px solid #eee;
-        padding-bottom: 10px;
-        color: #2c5a86;
-    }
-
-    .section-box {
-        margin-bottom: 20px;
-        padding: 15px;
-        background: #f9f9f9;
-        border-radius: 8px;
-        border: 1px solid #e9ecef;
-    }
-
-    .lbl-row {
-        display: flex;
-        align-items: center;
-        margin-bottom: 10px;
-    }
-
-    .lbl-text {
-        flex: 1;
-        padding-right: 10px;
-        font-size: 0.95rem;
-    }
-
-    .lbl-input {
-        width: 100px;
-    }
-</style>
-{% endblock %}
 
 {% block content %}
 <div class="container my-4">
@@ -443,6 +395,69 @@
     (function(){
         var form = document.getElementById('qprForm');
         if(!form) return;
+         var numericFields = form.querySelectorAll('input[type="number"]');
+        numericFields.forEach(function(field){
+            field.setAttribute('inputmode', 'numeric');
+            field.setAttribute('pattern', '[0-9]*');
+            field.setAttribute('maxlength', '3');
+
+            field.addEventListener('keydown', function(e){
+                var allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+                if(e.ctrlKey || e.metaKey || allowedKeys.indexOf(e.key) !== -1) return;
+                if(!/^[0-9]$/.test(e.key)){
+                    e.preventDefault();
+                    return;
+                }
+
+                var start = field.value.length;
+                var end = field.value.length;
+                try {
+                    start = field.selectionStart === null ? field.value.length : field.selectionStart;
+                    end = field.selectionEnd === null ? field.value.length : field.selectionEnd;
+                } catch(err) {}
+                if((field.value.length - (end - start)) >= 3){
+                    e.preventDefault();
+                }
+            });
+
+            field.addEventListener('beforeinput', function(e){
+                if(!e.data || e.inputType.indexOf('delete') === 0 || e.inputType.indexOf('history') === 0) return;
+                if(!/^[0-9]+$/.test(e.data)){
+                    e.preventDefault();
+                    return;
+                }
+
+                var start = field.value.length;
+                var end = field.value.length;
+                try {
+                    start = field.selectionStart === null ? field.value.length : field.selectionStart;
+                    end = field.selectionEnd === null ? field.value.length : field.selectionEnd;
+                } catch(err) {}
+                var nextValue = field.value.slice(0, start) + e.data + field.value.slice(end);
+                if(nextValue.length > 3) e.preventDefault();
+            });
+
+            field.addEventListener('paste', function(e){
+                e.preventDefault();
+                var pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+                if(!pasted) return;
+
+                var start = field.value.length;
+                var end = field.value.length;
+                try {
+                    start = field.selectionStart === null ? field.value.length : field.selectionStart;
+                    end = field.selectionEnd === null ? field.value.length : field.selectionEnd;
+                } catch(err) {}
+                field.value = (field.value.slice(0, start) + pasted + field.value.slice(end)).slice(0, 3);
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+
+            field.addEventListener('input', function(){
+                var cleanValue = field.value.replace(/\D/g, '').slice(0, 3);
+                if(field.value !== cleanValue) field.value = cleanValue;
+            });
+        });
+
         form.addEventListener('submit', function(){
             // Get form_type to determine which sections to clear
             var formTypeInput = document.querySelector('input[name="form_type"]');
