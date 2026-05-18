@@ -71,8 +71,6 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-
-                # Your custom context processor
                 'website.context_processors.global_settings',
             ],
         },
@@ -83,12 +81,11 @@ TEMPLATES = [
 # DATABASE
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME'),
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT'),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+        'OPTIONS': {
+            'timeout': 20,
+        },
     }
 }
 
@@ -168,15 +165,17 @@ CACHES = {
 
 # CAPTCHA
 CAPTCHA_IMAGE_SIZE = (160, 60)
+#CAPTCHA_CHALLENGE_FUNCT = 'captcha.helpers.math_challenge'
 CAPTCHA_FONT_SIZE = 32
-CAPTCHA_FOREGROUND_COLOR = '#000000' # Black text
+CAPTCHA_FOREGROUND_COLOR = '#000000' 
 CAPTCHA_LETTER_ROTATION = (-15, 15)
 CAPTCHA_LENGTH = 5
 CAPTCHA_NOISE_FUNCTIONS = (
-    'captcha.helpers.noise_arcs', # Adds those curved lines
-    'captcha.helpers.noise_dots', # Adds the grainy background
+    'captcha.helpers.noise_arcs', 
+    'captcha.helpers.noise_dots',
 )
 CAPTCHA_CHALLENGE_FUNCT = 'captcha.helpers.random_char_challenge'
+# CAPTCHA_CHALLENGE_FUNCT = 'captcha.helpers.word_challenge'
 CAPTCHA_FLITE_PATH = os.path.join(BASE_DIR, 'espeak_wrapper.sh')
 
 # ENCRYPTION

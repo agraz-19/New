@@ -1,3 +1,345 @@
+
+/* ==========================================
+   Dark Mode Fixes: QPR Pages & Headings
+   ========================================== */
+
+/* 1. Remove the hardcoded white background from the QPR document container */
+[data-bs-theme="dark"] .qpr-page,
+[data-bs-theme="dark"] .certificate,
+[data-bs-theme="dark"] .card-custom,
+[data-bs-theme="dark"] .print-container,
+[data-bs-theme="dark"] .certificate-loading,
+[data-bs-theme="dark"] .container-form {
+    background-color: #212529 !important; /* Matches Bootstrap dark mode */
+    color: #e9ecef !important;
+}
+
+/* 2. Fix the QPR Heading Border & Text */
+[data-bs-theme="dark"] .qpr-header {
+    border-color: #6edff6 !important; /* Changes the dark blue border to a bright, readable cyan */
+    background-color: #2b3035 !important; /* Gives the heading box a slightly lighter dark-gray fill */
+}
+
+[data-bs-theme="dark"] .qpr-header .title-hi,
+[data-bs-theme="dark"] .qpr-header .title-en {
+    color: #6edff6 !important; /* Ensures the heading text pops against the dark background */
+}
+
+/* 3. Fix the Signature Box at the bottom of the QPR */
+[data-bs-theme="dark"] .sig-box {
+    border-top-color: #495057 !important;
+}
+[data-bs-theme="dark"] .sig-line {
+    color: #e9ecef !important;
+}
+[data-bs-theme="dark"] .alert-danger {
+    --bs-alert-color: #ea868f !important;           
+    --bs-alert-bg: #2c0b0e !important;              
+    --bs-alert-border-color: #842029 !important;    
+    color: var(--bs-alert-color) !important;
+}
+
+[data-bs-theme="dark"] .alert-success {
+    --bs-alert-color: #75b798 !important;           
+    --bs-alert-bg: #051b11 !important;             
+    --bs-alert-border-color: #0f5132 !important;    
+    color: var(--bs-alert-color) !important;
+}
+
+[data-bs-theme="dark"] .alert-info {
+    --bs-alert-color: #6edff6 !important;           
+    --bs-alert-bg: #032830 !important;              
+    --bs-alert-border-color: #087990 !important;    
+    color: var(--bs-alert-color) !important;
+}
+
+[data-bs-theme="dark"] .alert-warning {
+    --bs-alert-color: #ffda6a !important;           
+    --bs-alert-bg: #332701 !important;              
+    --bs-alert-border-color: #997404 !important;
+    color: var(--bs-alert-color) !important;
+}
+[data-bs-theme="dark"] body,
+[data-bs-theme="dark"] .form-group label,
+[data-bs-theme="dark"] .form-label,
+[data-bs-theme="dark"] .qpr-form-container,
+[data-bs-theme="dark"] .qpr-page,
+[data-bs-theme="dark"] .certificate,
+[data-bs-theme="dark"] .stat-label,
+[data-bs-theme="dark"] .lbl-text,
+[data-bs-theme="dark"] .lbl-hindi,
+[data-bs-theme="dark"] .lbl-eng,
+[data-bs-theme="dark"] .text-muted {
+    color: #e9ecef !important; 
+}
+[data-bs-theme="dark"] header .col-auto, 
+[data-bs-theme="dark"] .navbar-brand {
+    background-color: #f8f9fa !important;
+    padding: 8px 15px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+[data-bs-theme="dark"] .qpr-table th,
+[data-bs-theme="dark"] .qpr-table td,
+[data-bs-theme="dark"] .meta-tbl td {
+    border-color: #495057 !important;
+    color: #e9ecef !important;
+}
+[data-bs-theme="dark"] .qpr-table th,
+[data-bs-theme="dark"] .meta-tbl .lh {
+    background-color: #343a40 !important; /* Dark header background */
+}
+[data-bs-theme="dark"] .form-control:focus,
+[data-bs-theme="dark"] .form-select:focus {
+    background-color: #2b3035 !important;
+    color: #ffffff !important;
+    border-color: #6edff6 !important;
+}
+[data-bs-theme="dark"] .status-draft,
+[data-bs-theme="dark"] .status-submitted,
+[data-bs-theme="dark"] .badge.bg-light {
+    background-color: #343a40 !important;
+    color: #e9ecef !important;
+    border: 1px solid #495057 !important;
+}
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select,
+[data-bs-theme="dark"] input[type="text"],
+[data-bs-theme="dark"] input[type="number"],
+[data-bs-theme="dark"] input[type="url"],
+[data-bs-theme="dark"] textarea {
+    background-color: #212529 !important;
+    color: #e9ecef !important;
+    border-color: #495057 !important;
+}
+
+[data-bs-theme="dark"] .section-title,
+[data-bs-theme="dark"] .card-title,
+[data-bs-theme="dark"] .form-header,
+[data-bs-theme="dark"] .qpr-header .title-hi,
+[data-bs-theme="dark"] .qpr-header .title-en {
+    color: #6edff6 !important; 
+}
+
+[data-bs-theme="dark"] .section-box,
+[data-bs-theme="dark"] .meta,
+[data-bs-theme="dark"] .info-box,
+[data-bs-theme="dark"] .snapshot-composition,
+[data-bs-theme="dark"] .bg-light,
+[data-bs-theme="dark"] .table-light,
+[data-bs-theme="dark"] .print-toolbar {
+    background-color: #2b3035 !important; 
+    border-color: #495057 !important;
+    color: #e9ecef !important;
+}
+[data-bs-theme="dark"] .certificate {
+    background-color: #212529 !important; /* Dark background instead of pure white */
+    border-color: #495057 !important;
+    color: #e9ecef !important;
+}
+[data-bs-theme="dark"] .certificate h2,
+[data-bs-theme="dark"] .certificate h3,
+[data-bs-theme="dark"] .certificate h4,
+[data-bs-theme="dark"] .print-heading h2,
+[data-bs-theme="dark"] .print-heading h4 {
+    color: #6edff6 !important; 
+}
+[data-bs-theme="dark"] .certificate .meta {
+    background-color: #2b3035 !important; /* Slightly contrasting dark box */
+    border-left-color: #6edff6 !important; /* Cyan accent border */
+    color: #e9ecef !important;
+}
+[data-bs-theme="dark"] .certificate p,
+[data-bs-theme="dark"] .certificate strong,
+[data-bs-theme="dark"] .certificate .signature p,
+[data-bs-theme="dark"] .certificate .note {
+    color: #e9ecef !important;
+}
+/* ==========================================
+   Dark Mode Fixes: Stubborn Utility Classes & Menus
+   ========================================== */
+
+/* 1. Force .bg-light and .table-light to go dark */
+[data-bs-theme="dark"] .bg-light,
+[data-bs-theme="dark"] .table-light,
+[data-bs-theme="dark"] .table-light th,
+[data-bs-theme="dark"] .table-light td {
+    background-color: #2b3035 !important; /* Soft dark gray */
+    color: #f8f9fa !important;            /* Crisp white text */
+    border-color: #495057 !important;
+}
+
+/* 2. Fix Custom Floating Menus (HOD Menu) & Dropdowns */
+[data-bs-theme="dark"] .menu-items,
+[data-bs-theme="dark"] .pure-hover-menu,
+[data-bs-theme="dark"] .custom-dropdown-menu {
+    background-color: #212529 !important;
+    border: 1px solid #495057 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+[data-bs-theme="dark"] .menu-item,
+[data-bs-theme="dark"] .pure-hover-menu a,
+[data-bs-theme="dark"] .custom-dropdown-menu a {
+    color: #e9ecef !important;
+}
+
+[data-bs-theme="dark"] .menu-item:hover,
+[data-bs-theme="dark"] .pure-hover-menu a:hover,
+[data-bs-theme="dark"] .custom-dropdown-menu a:hover {
+    background-color: #343a40 !important; /* Lighter hover state */
+    color: #6edff6 !important;            /* Cyan highlight on hover */
+}
+
+/* 3. Fix Table Hover and Striped States */
+[data-bs-theme="dark"] .table-hover > tbody > tr:hover > * {
+    background-color: #343a40 !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > * {
+    background-color: #262a2e !important; 
+    color: #e9ecef !important;
+}
+
+/* 4. Fix any remaining text-muted elements becoming invisible */
+[data-bs-theme="dark"] .text-muted {
+    color: #adb5bd !important; /* A lighter gray that is actually readable on dark backgrounds */
+}
+/* ==========================================
+   Dark Mode Fixes: Standard Dashboards & Tables
+   ========================================== */
+[data-bs-theme="dark"] .table th,
+[data-bs-theme="dark"] .table td {
+    color: #e9ecef !important;         /* Crisp light gray text */
+    border-color: #495057 !important;  /* Dark gray borders */
+}
+
+/* Give the table headers a distinct, readable style */
+[data-bs-theme="dark"] .table thead th {
+    background-color: #343a40 !important; 
+    color: #f8f9fa !important;            
+    border-bottom: 2px solid #6edff6 !important; /* Subtle cyan accent line */
+}
+
+/* Ensure links inside standard tables remain readable */
+[data-bs-theme="dark"] .table td a {
+    color: #6edff6 !important;
+}
+[data-bs-theme="dark"] .table td a:hover {
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .dashboard-card h4,
+[data-bs-theme="dark"] .dashboard-card h5,
+[data-bs-theme="dark"] .dashboard-card h6,
+[data-bs-theme="dark"] .card-body > h4,
+[data-bs-theme="dark"] .card-body > h5,
+[data-bs-theme="dark"] .card-body > h6 {
+    color: #6edff6 !important; /* Bright cyan for visibility */
+    margin-bottom: 15px !important;
+}
+
+/* Fallback just in case you are using HTML table captions */
+[data-bs-theme="dark"] caption {
+    color: #adb5bd !important;
+}
+
+[data-bs-theme="dark"] table th,
+[data-bs-theme="dark"] .table th,
+[data-bs-theme="dark"] .table thead th,
+[data-bs-theme="dark"] thead th {
+    background-color: #343a40 !important; /* Dark gray background */
+    color: #ffffff !important;            /* Pure white text */
+    border-color: #495057 !important;     /* Subtle border */
+    border-bottom: 2px solid #6edff6 !important; /* Cyan accent line */
+}
+
+/* Ensure the text inside the card-header (the HOD's name above the table) is also white */
+[data-bs-theme="dark"] .card-header.bg-light strong {
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .bg-white,
+[data-bs-theme="dark"] .card-header,
+[data-bs-theme="dark"] .card-header.bg-white {
+    background-color: #2b3035 !important; /* Soft dark gray background */
+    color: #6edff6 !important;            /* Bright cyan text for the heading */
+    border-bottom: 1px solid #495057 !important; /* Subtle dark border */
+}
+
+/* Ensure any spans or icons inside these headers also turn cyan */
+[data-bs-theme="dark"] .card-header.bg-white * {
+    color: #6edff6 !important;
+}
+
+[data-bs-theme="dark"] .header-section,
+[data-bs-theme="dark"] .hod-section,
+[data-bs-theme="dark"] .page-header,
+[data-bs-theme="dark"] .form-card,
+[data-bs-theme="dark"] .report-container {
+    background-color: #2b3035 !important; /* Soft dark gray */
+    border: 1px solid #495057 !important; /* Subtle dark border */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important; /* Darker shadow */
+}
+
+/* Ensure headings inside these specific sections turn cyan */
+[data-bs-theme="dark"] .header-section h3,
+[data-bs-theme="dark"] .header-section h4,
+[data-bs-theme="dark"] .page-header h3,
+[data-bs-theme="dark"] .report-container .report-heading {
+    color: #6edff6 !important;
+}
+
+/* Ensure the HOD section gradient headers stay readable */
+[data-bs-theme="dark"] .hod-header {
+    background: linear-gradient(135deg, #1f3f5c 0%, #122a44 100%) !important;
+    border-bottom: 1px solid #495057 !important;
+    color: #f8f9fa !important;
+}
+
+[data-bs-theme="dark"] .carousel-item img,
+[data-bs-theme="dark"] .card-img-top,
+[data-bs-theme="dark"] .gallery-img {
+    background-color: #2b3035 !important; /* Soft dark gray to blend with the card/background */
+    border-color: #495057 !important;
+}
+
+/* If the carousel controls (arrows) look invisible, this makes them pop */
+[data-bs-theme="dark"] .carousel-control-prev-icon,
+[data-bs-theme="dark"] .carousel-control-next-icon {
+    filter: invert(1) grayscale(100) brightness(200) !important;
+}
+
+/* Darken the carousel indicators at the bottom */
+[data-bs-theme="dark"] .carousel-indicators [data-bs-target] {
+    background-color: #6edff6 !important; /* Cyan indicators to match your theme */
+}
+
+[data-bs-theme="dark"] .carousel-item img,
+[data-bs-theme="dark"] .card-img-top {
+    background-color: #212529 !important; 
+}
+
+/* 2. Fix Custom News/Event Cards (Home Page & Event Manager) */
+/* Forces the hardcoded white news cards to turn dark gray */
+[data-bs-theme="dark"] .news-card,
+[data-bs-theme="dark"] .card.shadow-sm {
+    background-color: #2b3035 !important;
+    border: 1px solid #495057 !important;
+}
+
+/* 3. Fix Event Card Text & Titles */
+[data-bs-theme="dark"] .card-title {
+    color: #6edff6 !important; /* Restores the bright cyan specifically to card titles */
+}
+
+/* Ensures the text details (like EN/HI translations and dates) are readable */
+[data-bs-theme="dark"] .news-card p,
+[data-bs-theme="dark"] .card-body p,
+[data-bs-theme="dark"] .card-body .text-muted {
+    color: #adb5bd !important; /* A light, readable gray */
+}
 .carousel-img {
   height: 380px;
   object-fit: cover;
@@ -8,7 +350,6 @@
   object-fit: cover;
 }
 
-/* Google Translate hide */
 .goog-te-banner-frame.skiptranslate,
 .goog-te-gadget-icon,
 .goog-logo-link,
@@ -1262,4 +1603,30 @@ textarea:focus {
     }
     body {
     padding-bottom: 120px; 
+}
+
+.stat-number { font-size: 2.25rem !important; } /* Replaces 36px */
+.stat-label { font-size: 0.875rem !important; } /* Replaces 14px */
+.stat-icon { font-size: 2rem !important; }      /* Replaces 32px */
+
+.qpr-page,
+.sections-wrap { font-size: 0.75rem !important; } /* Replaces 11px/12px */
+.qpr-header .title-hi { font-size: 1rem !important; } /* Replaces 14px */
+.qpr-header .title-en { font-size: 0.75rem !important; } /* Replaces 11px */
+.meta-tbl { font-size: 0.65rem !important; } /* Replaces 10px */
+.section-title { font-size: 1.1rem !important; } 
+
+.form-group select,
+.form-control,
+.qpr-table th, 
+.qpr-table td {
+    font-size: 1rem !important; /* Forces standard scaling instead of fixed 14px */
+}
+
+
+@media print {
+    .qpr-page, .sections-wrap { font-size: 11px !important; }
+    .meta-tbl { font-size: 10px !important; }
+    .qpr-header .title-hi { font-size: 14px !important; }
+    .qpr-header .title-en { font-size: 11px !important; }
 }

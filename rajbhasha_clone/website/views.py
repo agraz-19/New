@@ -5,20 +5,14 @@ import json
 import logging
 import os
 import random
-<<<<<<< HEAD
 import openpyxl
-=======
->>>>>>> origin/main
 import subprocess
 import secrets
 
 # Django / stdlib
 from django.conf import settings
 from django.db.models import Q
-<<<<<<< HEAD
-=======
 from django.core.paginator import Paginator
->>>>>>> origin/main
 from django.contrib import messages
 from django.contrib.auth import login as auth_login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -37,10 +31,7 @@ from django.views import View
 from website.models import QPRFinalization
 from .forms import ManagerQPRForm
 from .forms import AdminQPRForm
-<<<<<<< HEAD
-=======
 from .forms import EmployeeMasterForm
->>>>>>> origin/main
 from datetime import date, datetime, timedelta
 from typing import Any, cast
 from urllib.parse import urlencode
@@ -96,7 +87,6 @@ FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
 if os.path.exists(FONT_PATH):
     pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
 
-#############################################################################################################################################################################################################################################################################################################
 
 def get_employee_details_form(request):
     if request.method == "POST":
@@ -106,37 +96,9 @@ def get_employee_details_form(request):
             return JsonResponse({'status': 'error', 'message': 'Employee code required'})
         
         try:
-<<<<<<< HEAD
-            excel_file = os.path.join(settings.MEDIA_ROOT, 'data', 'tg_hod_officers_employee_report.xlsx')
-            
-            if not os.path.exists(excel_file):
-                return JsonResponse({'status': 'error', 'message': 'Employee database file not found'})
-            
-            wb = openpyxl.load_workbook(excel_file)
-            ws = wb.active
-            
-            headers = []
-            for cell in ws[1]:
-                headers.append(cell.value)
-            
-            found = False
-            row_data = {}
-            
-            for row in range(2, ws.max_row + 1):
-                row_data = {}
-                for col_idx, header in enumerate(headers, 1):
-                    row_data[header] = ws.cell(row=row, column=col_idx).value
-                
-                if str(row_data.get('Empcode', '')).strip() == str(empcode).strip():
-                    found = True
-                    break
-            
-            if not found:
-=======
             master_employee = EmployeeMaster.objects.filter(empcode=empcode, is_active=True).first()
 
             if not master_employee:
->>>>>>> origin/main
                 return JsonResponse({'status': 'error', 'message': 'Invalid Employee Code'})
             
             return JsonResponse({
@@ -423,19 +385,6 @@ def is_admin(user):
     return user.is_authenticated and user_has_role(user, 'admin')
 
 def get_active_hods(office_code=None):
-<<<<<<< HEAD
-    hod_query = UserProfile.objects.filter(Q(roles__name='hod') | Q(user__roles__name='hod'))
-    hod_names = lambda qs: list(
-        qs.exclude(user__username__isnull=True)
-          .exclude(user__username='')
-          .values_list('user__username', flat=True)
-          .order_by('user__username')
-          .distinct()
-    )
-    
-    if office_code:
-        specific_hods = hod_names(hod_query.filter(office_code=office_code))
-=======
     hod_query = UserProfile.objects.filter(
         Q(roles__name='hod') | Q(user__roles__name='hod')
     ).select_related('user', 'employee').distinct()
@@ -467,7 +416,6 @@ def get_active_hods(office_code=None):
 
     if office_code:
         specific_hods = serialize_hods(hod_query.filter(office_code=office_code))
->>>>>>> origin/main
         if specific_hods:
             return specific_hods
 
@@ -2252,14 +2200,11 @@ def profile_view(request):
             messages.error(request, "HOD/Approver selection is required.")
             return redirect('profile')
 
-<<<<<<< HEAD
-=======
         master_employee = EmployeeMaster.objects.filter(empcode=empcode, is_active=True).first()
         if not master_employee:
             messages.error(request, "Invalid Employee Code. Please enter a code available in the employee master table.")
             return redirect('profile')
 
->>>>>>> origin/main
         employee = Employee.objects.filter(empcode=empcode).first()
         form = EmployeeForm(request.POST, instance=employee)
         if not form.is_valid():
@@ -2929,11 +2874,6 @@ def manager_dashboard(request):
     
     manager_office = getattr(request.user.profile, 'office_code', None)
 
-<<<<<<< HEAD
-    users = CustomUser.objects.select_related('profile').filter(profile__office_code=manager_office, profile_approval_status='approved').order_by('-date_joined')
-
-    office_employee_codes_qs = CustomUser.objects.filter(profile__office_code=manager_office, profile_approval_status='approved').values_list('profile__employee_code', flat=True)
-=======
     users = CustomUser.objects.select_related('profile').filter(
         profile__office_code=manager_office,
         profile__approval_status='approved',
@@ -2943,7 +2883,6 @@ def manager_dashboard(request):
         profile__office_code=manager_office,
         profile__approval_status='approved',
     ).values_list('profile__employee_code', flat=True)
->>>>>>> origin/main
     office_employee_codes = []
     for code in office_employee_codes_qs:
         if code is None:
@@ -3031,8 +2970,6 @@ def manager_dashboard(request):
     }
     return render(request, 'manager_dashboard.html', context)
 
-<<<<<<< HEAD
-=======
 
 def _can_manage_employee_master(user):
     return user.is_authenticated and (
@@ -3189,7 +3126,6 @@ def manager_employee_master_delete(request, employee_id):
     messages.success(request, f"Employee {empcode} deleted permanently from the master table.")
     return redirect('manager_employee_master_list')
 
->>>>>>> origin/main
 @login_required
 def admin_dashboard(request):
     if user_role(request.user) != 'admin': return redirect('/')

@@ -250,23 +250,55 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-    const applyFontSize = (size) => {
-        htmlEl.setAttribute('data-font-size', size);
-        localStorage.setItem('rajbhasha-font', size);
+    const fontSelector = document.getElementById('fontSelector');
+    
+    const applyFontSize = (sizeKey) => {
+        // Define the exact root pixel sizes for scaling
+        const sizes = {
+            'normal': '16px',
+            'medium': '18.5px', // Scales all rem units up by ~15%
+            'large': '21px'     // Scales all rem units up by ~30%
+        };
+
+        const newSize = sizes[sizeKey] || '16px';
         
-        document.querySelectorAll('.font-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.size === size);
-        });
+        // This is the magic line. It forces the HTML root to accept the new size,
+        // completely overriding Bootstrap's default settings.
+        htmlEl.style.setProperty('font-size', newSize, 'important');
+
+        // Save preference
+        localStorage.setItem('rajbhasha-font', sizeKey);
+        if (fontSelector) fontSelector.value = sizeKey;
     };
 
     const savedFont = localStorage.getItem('rajbhasha-font') || 'normal';
     applyFontSize(savedFont);
 
-    document.querySelectorAll('.font-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            applyFontSize(e.currentTarget.dataset.size);
+    if (fontSelector) {
+        fontSelector.addEventListener('change', (e) => {
+            applyFontSize(e.target.value);
         });
-    });
+    }
+
+    // ==========================================
+    // 3. Custom Dropdown Menu Logic
+    // ==========================================
+    const customBtn = document.getElementById('myCustomBtn');
+    const customMenu = document.getElementById('myCustomMenu');
+    const dropdownContainer = document.getElementById('myCustomDropdown');
+
+    if (customBtn && customMenu) {
+        customBtn.addEventListener('click', (e) => {
+            e.preventDefault(); 
+            customMenu.classList.toggle('show-menu');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (dropdownContainer && !dropdownContainer.contains(e.target)) {
+                customMenu.classList.remove('show-menu');
+            }
+        });
+    }
 });
 </script>
 

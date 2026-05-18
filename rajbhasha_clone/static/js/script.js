@@ -671,7 +671,6 @@ async function saveData(status) {
         }
         detailsField.value = JSON.stringify(payload.details || {});
 
-        // ensure status field exists and set it
         let statusInput = form.querySelector('input[name="status"]');
         if (!statusInput) {
             statusInput = document.createElement('input');
@@ -717,7 +716,6 @@ async function saveData(status) {
             
             console.log("Alert shown. Status is:", status);
             
-            // If submitted, redirect to report list; if draft, reload form
             if (status === 'Submitted') {
                 console.log("Redirecting to /qpr/reports/");
                 window.location.href = "/qpr/reports/";
