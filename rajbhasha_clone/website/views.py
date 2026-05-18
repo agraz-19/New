@@ -126,7 +126,7 @@ def submit_profile_change_request(request):
     try:
         data = json.loads(request.body)
         reason = data.get('change_reason', '').strip()
-        allowed_fields = {'alternate_email', 'designation', 'highest_exam'}
+        allowed_fields = {'alternate_email', 'designation', 'highest_exam', 'hod_name'}
         requested_fields = data.get('requested_fields') or []
         requested_fields = [
             field for field in requested_fields
@@ -2122,7 +2122,7 @@ def profile_view(request):
     lang = request.session.get('lang', 'en')
     user = request.user
     profile = getattr(user, 'profile', None)
-    scoped_profile_fields = {'alternate_email', 'designation', 'highest_exam'}
+    scoped_profile_fields = {'alternate_email', 'designation', 'highest_exam', 'hod_name'}
     profile_approval_required = not user_has_role(user, ['manager', 'admin'])
     
     pending_change_request = ProfileChangeRequest.objects.filter(
@@ -2158,6 +2158,14 @@ def profile_view(request):
             if 'alternate_email' in approved_fields:
                 profile.alternate_email = request.POST.get('alternate_email', '').strip()
                 profile.save(update_fields=['alternate_email'])
+
+            if 'hod_name' in approved_fields:
+                hod_name_post = request.POST.get('hod_name', '').strip()
+                if profile_approval_required and not hod_name_post:
+                    messages.error(request, "HOD/Approver selection is required.")
+                    return redirect('profile')
+                profile.hod_name = hod_name_post
+                profile.save(update_fields=['hod_name'])
 
             if 'designation' in approved_fields or 'highest_exam' in approved_fields:
                 employee = Employee.objects.filter(empcode=profile.employee_code).first()

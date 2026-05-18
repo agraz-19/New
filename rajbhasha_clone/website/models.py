@@ -380,6 +380,7 @@ class ProfileChangeRequest(models.Model):
             'alternate_email': 'Alternate Email',
             'designation': 'Designation',
             'highest_exam': 'Highest Hindi Exam',
+            'hod_name': 'Select Approver',
         }
         return [labels.get(field, field) for field in self.requested_fields or []]
 
