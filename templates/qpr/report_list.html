@@ -600,6 +600,7 @@
         }
         const reason = prompt("{{ 'Please enter the reason for requesting to edit this report:'|t:current_lang }}");
         if (!reason) return;
+        const templateCsrfToken = "{{ csrf_token }}";
         // Submit a standard POST form to the server-side handler so the view can
         // record the EditRequest and redirect to the report detail page.
         try {
@@ -614,9 +615,8 @@
                 for (let p of parts) if (p.indexOf(name)===0) return decodeURIComponent(p.substring(name.length));
                 return null;
             })();
-            if (csrf) {
-                const inp = document.createElement('input'); inp.type='hidden'; inp.name='csrfmiddlewaretoken'; inp.value = csrf; form.appendChild(inp);
-            }
+                const csrfValue = csrf || templateCsrfToken;
+                const inp = document.createElement('input'); inp.type='hidden'; inp.name='csrfmiddlewaretoken'; inp.value = csrfValue; form.appendChild(inp);
 
             const rInp = document.createElement('input'); rInp.type='hidden'; rInp.name='reason'; rInp.value = reason; form.appendChild(rInp);
             if (scope) {
@@ -632,7 +632,7 @@
         if (!confirm('This finalizes your quarterly report for this quarter. Do you want to continue?')) {
             return;
         }
-        
+        const templateCsrfToken = "{{ csrf_token }}";
         // Get CSRF token
         const csrf = (function(){
             const name = 'csrftoken=';
@@ -646,7 +646,7 @@
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': csrf || ''
+                'X-CSRFToken': csrf || templateCsrfToken || ''
             },
             body: JSON.stringify({})
         })

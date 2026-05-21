@@ -7,7 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY
 SECRET_KEY = os.getenv('SECRET_KEY')
-DEBUG = True
+DEBUG = False
 SECURE_HSTS_SECONDS = os.getenv('DJANGO_SECURE_HSTS_SECONDS')
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
