@@ -19,8 +19,27 @@
     .signature {margin-top:40px}
     @media print {
         body {background: #fff}
-        .no-print {display:none}
-        .print-heading {display:none}
+        body * {
+            visibility: hidden;
+        }
+        .certificate,
+        .certificate * {
+            visibility: visible;
+        }
+        .no-print,
+        .print-heading,
+        .no-print * {
+            display: none !important;
+        }
+        .certificate {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            border: none;
+        }
     }
 </style>
 {% endblock %}
@@ -35,7 +54,7 @@
         </div>
 
         <div class="meta">
-            <p><strong>{{ "Office Code:"|t:current_lang }}</strong> {% if manager_certificate %}{{ manager_certificate.office_code }}{% else %}{{ record.officeCode }}{% endif %}</p>
+            <p><strong>{{ "Office Code:"|t:current_lang }}</strong> {{ office_code|default:"Not Set" }}</p>
             <p><strong>{{ "Financial Year:"|t:current_lang }}</strong> {% if manager_certificate %}{{ manager_certificate.financial_year }}{% else %}{{ record.year }}{% endif %}</p>
             <p><strong>{{ "Quarter Ending:"|t:current_lang }}</strong> {% if manager_certificate %}{{ manager_certificate.quarter }}{% else %}{{ record.quarter }}{% endif %}</p>
         </div>

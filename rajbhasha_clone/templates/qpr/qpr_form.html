@@ -602,9 +602,14 @@
             window.MISSING_DAYS_DATA = JSON.parse(missingDaysDataJson);
             console.log('[DEBUG] Loaded missing days data:', window.MISSING_DAYS_DATA);
         }
+        const missingDaysSourceJson = `{{ missing_days_source_json|safe }}`;
+        if (missingDaysSourceJson && missingDaysSourceJson.trim()) {
+            window.QPR_MISSING_DAYS_SOURCE = JSON.parse(missingDaysSourceJson);
+        }
     } catch (e) {
         console.error('[ERROR] Failed to load missing days data:', e);
         window.MISSING_DAYS_DATA = {};
+        window.QPR_MISSING_DAYS_SOURCE = { submitted_daily_dates: [], fills: { weekly: [], monthly: [], quarterly: [] } };
     }
 </script>
 {% endblock %}

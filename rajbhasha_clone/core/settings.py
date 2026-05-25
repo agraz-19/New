@@ -3,12 +3,17 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
+def env_bool(name, default=False):
+    return os.environ.get(name, str(default)).lower() in ("1", "true", "yes", "on")
+
 # SECURITY
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ymob%9c8jb8=ld@^f(*(sc-)m7i=zgvcn6c+k85l7s5m@&hce(')
-DEBUG = True
-SECURE_HSTS_SECONDS = int(os.getenv('DJANGO_SECURE_HSTS_SECONDS', '31536000'))
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
+DEBUG = False
+USE_HTTPS_SECURITY = env_bool('DJANGO_USE_HTTPS_SECURITY', False)
+SECURE_HSTS_SECONDS = int(os.getenv('DJANGO_SECURE_HSTS_SECONDS', '31536000')) if USE_HTTPS_SECURITY else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = USE_HTTPS_SECURITY
+SECURE_HSTS_PRELOAD = USE_HTTPS_SECURITY
 
 # 2. Allow local host (Required when DEBUG is False)
 ALLOWED_HOSTS = ['10.160.19.20', '192.168.56.101', '127.0.0.1', 'localhost']
@@ -38,6 +43,7 @@ INSTALLED_APPS = [
 # MIDDLEWARE
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'website.middleware.SecurityHeadersMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -55,7 +61,9 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:8000',
-    'http://localhost:8000'
+    'http://localhost:8000',
+    'http://10.160.19.20:8000',
+    'http://192.168.56.101:8000',
 ]
 
 # TEMPLATES
@@ -116,8 +124,10 @@ USE_TZ = True
 
 
 # STATIC FILES
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 
 # AUTH SETTINGS
@@ -140,12 +150,14 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'eetekzvolwnphbqf')
 # CSRF / SECURITY
 CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:8000',
-    'http://localhost:8000'
+    'http://localhost:8000',
+    'http://10.160.19.20:8000',
+    'http://192.168.56.101:8000',
 ]
 
 CSRF_FAILURE_VIEW = 'website.views.csrf_failure'
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = USE_HTTPS_SECURITY
+SESSION_COOKIE_SECURE = USE_HTTPS_SECURITY
 
 
 # CACHE (Keeping your DB cache instead of locmem)
@@ -185,16 +197,11 @@ CSRF_FAILURE_VIEW = 'website.views.csrf_failure'
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = "/media/"
 
-CSRF_COOKIE_SECURE = not DEBUG
-SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = USE_HTTPS_SECURITY
+SESSION_COOKIE_SECURE = USE_HTTPS_SECURITY
 
-CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_HTTPONLY = True
 
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
-
-if not DEBUG:
-    SECURE_HSTS_SECONDS = 31536000 
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True

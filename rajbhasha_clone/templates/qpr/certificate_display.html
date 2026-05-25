@@ -174,7 +174,7 @@
         <div class="meta">
             <p>
                 <strong>{{ "Office Code:"|t:current_lang }}</strong> 
-                <span style="font-weight: 600;">{{ record.officeCode }}</span>
+                <span style="font-weight: 600;">{{ office_code|default:"Not Set" }}</span>
             </p>
             <p>
                 <strong>{{ "Financial Year:"|t:current_lang }}</strong> 
