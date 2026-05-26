@@ -2890,6 +2890,9 @@ def manager_dashboard(request):
         profile__approval_status='approved',
     ).order_by('-date_joined')
 
+    user_search = (request.GET.get('user_q') or '').strip()
+    hindi_exam_filter = (request.GET.get('hindi_exam') or '').strip()
+
     office_employee_codes_qs = CustomUser.objects.filter(
         profile__office_code=manager_office,
         profile__approval_status='approved',
@@ -2907,6 +2910,8 @@ def manager_dashboard(request):
         raw_employees = Employee.objects.filter(empcode__in=office_employee_codes).order_by('-lastupdate')
     else:
         raw_employees = Employee.objects.none()
+
+    employee_by_code = {str(emp.empcode): emp for emp in raw_employees}
     
     employee_data = []
     
@@ -2942,6 +2947,48 @@ def manager_dashboard(request):
             'qpr_last_updated': qpr_last_updated
         })
 
+    application_users = []
+    for app_user in users:
+        profile = getattr(app_user, 'profile', None)
+        employee_code = str(getattr(profile, 'employee_code', '') or '').strip()
+        employee = employee_by_code.get(employee_code) or getattr(profile, 'employee', None)
+        employee_name = (
+            getattr(employee, 'ename', None)
+            or getattr(profile, 'name', None)
+            or app_user.get_full_name()
+            or app_user.username
+        )
+        highest_exam = getattr(employee, 'highest_exam', '') or ''
+
+        if user_search:
+            search_target = ' '.join([
+                app_user.username or '',
+                employee_code,
+                employee_name or '',
+                getattr(employee, 'hname', '') or '',
+            ]).lower()
+            if user_search.lower() not in search_target:
+                continue
+
+        if hindi_exam_filter and hindi_exam_filter not in highest_exam:
+            continue
+
+        application_users.append({
+            'user': app_user,
+            'empcode': employee_code or app_user.username,
+            'employee_name': employee_name,
+            'status': 'Active' if app_user.is_active else 'Inactive',
+            'is_active': app_user.is_active,
+            'highest_exam': highest_exam,
+        })
+
+    highest_exam_options = [
+        'Prabodh',
+        'Praveen',
+        'Pragya',
+        'Parangat',
+    ]
+
     pending_profile_requests = ManagerRequest.objects.filter(hod=request.user, request_type='profile', status='pending')
     
     manager_office = getattr(request.user.profile, 'office_code', None)
@@ -2975,6 +3022,10 @@ def manager_dashboard(request):
     
     context = {
         'users': users,
+        'application_users': application_users,
+        'user_search': user_search,
+        'hindi_exam_filter': hindi_exam_filter,
+        'highest_exam_options': highest_exam_options,
         'employees': employee_data,
         'pending_profile_requests': pending_profile_requests,
         'pending_qpr_edits': pending_qpr_edits,
