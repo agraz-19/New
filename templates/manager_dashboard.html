@@ -67,14 +67,14 @@
     </div>
 
     <ul class="nav nav-tabs mb-3" id="managerTabs" role="tablist">
-        <li class="nav-item"><button class="nav-link active fw-bold" id="employees-tab" data-bs-toggle="tab" data-bs-target="#employees-pane" type="button"><i class="fas fa-id-card me-2"></i>{{ "Employee Records"|t:current_lang }}</button></li>
-        <li class="nav-item"><button class="nav-link fw-bold" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button"><i class="fas fa-user-lock me-2"></i>{{ "System Users"|t:current_lang }}</button></li>
+        <li class="nav-item"><button class="nav-link {% if not user_search and not hindi_exam_filter %}active{% endif %} fw-bold" id="employees-tab" data-bs-toggle="tab" data-bs-target="#employees-pane" type="button"><i class="fas fa-id-card me-2"></i>{{ "Employee Records"|t:current_lang }}</button></li>
+        <li class="nav-item"><button class="nav-link {% if user_search or hindi_exam_filter %}active{% endif %} fw-bold" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button"><i class="fas fa-user-lock me-2"></i>{{ "Application Users"|t:current_lang }}</button></li>
         <li class="nav-item"><button class="nav-link fw-bold" id="qpr-tab" data-bs-toggle="tab" data-bs-target="#qpr-pane" type="button"><i class="fas fa-clipboard-check me-2"></i>{{ "QPR Status"|t:current_lang }}</button></li>
     </ul>
 
     <div class="tab-content" id="managerTabsContent">
         
-        <div class="tab-pane fade show active" id="employees-pane">
+        <div class="tab-pane fade {% if not user_search and not hindi_exam_filter %}show active{% endif %}" id="employees-pane">
             <div class="card shadow-sm border-0">
                 <div class="card-body table-responsive">
                     <div class="alert alert-info small py-2 mb-3">
@@ -127,25 +127,53 @@
             </div>
         </div>
 
-        <div class="tab-pane fade" id="users-pane">
+        <div class="tab-pane fade {% if user_search or hindi_exam_filter %}show active{% endif %}" id="users-pane">
             <div class="card shadow-sm border-0">
                 <div class="card-body table-responsive">
+                    <form method="get" class="row g-3 align-items-end mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold">Search</label>
+                            <input type="text" name="user_q" class="form-control" value="{{ user_search }}" placeholder="Empcode, username, employee name, Hindi name">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Highest Hindi Exam Passed</label>
+                            <select name="hindi_exam" class="form-select">
+                                <option value="">All</option>
+                                {% for exam in highest_exam_options %}
+                                    <option value="{{ exam }}" {% if hindi_exam_filter == exam %}selected{% endif %}>{{ exam }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary w-100">Filter</button>
+                            <a href="{% url 'manager_dashboard' %}" class="btn btn-outline-secondary w-100">Reset</a>
+                        </div>
+                    </form>
+
                     <table class="table table-hover align-middle">
                         <thead class="table-light">
                             <tr>
-                                <th>Username</th>
+                                <th>Empcode</th>
+                                <th>Employee Name</th>
                                 <th>Status</th>
+                                <th>Highest Hindi Exam Passed</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for u in users %}
+                            {% for item in application_users %}
                             <tr>
-                                <td class="fw-bold">{{ u.username }}</td>
+                                <td class="font-monospace fw-bold text-primary">{{ item.empcode }}</td>
+                                <td>{{ item.employee_name|default:"-" }}</td>
                                 <td>
-                                    <span class="badge {% if u.is_active %}bg-success{% else %}bg-danger{% endif %}">
-                                        {% if u.is_active %}Active{% else %}Inactive{% endif %}
+                                    <span class="badge {% if item.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                        {{ item.status }}
                                     </span>
                                 </td>
+                                <td>{{ item.highest_exam|default:"-" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">No application users found.</td>
                             </tr>
                             {% endfor %}
                         </tbody>

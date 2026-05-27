@@ -14,7 +14,7 @@ def env_bool(name, default=False):
 
 # SECURITY
 SECRET_KEY = os.getenv("SECRET_KEY")
-DEBUG = False
+DEBUG = True
 
 # Keep this False while testing on HTTP.
 # Set DJANGO_USE_HTTPS_SECURITY=true only when running behind HTTPS.

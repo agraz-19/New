@@ -4,6 +4,65 @@
 
 {% block title %}{{ "Quarterly Progress Report"|t:current_lang }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .bg-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .part-badge {
+        background-color: #6c757d;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .section-title {
+        font-weight: bold;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 10px;
+        color: #2c5a86;
+    }
+
+    .section-box {
+        margin-bottom: 20px;
+        padding: 15px;
+        background: #f9f9f9;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+    }
+
+    #qprForm .form-control,
+    #qprForm .form-select {
+        border: 2px solid #000 !important;
+    }
+
+    #qprForm .form-control:focus,
+    #qprForm .form-select:focus {
+        border-color: #000 !important;
+        box-shadow: 0 0 0 0.2rem rgba(44, 90, 134, 0.18);
+    }
+
+    .lbl-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .lbl-text {
+        flex: 1;
+        padding-right: 10px;
+        font-size: 0.95rem;
+    }
+
+    .lbl-input {
+        width: 100px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container my-4">
@@ -395,7 +454,7 @@
     (function(){
         var form = document.getElementById('qprForm');
         if(!form) return;
-         var numericFields = form.querySelectorAll('input[type="number"]');
+        var numericFields = form.querySelectorAll('input[type="number"]');
         numericFields.forEach(function(field){
             field.setAttribute('inputmode', 'numeric');
             field.setAttribute('pattern', '[0-9]*');
@@ -543,9 +602,14 @@
             window.MISSING_DAYS_DATA = JSON.parse(missingDaysDataJson);
             console.log('[DEBUG] Loaded missing days data:', window.MISSING_DAYS_DATA);
         }
+        const missingDaysSourceJson = `{{ missing_days_source_json|safe }}`;
+        if (missingDaysSourceJson && missingDaysSourceJson.trim()) {
+            window.QPR_MISSING_DAYS_SOURCE = JSON.parse(missingDaysSourceJson);
+        }
     } catch (e) {
         console.error('[ERROR] Failed to load missing days data:', e);
         window.MISSING_DAYS_DATA = {};
+        window.QPR_MISSING_DAYS_SOURCE = { submitted_daily_dates: [], fills: { weekly: [], monthly: [], quarterly: [] } };
     }
 </script>
 {% endblock %}
