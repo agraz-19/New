@@ -33,11 +33,7 @@
                     <span class="english-title text-body-secondary border-start border-secondary ps-3">
                         DEPARTMENT OF OFFICIAL LANGUAGE
                     </span>
-                    {% if user_office%} | {{user_office}}
-                    {% if user_state %}| {{ user_state }}
-                        
-                    {% endif %}
-                       {% endif %}
+                    
                 </div>
             </div>
             <div class="col-md-3 text-end">
@@ -149,7 +145,11 @@
 
 <footer class="bg-dark text-light py-3 fixed-bottom">    
     <div class="container text-center small">
-        <p class="m-0">&copy; {% now "Y" %} {{ "Department of Official Language (Demo)"|t:current_lang }}</p>
+        {% if user_office%} | {{user_office}}
+                    {% if user_state %}| {{ user_state }}
+                        
+                    {% endif %}
+                       {% endif %}
     </div>
 </footer>
 <script src="{% static 'js/xlsx.full.min.js' %}"></script>

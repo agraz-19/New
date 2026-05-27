@@ -42,7 +42,7 @@
                     <label class="form-label fw-semibold">Status</label>
                     <select name="status" class="form-select">
                         <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active</option>
-                        <option value="inactive" {% if selected_status == 'inactive' %}selected{% endif %}>Transferred Out</option>
+                        <option value="inactive" {% if selected_status == 'inactive' %}selected{% endif %}>Transferred out</option>
                         <option value="all" {% if selected_status == 'all' %}selected{% endif %}>All</option>
                     </select>
                 </div>
@@ -98,7 +98,7 @@
                                     <form method="post" action="{% url 'manager_employee_master_toggle_status' employee.id %}" onsubmit="return confirm('Mark this employee as transferred out?');">
                                         {% csrf_token %}
                                         <input type="hidden" name="action" value="deactivate">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">Transfer Out</button>
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Transfer / Superannuated</button>
                                     </form>
                                 {% else %}
                                     <form method="post" action="{% url 'manager_employee_master_toggle_status' employee.id %}" onsubmit="return confirm('Reactivate this employee?');">
