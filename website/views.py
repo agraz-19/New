@@ -6135,6 +6135,16 @@ def qpr_save_record(request):
 
             frequency = (data.get('frequency') or 'daily').strip().lower()
             selected_date_str = (data.get('selected_date') or '').strip()
+            quarter = data.get('quarter', '').strip()
+            year= data.get('year', '').strip() or None
+            
+            if frequency == 'quarterly' and quarter and year:
+                try:
+                    q_start, q_end = _quarter_label_to_daterange(quarter, year)
+                    if q_end < today:
+                        selected_date = q_end
+                except Exception:
+                    pass
 
             if frequency not in {'daily', 'weekly', 'monthly', 'quarterly'}:
                 messages.error(request, "Invalid frequency")
