@@ -1498,6 +1498,11 @@ def home(request):
     events = get_all_events()
     return render(request, "home.html", {"events": events})
 
+
+def faqs(request):
+    lang = request.session.get('lang', 'en')
+    return render(request, "faqs.html", {"current_lang": lang})
+
 def event_detail(request, folder):
     events = get_all_events()
     selected_event = next((e for e in events if e["folder"] == folder), None)
