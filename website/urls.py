@@ -10,6 +10,7 @@ urlpatterns = [
     path('captcha/', include('captcha.urls')),
     path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),    
     path('', views.home, name='home'),
+    path('faqs/', views.faqs, name='faqs'),
     path('dashboard/', views.dashboard, name='dashboard'),
     
     path('login/', CustomLoginView.as_view(), name='login'),

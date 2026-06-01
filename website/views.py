@@ -1498,6 +1498,10 @@ def home(request):
     events = get_all_events()
     return render(request, "home.html", {"events": events})
 
+def faqs(request):
+    lang = request.session.get('lang', 'en')
+    return render(request, "faqs.html", {"current_lang": lang})
+
 def event_detail(request, folder):
     events = get_all_events()
     selected_event = next((e for e in events if e["folder"] == folder), None)
@@ -3224,36 +3228,117 @@ def admin_dashboard(request):
    
     archived_users = ArchivedUser.objects.all().order_by('-archived_at')
 
-    current_quarter = get_current_quarter()
-    current_year = get_current_year_label()
+    today = timezone.localdate()
    
     hod_stats = []
-    hods = UserProfile.objects.filter(roles__name='hod', office_state=admin_state).order_by('name')
+    hods = UserProfile.objects.filter(
+        Q(roles__name='hod') | Q(user__roles__name='hod'),
+        office_state=admin_state
+    ).select_related('user', 'employee').distinct().order_by('name')
     for hod_profile in hods:
-        hod_key = hod_profile.hod_name or hod_profile.name or hod_profile.employee_code
-        hod_display = hod_profile.name or hod_key or 'UNKNOWN'
-        users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_key, approval_status__iexact='approved',office_state=admin_state)
+        employee_master = None
+        try:
+            if hod_profile.employee_code:
+                employee_master = EmployeeMaster.objects.filter(
+                    empcode=int(hod_profile.employee_code)
+                ).first()
+        except (TypeError, ValueError):
+            employee_master = None
+        hod_identifiers = [
+            (hod_profile.employee_code or '').strip(),
+            (hod_profile.name or '').strip(),
+            (hod_profile.hod_name or '').strip(),
+            (getattr(hod_profile.user, 'username', '') or '').strip(),
+        ]
+        hod_identifiers = [value for value in hod_identifiers if value]
+        hod_display = (
+            (hod_profile.name or '').strip()
+            or (getattr(employee_master, 'name', '') or '').strip()
+            or (getattr(hod_profile.employee, 'ename', '') or '').strip()
+            or (hod_profile.user.get_full_name() or '').strip()
+            or (getattr(hod_profile.user, 'username', '') or '').strip()
+            or (hod_profile.employee_code or '').strip()
+            or 'UNKNOWN'
+        )
+        hod_ip_number = (
+            (hod_profile.ip_number or '').strip()
+            or (getattr(employee_master, 'ip_number', '') or '').strip()
+            or '-'
+        )
+        hod_filter = Q()
+        for identifier in hod_identifiers:
+            hod_filter |= Q(hod_name__iexact=identifier)
+        if hod_identifiers:
+            users_under_hod = UserProfile.objects.filter(
+                hod_filter,
+                approval_status__iexact='approved',
+                office_state=admin_state
+            ).filter(
+                Q(roles__name='user') | Q(user__roles__name='user')
+            ).distinct()
+        else:
+            users_under_hod = UserProfile.objects.none()
         total_users = users_under_hod.count()
         profile_complete = sum(1 for p in users_under_hod if p.profile_updated)
-        qpr_complete = sum( 1 for p in users_under_hod if QPRRecord.objects.filter( user=p.user, quarter=current_quarter, year=current_year, is_submitted=True ).exists())
+        qpr_complete = sum(
+            1 for p in users_under_hod if QPRRecord.objects.filter(
+                user=p.user,
+                frequency__iexact='daily',
+                period_start=today,
+                is_submitted=True
+            ).exists()
+        )
         completion_pct = int((qpr_complete / total_users) * 100) if total_users > 0 else 0
         hod_stats.append({
+            'employee_code': hod_profile.employee_code or '-',
             'hod_name': str(hod_display).upper(),
+            'ip_number': hod_ip_number,
             'total_employees': total_users,
             'profile_completed': profile_complete,
             'qpr_completed': qpr_complete,
             'completion_percentage': completion_pct,
         })
-    unique_hod_names = set(UserProfile.objects.filter(roles__name='user', approval_status__iexact='approved', office_state=admin_state).exclude(hod_name__isnull=True).values_list('hod_name', flat=True))
-    actual_hod_names = set(UserProfile.objects.filter(roles__name='hod', office_state=admin_state).values_list('hod_name', flat=True))
+    unique_hod_names = set(UserProfile.objects.filter(
+        Q(roles__name='user') | Q(user__roles__name='user'),
+        approval_status__iexact='approved',
+        office_state=admin_state
+    ).exclude(hod_name__isnull=True).values_list('hod_name', flat=True))
+    actual_hod_profiles = UserProfile.objects.filter(
+        Q(roles__name='hod') | Q(user__roles__name='hod'),
+        office_state=admin_state
+    ).select_related('user').distinct()
+    actual_hod_names = set()
+    for hod_profile in actual_hod_profiles:
+        actual_hod_names.update(
+            value for value in [
+                hod_profile.employee_code,
+                hod_profile.name,
+                hod_profile.hod_name,
+                getattr(hod_profile.user, 'username', None),
+            ] if value
+        )
     uncovered = unique_hod_names - actual_hod_names
     for hod_name in sorted(uncovered):
-        users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name__iexact=hod_name, approval_status__iexact='approved', office_state=admin_state)
+        users_under_hod = UserProfile.objects.filter(
+            Q(roles__name='user') | Q(user__roles__name='user'),
+            hod_name__iexact=hod_name,
+            approval_status__iexact='approved',
+            office_state=admin_state
+        ).distinct()
         total_users = users_under_hod.count()
-        qpr_complete = sum(1 for p in users_under_hod if QPRRecord.objects.filter(user=p.user, status='Submitted').exists())
+        qpr_complete = sum(
+            1 for p in users_under_hod if QPRRecord.objects.filter(
+                user=p.user,
+                frequency__iexact='daily',
+                period_start=today,
+                is_submitted=True
+            ).exists()
+        )
         completion_pct = int((qpr_complete / total_users) * 100) if total_users > 0 else 0
         hod_stats.append({
+            'employee_code': '-',
             'hod_name': str(hod_name).upper(),
+            'ip_number': '-',
             'total_employees': total_users,
             'profile_completed': sum(1 for p in users_under_hod if p.profile_updated),
             'qpr_completed': qpr_complete,
@@ -3426,72 +3511,104 @@ def admin_employee_list(request):
     admin_state = request.user.profile.office_state
     employee_code_filter = request.GET.get('employee_code', '').strip()
     name_filter = request.GET.get('name', '').strip()
-    quarter_filter = request.GET.get('quarter', '').strip()
-    year_filter = request.GET.get('year', '').strip()
-    if not quarter_filter:
-        quarter_filter = get_current_quarter()
-    if not year_filter:
-        year_filter = get_current_year_label()
 
-    hods = UserProfile.objects.filter(roles__name='hod', office_state=admin_state).order_by('name')
+    hods = UserProfile.objects.filter(
+        Q(roles__name='hod') | Q(user__roles__name='hod'),
+        office_state=admin_state
+    ).select_related('user').distinct().order_by('name')
     hod_groups = []
    
-    all_qpr_records = QPRRecord.objects.all()
-    all_quarters = sorted(set(all_qpr_records.values_list('quarter', flat=True).filter(quarter__isnull=False)))
-    all_years = sorted(set(all_qpr_records.values_list('year', flat=True).filter(year__isnull=False)), reverse=True)
-
-    current_year = get_current_year_label()
-
-    if current_year not in all_years:
-        all_years.insert(0, current_year)
-   
     for hod_profile in hods:
-        users_under_hod = UserProfile.objects.filter(roles__name='user', hod_name=hod_profile.hod_name).order_by('name')
+        hod_employee_master = None
+        try:
+            if hod_profile.employee_code:
+                hod_employee_master = EmployeeMaster.objects.filter(
+                    empcode=int(hod_profile.employee_code)
+                ).first()
+        except (TypeError, ValueError):
+            hod_employee_master = None
+
+        hod_display_name = (
+            (hod_profile.name or '').strip()
+            or (getattr(hod_employee_master, 'name', '') or '').strip()
+            or (hod_profile.user.get_full_name() or '').strip()
+            or (getattr(hod_profile.user, 'username', '') or '').strip()
+            or (hod_profile.employee_code or '').strip()
+            or 'UNKNOWN'
+        )
+        hod_identifiers = [
+            (hod_profile.employee_code or '').strip(),
+            (hod_profile.name or '').strip(),
+            (hod_profile.hod_name or '').strip(),
+            (getattr(hod_profile.user, 'username', '') or '').strip(),
+        ]
+        hod_filter = Q()
+        for identifier in [value for value in hod_identifiers if value]:
+            hod_filter |= Q(hod_name__iexact=identifier)
+
+        if hod_filter:
+            users_under_hod = UserProfile.objects.filter(
+                hod_filter,
+                office_state=admin_state
+            ).filter(
+                Q(roles__name='user') | Q(user__roles__name='user')
+            ).select_related('user', 'employee').distinct().order_by('name')
+        else:
+            users_under_hod = UserProfile.objects.none()
+
         user_details = []
         for user_profile in users_under_hod:
             emp_code_val = (user_profile.employee_code or '').strip()
             if employee_code_filter and employee_code_filter.lower() not in emp_code_val.lower():
                 continue
 
-            user_name = (user_profile.name or user_profile.user.get_full_name() or user_profile.user.username) or ''
-
+            employee_master = None
             emp_record = None
-            if (not user_name) or user_name.strip().lower() in ['', 'none']:
-                if emp_code_val:
-                    try:
-                        emp_int = int(emp_code_val)
-                        emp_record = Employee.objects.filter(empcode=emp_int).first()
-                    except Exception:
-                        emp_record = Employee.objects.filter(empcode=emp_code_val).first()
-                if not emp_record:
-                    emp_record = Employee.objects.filter(empcode=user_profile.user.username).first()
-                if emp_record and emp_record.ename:
-                    user_name = emp_record.ename
+            if emp_code_val:
+                try:
+                    employee_master = EmployeeMaster.objects.filter(empcode=int(emp_code_val)).first()
+                    emp_record = user_profile.employee or Employee.objects.filter(empcode=int(emp_code_val)).first()
+                except (TypeError, ValueError):
+                    employee_master = None
+                    emp_record = user_profile.employee
+            if not emp_record:
+                emp_record = user_profile.employee
+
+            user_name = (
+                (user_profile.name or '').strip()
+                or (getattr(employee_master, 'name', '') or '').strip()
+                or (getattr(emp_record, 'ename', '') or '').strip()
+                or (user_profile.user.get_full_name() or '').strip()
+                or (user_profile.user.username or '').strip()
+            )
+            hindi_name = (
+                (getattr(employee_master, 'hindi_name', '') or '').strip()
+                or (getattr(emp_record, 'hname', '') or '').strip()
+                or ''
+            )
+            ip_number = (
+                (user_profile.ip_number or '').strip()
+                or (getattr(employee_master, 'ip_number', '') or '').strip()
+                or '-'
+            )
 
             if name_filter and name_filter.lower() not in (user_name or '').lower():
                 continue
 
-            qpr_record = QPRRecord.objects.filter( user=user_profile.user, quarter=quarter_filter, year=year_filter ).first()
-
-            office_name_val = user_profile.office_name or (qpr_record.officeName if qpr_record else '')
-            office_code_val = user_profile.office_code or (qpr_record.officeCode if qpr_record else '')
-
-            if (not office_name_val or office_name_val.strip() == '') and emp_record:
-                office_name_val = getattr(emp_record, 'hname', '') or office_name_val
+            office_name_val = user_profile.office_name or getattr(employee_master, 'division', '') or ''
+            office_code_val = user_profile.office_code or ''
 
             user_details.append({
                 'emp_code': user_profile.employee_code,
                 'name': user_name,
-                'email': user_profile.user.email,
+                'hname': hindi_name or 'Not Set',
+                'ip_number': ip_number,
                 'office_name': office_name_val or 'Not Set',
                 'office_code': office_code_val or 'Not Set',
-                'quarter': quarter_filter,
-                'year': year_filter,
-                'qpr_status': qpr_record.status if qpr_record else 'Not Submitted',
             })
         if user_details:
             hod_groups.append({
-                'hod_name': hod_profile.hod_name,
+                'hod_name': hod_display_name,
                 'hod_email': hod_profile.user.email,
                 'hod_emp_code': hod_profile.employee_code,
                 'user_count': len(user_details),
@@ -3500,10 +3617,6 @@ def admin_employee_list(request):
    
     context = {
         'hod_groups': hod_groups,
-        'all_quarters': all_quarters,
-        'all_years': all_years,
-        'quarter_filter': quarter_filter,
-        'year_filter': year_filter,
         'employee_code_filter': employee_code_filter,
         'name_filter': name_filter,
     }
@@ -6844,48 +6957,77 @@ def manager_report(request):
         current_quarter = get_current_quarter()
         current_year = get_current_year_label()
 
+    def _employee_master_for_profile(profile):
+        employee_code = (getattr(profile, 'employee_code', '') or '').strip()
+        if not employee_code:
+            return None
+        try:
+            return EmployeeMaster.objects.filter(empcode=int(employee_code)).first()
+        except (TypeError, ValueError):
+            return None
+
+    def _profile_identity(profile):
+        user_obj = getattr(profile, 'user', None)
+        employee_master = _employee_master_for_profile(profile)
+        employee_obj = getattr(profile, 'employee', None)
+        full_name = (user_obj.get_full_name() or '').strip() if user_obj else ''
+        username = (getattr(user_obj, 'username', '') or '').strip()
+        name = (
+            (getattr(profile, 'name', '') or '').strip()
+            or (getattr(employee_master, 'name', '') or '').strip()
+            or (getattr(employee_obj, 'ename', '') or '').strip()
+            or full_name
+            or username
+            or (getattr(profile, 'employee_code', '') or '').strip()
+        )
+        hname = (
+            (getattr(employee_master, 'hindi_name', '') or '').strip()
+            or (getattr(employee_obj, 'hname', '') or '').strip()
+            or name
+        )
+        ip_number = (
+            (getattr(profile, 'ip_number', '') or '').strip()
+            or (getattr(employee_master, 'ip_number', '') or '').strip()
+            or ''
+        )
+        empcode = (
+            (getattr(profile, 'employee_code', '') or '').strip()
+            or username
+        )
+        return {
+            'name': name or empcode or '-',
+            'hname': hname or name or empcode or '-',
+            'ip': ip_number,
+            'empcode': str(empcode or ''),
+        }
+
     manager_data = []
     hod_profiles = UserProfile.objects.none()
     office_profiles = UserProfile.objects.none()
     if office_code:
-        office_profiles = UserProfile.objects.filter(office_code=office_code).select_related('user').distinct()
+        office_profiles = UserProfile.objects.filter(office_code=office_code).select_related('user', 'employee').distinct()
         hod_profiles = UserProfile.objects.filter(
             office_code=office_code,
-            roles__name__iexact='hod',
+        ).filter(
+            Q(roles__name__iexact='hod') | Q(user__roles__name__iexact='hod'),
             approval_status='approved'
-        ).select_related('user').distinct()
+        ).select_related('user', 'employee').distinct()
 
         for hod_profile in hod_profiles:
             try:
                 user_obj = getattr(hod_profile, 'user', None)
-                hod_display_name = (hod_profile.name or '').strip()
-                def _looks_like_empcode(s):
-                    try:
-                        return str(s).strip().isdigit()
-                    except Exception:
-                        return False
-
-                if (not hod_display_name or _looks_like_empcode(hod_display_name)) and user_obj:
-                    emp_rec = None
-                    try:
-                        emp_rec = getattr(hod_profile, 'employee', None)
-                    except Exception:
-                        emp_rec = None
-                    if emp_rec and getattr(emp_rec, 'ename', None):
-                        hod_display_name = emp_rec.ename.strip()
-                    else:
-                        try:
-                            hod_display_name = (user_obj.get_full_name() or user_obj.username or '').strip()
-                        except Exception:
-                            hod_display_name = (getattr(user_obj, 'username', '') or '').strip()
+                hod_identity = _profile_identity(hod_profile)
+                hod_display_name = hod_identity['name']
 
                 employees_qs = UserProfile.objects.filter(
                     approval_status='approved',
-                ).select_related('user')
+                ).select_related('user', 'employee')
 
                 match_keys = []
                 if hod_profile.name:
                     match_keys.append(hod_profile.name)
+                if hod_profile.hod_name:
+                    match_keys.append(hod_profile.hod_name)
                 if getattr(hod_profile, 'employee_code', None):
                     match_keys.append(str(hod_profile.employee_code))
                 if user_obj and getattr(user_obj, 'username', None):
@@ -6906,29 +7048,26 @@ def manager_report(request):
                         uid = getattr(u, 'id', None)
                         if uid is None:
                             continue
-                        name = (p.name or '') or (getattr(u, 'get_full_name', lambda: None)() or getattr(u, 'username', ''))
-                        try:
-                            emp_obj = getattr(p, 'employee', None)
-                            hname_val = getattr(emp_obj, 'hname', '') if emp_obj is not None else ''
-                        except Exception:
-                            hname_val = ''
-                        empcode = getattr(p, 'employee_code', '') or getattr(u, 'username', '') or ''
-                        empcode = str(empcode)
-                        ipnum = getattr(p, 'ip_number', '') or ''
-                        emp_dicts.append({'id': uid, 'name': name, 'hname': hname_val or name, 'empcode': empcode, 'ip': ipnum})
+                        employee_identity = _profile_identity(p)
+                        emp_dicts.append({
+                            'id': uid,
+                            'name': employee_identity['name'],
+                            'hname': employee_identity['hname'],
+                            'empcode': employee_identity['empcode'],
+                            'ip': employee_identity['ip'],
+                        })
                     except Exception:
                         continue
 
                 try:
                     hod_user_id = getattr(user_obj, 'id', None)
-                    hod_empcode = getattr(hod_profile, 'employee_code', '') or (getattr(user_obj, 'username', '') or '')
-                    hod_ip = getattr(hod_profile, 'ip_number', '') or ''
-                    try:
-                        hod_emp_obj = getattr(hod_profile, 'employee', None)
-                        hod_hname = getattr(hod_emp_obj, 'hname', '') if hod_emp_obj is not None else ''
-                    except Exception:
-                        hod_hname = ''
-                    hod_entry = {'id': hod_user_id, 'name': hod_display_name, 'hname': hod_hname or hod_display_name, 'empcode': str(hod_empcode), 'ip': hod_ip}
+                    hod_entry = {
+                        'id': hod_user_id,
+                        'name': hod_identity['name'],
+                        'hname': hod_identity['hname'],
+                        'empcode': hod_identity['empcode'],
+                        'ip': hod_identity['ip'],
+                    }
                     emp_dicts = [e for e in emp_dicts if e.get('id') != hod_user_id]
                     emp_dicts.insert(0, hod_entry)
                 except Exception:
@@ -6936,7 +7075,7 @@ def manager_report(request):
 
                 manager_data.append({
                     'hod_name': hod_display_name,
-                    'hod_hname': (getattr(hod_profile, 'employee', None) and getattr(hod_profile.employee, 'hname', '')) or hod_display_name,
+                    'hod_hname': hod_identity['hname'],
                     'hod_id': getattr(user_obj, 'id', None),
                     'employees': emp_dicts,
                     'division_frozen': False,
@@ -7302,7 +7441,7 @@ def manager_report_detail(request, year, quarter):
             profile_name = ''
 
         employee_name = (
-            
+           
             (getattr(master_employee, 'name', '') or '').strip()
             or (getattr(emp_obj, 'ename', '') or '').strip()
             or profile_name
@@ -7310,7 +7449,7 @@ def manager_report_detail(request, year, quarter):
         )
         try:
             emp_hname = ''
-            
+           
             if emp_obj is not None:
                 emp_hname = getattr(emp_obj, 'hname', '') or ''
         except Exception:
@@ -8049,4 +8188,3 @@ def process_user_approval(request, profile_id, action):
         messages.warning(request, f"User {target_profile.employee_code} rejected.")
 
     return redirect('qpr_hod_dashboard')
-

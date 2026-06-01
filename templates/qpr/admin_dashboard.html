@@ -21,17 +21,21 @@
         <table class="table table-bordered">
             <thead>
                 <tr>
+                    <th>EMP Code</th>
                     <th>HOD Name</th>
+                    <th>IP Number</th>
                     <th>Total Employees</th>
                     <th>Profile Completed</th>
-                    <th>QPR Completed</th>
+                    <th>QPR Completed Today</th>
                     <th>Completion %</th>
                 </tr>
             </thead>
             <tbody>
                 {% for stat in hod_stats %}
                 <tr>
+                    <td>{{ stat.employee_code }}</td>
                     <td>{{ stat.hod_name }}</td>
+                    <td>{{ stat.ip_number }}</td>
                     <td>{{ stat.total_employees }}</td>
                     <td>{{ stat.profile_completed }}</td>
                     <td>{{ stat.qpr_completed }}</td>

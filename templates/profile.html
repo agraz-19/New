@@ -151,7 +151,7 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label fw-bold">{{ "Office Code"|t:current_lang }}</label>
-                                <select name="office_code" id="office_code_select" class="form-select" {% if not can_edit %}disabled{% endif %} required>
+                                <select name="office_code" id="office_code_select" class="form-select" {% if not can_edit %}disabled{% endif %}>
                                     <option value="">-- {{ "Select Office"|t:current_lang }} --</option>
                                     {% for o in offices %}
                                         <option value="{{ o.code }}" data-name="{{ o.name }}" {% if o.code == profile.office_code %}selected{% endif %}>{{ o.code }}</option>

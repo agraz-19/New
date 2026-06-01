@@ -138,35 +138,15 @@
         <div class="filter-section mb-4">
             <form method="GET" class="row g-3">
                 <div class="col-md-2">
-                    <label for="employee_code" class="form-label">{{ "Employee Code"|t:current_lang }}:</label>
+                    <label for="employee_code" class="form-label">{{ "Emp Code"|t:current_lang }}:</label>
                     <input type="text" name="employee_code" id="employee_code" class="form-control"
-                        placeholder="Search by code" value="{{ employee_code_filter }}">
+                        placeholder="Search" value="{{ employee_code_filter }}">
                 </div>
 
                 <div class="col-md-2">
                     <label for="name" class="form-label">{{ "Name"|t:current_lang }}:</label>
-                    <input type="text" name="name" id="name" class="form-control" placeholder="Search by name"
+                    <input type="text" name="name" id="name" class="form-control" placeholder="Search"
                         value="{{ name_filter }}">
-                </div>
-
-                <div class="col-md-2">
-                    <label for="quarter" class="form-label">{{ "Quarter Ending"|t:current_lang }}</label>
-                    <select name="quarter" id="quarter" class="form-select">
-                        <option value="">{{ "All Quarters"|t:current_lang }}</option>
-                        {% for q in all_quarters %}
-                        <option value="{{ q }}" {% if quarter_filter == q %}selected{% endif %}>{{ q }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="col-md-2">
-                    <label for="year" class="form-label">{{ "Year"|t:current_lang }}:</label>
-                    <select name="year" id="year" class="form-select">
-                        <option value="">{{ "All Years"|t:current_lang }}</option>
-                        {% for y in all_years %}
-                        <option value="{{ y }}" {% if year_filter == y %}selected{% endif %}>{{ y }}</option>
-                        {% endfor %}
-                    </select>
                 </div>
 
                 <div class="col-md-4 d-flex align-items-end gap-2">
@@ -195,7 +175,7 @@
                 </div>
             </div>
             <div>
-                <small>{{ hod_group.hod_emp_code }}</small>
+                <small>{{ "Emp Code"|t:current_lang }}: {{ hod_group.hod_emp_code }}</small>
             </div>
         </div>
 
@@ -205,11 +185,10 @@
                 <tr>
                     <th>{{ "Employee Code"|t:current_lang }}</th>
                     <th>{{ "Name"|t:current_lang }}</th>
+                    <th>{{ "HName"|t:current_lang }}</th>
+                    <th>{{ "IP Number"|t:current_lang }}</th>
                     <th>{{ "Office Name"|t:current_lang }}</th>
                     <th>{{ "Office Code"|t:current_lang }}</th>
-                    <th>{{ "Quarter Ending"|t:current_lang }}</th>
-                    <th>{{ "Year"|t:current_lang }}</th>
-                    <th>{{ "QPR Status"|t:current_lang }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -217,25 +196,10 @@
                 <tr>
                     <td><strong>{{ user.emp_code }}</strong></td>
                     <td>{{ user.name }}</td>
+                    <td>{{ user.hname }}</td>
+                    <td>{{ user.ip_number }}</td>
                     <td>{{ user.office_name|default:"Not Set" }}</td>
                     <td>{{ user.office_code|default:"Not Set" }}</td>
-                    <td>
-                        {{ user.quarter|default:"N/A" }}
-                    </td>
-                    <td>
-                        {{ user.year|default:"N/A" }}
-                    </td>
-                    <td>
-                        {% if user.qpr_record_id %}
-                            <a href="{% url 'qpr_report_detail' user.qpr_record_id %}" class="btn btn-sm btn-outline-primary">View</a>
-                        {% elif user.qpr_status == "Draft" %}
-                            <span class="status-badge status-draft">{{ "Draft"|t:current_lang }}</span>
-                        {% elif user.qpr_status == "Submitted" %}
-                            <span class="status-badge status-submitted">{{ "Submitted"|t:current_lang }}</span>
-                        {% else %}
-                            <span class="status-badge status-draft">{{ "Not Submitted"|t:current_lang }}</span>
-                        {% endif %}
-                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -42,7 +42,6 @@
                 <tr>
                     <th>{{ "Employee Code"|t:current_lang }}</th>
                     <th>{{ "Name"|t:current_lang }}</th>
-                    <th>{{ "QPR Status"|t:current_lang }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -50,11 +49,10 @@
                 <tr>
                     <td>{{ emp.employee_code }}</td>
                     <td>{{ emp.name }}</td>
-                    <td>{{ emp.qpr_status }}</td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="3" class="text-center">{{ "No employees found"|t:current_lang }}</td>
+                    <td colspan="2" class="text-center">{{ "No employees found"|t:current_lang }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

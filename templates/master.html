@@ -52,6 +52,7 @@
         <div class="collapse navbar-collapse" id="mainNav">
             <ul class="navbar-nav me-auto">
                 <li class="nav-item"><a class="nav-link px-3" href="{% url 'home' %}">{{ "Home"|t:current_lang }}</a></li>
+                <li class="nav-item"><a class="nav-link px-3" href="{% url 'faqs' %}">{{ "FAQs"|t:current_lang }}</a></li>
                 <li class="nav-item"><a class="nav-link px-3" href="/about/">{{ "About us"|t:current_lang }}</a></li>
                 <li class="nav-item"><a class="nav-link px-3" href="/products/">{{ "Our IT products"|t:current_lang }}</a></li>
                 <li class="nav-item"><a class="nav-link px-3" href="/schemes/">{{ "Incentive Schemes"|t:current_lang }}</a></li>
@@ -145,7 +146,7 @@
 
 <footer class="bg-dark text-light py-3 fixed-bottom">    
     <div class="container text-center small">
-        {% if user_office%} | {{user_office}}
+        {% if user_office%}  {{user_office}}
                     {% if user_state %}| {{ user_state }}
                         
                     {% endif %}
