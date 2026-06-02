@@ -28,7 +28,6 @@
     }
 
     .faq-topic-title {
-        color: #212529;
         font-size: 1.15rem;
         font-weight: 700;
         margin-bottom: 0.75rem;
@@ -42,13 +41,9 @@
         font-weight: 600;
     }
 
-    .accordion-button:not(.collapsed) {
-        color: #084298;
-        background-color: #e7f1ff;
-    }
 
     .faq-answer {
-        color: #495057;
+
         line-height: 1.65;
     }
 </style>
@@ -69,11 +64,11 @@
         <div class="accordion" id="registrationFaq">
             <div class="accordion-item">
                 <h3 class="accordion-header">
-                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#registrationOne" aria-expanded="true" aria-controls="registrationOne">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#registrationOne" aria-expanded="false" aria-controls="registrationOne">
                         {{ "How can a new user register on the portal?"|t:current_lang }}
                     </button>
                 </h3>
-                <div id="registrationOne" class="accordion-collapse collapse show" data-bs-parent="#registrationFaq">
+                <div id="registrationOne" class="accordion-collapse collapse" data-bs-parent="#registrationFaq">
                     <div class="accordion-body faq-answer">
                         {{ "A new user can open the sign up page, enter the required employee and contact details, verify the OTP, and submit the registration request for approval."|t:current_lang }}
                     </div>
@@ -112,12 +107,12 @@
             <div class="accordion-item">
                 <h3 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#qprOne" aria-expanded="false" aria-controls="qprOne">
-                        {{ "How do I update QPR data?"|t:current_lang }}
+                        {{ "How do I fill QPR data?"|t:current_lang }}
                     </button>
                 </h3>
                 <div id="qprOne" class="accordion-collapse collapse" data-bs-parent="#qprFaq">
                     <div class="accordion-body faq-answer">
-                        {{ "Go to the Quarterly Progress Report section, open the QPR form, select the relevant quarter and year, fill in the required sections, and save or submit the report."|t:current_lang }}
+                        {{ "Go to the fill Quarterly Progress Report section in the user dashboard. Select the relevant quarter, year and date. Fill in the necessary sections and submit the report."|t:current_lang }}
                     </div>
                 </div>
             </div>
@@ -129,7 +124,7 @@
                 </h3>
                 <div id="qprTwo" class="accordion-collapse collapse" data-bs-parent="#qprFaq">
                     <div class="accordion-body faq-answer">
-                        {{ "Submitted reports may be locked depending on the workflow. If changes are required, submit an edit request or contact the authorized approving officer."|t:current_lang }}
+                        {{ "Yes, you can edit a submitted QPR report. Go to the view history in the user dashboard and request to edit the specific qpr that needed to be changed and wait for the manager approval to grant permission to edit that QPR."|t:current_lang }}
                     </div>
                 </div>
             </div>
@@ -141,7 +136,9 @@
                 </h3>
                 <div id="qprThree" class="accordion-collapse collapse" data-bs-parent="#qprFaq">
                     <div class="accordion-body faq-answer">
-                        {{ "Open the report list from the QPR dashboard, choose the required report, review the details, and use the print option to generate a printable report."|t:current_lang }}
+                      <p>  {{ "For users, Go to the View History and click on view of your specified qpr. Then you will be having a button to print or generate the report."|t:current_lang }}</p>
+                      <p>  {{ "For HODs Divisional QPR- Click on view and print in the divisional QPR section of HOD Dashboard."|t:current_lang }}</p>
+                      <p>  {{ "For manager, go to manager report in the manager dashboard and you can print the state QPR."|t:current_lang }}</p>
                     </div>
                 </div>
             </div>
@@ -153,7 +150,7 @@
                 </h3>
                 <div id="qprFour" class="accordion-collapse collapse" data-bs-parent="#qprFaq">
                     <div class="accordion-body faq-answer">
-                        {{ "QPR details are reviewed according to the assigned role and workflow, such as user, manager, HOD, or administrator approval."|t:current_lang }}
+                        {{ "The manager accepts or rejects the qpr approvals in his dashboard. Reviewing QPR details are done by HOD and Manager."|t:current_lang }}
                     </div>
                 </div>
             </div>

@@ -29,7 +29,7 @@
  padding: 8px 15px;
  margin: 0 5px;
  border: 1px solid #ccc;
- background-color: white;
+
  cursor: pointer;
  border-radius: 4px;
  text-decoration: none;
@@ -38,7 +38,6 @@
  
  .print-toolbar .btn-print {
  background-color: #007bff;
- color: white;
  border-color: #007bff;
  }
  
@@ -91,13 +90,11 @@
  }
  
  .header-info {
- background-color: #f9f9f9;
  padding: 15px;
  border-radius: 5px;
  margin-bottom: 20px;
  font-size: 11px;
  }
- 
  .header-info p {
  margin: 3px 0;
  }
@@ -120,14 +117,14 @@
 
  <!-- Section 1 -->
  <div class="qpr-section">
- <h4>{{ "1. Rule 10(4) Notification & Sub-office Details"|t:current_lang }}</h4>
- <p><strong>{{ "Notified under Rule 10(4)"|t:current_lang }}:</strong> {% if certificate.is_notified_rule_10_4 %}{{ "Yes"|t:current_lang }}{% else %}{{ "No"|t:current_lang }}{% endif %}</p>
- <p><strong>{{ "Total Sub-offices"|t:current_lang }}:</strong> {{ certificate.total_sub_offices|default:"0" }} | <strong>{{ "Notified Sub-offices"|t:current_lang }}:</strong> {{ certificate.notified_sub_offices|default:"0" }}</p>
+ <h4>{{ "1. (i) Whether the Office has been notified under Rule 10(4) of Official Languages Rules, 1976"|t:current_lang }}</h4>
+ <p><strong>{{ "Whether the Office has been notified under Rule 10(4) of Official Languages Rules, 1976"|t:current_lang }}:</strong> {% if certificate.is_notified_rule_10_4 %}{{ "Yes"|t:current_lang }}{% else %}{{ "No"|t:current_lang }}{% endif %}</p>
+ <p><strong>{{ "Total No. of Offices"|t:current_lang }}:</strong> {{ certificate.total_sub_offices|default:"0" }} | <strong>{{ "No. of Offices Notified"|t:current_lang }}:</strong> {{ certificate.notified_sub_offices|default:"0" }}</p>
  </div>
 
  <!-- Section 2 - Staff Knowledge -->
  <div class="qpr-section">
- <h4>{{ "2. Staff Knowledge of Hindi"|t:current_lang }}</h4>
+ <h4>{{ "2. (i) Officers/Employees possessing knowledge of Official Language Hindi"|t:current_lang }}</h4>
  <table class="qpr-table">
  <thead>
  <tr>
@@ -140,7 +137,7 @@
  <tbody>
  {% for item in certificate.staff_knowledge.all %}
  <tr>
- <td class="text-left">{{ item.category|t:current_lang }}</td>
+ <td class="text-left">{{ item.get_category_display }}</td>
  <td>
  {% if item.category == 'knowledge' %}
  {{ "Working"|t:current_lang }}: {{ item.officers_working|default:"0" }}<br>
@@ -168,21 +165,21 @@
 
  <!-- Section 3 - Typing Knowledge -->
  <div class="qpr-section">
- <h4>{{ "3. Hindi Stenography/Typing Knowledge"|t:current_lang }}</h4>
+ <h4>{{ "2. (ii) Knowledge of Hindi Stenography/Typing"|t:current_lang }}</h4>
  <table class="qpr-table">
  <thead>
  <tr>
  <th>{{ "Category"|t:current_lang }}</th>
- <th>{{ "Total"|t:current_lang }}</th>
- <th>{{ "Trained"|t:current_lang }}</th>
- <th>{{ "Working"|t:current_lang }}</th>
- <th>{{ "Yet to Train"|t:current_lang }}</th>
+ <th>{{ "Total No."|t:current_lang }}</th>
+ <th>{{ "No. of personnel trained in Hindi"|t:current_lang }}</th>
+ <th>{{ "Out of trained how many work in Hindi"|t:current_lang }}</th>
+ <th>{{ "Yet to be trained"|t:current_lang }}</th>
  </tr>
  </thead>
  <tbody>
  {% for item in certificate.typing_knowledge.all %}
  <tr>
- <td class="text-left">{{ item.category|t:current_lang }}</td>
+ <td class="text-left">{{ item.get_category_display }}</td>
  <td>{{ item.total_no|default:"0" }}</td>
  <td>{{ item.trained_in_hindi|default:"0" }}</td>
  <td>{{ item.work_in_hindi|default:"0" }}</td>
@@ -197,7 +194,7 @@
 
  <!-- Section 4 - Translation -->
  <div class="qpr-section">
- <h4>{{ "4. Knowledge of Translation"|t:current_lang }}</h4>
+ <h4>{{ "2. (iii) Knowledge of Translation"|t:current_lang }}</h4>
  <table class="qpr-table">
  <thead>
  <tr>
@@ -210,7 +207,7 @@
  <tbody>
  {% for item in certificate.translation_knowledge.all %}
  <tr>
- <td class="text-left">{{ item.category|t:current_lang }}</td>
+ <td class="text-left">{{ item.get_category_display }}</td>
  <td>{{ item.officers_count|default:"0" }}</td>
  <td>{{ item.employees_count|default:"0" }}</td>
  <td>{{ item.total_count|default:"0" }}</td>
@@ -222,9 +219,51 @@
  </table>
  </div>
 
+ <!-- Section 3 - Training in Hindi on Computers -->
+ <div class="qpr-section">
+ <h4>{{ "3. Training in Hindi on Computers"|t:current_lang }}</h4>
+ <table class="qpr-table">
+ <thead>
+ <tr>
+ <th>{{ "Total Officers/Employees"|t:current_lang }}</th>
+ <th>{{ "No. trained in Hindi on Computer"|t:current_lang }}</th>
+ <th>{{ "No. working in Hindi on Computer"|t:current_lang }}</th>
+ </tr>
+ </thead>
+ <tbody>
+ <tr>
+ <td>{{ certificate.computer_training_total_staff|default:"0" }}</td>
+ <td>{{ certificate.computer_training_trained|default:"0" }}</td>
+ <td>{{ certificate.computer_training_working|default:"0" }}</td>
+ </tr>
+ </tbody>
+ </table>
+ </div>
+
+ <!-- Section 4 - Details regarding Computers/Laptops -->
+ <div class="qpr-section">
+ <h4>{{ "4. Details regarding Computers/Laptops"|t:current_lang }}</h4>
+ <table class="qpr-table">
+ <thead>
+ <tr>
+ <th>{{ "Total Computers"|t:current_lang }}</th>
+ <th>{{ "Hindi Enabled"|t:current_lang }}</th>
+ <th>{{ "% Work in Hindi"|t:current_lang }}</th>
+ </tr>
+ </thead>
+ <tbody>
+ <tr>
+ <td>{{ certificate.total_computers|default:"0" }}</td>
+ <td>{{ certificate.hindi_enabled_computers|default:"0" }}</td>
+ <td>{{ certificate.hindi_work_percentage|default:"0" }}</td>
+ </tr>
+ </tbody>
+ </table>
+ </div>
+
  <!-- Section 5 - Codes/Manuals -->
  <div class="qpr-section">
- <h4>{{ "5. Code, Manuals, Standard Forms"|t:current_lang }}</h4>
+ <h4>{{ "5. Code, Manuals, Standard Forms etc."|t:current_lang }}</h4>
  <table class="qpr-table">
  <thead>
  <tr>
@@ -249,20 +288,20 @@
 
  <!-- Section 6 - Rule 8(4) Orders -->
  <div class="qpr-section">
- <h4>{{ "6. Officials Issued Rule 8(4) Orders"|t:current_lang }}</h4>
- <p><strong>{{ "Number of Officials"|t:current_lang }}:</strong> {{ certificate.officials_issued_rule_8_4_orders|default:"0" }}</p>
+ <h4>{{ "6. No. of officials issued individual orders under Rule 8(4) of Official Language Rules, 1976 to perform whole work in Hindi"|t:current_lang }}</h4>
+ <p><strong>{{ "No. of officials issued individual orders under Rule 8(4)"|t:current_lang }}:</strong> {{ certificate.officials_issued_rule_8_4_orders|default:"0" }}</p>
  </div>
 
  <!-- Section 7 - Training Programme -->
  <div class="qpr-section">
- <h4>{{ "7. Training Programme"|t:current_lang }}</h4>
+ <h4>{{ "7. Training Programme (only for training institutes)"|t:current_lang }}</h4>
  <table class="qpr-table">
  <thead>
  <tr>
- <th>{{ "Duration"|t:current_lang }}</th>
- <th>{{ "Hindi"|t:current_lang }}</th>
- <th>{{ "English"|t:current_lang }}</th>
- <th>{{ "Mixed"|t:current_lang }}</th>
+ <th>{{ "Duration of Training (in hours)"|t:current_lang }}</th>
+ <th>{{ "Training in Hindi"|t:current_lang }}</th>
+ <th>{{ "Training in English"|t:current_lang }}</th>
+ <th>{{ "Training in Mixed Mode"|t:current_lang }}</th>
  </tr>
  </thead>
  <tbody>
@@ -278,16 +317,16 @@
 
  <!-- Section 8 - Inspections -->
  <div class="qpr-section">
- <h4>{{ "8. Inspections (Sections & Subordinate Offices)"|t:current_lang }}</h4>
- <p><strong>{{ "Total Sections"|t:current_lang }}:</strong> {{ certificate.sec8_total_sections|default:"0" }}</p>
- <p><strong>{{ "Sections Inspected"|t:current_lang }}:</strong> {{ certificate.sec8_inspected_sections|default:"0" }}</p>
- <p><strong>{{ "Total Subordinate Offices"|t:current_lang }}:</strong> {{ certificate.sec8_total_sub_offices|default:"0" }}</p>
- <p><strong>{{ "Subordinate Offices Inspected"|t:current_lang }}:</strong> {{ certificate.sec8_inspected_sub_offices|default:"0" }}</p>
+ <h4>{{ "8. Inspections pertaining to Official Language"|t:current_lang }}</h4>
+ <p><strong>{{ "(a)(i) Total No. of Sections"|t:current_lang }}:</strong> {{ certificate.sec8_total_sections|default:"0" }}</p>
+ <p><strong>{{ "(a)(ii) No. of Sections inspected"|t:current_lang }}:</strong> {{ certificate.sec8_inspected_sections|default:"0" }}</p>
+ <p><strong>{{ "(b)(i) Total No. of Subordinate Offices"|t:current_lang }}:</strong> {{ certificate.sec8_total_sub_offices|default:"0" }}</p>
+ <p><strong>{{ "(b)(ii) No. of Offices inspected"|t:current_lang }}:</strong> {{ certificate.sec8_inspected_sub_offices|default:"0" }}</p>
  </div>
 
  <!-- Section 9 - Publication of Magazines -->
  <div class="qpr-section">
- <h4>{{ "9. Publication of Magazines"|t:current_lang }}</h4>
+ <h4>{{ "9. Publication of Magazines etc."|t:current_lang }}</h4>
  <table class="qpr-table">
  <thead>
  <tr>
@@ -308,14 +347,14 @@
 
  <!-- Section 10 - Hindi Books Purchase Expenditure -->
  <div class="qpr-section">
- <h4>{{ "10. Hindi Books Purchase Expenditure"|t:current_lang }}</h4>
- <p><strong>{{ "Total expenditure on books"|t:current_lang }}:</strong> {{ "Rs."|t:current_lang }} {{ certificate.expenditure_total_books|default:"0" }}</p>
- <p><strong>{{ "Expenditure on Hindi books"|t:current_lang }}:</strong> {{ "Rs."|t:current_lang }} {{ certificate.expenditure_hindi_books|default:"0" }}</p>
+ <h4>{{ "10. Purchase of Hindi Books"|t:current_lang }}</h4>
+ <p><strong>{{ "Total expenditure incurred on purchase of books"|t:current_lang }}:</strong> {{ "Rs."|t:current_lang }} {{ certificate.expenditure_total_books|default:"0" }}</p>
+ <p><strong>{{ "Expenditure incurred on purchase of Hindi books"|t:current_lang }}:</strong> {{ "Rs."|t:current_lang }} {{ certificate.expenditure_hindi_books|default:"0" }}</p>
  </div>
 
  <!-- Section 11 - Work in Hindi by Officers DS & Above -->
  <div class="qpr-section">
- <h4>{{ "11. Work Done in Hindi by Officers (Deputy Secretary & Above)"|t:current_lang }}</h4>
+ <h4>{{ "11. Work done in Hindi by Deputy Secretary/Equivalent and Higher Officers"|t:current_lang }}</h4>
  <table class="qpr-table">
  <thead>
  <tr>
@@ -350,7 +389,7 @@
 
  <!-- Section 12 - Work in Hindi by Staff Below DS -->
  <div class="qpr-section">
- <h4>{{ "12. Work Done in Hindi by Staff (Below Deputy Secretary)"|t:current_lang }}</h4>
+ <h4>{{ "12. Work done by Hindi knowing staff below the level of Deputy Secretary/Equivalent"|t:current_lang }}</h4>
  <table class="qpr-table">
  <thead>
  <tr>
@@ -419,7 +458,7 @@
 
  <!-- Section 14 - Website Status -->
  <div class="qpr-section">
- <h4>{{ "14. Website Status"|t:current_lang }}</h4>
+ <h4>{{ "14. Website status (Tick mark in relevant column)"|t:current_lang }}</h4>
  <table class="qpr-table">
  <thead>
  <tr>
@@ -479,15 +518,15 @@
  <td>{{ certificate.chairperson_designation|default:"-" }}</td>
  </tr>
  <tr>
- <th>{{ "Telephone"|t:current_lang }}</th>
+ <th>{{ "Telephone No."|t:current_lang }}</th>
  <td>{{ certificate.chairperson_phone|default:"-" }}</td>
  </tr>
  <tr>
- <th>{{ "Fax"|t:current_lang }}</th>
+ <th>{{ "Fax No."|t:current_lang }}</th>
  <td>{{ certificate.chairperson_fax|default:"-" }}</td>
  </tr>
  <tr>
- <th>{{ "Email"|t:current_lang }}</th>
+ <th>{{ "Email Address"|t:current_lang }}</th>
  <td>{{ certificate.chairperson_email|default:"-" }}</td>
  </tr>
  </table>
@@ -515,5 +554,7 @@
 </div>
 
 {% endblock %}
+
+
 
 
