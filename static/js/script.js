@@ -343,43 +343,40 @@ function parseLocalDate(dateStr) {
  }
 
  if (frequencyEl) {
+ function updateDraftButtonState() {
+ const saveDraftBtn = document.getElementById('saveDraftBtn');
+ if (!saveDraftBtn) return;
+ const aggregateFrequency = ['weekly', 'monthly', 'quarterly'].includes((frequencyEl.value || '').toLowerCase());
+ if (isScopedSnapshotEditMode() || aggregateFrequency) {
+ saveDraftBtn.disabled = true;
+ saveDraftBtn.classList.add('d-none');
+ } else {
+ saveDraftBtn.disabled = false;
+ saveDraftBtn.classList.remove('d-none');
+ }
+ }
+
  frequencyEl.addEventListener('change', () => {
  updateMissingDaysAlert();
  updateAvailabilitySummary();
  
  unlockQprFillControls();
- // Draft is valid for normal QPR entry flows, including weekly/monthly/quarterly
- // entries used to fill missed daily periods. Hide it only for snapshot overwrites.
  try {
- const saveDraftBtn = document.getElementById('saveDraftBtn');
- if (saveDraftBtn) {
- if (isScopedSnapshotEditMode()) {
- saveDraftBtn.disabled = true;
- saveDraftBtn.classList.add('d-none');
- } else {
- saveDraftBtn.disabled = false;
- saveDraftBtn.classList.remove('d-none');
- }
- }
+ updateDraftButtonState();
  } catch(e) {}
  });
  // initialize draft button state based on current edit mode
  try {
+ updateDraftButtonState();
+ // prevent accidental usage during snapshot overwrite edits
  const saveDraftBtn = document.getElementById('saveDraftBtn');
  if (saveDraftBtn) {
- if (isScopedSnapshotEditMode()) {
- saveDraftBtn.disabled = true;
- saveDraftBtn.classList.add('d-none');
- } else {
- saveDraftBtn.disabled = false;
- saveDraftBtn.classList.remove('d-none');
- }
- // prevent accidental usage during snapshot overwrite edits
  try {
  saveDraftBtn.addEventListener('click', function(ev){
- if (isScopedSnapshotEditMode()) {
+ const aggregateFrequency = ['weekly', 'monthly', 'quarterly'].includes((frequencyEl.value || '').toLowerCase());
+ if (isScopedSnapshotEditMode() || aggregateFrequency) {
  ev.preventDefault();
- alert('Draft is not available for snapshot overwrites. Please submit the snapshot changes.');
+ alert('Draft is not available for weekly, monthly, quarterly, or snapshot overwrite QPRs. Please submit the QPR.');
  return false;
  }
  });

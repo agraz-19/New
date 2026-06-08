@@ -629,11 +629,19 @@ def _serialize_managerqpr(m):
     if not m:
         return out
     try:
+        out ['s1_total'] = int(getattr(m, 's1_total_files', 0) or 0)
+        out['s1_hindi'] = int(getattr(m, 's1_hindi_files', 0) or 0)
+        
         out['s2_meetings'] = int(getattr(m, 's2_meetings_count', 0) or 0)
         out['s2_minutes'] = int(getattr(m, 's2_hindi_minutes', 0) or 0)
         out['s2_papers_total'] = int(getattr(m, 's2_total_papers', 0) or 0)
         out['s2_papers_hindi'] = int(getattr(m, 's2_hindi_papers', 0) or 0)
 
+        out['s3_total'] = int(getattr(m, 's3_total_documents', 0) or 0)
+        out['s3_bilingual'] = int(getattr(m, 's3_bilingual_documents', 0) or 0)
+        out['s3_english'] = int(getattr(m, 's3_english_only_documents', 0) or 0)
+        out['s3_hindi_only'] = int(getattr(m, 's3_hindi_only_documents', 0) or 0)
+        
         out['s4_total'] = int(getattr(m, 's4_total_letters', 0) or 0)
         out['s4_no_reply'] = int(getattr(m, 's4_no_reply_letters', 0) or 0)
         out['s4_replied_hindi'] = int(getattr(m, 's4_replied_hindi_letters', 0) or 0)
@@ -1584,35 +1592,21 @@ class CustomLoginView(LoginView):
     def form_valid(self, form):
         user = cast(CustomUser, form.get_user())
         current_lang = self.request.session.get('lang', 'en')
-       
+
         selected_role = form.cleaned_data.get('role')
         if selected_role and user_has_role(user, selected_role):
             active_role = selected_role
         else:
             active_role = user_role(user)
 
-        email_choice = form.cleaned_data.get('email_choice', 'primary')
-        target_email = user.get_email()
-        profile = getattr(user, 'profile', None)
-        alternate_email = getattr(profile, 'alternate_email', None)
-       
-        if email_choice == 'alternate':
-            if alternate_email:
-                target_email = alternate_email
-            else:
-                messages.warning(self.request, translate_text("No alternate email found in your profile. Sending to official email.", current_lang))
-
-        send_otp_email(user, current_lang, target_email=target_email, email_type='login_otp')
-       
-        self.request.session['pre_login_user_id'] = user.id
-        self.request.session['login_target_email'] = target_email
-        self.request.session['is_login_otp'] = True
         self.request.session['lang'] = current_lang
         self.request.session['active_role'] = active_role
+        self.request.session.pop('pre_login_user_id', None)
+        self.request.session.pop('login_target_email', None)
+        self.request.session.pop('is_login_otp', None)
         self.request.session.modified = True
-       
-        messages.success(self.request, translate_text("OTP sent successfully.", current_lang))
-        return redirect('verify_otp')
+
+        return super().form_valid(form)
 
     def form_invalid(self, form):
         username = form.data.get('username')
@@ -3302,7 +3296,7 @@ def admin_dashboard(request):
         Q(roles__name='user') | Q(user__roles__name='user'),
         approval_status__iexact='approved',
         office_state=admin_state
-    ).exclude(hod_name__isnull=True).values_list('hod_name', flat=True))
+    ).exclude(hod_name__isnull=True).exclude(hod_name__iexact='ADMIN').values_list('hod_name', flat=True))
     actual_hod_profiles = UserProfile.objects.filter(
         Q(roles__name='hod') | Q(user__roles__name='hod'),
         office_state=admin_state
@@ -3345,10 +3339,16 @@ def admin_dashboard(request):
             'completion_percentage': completion_pct,
         })
     pending_requests = ManagerRequest.objects.filter(status='pending', hod__roles__name='user', hod__profile__office_state=admin_state)
+    pending_admin_approvals = UserProfile.objects.filter(
+        approval_status='pending_admin',
+        hod_name__iexact='ADMIN',
+        office_state=admin_state,
+    ).select_related('user', 'employee').order_by('-created_at')
     context = {
         'role': 'admin',
         'hod_stats': hod_stats,
         'manager_requests': pending_requests,
+        'pending_admin_approvals': pending_admin_approvals,
         'users': users,
         'archived_users': archived_users
     }
@@ -6176,6 +6176,8 @@ def qpr_save_record(request):
             record.phone = data.get('phone', '')
             record.email = data.get('email', '')
             record.frequency = data.get('frequency', 'quarterly')
+            if str(record.frequency).strip().lower() in {'weekly', 'monthly', 'quarterly'} and record.status == 'Draft':
+                record.status = 'Submitted'
             record.is_submitted = (record.status == 'Submitted')
 
             allowed_quarters = get_allowed_quarters(record.year)
@@ -6244,9 +6246,11 @@ def qpr_save_record(request):
                         messages.info(request, f"Record submitted with {fills_created} fill(s) created")
 
         else:
-            is_submitted = (data.get('status', 'Draft') == 'Submitted')
-
             frequency = (data.get('frequency') or 'daily').strip().lower()
+            status = data.get('status', 'Draft')
+            if frequency in {'weekly', 'monthly', 'quarterly'} and status == 'Draft':
+                status = 'Submitted'
+            is_submitted = (status == 'Submitted')
             selected_date_str = (data.get('selected_date') or '').strip()
             quarter = data.get('quarter', '').strip()
             year = data.get('year', '').strip() or None
@@ -6338,7 +6342,7 @@ def qpr_save_record(request):
                 region=data.get('region', ''),
                 quarter=quarter,
                 year=year,
-                status=data.get('status', 'Draft'),
+                status=status,
                 frequency=frequency,
                 period_start=ps,
                 period_end=pe,
@@ -8159,12 +8163,47 @@ def certificate_part2_delete(request, pk):
    
     return redirect('certificate_part2_list')
 
+@login_required
 def process_user_approval(request, profile_id, action):
     if not user_has_role(request.user, ['hod', 'admin']):
         messages.error(request, "Unauthorized action.")
         return redirect('dashboard')
 
     target_profile = get_object_or_404(UserProfile, id=profile_id)
+    is_admin = user_has_role(request.user, 'admin')
+    is_hod = user_has_role(request.user, 'hod')
+    redirect_name = 'dashboard' if is_admin else 'qpr_hod_dashboard'
+
+    if action not in {'approve', 'reject'}:
+        messages.error(request, "Invalid approval action.")
+        return redirect(redirect_name)
+
+    can_process = False
+    if is_admin and target_profile.approval_status == 'pending_admin':
+        admin_state = getattr(getattr(request.user, 'profile', None), 'office_state', None)
+        can_process = (
+            (target_profile.hod_name or '').strip().upper() == 'ADMIN'
+            and bool(admin_state)
+            and (target_profile.office_state or '').strip().lower() == str(admin_state).strip().lower()
+        )
+
+    if not can_process and is_hod and target_profile.approval_status == 'pending':
+        hod_profile = getattr(request.user, 'profile', None)
+        hod_identifiers = {
+            str(value).strip().lower()
+            for value in [
+                getattr(hod_profile, 'hod_name', None),
+                getattr(hod_profile, 'name', None),
+                getattr(hod_profile, 'employee_code', None),
+                getattr(request.user, 'username', None),
+            ]
+            if value
+        }
+        can_process = (target_profile.hod_name or '').strip().lower() in hod_identifiers
+
+    if not can_process:
+        messages.error(request, "You are not authorized to process this approval request.")
+        return redirect(redirect_name)
    
     if action == 'approve':
         master_record = Employee.objects.filter(empcode=target_profile.employee_code).first()
@@ -8187,4 +8226,4 @@ def process_user_approval(request, profile_id, action):
         send_system_email(target_profile.user, request, 'rejected_alert')
         messages.warning(request, f"User {target_profile.employee_code} rejected.")
 
-    return redirect('qpr_hod_dashboard')
+    return redirect(redirect_name)

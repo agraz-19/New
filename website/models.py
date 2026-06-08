@@ -787,12 +787,21 @@ class ManagerQPR(models.Model):
     financial_year = models.CharField(max_length=20)
     quarter = models.CharField(max_length=50)
 
-    # Base numeric sections (2,4,5,6,7)
+    s1_total_files = models.IntegerField(null=True, blank=True)
+    s1_hindi_files = models.IntegerField(null=True, blank=True)
+
     # Section 2: meetings/files at Secretary level
     s2_meetings_count = models.IntegerField(null=True, blank=True)
     s2_hindi_minutes = models.IntegerField(null=True, blank=True)
     s2_total_papers = models.IntegerField(null=True, blank=True)
     s2_hindi_papers = models.IntegerField(null=True, blank=True)
+
+    # Section 3: Official languages documents
+    s3_total_documents = models.IntegerField(null=True, blank=True)
+    s3_bilingual_documents = models.IntegerField(null=True, blank=True)
+    s3_english_only_documents = models.IntegerField(null=True, blank=True)
+    s3_hindi_only_documents = models.IntegerField(null=True, blank=True)
+
 
     # Section 4: Hindi letters received
     s4_total_letters = models.IntegerField(null=True, blank=True)

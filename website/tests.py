@@ -14,8 +14,8 @@ from .models import (
 )
 from .views import (
     _aggregate_section11_text_for_range, _rebuild_monthly_snapshot_from_source,
-    is_period_overlapping, qpr_form, qpr_save_record, report_detail, report_list,
-    request_qpr_edit
+    admin_dashboard, is_period_overlapping, process_user_approval, qpr_form,
+    qpr_save_record, report_detail, report_list, request_qpr_edit
 )
 
 
@@ -317,32 +317,38 @@ class QPROverlapRestrictionTests(TestCase):
         self.assertEqual(snapshot.s2_meetings, 21)
         self.assertTrue(snapshot.is_overwritten)
 
-    def test_weekly_entry_qpr_can_be_created_as_draft(self):
-        request = self.factory.post('/qpr/records/save/', {
-            'status': 'Draft',
-            'officeName': 'Office',
-            'officeCode': 'OFF',
-            'region': 'Region A',
-            'quarter': '30 जून / Jun 30',
-            'year': '2026-2027',
-            'frequency': 'weekly',
-            'selected_date': '2026-04-06',
-            'details': '{}',
-        })
-        request.user = self.user
-        SessionMiddleware(lambda req: None).process_request(request)
-        request.session.save()
-        setattr(request, '_messages', FallbackStorage(request))
+    def test_aggregate_entry_qpr_draft_posts_are_submitted(self):
+        cases = [
+            ('weekly', '2026-01-05', date(2026, 1, 5), date(2026, 1, 10)),
+            ('monthly', '2026-01-01', date(2026, 1, 1), date(2026, 1, 31)),
+            ('quarterly', '2026-01-01', date(2026, 1, 1), date(2026, 3, 31)),
+        ]
 
-        response = qpr_save_record.__wrapped__(request)
+        for frequency, selected_date, expected_start, expected_end in cases:
+            with self.subTest(frequency=frequency):
+                request = self.factory.post('/qpr/records/save/', {
+                    'status': 'Draft',
+                    'officeName': 'Office',
+                    'officeCode': 'OFF',
+                    'region': 'Region A',
+                    'frequency': frequency,
+                    'selected_date': selected_date,
+                    'details': '{}',
+                })
+                request.user = self.user
+                SessionMiddleware(lambda req: None).process_request(request)
+                request.session.save()
+                setattr(request, '_messages', FallbackStorage(request))
 
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response['Location'], '/qpr/reports/')
-        record = QPRRecord.objects.get(user=self.user, frequency='weekly')
-        self.assertEqual(record.status, 'Draft')
-        self.assertFalse(record.is_submitted)
-        self.assertEqual(record.period_start, date(2026, 4, 6))
-        self.assertEqual(record.period_end, date(2026, 4, 11))
+                response = qpr_save_record.__wrapped__(request)
+
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(response['Location'], '/qpr/reports/')
+                record = QPRRecord.objects.get(user=self.user, frequency=frequency)
+                self.assertEqual(record.status, 'Submitted')
+                self.assertTrue(record.is_submitted)
+                self.assertEqual(record.period_start, expected_start)
+                self.assertEqual(record.period_end, expected_end)
 
     def test_snapshot_overwrite_cannot_be_saved_as_draft(self):
         record = self._record('daily', date(2026, 4, 6), date(2026, 4, 6))
@@ -870,3 +876,87 @@ class QPROverlapRestrictionTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(record.officeName, 'Office')
         self.assertFalse(EditRequest.objects.filter(qpr_record_id=record.pk, status='temp use').exists())
+
+
+class AdminApprovalRoutingTests(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user_role = Role.objects.get_or_create(name='user')[0]
+        self.admin_role = Role.objects.get_or_create(name='admin')[0]
+
+        self.admin = CustomUser.objects.create_user(
+            username='admin-user',
+            email='admin@example.com',
+            password='password123',
+        )
+        self.admin.roles.add(self.admin_role)
+        self.admin.profile.roles.add(self.admin_role)
+        self.admin.profile.office_state = 'Delhi'
+        self.admin.profile.approval_status = 'approved'
+        self.admin.profile.save()
+
+    def _attach_request_state(self, request):
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        setattr(request, '_messages', FallbackStorage(request))
+
+    def _profile(self, username, emp_code, status, hod_name='ADMIN', state='Delhi'):
+        user = CustomUser.objects.create_user(
+            username=username,
+            email=f'{username}@example.com',
+            password='password123',
+        )
+        profile = user.profile
+        profile.employee_code = emp_code
+        profile.hod_name = hod_name
+        profile.office_state = state
+        profile.approval_status = status
+        profile.roles.add(self.user_role)
+        profile.save()
+        return profile
+
+    def test_admin_dashboard_shows_admin_routed_pending_approvals(self):
+        self._profile('admin-routed', '9001', 'pending_admin')
+        self._profile('hod-routed', '9002', 'pending', hod_name='HOD1')
+
+        request = self.factory.get('/dashboard/')
+        request.user = self.admin
+        self._attach_request_state(request)
+
+        response = admin_dashboard.__wrapped__(request)
+        content = response.content.decode()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('9001', content)
+        self.assertNotIn('9002', content)
+
+    @patch('website.views.send_system_email')
+    def test_admin_can_approve_admin_routed_user_without_hod_ownership(self, _send_email):
+        profile = self._profile('admin-approve', '9003', 'pending_admin')
+
+        request = self.factory.get(f'/qpr/hod/approval/{profile.pk}/approve/')
+        request.user = self.admin
+        self._attach_request_state(request)
+
+        response = process_user_approval.__wrapped__(request, profile.pk, 'approve')
+        profile.refresh_from_db()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/dashboard/')
+        self.assertEqual(profile.approval_status, 'approved')
+        self.assertEqual(profile.hod_name, 'ADMIN')
+
+    @patch('website.views.send_system_email')
+    def test_admin_cannot_approve_hod_routed_pending_user(self, _send_email):
+        profile = self._profile('hod-pending', '9004', 'pending', hod_name='HOD1')
+
+        request = self.factory.get(f'/qpr/hod/approval/{profile.pk}/approve/')
+        request.user = self.admin
+        self._attach_request_state(request)
+
+        response = process_user_approval.__wrapped__(request, profile.pk, 'approve')
+        profile.refresh_from_db()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/dashboard/')
+        self.assertEqual(profile.approval_status, 'pending')

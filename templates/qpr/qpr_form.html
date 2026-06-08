@@ -554,6 +554,27 @@
  });
  })();
 </script>
+<script>
+ document.addEventListener('DOMContentLoaded', function(){
+ var frequencyEl = document.getElementById('frequency');
+ var saveDraftBtn = document.getElementById('saveDraftBtn');
+ if (!frequencyEl || !saveDraftBtn) return;
+
+ function updateAggregateDraftButton() {
+ var frequency = (frequencyEl.value || '').toLowerCase();
+ if (['weekly', 'monthly', 'quarterly'].indexOf(frequency) !== -1) {
+ saveDraftBtn.disabled = true;
+ saveDraftBtn.classList.add('d-none');
+ } else {
+ saveDraftBtn.disabled = false;
+ saveDraftBtn.classList.remove('d-none');
+ }
+ }
+
+ frequencyEl.addEventListener('change', updateAggregateDraftButton);
+ updateAggregateDraftButton();
+ });
+</script>
 
 <script>
  // Hide form sections based on form_type to prevent multi-role users from seeing irrelevant fields
@@ -768,5 +789,3 @@
  })();
 </script>
 {% endblock %}
-
-

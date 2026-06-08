@@ -390,8 +390,12 @@ class ManagerQPRForm(forms.ModelForm):
         model = ManagerQPR
         fields = [
             'financial_year', 'quarter',
+            # Section 1
+            's1_total_files', 's1_hindi_files',
             # Section 2
             's2_meetings_count', 's2_hindi_minutes', 's2_total_papers', 's2_hindi_papers',
+            # Section 3
+            's3_total_documents', 's3_bilingual_documents', 's3_english_only_documents', 's3_hindi_only_documents',
             # Section 4
             's4_total_letters', 's4_no_reply_letters', 's4_replied_hindi_letters', 's4_replied_english_letters',
             # Section 5 (region A sample)

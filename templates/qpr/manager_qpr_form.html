@@ -27,6 +27,22 @@
     <div class="col-md-6">
         <div class="card section-box">
             <div class="card-body">
+                <h6 class="section-title">1. नियम 10(4) के अंतर्गत भेजी गई फाइलें <span class="d-block small text-muted">(Files submitted under Rule 10(4))</span></h6>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">कुल भेजी गई फाइलों की संख्या</span><span class="lbl-eng">(Total files submitted)</span></div>
+                    <div class="lbl-input">{{ form.s1_total_files }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">हिंदी में भेजी गई फाइलों की संख्या</span><span class="lbl-eng">(Files submitted in Hindi)</span></div>
+                    <div class="lbl-input">{{ form.s1_hindi_files }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card section-box">
+            <div class="card-body">
                 <h6 class="section-title">2. सचिव/समकक्ष स्तर पर बैठकों/फाइलों का ब्यौरा <span class="d-block small text-muted">(Details of meetings/files at Secretary/Equivalent level)</span></h6>
                 <div class="lbl-row">
                     <div class="lbl-text"><span class="lbl-hindi">सचिव/समकक्ष स्तर पर कितनी बैठकें आयोजित की गयीं</span><span class="lbl-eng">(How many meetings were held at Secretary/equivalent)</span></div>
@@ -43,6 +59,30 @@
                 <div class="lbl-row">
                     <div class="lbl-text"><span class="lbl-hindi">हिंदी में जारी किये गए कुल कागजात</span><span class="lbl-eng">(Total documents issued in Hindi)</span></div>
                     <div class="lbl-input">{{ form.s2_hindi_papers }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card section-box">
+            <div class="card-body">
+                <div class="section-title">3. राजभाषा अधिनियम 1963 की धारा 3(3) के अंतर्गत जारी कागजात <span class="d-block small text-muted">(Documents issued under Section 3(3) of the Official Languages Act, 1963)</span></div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">जारी कागजात की कुल संख्या</span><span class="lbl-eng">(Total no. of documents issued)</span></div>
+                    <div class="lbl-input">{{ form.s3_total_documents }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">द्विभाषी रूप में जारी कागजात की संख्या</span><span class="lbl-eng">(Total No. of documents issued bilingually)</span></div>
+                    <div class="lbl-input">{{ form.s3_bilingual_documents }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">इनमें से केवल अंग्रेजी में जारी किये गए कागजात</span><span class="lbl-eng">(No. of documents issued only in English)</span></div>
+                    <div class="lbl-input">{{ form.s3_english_only_documents }}</div>
+                </div>
+                <div class="lbl-row">
+                    <div class="lbl-text"><span class="lbl-hindi">केवल हिन्दी में जारी किए गए कागजात</span><span class="lbl-eng">(No. of documents issued only in Hindi)</span></div>
+                    <div class="lbl-input">{{ form.s3_hindi_only_documents }}</div>
                 </div>
             </div>
         </div>
