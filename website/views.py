@@ -1485,7 +1485,7 @@ def send_otp_email(user, lang, target_email=None, email_type='otp'):
     user.otp = str(secrets.randbelow(900000) + 100000)
     user.otp_created_at = timezone.now()
     user.save(update_fields=['otp', 'otp_created_at'])
-    send_system_email(user, None, email_type, extra_context={'otp': user.otp, 'lang': lang}, target_email=target_email)
+    #send_system_email(user, None, email_type, extra_context={'otp': user.otp, 'lang': lang}, target_email=target_email)
     return user.otp
 
 
@@ -1531,38 +1531,19 @@ def error_500(request): return universal_error_view(request, None, 500)
 
 @login_required
 def dashboard(request):
-    """Central Dashboard Router - Routes each role to their dedicated dashboard"""
-    user = request.user
-    role = request.session.get('active_role', user_role(user))
-    profile = getattr(user, 'profile', None)
-   
-   
-    context = {
-        'current_lang': request.session.get('lang', 'en'),
-        'role': role
-    }
-    if role == 'user' and profile:
-        if profile.approval_status == 'pending':
-            if profile.hod_name =="ADMIN":
-                messages.warning(request, "Your registration is pending Admin approval.")
-            else:    
-                messages.warning(request, "Your registration is pending HOD approval. You may edit your details while you wait.")
-            return redirect('qpr_user_profile')
-        elif profile.approval_status == 'rejected':
-            messages.error(request, "Your registration was rejected. Please verify your details and update them, or contact admin.")
-            return redirect('qpr_user_profile')
-    if role == 'admin':
+    """Central router: Pushes user to their highest privilege dashboard by default"""
+    
+    # Get the list of roles we set up previously
+    from .views import user_get_all_roles 
+    roles = user_get_all_roles(request.user) 
+    
+    # Priority Routing: Drop them in the highest dashboard they have access to
+    if 'admin' in roles:
         return redirect('qpr_admin_dashboard')
-
-    elif role == 'manager':
-        return redirect('manager_dashboard')
-   
-    elif role == 'hod':
+    elif 'hod' in roles:
         return redirect('qpr_hod_dashboard')
-       
-    elif role == 'backup_user':
-        return render(request, 'dashboard.html', context)
-
+    elif 'manager' in roles:
+        return redirect('manager_dashboard')
     else:
         return redirect('qpr_user_dashboard')
 
@@ -1585,12 +1566,6 @@ class CustomLoginView(LoginView):
         user = cast(CustomUser, form.get_user())
         current_lang = self.request.session.get('lang', 'en')
        
-        selected_role = form.cleaned_data.get('role')
-        if selected_role and user_has_role(user, selected_role):
-            active_role = selected_role
-        else:
-            active_role = user_role(user)
-
         #email_choice = form.cleaned_data.get('email_choice', 'primary')
         #target_email = user.get_email()
         #profile = getattr(user, 'profile', None)
@@ -1608,7 +1583,7 @@ class CustomLoginView(LoginView):
         #self.request.session['login_target_email'] = target_email
         #self.request.session['is_login_otp'] = True
         self.request.session['lang'] = current_lang
-        self.request.session['active_role'] = active_role
+        #self.request.session['active_role'] = active_role
         self.request.session.modified = True
         self.request.session.pop('pre_login_user_id',None)
         self.request.session.pop('login_target_email',None)
@@ -1662,7 +1637,7 @@ def signup(request):
             request.session['signup_data'] = signup_data
             request.session['is_signup'] = True
 
-            send_system_email(user, request, 'otp', extra_context={'otp': otp, 'lang': lang})
+            #send_system_email(user, request, 'otp', extra_context={'otp': otp, 'lang': lang})
 
             messages.success(request, "Account verification initiated! Please verify your email with the OTP sent.")
             return redirect('verify_otp')
@@ -1731,7 +1706,7 @@ class LoginOTPView(View):
                
                 auth_login(request, user)
                
-                send_system_email(user, request, 'login')
+                #send_system_email(user, request, 'login')
                 if user_role(user) == 'user' and profile and not profile.profile_updated:
                     return redirect('qpr_user_profile')
                    
@@ -1790,7 +1765,7 @@ class VerifyOTPView(View):
                 user.otp = None
                 user.save(update_fields=['otp'])
                 auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-                send_system_email(user, request, 'login')
+                #send_system_email(user, request, 'login')
                
                 request.session.pop('pre_login_user_id', None)
                 request.session.pop('is_login_otp', None)
@@ -1888,7 +1863,7 @@ class ResendOTPView(View):
             request.session['signup_data'] = signup_data
             dummy_user = CustomUser(username=signup_data['username'])
             dummy_user.set_email(signup_data['email'])
-            send_system_email(dummy_user, request, 'otp', extra_context={'otp': new_otp, 'lang': lang})
+            #send_system_email(dummy_user, request, 'otp', extra_context={'otp': new_otp, 'lang': lang})
             messages.success(request, translate_text("New OTP sent.", lang))
             return redirect('verify_otp')
         if request.session.get('is_login_otp'):

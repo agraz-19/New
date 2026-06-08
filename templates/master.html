@@ -57,7 +57,43 @@
                 <li class="nav-item"><a class="nav-link px-3" href="/products/">{{ "Our IT products"|t:current_lang }}</a></li>
                 <li class="nav-item"><a class="nav-link px-3" href="/schemes/">{{ "Incentive Schemes"|t:current_lang }}</a></li>
                 <li class="nav-item"><a class="nav-link px-3" href="/programme/">{{ "Annual programme"|t:current_lang }}</a></li>
-                <li class="nav-item"><a class="nav-link px-3" href="{% url 'dashboard' %}">{{ "Dashboard"|t:current_lang }}</a></li>
+                {% if request.user.is_authenticated %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle px-3" href="#" id="dashboardDropdown" role="button" data-bs-toggle="dropdown"data-bs-reference="parent" aria-expanded="false">
+                        {{ "Dashboard"|t:current_lang }}
+                    </a>
+                    
+                    <ul class="dropdown-menu shadow border-0 mt-2" aria-labelledby="dashboardDropdown">
+                        {% if 'admin' in user_roles %}                            <li>
+                                <a class="dropdown-item py-2" href="{% url 'qpr_admin_dashboard' %}">
+                                    <i class="bi bi-shield-lock me-2 text-danger"></i> {{ "Admin Dashboard"|t:current_lang }}
+                                </a>
+                            </li> {% endif %}
+                        {% if 'hod' in user_roles %}
+                            <li>
+                                <a class="dropdown-item py-2" href="{% url 'qpr_hod_dashboard' %}">
+                                    <i class="bi bi-briefcase me-2 text-warning"></i> {{ "HOD Dashboard"|t:current_lang }}
+                                </a>
+                            </li> 
+                        {% endif %}
+                        {% if 'manager' in user_roles %}
+                            <li>
+                                <a class="dropdown-item py-2" href="{% url 'manager_dashboard' %}">
+                                    <i class="bi bi-graph-up me-2 text-success"></i> {{ "Manager Dashboard"|t:current_lang }}
+                                </a>
+                            </li>  
+                            {% endif %}
+    
+    {% if 'user' in user_roles %}
+                        <li>
+                            <a class="dropdown-item py-2" href="{% url 'qpr_user_dashboard' %}">
+                                <i class="bi bi-person me-2 text-primary"></i> {{ "User Dashboard"|t:current_lang }}
+                            </a>
+                        </li>
+                        {% endif %}
+                     </ul>
+                </li>
+                {% endif %}
                 <li class="nav-item"><a class="nav-link px-3" href="{% url 'qpr_user_dashboard' %}">{{ "Quarterly Progress Report"|t:current_lang }}</a></li>
             </ul>
 
@@ -68,7 +104,7 @@
                 </a>
 
                 <select id="fontSelector" class="form-select form-select-sm w-auto">
-                    <option value="normal">{{ "Normal"|t:current_lang }}</option>
+
                     <option value="medium">{{ "Medium"|t:current_lang }}</option>
                     <option value="large">{{ "Large"|t:current_lang }}</option>
                 </select>

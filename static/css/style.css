@@ -1,9 +1,3 @@
-
-/* ==========================================
-   Dark Mode Fixes: QPR Pages & Headings
-   ========================================== */
-
-/* 1. Remove the hardcoded white background from the QPR document container */
 [data-bs-theme="dark"] .qpr-page,
 [data-bs-theme="dark"] .certificate,
 [data-bs-theme="dark"] .card-custom,
@@ -363,7 +357,7 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   line-height: 1.6;
-  overflow-wrap: break-word;
+  /*overflow-wrap: break-word;*/
 }
 
 #goog-gt-tt,
@@ -537,10 +531,10 @@ html, body {
 ============================== */
 
 /* Only applies when NOT in medium or large font modes */
-body:not(.font-medium):not(.font-large) .navbar-custom .container-fluid,
-body:not(.font-medium):not(.font-large) .navbar-custom .container {
+body:not(.font-normal):not(.font-medium):not(.font-large) .navbar-custom .container-fluid,
+body:not(.font-normal):not(.font-medium):not(.font-large) .navbar-custom .container {
     flex-wrap: nowrap !important;
-    overflow: hidden;
+    overflow: visible  !important;
 }
 
 body:not(.font-medium):not(.font-large) .navbar-nav {

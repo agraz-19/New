@@ -117,10 +117,6 @@ class CustomUserCreationForm(UserCreationForm):
         return user
 
 class CustomLoginForm(AuthenticationForm):
-    role = forms.ChoiceField(
-        choices=[('user', 'User'), ('manager', 'Manager'), ('hod', 'HOD'), ('admin', 'Admin'),('backup_user','Operational User')],
-        widget=forms.Select(attrs={'class': 'form-select'})
-    )
 
     email_choice = forms.ChoiceField(
         choices=[('primary', 'Official Email'), ('alternate', 'Alternate Email')],
@@ -144,7 +140,7 @@ class CustomLoginForm(AuthenticationForm):
         
         self.fields["username"].label = translate_text("Employee Code", self.lang)
         self.fields["password"].label = translate_text("Password", self.lang)
-        self.fields['role'].label = translate_text("Select Role", self.lang)
+        #self.fields['role'].label = translate_text("Select Role", self.lang)
        # self.fields['captcha'].label = translate_text("Enter the characters shown", self.lang)
         self.fields['email_choice'].label = translate_text("Send Secure OTP To:", self.lang)
         self.fields['email_choice'].choices = [
@@ -158,22 +154,10 @@ class CustomLoginForm(AuthenticationForm):
         )
         self.error_messages['inactive'] = translate_text("This account is inactive.", self.lang)
         
-        self.fields['role'].choices = [
-            ('user', translate_text("User", self.lang)),
-            ('manager', translate_text("Manager", self.lang)),
-            ('hod', translate_text("HOD", self.lang)),
-            ('admin', translate_text("Admin", self.lang)),
-            ('backup_user', translate_text("Operational User", self.lang)),
-        ]
 
         for field_name, field in self.fields.items():
             field.help_text = ""
             # Ensure bootstrap classes are applied to all
-            if field_name == 'role':
-                field.widget.attrs.update({'class': 'form-select'})
-            else:
-                field.widget.attrs.update({'class': 'form-control'})
-            
             # Apply translated labels as placeholders
             field.widget.attrs['placeholder'] = field.label
 
