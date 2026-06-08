@@ -5,11 +5,20 @@
     <h3>Manager QPR - {{ record.quarter }}</h3>
     <dl class="row">
         <dt class="col-sm-3">Financial Year</dt><dd class="col-sm-9">{{ record.financial_year }}</dd>
+        <dt class="col-sm-3">Section 1 - Total Files</dt><dd class="col-sm-9">{{ record.s1_total_files }}</dd>
+        <dt class="col-sm-3">Section 1 - Files in Hindi</dt><dd class="col-sm-9">{{ record.s1_hindi_files }}</dd>
+        
         <dt class="col-sm-3">Section 2 - Meetings Count</dt><dd class="col-sm-9">{{ record.s2_meetings_count }}</dd>
         <dt class="col-sm-3">Section 2 - Hindi Minutes</dt><dd class="col-sm-9">{{ record.s2_hindi_minutes }}</dd>
         <dt class="col-sm-3">Section 2 - Total Papers</dt><dd class="col-sm-9">{{ record.s2_total_papers }}</dd>
         <dt class="col-sm-3">Section 2 - Hindi Papers</dt><dd class="col-sm-9">{{ record.s2_hindi_papers }}</dd>
-
+        
+        <dt class="col-sm-3">Section 3 - Total Documents</dt><dd class="col-sm-9">{{ record.s3_total_documents }}</dd>
+        <dt class="col-sm-3">Section 3 - Bilingual Documents</dt>
+        <dd class="col-sm-9">{{ record.s3_bilingual_documents }}</dd>
+        <dt class="col-sm-3">Section 3 - English Only</dt><dd class="col-sm-9">{{ record.s3_english_only_documents }}</dd>
+        <dt class="col-sm-3">Section 3 - Hindi Only</dt><dd class="col-sm-9">{{ record.s3_hindi_only_documents }}</dd>
+        
         <dt class="col-sm-3">Section 4 - Total Letters</dt><dd class="col-sm-9">{{ record.s4_total_letters }}</dd>
         <dt class="col-sm-3">Section 4 - No Reply Letters</dt><dd class="col-sm-9">{{ record.s4_no_reply_letters }}</dd>
         <dt class="col-sm-3">Section 4 - Replied Hindi</dt><dd class="col-sm-9">{{ record.s4_replied_hindi_letters }}</dd>

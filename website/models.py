@@ -786,6 +786,10 @@ class ManagerQPR(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='manager_qprs')
     financial_year = models.CharField(max_length=20)
     quarter = models.CharField(max_length=50)
+    
+    #section 1:
+    s1_total_files = models.IntegerField(null=True, blank=True, default=0)
+    s1_hindi_files = models.IntegerField(null=True, blank=True, default=0)
 
     # Base numeric sections (2,4,5,6,7)
     # Section 2: meetings/files at Secretary level
@@ -793,6 +797,12 @@ class ManagerQPR(models.Model):
     s2_hindi_minutes = models.IntegerField(null=True, blank=True)
     s2_total_papers = models.IntegerField(null=True, blank=True)
     s2_hindi_papers = models.IntegerField(null=True, blank=True)
+    
+    # Section 3
+    s3_total_documents = models.IntegerField(null=True, blank=True)
+    s3_bilingual_documents = models.IntegerField(null=True, blank=True)
+    s3_english_only_documents = models.IntegerField(null=True, blank=True)
+    s3_hindi_only_documents = models.IntegerField(null=True, blank=True)
 
     # Section 4: Hindi letters received
     s4_total_letters = models.IntegerField(null=True, blank=True)

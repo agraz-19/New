@@ -1591,28 +1591,32 @@ class CustomLoginView(LoginView):
         else:
             active_role = user_role(user)
 
-        email_choice = form.cleaned_data.get('email_choice', 'primary')
-        target_email = user.get_email()
-        profile = getattr(user, 'profile', None)
-        alternate_email = getattr(profile, 'alternate_email', None)
+        #email_choice = form.cleaned_data.get('email_choice', 'primary')
+        #target_email = user.get_email()
+        #profile = getattr(user, 'profile', None)
+        #alternate_email = getattr(profile, 'alternate_email', None)
        
-        if email_choice == 'alternate':
-            if alternate_email:
-                target_email = alternate_email
-            else:
-                messages.warning(self.request, translate_text("No alternate email found in your profile. Sending to official email.", current_lang))
+        #if email_choice == 'alternate':
+            #if alternate_email:
+                #target_email = alternate_email
+            #else:
+                #messages.warning(self.request, translate_text("No alternate email found in your profile. Sending to official email.", current_lang))
 
-        send_otp_email(user, current_lang, target_email=target_email, email_type='login_otp')
+        #send_otp_email(user, current_lang, target_email=target_email, email_type='login_otp')
        
-        self.request.session['pre_login_user_id'] = user.id
-        self.request.session['login_target_email'] = target_email
-        self.request.session['is_login_otp'] = True
+        #self.request.session['pre_login_user_id'] = user.id
+        #self.request.session['login_target_email'] = target_email
+        #self.request.session['is_login_otp'] = True
         self.request.session['lang'] = current_lang
         self.request.session['active_role'] = active_role
         self.request.session.modified = True
+        self.request.session.pop('pre_login_user_id',None)
+        self.request.session.pop('login_target_email',None)
+        self.request.session.pop('is_login_otp',None)
        
-        messages.success(self.request, translate_text("OTP sent successfully.", current_lang))
-        return redirect('verify_otp')
+        #messages.success(self.request, translate_text("OTP sent successfully.", current_lang))
+        #return redirect('verify_otp')
+        return super().form_valid(form)
 
     def form_invalid(self, form):
         username = form.data.get('username')
