@@ -350,42 +350,53 @@ function parseLocalDate(dateStr) {
  unlockQprFillControls();
  // Draft is valid for normal QPR entry flows, including weekly/monthly/quarterly
  // entries used to fill missed daily periods. Hide it only for snapshot overwrites.
- try {
- const saveDraftBtn = document.getElementById('saveDraftBtn');
- if (saveDraftBtn) {
- if (isScopedSnapshotEditMode()) {
- saveDraftBtn.disabled = true;
- saveDraftBtn.classList.add('d-none');
- } else {
- saveDraftBtn.disabled = false;
- saveDraftBtn.classList.remove('d-none');
- }
- }
- } catch(e) {}
+                try {
+                    const saveDraftBtn = document.getElementById('saveDraftBtn');
+                    const nonDaily = frequencyEl && frequencyEl.value && frequencyEl.value !== 'daily';
+                    if (saveDraftBtn) {
+                        if (isScopedSnapshotEditMode() || nonDaily) {
+                            saveDraftBtn.disabled = true;
+                            saveDraftBtn.classList.add('d-none');
+                        } else {
+                            saveDraftBtn.disabled = false;
+                            saveDraftBtn.classList.remove('d-none');
+                        }
+                    }
+                } catch(e) {}
  });
  // initialize draft button state based on current edit mode
- try {
- const saveDraftBtn = document.getElementById('saveDraftBtn');
- if (saveDraftBtn) {
- if (isScopedSnapshotEditMode()) {
- saveDraftBtn.disabled = true;
- saveDraftBtn.classList.add('d-none');
- } else {
- saveDraftBtn.disabled = false;
- saveDraftBtn.classList.remove('d-none');
- }
- // prevent accidental usage during snapshot overwrite edits
- try {
- saveDraftBtn.addEventListener('click', function(ev){
- if (isScopedSnapshotEditMode()) {
- ev.preventDefault();
- alert('Draft is not available for snapshot overwrites. Please submit the snapshot changes.');
- return false;
- }
- });
- } catch(e) {}
- }
- } catch(e) {}
+            try {
+                const saveDraftBtn = document.getElementById('saveDraftBtn');
+                const nonDaily = frequencyEl && frequencyEl.value && frequencyEl.value !== 'daily';
+                if (saveDraftBtn) {
+                    if (isScopedSnapshotEditMode() || nonDaily) {
+                        saveDraftBtn.disabled = true;
+                        saveDraftBtn.classList.add('d-none');
+                    } else {
+                        saveDraftBtn.disabled = false;
+                        saveDraftBtn.classList.remove('d-none');
+                    }
+                    // prevent accidental usage during snapshot overwrite edits
+                    try {
+                        saveDraftBtn.addEventListener('click', function(ev){
+                            if (isScopedSnapshotEditMode()) {
+                                ev.preventDefault();
+                                alert('Draft is not available for snapshot overwrites. Please submit the snapshot changes.');
+                                return false;
+                            }
+                            // If this is a non-daily entry the button should be hidden and disabled,
+                            // but defend against unexpected clicks as fallback.
+                            if (nonDaily) {
+                                ev.preventDefault();
+                                // simulate a normal submit by triggering the primary submit button
+                                const submitBtn = document.querySelector('button[name="status"][value="Submitted"]');
+                                if (submitBtn) submitBtn.click();
+                                return false;
+                            }
+                        });
+                    } catch(e) {}
+                }
+            } catch(e) {}
 
  // Prevent form submitting a draft during snapshot overwrite edits (covers hidden inputs)
  try {
