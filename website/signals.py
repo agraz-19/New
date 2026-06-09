@@ -68,8 +68,3 @@ def save_user_profile(sender, instance, **kwargs):
         logger.warning("Profile auto-create skipped due to a user/profile conflict.")
         pass
 
-
-#  Login signal
-@receiver(user_logged_in)
-def on_user_login(sender, request, user, **kwargs):
-    send_system_email(user, request, "login")

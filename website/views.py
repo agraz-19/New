@@ -1816,7 +1816,7 @@ class VerifyOTPView(View):
                         auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
                         request.session['lang'] = lang
                         request.session['active_role'] = 'user'
-                        send_system_email(user, request, 'welcome')
+                        #send_system_email(user, request, 'welcome')
                         request.session.pop('signup_data', None)
                         request.session.pop('is_signup', None)
                         messages.success(request, "Email verified! Account created successfully.")
@@ -1900,7 +1900,7 @@ class ResetPasswordView(View):
                 user.set_password(pwd)
                 user.otp = None
                 user.save()
-                send_system_email(user, request, 'reset')
+                #send_system_email(user, request, 'reset')
                 request.session.pop('reset_email_hash', None)
                 messages.success(request, "Password reset successfully.")
             return redirect('login')
@@ -1929,7 +1929,7 @@ def change_password(request):
 @login_required
 def export_user_data(request):
     user = request.user
-    send_system_email(user, request, 'export')
+    #send_system_email(user, request, 'export')
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="{user.username}_data.csv"'
     writer = csv.writer(response)
@@ -2278,7 +2278,7 @@ def profile_view(request):
             approved_change_request.status = 'completed'
             approved_change_request.save()
 
-        send_system_email(user, request, 'update')
+        #send_system_email(user, request, 'update')
         if profile_approval_required:
             messages.success(request, "Profile submitted successfully! It is now awaiting HOD approval.")
         else:
@@ -2402,7 +2402,7 @@ def freeze_profile(request):
     user = request.user
     user.is_frozen = True
     user.save()
-    send_system_email(user, request, 'freeze')
+    #send_system_email(user, request, 'freeze')
     messages.success(request, translate_text("Your profile has been frozen.", lang))
     return redirect('dashboard')
 
@@ -2439,7 +2439,7 @@ def request_edit(request):
             )
             messages.success(request, translate_text("Profile edit request sent to your manager for approval.", lang))
             msg = f"User {user.username} has requested permission to edit their profile."
-            send_system_email(manager_user, request, 'manager_alert', extra_context={'body_text': msg})
+            #send_system_email(manager_user, request, 'manager_alert', extra_context={'body_text': msg})
         else:
             EditRequest.objects.create(
                 user=request.user,
@@ -2452,7 +2452,7 @@ def request_edit(request):
             admin = CustomUser.objects.filter(roles__name='admin').first()
             if admin:
                 msg = f"User {user.username} has requested permission to edit their profile."
-                send_system_email(admin, request, 'manager_alert', extra_context={'body_text': msg})
+                #send_system_email(admin, request, 'manager_alert', extra_context={'body_text': msg})
    
     return redirect('dashboard')
 
@@ -3281,7 +3281,7 @@ def admin_dashboard(request):
         Q(roles__name='user') | Q(user__roles__name='user'),
         approval_status__iexact='approved',
         office_state=admin_state
-    ).exclude(hod_name__isnull=True).values_list('hod_name', flat=True))
+    ).exclude(hod_name__isnull=True).exclude(hod_name__iexact='ADMIN').values_list('hod_name', flat=True))
     actual_hod_profiles = UserProfile.objects.filter(
         Q(roles__name='hod') | Q(user__roles__name='hod'),
         office_state=admin_state
@@ -3324,10 +3324,16 @@ def admin_dashboard(request):
             'completion_percentage': completion_pct,
         })
     pending_requests = ManagerRequest.objects.filter(status='pending', hod__roles__name='user', hod__profile__office_state=admin_state)
+    pending_admin_approvals = UserProfile.objects.filter(
+            approval_status='pending_admin',
+            hod_name__iexact='ADMIN',
+            office_state=admin_state,
+        ).select_related('user', 'employee').order_by('-created_at')
     context = {
         'role': 'admin',
         'hod_stats': hod_stats,
         'manager_requests': pending_requests,
+        'pending_admin_approvals': pending_admin_approvals,
         'users': users,
         'archived_users': archived_users
     }
@@ -6501,12 +6507,12 @@ def request_edit_api(request):
                 for profile in managers:
                     try:
                         msg = f"Employee {request.user.get_full_name() or request.user.username} has requested permission to edit their QPR submission.\n\nReason: {reason}"
-                        send_system_email(
-                            profile.user,
-                            request,
-                            'manager_alert',
-                            extra_context={'body_text': msg, 'subject': 'QPR Edit Request'}
-                        )
+                        #send_system_email(
+                        #    profile.user,
+                        #    request,
+                        #    'manager_alert',
+                        #    extra_context={'body_text': msg, 'subject': 'QPR Edit Request'}
+                        #)
                     except Exception:
                         pass
                
@@ -6558,7 +6564,7 @@ def request_profile_edit(request):
             admins = CustomUser.objects.filter(roles__name='admin', is_active=True)
             for admin in admins:
                 msg = f"User {request.user.username} ({request.user.profile.employee_code}) has requested to edit their profile."
-                send_system_email(admin, request, 'manager_alert', extra_context={'body_text': msg})
+                #send_system_email(admin, request, 'manager_alert', extra_context={'body_text': msg})
            
             return redirect('qpr_user_profile')
         except Exception:
@@ -6634,7 +6640,7 @@ def request_qpr_edit(request, record_id):
                 ).select_related('user')
                 for profile in managers:
                     msg = f"User {request.user.username} ({request.user.profile.employee_code}) has requested to edit QPR for {qpr_record.quarter}."
-                    send_system_email(profile.user, request, 'manager_alert', extra_context={'body_text': msg})
+                    #send_system_email(profile.user, request, 'manager_alert', extra_context={'body_text': msg})
            
             return redirect('qpr_report_detail', record_id=record_id)
         except Exception:
@@ -6700,12 +6706,12 @@ def approve_edit_request(request, request_id):
             msg = f"Your {edit_request.get_request_type_display().lower()} edit request has been approved."
             if admin_notes:
                 msg += f"\n\nAdmin Notes: {admin_notes}"
-            send_system_email(
-                edit_request.user,
-                request,
-                'manager_alert',
-                extra_context={'body_text': msg, 'subject': 'Edit Request Approved'}
-            )
+            #send_system_email(
+            #    edit_request.user,
+            #    request,
+            #    'manager_alert',
+            #    extra_context={'body_text': msg, 'subject': 'Edit Request Approved'}
+            #)
            
             messages.success(request, translate_text("Edit request approved.", lang))
             return redirect('manager_dashboard')
@@ -6744,12 +6750,12 @@ def reject_edit_request(request, request_id):
             edit_request.admin_notes = admin_notes
             edit_request.save()
             msg = f"Your {edit_request.get_request_type_display().lower()} edit request has been rejected.\n\nReason: {admin_notes}"
-            send_system_email(
-                edit_request.user,
-                request,
-                'manager_alert',
-                extra_context={'body_text': msg, 'subject': 'Edit Request Rejected'}
-            )
+            #send_system_email(
+            #    edit_request.user,
+            #    request,
+            #    'manager_alert',
+            #    extra_context={'body_text': msg, 'subject': 'Edit Request Rejected'}
+            #)
            
             messages.success(request, translate_text("Edit request rejected.", lang))
             return redirect('manager_dashboard')
@@ -6772,7 +6778,7 @@ def send_reminder_email(request, user_id):
         lang = request.session.get('lang', 'en')
         target_profile = getattr(target_user, 'profile', None)
         if target_profile and target_profile.hod_name == user_profile.hod_name:
-            send_system_email(target_user, request, 'reminder')
+            #send_system_email(target_user, request, 'reminder')
             messages.success(request, translate_text(f"Reminder email sent successfully to {target_user.username}.", lang))
         else:
             messages.error(request, translate_text("Unauthorized action.", lang))
@@ -8137,13 +8143,48 @@ def certificate_part2_delete(request, pk):
         return redirect('certificate_part2_list')
    
     return redirect('certificate_part2_list')
-
+    
+@login_required
 def process_user_approval(request, profile_id, action):
     if not user_has_role(request.user, ['hod', 'admin']):
         messages.error(request, "Unauthorized action.")
         return redirect('dashboard')
 
     target_profile = get_object_or_404(UserProfile, id=profile_id)
+    is_admin = user_has_role(request.user, 'admin')
+    is_hod = user_has_role(request.user, 'hod')
+    redirect_name = 'dashboard' if is_admin else 'qpr_hod_dashboard'
+    
+    if action not in {'approve', 'reject'}:
+        messages.error(request, "Invalid approval action.")
+        return redirect(redirect_name)
+    
+    can_process = False
+    if is_admin and target_profile.approval_status == 'pending_admin':
+        admin_state = getattr(getattr(request.user, 'profile', None), 'office_state', None)
+        can_process = (
+            (target_profile.hod_name or '').strip().upper() == 'ADMIN'
+            and bool(admin_state)
+            and (target_profile.office_state or '').strip().lower() == str(admin_state).strip().lower()
+        )
+    
+    if not can_process and is_hod and target_profile.approval_status == 'pending':
+        hod_profile = getattr(request.user, 'profile', None)
+        hod_identifiers = {
+            str(value).strip().lower()
+            for value in [
+                getattr(hod_profile, 'hod_name', None),
+                getattr(hod_profile, 'name', None),
+                getattr(hod_profile, 'employee_code', None),
+                getattr(request.user, 'username', None),
+            ]
+            if value
+        }
+        can_process = (target_profile.hod_name or '').strip().lower() in hod_identifiers
+    
+    if not can_process:
+        messages.error(request, "You are not authorized to process this approval request.")
+        return redirect(redirect_name)
    
     if action == 'approve':
         master_record = Employee.objects.filter(empcode=target_profile.employee_code).first()
@@ -8157,13 +8198,13 @@ def process_user_approval(request, profile_id, action):
         target_profile.approval_status = 'approved'
         target_profile.save()
        
-        send_system_email(target_profile.user, request, 'accepted_alert')
+        #send_system_email(target_profile.user, request, 'accepted_alert')
         messages.success(request, f"User {target_profile.employee_code} approved.")
        
     elif action == 'reject':
         target_profile.approval_status = 'rejected'
         target_profile.save()
-        send_system_email(target_profile.user, request, 'rejected_alert')
+        #send_system_email(target_profile.user, request, 'rejected_alert')
         messages.warning(request, f"User {target_profile.employee_code} rejected.")
 
-    return redirect('qpr_hod_dashboard')
+    return redirect(redirect_name)

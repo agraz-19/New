@@ -143,6 +143,64 @@
  </div>
  </div>
 
+    <div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white fw-bold">
+     <i class="fas fa-user-check text-primary"></i> {{ "Admin Approval Requests"|t:current_lang }}
+    </div>
+    <div class="card-body table-responsive">
+    <table class="table table-hover align-middle">
+    <thead class="table-light">
+    <tr>
+    <th>{{ "Emp Code"|t:current_lang }}</th>
+    <th>{{ "Name"|t:current_lang }}</th>
+    <th>{{ "Contact"|t:current_lang }}</th>
+    <th>{{ "Office"|t:current_lang }}</th>
+    <th class="text-center">{{ "Actions"|t:current_lang }}</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for p in pending_admin_approvals %}
+    <tr>
+    <td class="fw-bold">{{ p.employee_code }}</td>
+    <td>
+    <div class="fw-bold">
+    {% if p.name %}
+    {{ p.name }}
+    {% elif p.employee.ename %}
+    {{ p.employee.ename }}
+    {% else %}
+    {{ p.user.username }}
+    {% endif %}
+    </div>
+    <small class="text-muted">{{ p.employee.designation|default:"Designation Not Set" }}</small>
+    </td>
+    <td>
+    <div><i class="fas fa-envelope text-muted me-1"></i> {{ p.email|default:p.user.email }}</div>
+    <div><i class="fas fa-phone text-muted me-1"></i> <small>{{ p.phone|default:"No Phone" }}</small></div>
+    </td>
+    <td>
+    <div><i class="fas fa-building text-muted me-1"></i> {{ p.office_name|default:"Office Not Set" }}</div>
+    <div><i class="fas fa-map-marker-alt text-muted me-1"></i> <small>{{ p.language_region|default:"Region Not Set" }}</small></div>
+    </td>
+    <td class="text-center">
+    <div class="btn-group btn-group-sm">
+    <a href="{% url 'process_user_approval' p.id 'approve' %}" class="btn btn-success" onclick="return confirm('{{ "Approve this user?"|t:current_lang }}');">
+    <i class="fas fa-check"></i> {{ "Approve"|t:current_lang }}
+    </a>
+    <a href="{% url 'process_user_approval' p.id 'reject' %}" class="btn btn-danger" onclick="return confirm('{{ "Reject this user?"|t:current_lang }}');">
+    <i class="fas fa-times"></i> {{ "Reject"|t:current_lang }}
+    </a>
+    </div>
+    </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5" class="text-center text-muted">{{ "No admin approval requests pending."|t:current_lang }}</td></tr>
+    {% endfor %}
+    </tbody>
+    </table>
+    </div>
+    </div>
+    
  <div class="card shadow-sm border-0 mb-4">
  <div class="card-header bg-white fw-bold">{{ "Active System Users"|t:current_lang }}</div>
  <div class="card-body table-responsive">
