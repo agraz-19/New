@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import random
+import re
 import subprocess
 import secrets
 
@@ -19,13 +20,13 @@ from django.contrib.auth.views import LoginView
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.http import FileResponse, HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import FileResponse, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import now
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 from django.views import View
 from website.models import QPRFinalization
 from .forms import ManagerQPRForm
@@ -87,6 +88,15 @@ if os.path.exists(FONT_PATH):
     pdfmetrics.registerFont(TTFont('HindiFont', FONT_PATH))
 
 #############################################################################################################################################################################################################################################################################################################
+
+def reject_querystring_on_post(request):
+    if request.method == 'POST' and request.GET:
+        return HttpResponseBadRequest("POST parameters must be sent in the request body.")
+    return None
+
+
+def is_valid_empcode(value):
+    return bool(re.fullmatch(r"[0-9]{1,20}", value or ""))
 
 def get_employee_details_form(request):
     if request.method == "POST":
@@ -1489,6 +1499,7 @@ def send_otp_email(user, lang, target_email=None, email_type='otp'):
     return user.otp
 
 
+@require_POST
 def custom_logout(request):
     logout(request)
     messages.success(request, "You have been logged out successfully.")
@@ -2134,6 +2145,10 @@ def profile_view(request):
     is_approved = profile and profile.approval_status == "approved"
 
     if request.method == 'POST':
+        querystring_error = reject_querystring_on_post(request)
+        if querystring_error:
+            return querystring_error
+
         if not can_edit:
             messages.error(request, "Your profile is locked. Please request edit permission.", extra_tags='danger')
             return redirect('profile')
@@ -2195,6 +2210,9 @@ def profile_view(request):
         phone = request.POST.get('phone', '').strip()
         if not empcode:
             messages.error(request, "Employee Code is required.")
+            return redirect('profile')
+        if not is_valid_empcode(empcode):
+            messages.error(request, "Employee Code must be numeric and up to 20 digits.")
             return redirect('profile')
         if not username:
             messages.error(request, "Employee Name is required.")
@@ -2758,6 +2776,10 @@ def admin_qpr_view(request, id=None):
         instance = get_object_or_404(AdminQPR, pk=id)
 
     if request.method == 'POST':
+        querystring_error = reject_querystring_on_post(request)
+        if querystring_error:
+            return querystring_error
+
         if instance:
             form = AdminQPRForm(request.POST, instance=instance)
         else:
@@ -3108,6 +3130,10 @@ def manager_employee_master_add(request):
         return redirect('/')
 
     if request.method == 'POST':
+        querystring_error = reject_querystring_on_post(request)
+        if querystring_error:
+            return querystring_error
+
         form = EmployeeMasterForm(request.POST)
         if form.is_valid():
             form.save()
@@ -3349,6 +3375,10 @@ def admin_create_hod(request):
     admin_state = request.user.profile.office_state
     found_name = ''
     if request.method == 'POST':
+        querystring_error = reject_querystring_on_post(request)
+        if querystring_error:
+            return querystring_error
+
         emp_code = request.POST.get('emp_code', '').strip()
         if not emp_code:
             messages.error(request, 'Employee code is required')
@@ -3436,9 +3466,12 @@ def admin_api_get_employee_details(request):
         }, status=404)
 
 @login_required
+@require_POST
 def api_create_office(request):
-    if request.method != 'POST':
-        return redirect('qpr_admin_dashboard')
+    querystring_error = reject_querystring_on_post(request)
+    if querystring_error:
+        return querystring_error
+
     if not user_has_role(request.user, 'admin'):
         messages.error(request, 'Permission denied')
         return redirect('qpr_admin_dashboard')

@@ -3,9 +3,8 @@ import os
 from decouple import config
 from dotenv import load_dotenv
 
-load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 
 def env_bool(name, default=False):
@@ -16,15 +15,24 @@ def env_bool(name, default=False):
 SECRET_KEY = os.getenv("SECRET_KEY")
 DEBUG = False
 
-# Keep this False while testing on HTTP.
-# Set DJANGO_USE_HTTPS_SECURITY=true only when running behind HTTPS.
-USE_HTTPS_SECURITY = env_bool("DJANGO_USE_HTTPS_SECURITY", False)
+# Production must enforce HTTPS so credentials and cookies are never sent over
+# cleartext HTTP. Set DJANGO_USE_HTTPS_SECURITY=false only for local HTTP tests.
+USE_HTTPS_SECURITY = env_bool("DJANGO_USE_HTTPS_SECURITY", True)
 
+SECURE_SSL_REDIRECT = USE_HTTPS_SECURITY
 SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", "31536000")) if USE_HTTPS_SECURITY else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = USE_HTTPS_SECURITY
 SECURE_HSTS_PRELOAD = USE_HTTPS_SECURITY
 
 ALLOWED_HOSTS = ["10.160.19.20", "192.168.56.101", "127.0.0.1", "localhost","192.168.1.8"]
+
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+  origin.strip()
+  for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+  if origin.strip()
+]
+CORS_ALLOW_CREDENTIALS = False
 
 
 # APPLICATIONS
@@ -91,14 +99,13 @@ TEMPLATES = [
 
 # DATABASE - POSTGRESQL
 DATABASES = {
-  "default": {
-      "ENGINE": "django.db.backends.postgresql",
-      "NAME": config("DB_NAME"),
-      "USER": config("DB_USER"),
-      "PASSWORD": config("DB_PASSWORD"),
-      "HOST": config("DB_HOST", default="localhost"),
-      "PORT": config("DB_PORT", default="5432"),
-  }
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+        'OPTIONS': {
+            'timeout': 20,
+        },
+    }
 }
 
 
@@ -151,9 +158,12 @@ CSRF_FAILURE_VIEW = "website.views.csrf_failure"
 CSRF_COOKIE_SECURE = USE_HTTPS_SECURITY
 SESSION_COOKIE_SECURE = USE_HTTPS_SECURITY
 
-# Keep False if your JS reads csrftoken from cookie.
-CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_AGE = None
+CSRF_COOKIE_SAMESITE = "Strict"
 SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Strict"
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
