@@ -126,7 +126,7 @@ def submit_profile_change_request(request):
     try:
         data = json.loads(request.body)
         reason = data.get('change_reason', '').strip()
-        allowed_fields = {'alternate_email', 'designation', 'highest_exam'}
+        allowed_fields = {'email', 'alternate_email', 'designation', 'highest_exam', 'hod_name'}
         requested_fields = data.get('requested_fields') or []
         requested_fields = [
             field for field in requested_fields
@@ -1498,6 +1498,11 @@ def home(request):
     events = get_all_events()
     return render(request, "home.html", {"events": events})
 
+
+def faqs(request):
+    lang = request.session.get('lang', 'en')
+    return render(request, "faqs.html", {"current_lang": lang})
+
 def event_detail(request, folder):
     events = get_all_events()
     selected_event = next((e for e in events if e["folder"] == folder), None)
@@ -2122,7 +2127,7 @@ def profile_view(request):
     lang = request.session.get('lang', 'en')
     user = request.user
     profile = getattr(user, 'profile', None)
-    scoped_profile_fields = {'alternate_email', 'designation', 'highest_exam'}
+    scoped_profile_fields = {'email', 'alternate_email', 'designation', 'highest_exam', 'hod_name'}
     profile_approval_required = not user_has_role(user, ['manager', 'admin'])
     
     pending_change_request = ProfileChangeRequest.objects.filter(
@@ -2158,6 +2163,24 @@ def profile_view(request):
             if 'alternate_email' in approved_fields:
                 profile.alternate_email = request.POST.get('alternate_email', '').strip()
                 profile.save(update_fields=['alternate_email'])
+
+            if 'email' in approved_fields:
+                new_email = request.POST.get('email', '').lower().strip()
+                if not new_email:
+                    messages.error(request, "Email is required.", extra_tags='danger')
+                    return redirect('profile')
+                user.set_email(new_email)
+                user.save()
+                profile.email = new_email
+                profile.save(update_fields=['encrypted_email'])
+
+            if 'hod_name' in approved_fields:
+                hod_name_post = request.POST.get('hod_name', '').strip()
+                if profile_approval_required and not hod_name_post:
+                    messages.error(request, "HOD/Approver selection is required.")
+                    return redirect('profile')
+                profile.hod_name = hod_name_post
+                profile.save(update_fields=['hod_name'])
 
             if 'designation' in approved_fields or 'highest_exam' in approved_fields:
                 employee = Employee.objects.filter(empcode=profile.employee_code).first()
@@ -2890,6 +2913,9 @@ def manager_dashboard(request):
         profile__approval_status='approved',
     ).order_by('-date_joined')
 
+    user_search = (request.GET.get('user_q') or '').strip()
+    hindi_exam_filter = (request.GET.get('hindi_exam') or '').strip()
+
     office_employee_codes_qs = CustomUser.objects.filter(
         profile__office_code=manager_office,
         profile__approval_status='approved',
@@ -2907,6 +2933,8 @@ def manager_dashboard(request):
         raw_employees = Employee.objects.filter(empcode__in=office_employee_codes).order_by('-lastupdate')
     else:
         raw_employees = Employee.objects.none()
+
+    employee_by_code = {str(emp.empcode): emp for emp in raw_employees}
     
     employee_data = []
     
@@ -2942,6 +2970,48 @@ def manager_dashboard(request):
             'qpr_last_updated': qpr_last_updated
         })
 
+    application_users = []
+    for app_user in users:
+        profile = getattr(app_user, 'profile', None)
+        employee_code = str(getattr(profile, 'employee_code', '') or '').strip()
+        employee = employee_by_code.get(employee_code) or getattr(profile, 'employee', None)
+        employee_name = (
+            getattr(employee, 'ename', None)
+            or getattr(profile, 'name', None)
+            or app_user.get_full_name()
+            or app_user.username
+        )
+        highest_exam = getattr(employee, 'highest_exam', '') or ''
+
+        if user_search:
+            search_target = ' '.join([
+                app_user.username or '',
+                employee_code,
+                employee_name or '',
+                getattr(employee, 'hname', '') or '',
+            ]).lower()
+            if user_search.lower() not in search_target:
+                continue
+
+        if hindi_exam_filter and hindi_exam_filter not in highest_exam:
+            continue
+
+        application_users.append({
+            'user': app_user,
+            'empcode': employee_code or app_user.username,
+            'employee_name': employee_name,
+            'status': 'Active' if app_user.is_active else 'Inactive',
+            'is_active': app_user.is_active,
+            'highest_exam': highest_exam,
+        })
+
+    highest_exam_options = [
+        'Prabodh',
+        'Praveen',
+        'Pragya',
+        'Parangat',
+    ]
+
     pending_profile_requests = ManagerRequest.objects.filter(hod=request.user, request_type='profile', status='pending')
     
     manager_office = getattr(request.user.profile, 'office_code', None)
@@ -2975,6 +3045,10 @@ def manager_dashboard(request):
     
     context = {
         'users': users,
+        'application_users': application_users,
+        'user_search': user_search,
+        'hindi_exam_filter': hindi_exam_filter,
+        'highest_exam_options': highest_exam_options,
         'employees': employee_data,
         'pending_profile_requests': pending_profile_requests,
         'pending_qpr_edits': pending_qpr_edits,

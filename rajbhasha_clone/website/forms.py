@@ -459,6 +459,8 @@ class AdminQPRForm(forms.ModelForm):
 
 
 class EmployeeMasterForm(forms.ModelForm):
+    dropdown_fields = ('designation', 'state', 'division')
+
     class Meta:
         model = EmployeeMaster
         fields = [
@@ -487,6 +489,35 @@ class EmployeeMasterForm(forms.ModelForm):
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'transferred_at': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        for field_name in self.dropdown_fields:
+            self.fields[field_name] = forms.ChoiceField(
+                required=False,
+                choices=self._master_value_choices(field_name),
+                widget=forms.Select(attrs={'class': 'form-select'})
+            )
+
+    def _master_value_choices(self, field_name):
+        values = EmployeeMaster.objects.exclude(
+            **{f'{field_name}__isnull': True}
+        ).exclude(
+            **{f'{field_name}__exact': ''}
+        ).values_list(field_name, flat=True)
+
+        options = sorted({value.strip() for value in values if value and value.strip()})
+        current_value = self.initial.get(field_name)
+        if self.instance and self.instance.pk:
+            current_value = getattr(self.instance, field_name, current_value)
+        if current_value:
+            current_value = str(current_value).strip()
+            if current_value and current_value not in options:
+                options.append(current_value)
+                options.sort()
+
+        return [('', '--- Select ---')] + [(value, value) for value in options]
 
     def clean_empcode(self):
         value = self.cleaned_data.get('empcode')

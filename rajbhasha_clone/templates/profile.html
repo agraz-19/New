@@ -45,10 +45,17 @@
                             <div class="row g-2">
                                 <div class="col-md-4">
                                     <div class="form-check">
+                                        <input class="form-check-input profile-change-field" type="checkbox" value="email" id="requestEmail">
+                                        <label class="form-check-label" for="requestEmail">{{ "Notification Email"|t:current_lang }}</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check">
                                         <input class="form-check-input profile-change-field" type="checkbox" value="alternate_email" id="requestAlternateEmail">
                                         <label class="form-check-label" for="requestAlternateEmail">{{ "Alternate Email"|t:current_lang }}</label>
                                     </div>
                                 </div>
+
                                 <div class="col-md-4">
                                     <div class="form-check">
                                         <input class="form-check-input profile-change-field" type="checkbox" value="designation" id="requestDesignation">
@@ -57,10 +64,17 @@
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-check">
+                                        <input class="form-check-input profile-change-field" type="checkbox" value="hod_name" id="requestHodName">
+                                        <label class="form-check-label" for="requestHodName">{{ "Select Approver"|t:current_lang }}</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check">
                                         <input class="form-check-input profile-change-field" type="checkbox" value="highest_exam" id="requestHighestExam">
                                         <label class="form-check-label" for="requestHighestExam">{{ "Highest Hindi Exam"|t:current_lang }}</label>
                                     </div>
                                 </div>
+
                             </div>
                             <div class="form-text">{{ "Only the approved selected fields will unlock for editing."|t:current_lang }}</div>
                         </div>
@@ -590,6 +604,11 @@
                 if (alternateEmail) alternateEmail.disabled = false;
             }
 
+            if (field === "email") {
+                const email = document.querySelector('[name="email"]');
+                if (email) email.disabled = false;
+            }
+
             if (field === "designation") {
                 const designation = document.querySelector('[name="designation"]');
                 if (designation) designation.disabled = false;
@@ -599,6 +618,11 @@
                 document.querySelectorAll('[name="hindi_exam"]').forEach(el => {
                     el.disabled = false;
                 });
+            }
+
+            if (field === "hod_name") {
+                const hodName = document.querySelector('[name="hod_name"]');
+                if (hodName) hodName.disabled = false;
             }
         });
 
