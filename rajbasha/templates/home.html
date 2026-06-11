@@ -1,0 +1,377 @@
+{% extends "master.html" %}
+{% load static %}
+{% load translate_tags %}
+
+{% block title %}{{ "Home"|t:current_lang }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 1. Global Page Layout */
+    body {
+        overflow-x: hidden;
+    }
+
+    /* 2. Main Carousel Styling */
+    .full-screen-banner {
+        width: 100vw;
+        position: relative;
+        left: 50%;
+        right: 50%;
+        margin-left: -50vw;
+        margin-right: -50vw;
+        margin-top: -1.5rem; 
+        margin-bottom: 2rem;
+    }
+     
+    .carousel-item img {
+    width: 100%;
+    height: 450px;
+    object-fit: contain; /* Shows the full image without cropping */
+    background-color: #f8f9fa; /* Adds a light background to fill gaps on the sides */
+}
+
+    /* 3. News Slider Card Styling */
+    .news-card {
+        border: none !important;
+        border-radius: 20px !important; 
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        height: 100%;
+        background: #fff;
+        padding-bottom: 10px;
+        transition: transform 0.3s ease;
+        cursor: pointer;
+    }
+
+    .news-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .news-card-img-wrapper {
+        padding: 12px;
+    }
+
+    .news-card img {
+        width: 100%;
+        height: 220px;
+        object-fit: cover;
+        border-radius: 12px;
+    }
+
+    .news-date {
+        color: #888;
+        font-size: 0.95rem;
+        padding: 5px 20px;
+    }
+
+    .news-title {
+        font-size: 1.05rem;
+        font-weight: 500;
+        padding: 5px 20px 20px 20px;
+        line-height: 1.5;
+    }
+
+    /* 4. Custom Circular Controls */
+    .news-controls-container {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 30px;
+    }
+
+    .news-control-btn {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        border: 2px solid #8B5E3C; 
+        background: transparent;
+        color: #8B5E3C;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        font-size: 1.5rem;
+    }
+
+    .news-control-btn:hover {
+        background: #8B5E3C;
+        color: white;
+    }
+
+    /* Layout Constraints */
+    main.container {
+        max-width: 100% !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    .content-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="full-screen-banner">
+    <div id="mainCarousel" class="carousel slide" data-bs-ride="carousel">
+        <div class="carousel-indicators" id="mainCarouselIndicators">
+            <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="0" class="active"></button>
+            <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="1"></button>
+            <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="2"></button>
+        </div>
+
+        <div class="carousel-inner" id="mainCarouselInner">
+            <div class="carousel-item active" data-bs-interval="3000">
+                <img src="{% static 'images/mainCarousel/slide1.jpg' %}" alt="Slide 1">
+            </div>
+            <div class="carousel-item" data-bs-interval="3000">
+                <img src="{% static 'images/mainCarousel/slide2.jpg' %}" alt="Slide 2">
+            </div>
+            <div class="carousel-item" data-bs-interval="3000">
+                <img src="{% static 'images/mainCarousel/slide3.jpg' %}" alt="Slide 3">
+            </div>
+        </div>
+
+        <button class="carousel-control-prev" type="button" data-bs-target="#mainCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon"></span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#mainCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon"></span>
+        </button>
+    </div>
+</div>
+
+<!-- <div class="content-container my-5">
+    <div id="newsSlider" class="carousel slide" data-bs-ride="false">
+        <div class="carousel-inner">
+            
+            <div class="carousel-item active">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card news-card event-trigger" 
+                             data-images="{% static 'images/Hindi Diwas/HD1.png' %},{% static 'images/Hindi Diwas/HD2.jpg' %},{% static 'images/Hindi Diwas/HD3.jpg' %},{% static 'images/Hindi Diwas/HD4.jpg' %}">
+                            <div class="news-card-img-wrapper">
+                                <img src="{% static 'images/Hindi Diwas/HD1.png' %}" alt="Hindi Diwas">
+                            </div>
+                            <div class="news-date">14 September 2025</div>
+                            <div class="news-title">{{ "Hindi Diwas"|t:current_lang }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card news-card event-trigger"
+                             data-images="{% static 'images/Rajbhasha Kirti Awards/RKA1.jpg' %},{% static 'images/Rajbhasha Kirti Awards/RKA2.jpg' %},{% static 'images/Rajbhasha Kirti Awards/RKA3.jpg' %},{% static 'images/Rajbhasha Kirti Awards/RKA4.jpg' %}">
+                            <div class="news-card-img-wrapper">
+                                <img src="{% static 'images/Rajbhasha Kirti Awards/RKA1.jpg' %}" alt="Kirti Awards">
+                            </div>
+                            <div class="news-date">14 September 2025</div>
+                            <div class="news-title">{{ "Rajbhasha Kirti Awards"|t:current_lang }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="carousel-item">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card news-card event-trigger"
+                             data-images="{% static 'images/Hindi Pakhwada/HP1.jpeg' %},{% static 'images/Hindi Pakhwada/HP2.jpg' %},{% static 'images/Hindi Pakhwada/HP3.jpg' %},{% static 'images/Hindi Pakhwada/HP4.jpg' %}">
+                            <div class="news-card-img-wrapper">
+                                <img src="{% static 'images/Hindi Pakhwada/HP1.jpeg' %}" alt="Hindi Pakhwada">
+                            </div>
+                            <div class="news-date">1–14 September 2025</div>
+                            <div class="news-title">{{ "Hindi Pakhwada"|t:current_lang }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card news-card event-trigger"
+                             data-images="{% static 'images/Rajbhasha Advisory Committee Meeting/RACM1.jpg' %},{% static 'images/Rajbhasha Advisory Committee Meeting/RACM2.jpg' %},{% static 'images/Rajbhasha Advisory Committee Meeting/RACM3.jpg' %},{% static 'images/Rajbhasha Advisory Committee Meeting/RACM4.jpg' %}">
+                            <div class="news-card-img-wrapper">
+                                <img src="{% static 'images/Rajbhasha Advisory Committee Meeting/RACM1.jpg' %}" alt="Workshop">
+                            </div>
+                            <div class="news-date">12 August 2025</div>
+                            <div class="news-title">{{ "Rajbhasha Advisory Committee Meeting"|t:current_lang }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="carousel-item">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card news-card event-trigger"
+                             data-images="{% static 'images/All India Official Language Conference/AIOLC1.jpeg' %},{% static 'images/All India Official Language Conference/AIOLC2.jpg' %},{% static 'images/All India Official Language Conference/AIOLC3.jpeg' %},{% static 'images/All India Official Language Conference/AIOLC4.avif' %}">
+                            <div class="news-card-img-wrapper">
+                                <img src="{% static 'images/All India Official Language Conference/AIOLC1.jpeg' %}" alt="All India Conference">
+                            </div>
+                            <div class="news-date">10–11 July 2025</div>
+                            <div class="news-title">{{ "All India Official Language Conference"|t:current_lang }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card news-card event-trigger"
+                             data-images="{% static 'images/Regional Official Language Conference – Hyderabad/ROLC1.jpg' %},{% static 'images/Regional Official Language Conference – Hyderabad/ROLC2.jpg' %},{% static 'images/Regional Official Language Conference – Hyderabad/ROLC3.jpg' %},{% static 'images/Regional Official Language Conference – Hyderabad/ROLC4.jpg' %}">
+                            <div class="news-card-img-wrapper">
+                                <img src="{% static 'images/Regional Official Language Conference – Hyderabad/ROLC1.jpg' %}" alt="Regional Conference">
+                            </div>
+                            <div class="news-date">21–22 February 2025</div>
+                            <div class="news-title">{{ "Regional Official Language Conference – Hyderabad"|t:current_lang }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div> <div class="news-controls-container">
+            <a class="news-control-btn" href="#newsSlider" data-bs-slide="prev">&lsaquo;</a>
+            <a class="news-control-btn" href="#newsSlider" data-bs-slide="next">&rsaquo;</a>
+        </div>
+    </div>
+</div> -->
+<div class="content-container my-5">
+
+    <h4 class="fw-bold mb-4">{{ "Events & Highlights"|t:current_lang }}</h4>
+
+    <div class="row g-4">
+    {% for event in events %}
+    <div class="col-md-4">
+
+    <div class="card news-card event-card"
+        data-images="{% for img in event.images %}{{ img }}{% if not forloop.last %},{% endif %}{% endfor %}">
+
+        <div class="news-card-img-wrapper">
+            <img src="{{ event.thumbnail }}" alt="{{ event.title }}">
+        </div>
+
+        <div class="news-date">
+            {{ event.date }}
+        </div>
+
+        <div class="news-title">
+            {% if current_lang == 'hi' and event.title_hi %}
+                {{ event.title_hi }}
+            {% else %}
+                {{ event.title }}
+            {% endif %}
+        </div>
+    </div>
+
+    </div>
+    {% endfor %}
+    </div>
+
+</div>
+
+<div class="content-container mb-5">
+    <h4 class="fw-bold">{{ "WHAT'S NEW"|t:current_lang }}</h4> 
+    <div class="row g-4 mt-1">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li><span>{{ "Notice 1 / Circular 1"|t:current_lang }}</span></li>
+                        <li><span>{{ "Notice 2 / Circular 2"|t:current_lang }}</span></li>
+                        <li><span>{{ "Notice 3 / Circular 3"|t:current_lang }}</span></li> 
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-primary text-white fw-bold">{{ "Quick Links"|t:current_lang }}</div>
+                <div class="card-body d-grid gap-2">
+                    <a class="btn btn-outline-primary btn-sm text-start" href="https://rajbhasha.gov.in/" target="_blank" rel="noopener noreferrer">{{ "About Us"|t:current_lang }}</a>
+                    <a class="btn btn-outline-primary btn-sm text-start" href="https://tg.nic.in/" target="_blank" rel="noopener noreferrer">{{ "Downloads"|t:current_lang }}</a> 
+                </div>
+            </div>
+        </div>
+    </div>                
+</div>
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+
+const cards = document.querySelectorAll(".event-card");
+
+const carouselInner = document.getElementById("mainCarouselInner");
+const carouselIndicators = document.getElementById("mainCarouselIndicators");
+const mainCarouselElement = document.getElementById("mainCarousel");
+
+let carousel = bootstrap.Carousel.getInstance(mainCarouselElement);
+
+if (!carousel) {
+    carousel = new bootstrap.Carousel(mainCarouselElement, {
+        interval: 2000,
+        ride: "carousel",
+        pause: false,
+        wrap: true,
+        touch: true
+    });
+}
+
+cards.forEach(card => {
+
+card.addEventListener("click", function(){
+
+const images = this.dataset.images.split(",");
+
+carouselInner.innerHTML = "";
+carouselIndicators.innerHTML = "";
+
+images.forEach((img, index)=>{
+
+const active = index === 0 ? "active" : "";
+
+carouselInner.insertAdjacentHTML("beforeend",
+`
+<div class="carousel-item ${active}" data-bs-interval="2000">
+<img src="${img}" class="d-block w-100"
+style="height:450px;object-fit:contain;background:#f8f9fa;">
+</div>
+`
+);
+
+carouselIndicators.insertAdjacentHTML("beforeend",
+`
+<button type="button"
+data-bs-target="#mainCarousel"
+data-bs-slide-to="${index}"
+class="${active}"
+${index === 0 ? 'aria-current="true"' : ""}
+></button>
+`
+);
+
+});
+
+const oldInstance = bootstrap.Carousel.getInstance(mainCarouselElement);
+
+if (oldInstance) {
+    oldInstance.dispose();
+}
+
+carousel = new bootstrap.Carousel(mainCarouselElement,{
+    interval: 2000,
+    ride: "carousel",
+    pause: false,
+    wrap: true,
+    touch: true
+});
+
+carousel.cycle();
+
+window.scrollTo({top:0,behavior:"smooth"});
+
+});
+
+});
+
+});
+
+</script>
+
+{% endblock %}

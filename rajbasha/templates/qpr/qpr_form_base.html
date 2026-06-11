@@ -1,0 +1,24 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+{% block extra_css %}
+
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="row">
+                    {% block qpr_fields %}{% endblock %}
+                </div>
+                <div class="text-end mt-4">
+                    <button class="btn btn-secondary" type="button" onclick="history.back()">{{ "Cancel"|t:current_lang }}</button>
+                    <button class="btn btn-primary ms-2" type="submit">{{ "Submit"|t:current_lang }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

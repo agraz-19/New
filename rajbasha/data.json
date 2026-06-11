@@ -1,0 +1,4700 @@
+[
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "admin",
+        "model": "logentry"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "auth",
+        "model": "group"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "auth",
+        "model": "permission"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "contenttypes",
+        "model": "contenttype"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "sessions",
+        "model": "session"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "captcha",
+        "model": "captchastore"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "archiveduser"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "certificatedata"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "codemanualstandardforms"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "customuser"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "dataaccesslog"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "editrequest"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "employee"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "financialyear"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "hindipost"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "managerrequest"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "office"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "officersworkinhindi"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "profilechangerequest"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "qprparttwo"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "qprrecord"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "role"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "section10hindiadvisorydata"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "section11specificachievementsdata"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "section1filesdata"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "section2meetingsdata"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "section3officiallanguagesdata"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "section4hindilettersdata"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "section5englishrepliedhindidata"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "section6issuedlettersdata"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "section7notingsdata"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "section8workshopsdata"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "section9implementationcommitteedata"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "staffhindiknowledge"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "translationcache"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "translationknowledge"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "typingstenographyknowledge"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "typingusagereport"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "userprofile"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "websitedetail"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "adminqpr"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "managerqpr"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "qprfinalization"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "managercertificate"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "monthlyfill"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "monthlysnapshot"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "quarterlyfill"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "quarterlysnapshot"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "weeklyfill"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "weeklysnapshot"
+    }
+},
+{
+    "model": "contenttypes.contenttype",
+    "fields": {
+        "app_label": "website",
+        "model": "employeemaster"
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "3e4bqcldi1z4xv7nf5keyt7g5pbs779n",
+    "fields": {
+        "session_data": ".eJxVjEEOgyAQRe_CuiFaBMYuu-8ZyDAMamshQe2m6d2LiRu37_3_vmLGNIib4CQuAmmdPuxKnrmiNyYcuFTucFtHty1c3BSqgTPzSC9OuwjPWsuSclrL5OU-kYdd5CMHnu_H9hQYcRnru9OxJzZNsKYNXgPylTDqYJHaLhjT9Ja0gQpBEXRXr7WGRrVGxagsePH7A6J4Q3E:1wOerR:OcIBPQQlwLYXxheWBtQ_z07ntv_5rZuMYo_HNop2eWE",
+        "expire_date": "2026-05-31T17:01:05.680Z"
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "3kewoil58wpomixbisq2131cwj8x1u9e",
+    "fields": {
+        "session_data": ".eJxVjksOgzAMBe_iNYoIJeCw7L5niBzbfFoapADdVL17hcSG7ZvR6H1hpjRAB5qgAOJt-mjIy6zQwZsSDZqhgED7NoZ91RwmgQ7a6xaJX5oOIE9Kw2J4SVueojkUc9LVPBbR-X66l8BI63h8YLQt4q1yNjKTjQ32vhR1FQoy1565EULqWyFx3jlb9j5GdTZatDXD7w-tLERZ:1wNoB0:uXbQv5uQChZ1WAVUnt_8kWzhDMh7JownBF3slj1_vCA",
+        "expire_date": "2026-05-29T08:45:46.760Z"
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "73xdkckws3sa886h8gtt3dwb2thu0c6z",
+    "fields": {
+        "session_data": ".eJxVjDkOgzAQAP-ydWT5AINdps8brPWuDU6IkTjSRPl7hERDOzOaL0xYB_CQKtwAaSufFJZ5SuAB-V0OGnDfxrCvaQmFwYO5soj0SvUQ_MQ6zILmui0liiMRp13FY-Y03c_2MhhxHcFD1E3uo5aYnbaoNSm00kRlEmFne3asW9tYMiQzZxddS43siFurjFU5w-8P8dVC4A:1wBPmW:MrM9SvOVYrmDsKTX37xuPhn-254UF3Ml6Fpb4GJ7q_4",
+        "expire_date": "2026-04-25T04:17:16.185Z"
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "qlkwdugukc1pt3l7ihxgxr2l7r7eed0d",
+    "fields": {
+        "session_data": ".eJxVjDsOwyAQBe-ytWUFAhi7TJ8zoGV3MU4skPxJE-XukSU3bt_MvC_MWEYYQAo0gLRNHwlLnQUGyJWhgYD7lsO-yhImhgH0dYtIbykH4BeWsbZUy7ZMsT2U9qRr-6ws8-N0LwcZ13zUhqwiSi4q43XSPt2tVcxIkixbhdQ73TuDTF3sOuNiMjcjHtmzaKXg9wdsAEKt:1wE47s:63_b-hnzHkhGA6Ab8JcO7wlYsFTCmRyvwoEEWMzH7kA",
+        "expire_date": "2026-05-02T11:46:16.511Z"
+    }
+},
+{
+    "model": "website.role",
+    "pk": 1,
+    "fields": {
+        "name": "user",
+        "description": "User",
+        "created_at": "2026-04-10T14:47:09.407Z"
+    }
+},
+{
+    "model": "website.role",
+    "pk": 2,
+    "fields": {
+        "name": "manager",
+        "description": "Manager",
+        "created_at": "2026-04-10T14:47:09.409Z"
+    }
+},
+{
+    "model": "website.role",
+    "pk": 3,
+    "fields": {
+        "name": "hod",
+        "description": "HOD",
+        "created_at": "2026-04-10T14:47:09.410Z"
+    }
+},
+{
+    "model": "website.role",
+    "pk": 4,
+    "fields": {
+        "name": "admin",
+        "description": "Admin",
+        "created_at": "2026-04-10T14:47:09.411Z"
+    }
+},
+{
+    "model": "website.role",
+    "pk": 5,
+    "fields": {
+        "name": "backup_user",
+        "description": "Backup User",
+        "created_at": "2026-04-10T14:47:09.411Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 1,
+    "fields": {
+        "empcode": 2427,
+        "name": "Ms. Vemuri Anuragamai",
+        "hindi_name": "वेमुरी अनुरागमई",
+        "designation": "Scientist-G",
+        "state": "Telangana",
+        "mobile": "9052361113",
+        "ip_number": "20089",
+        "emergency_contact": "9866541113",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.084Z",
+        "updated_at": "2026-05-15T08:13:23.084Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 2,
+    "fields": {
+        "empcode": 3595,
+        "name": "Shri Guntuku Prasad",
+        "hindi_name": "गुटुंकू प्रसाद",
+        "designation": "Scientist-G",
+        "state": "Telangana",
+        "mobile": "9868867089",
+        "ip_number": "20501",
+        "emergency_contact": "9811829301",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.086Z",
+        "updated_at": "2026-05-15T08:13:23.086Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 3,
+    "fields": {
+        "empcode": 1452,
+        "name": "Ms. Soudhamini Srinivasan",
+        "hindi_name": "सौधामिनी श्रीनिवासन",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "9292104552",
+        "ip_number": "20075",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.087Z",
+        "updated_at": "2026-05-15T08:13:23.087Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 4,
+    "fields": {
+        "empcode": 1545,
+        "name": "Shri M.S.V. Subrahmanyam",
+        "hindi_name": "एम एस वी सुब्रह्मण्यम",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "9490174400",
+        "ip_number": "20088",
+        "emergency_contact": "9963127468",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.088Z",
+        "updated_at": "2026-05-15T08:13:23.088Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 5,
+    "fields": {
+        "empcode": 3479,
+        "name": "Shri S. Krishna",
+        "hindi_name": "एस कृष्णा",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "9492255816",
+        "ip_number": "20527",
+        "emergency_contact": "7382242005",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.090Z",
+        "updated_at": "2026-05-15T08:13:23.090Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 6,
+    "fields": {
+        "empcode": 3547,
+        "name": "Shri Bachu Vijaya Bhaskara Rao",
+        "hindi_name": "बाचु विजय भास्कर राव",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "9441491864",
+        "ip_number": "20077",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.091Z",
+        "updated_at": "2026-05-15T08:13:23.091Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 7,
+    "fields": {
+        "empcode": 3676,
+        "name": "Shri K.S.S. Madhu Kumar",
+        "hindi_name": "के एस एस मधुकुमार",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "9948142955",
+        "ip_number": "20078",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.092Z",
+        "updated_at": "2026-05-15T08:13:23.092Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 8,
+    "fields": {
+        "empcode": 3679,
+        "name": "Shri Pisay Sreenath Rao",
+        "hindi_name": "पिसाय श्रीनाथ राव",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "9440453329",
+        "ip_number": "20070",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.093Z",
+        "updated_at": "2026-05-15T08:13:23.093Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 9,
+    "fields": {
+        "empcode": 3680,
+        "name": "Shri R. Prasad Rao",
+        "hindi_name": "आर प्रसाद राव",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "8500486973",
+        "ip_number": "20069",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.094Z",
+        "updated_at": "2026-05-15T08:13:23.094Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 10,
+    "fields": {
+        "empcode": 3682,
+        "name": "Shri Raghu Polisetty",
+        "hindi_name": "रघु पोलिसेट्टी",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "8897662200",
+        "ip_number": "20014",
+        "emergency_contact": "9492034390",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.095Z",
+        "updated_at": "2026-05-15T08:13:23.095Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 11,
+    "fields": {
+        "empcode": 4244,
+        "name": "Shri Rakesh S. Gundi",
+        "hindi_name": "राकेश गुंडी",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "9490409692",
+        "ip_number": "20091",
+        "emergency_contact": "9849520622",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.096Z",
+        "updated_at": "2026-05-15T08:13:23.096Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 12,
+    "fields": {
+        "empcode": 4452,
+        "name": "Shri Govardhana Srikanth",
+        "hindi_name": "गोवर्धन श्रीकांत",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "9490479362",
+        "ip_number": "20519",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.097Z",
+        "updated_at": "2026-05-15T08:13:23.097Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 13,
+    "fields": {
+        "empcode": 4453,
+        "name": "Shri T. Bala Sundaram",
+        "hindi_name": "टी बाला सुंदरम",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "9440464028",
+        "ip_number": "20524",
+        "emergency_contact": "8885545900",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.098Z",
+        "updated_at": "2026-05-15T08:13:23.098Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 14,
+    "fields": {
+        "empcode": 4589,
+        "name": "Shri Raynil John",
+        "hindi_name": "रैनील जॉन",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "9868858034",
+        "ip_number": "20511",
+        "emergency_contact": "9810486634",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.099Z",
+        "updated_at": "2026-05-15T08:13:23.099Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 15,
+    "fields": {
+        "empcode": 4665,
+        "name": "Ms. Kavitha Mruthunjaya Rao",
+        "hindi_name": "कविता मृ्त्युंजय राव",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "9848276821",
+        "ip_number": "20063",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.100Z",
+        "updated_at": "2026-05-15T08:13:23.100Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 16,
+    "fields": {
+        "empcode": 4803,
+        "name": "Shri Mugada Ganesh Chandra Sekhar",
+        "hindi_name": "मुगड़ा गणेश चंद्र शेखर",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "9492925474",
+        "ip_number": "20110",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.101Z",
+        "updated_at": "2026-05-15T08:13:23.101Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 17,
+    "fields": {
+        "empcode": 4856,
+        "name": "Shri Akella Srinivasa Subba Rao",
+        "hindi_name": "आकेल्ला श्रीनिवास सुब्बा राव",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "9441811819",
+        "ip_number": "20520",
+        "emergency_contact": "9492921249",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.102Z",
+        "updated_at": "2026-05-15T08:13:23.102Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 18,
+    "fields": {
+        "empcode": 4928,
+        "name": "Shri Vadarevu Naga Venkata Vijay Kumar",
+        "hindi_name": "वदरवे नागा वेंकट विजय कुमार",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "9440157801",
+        "ip_number": "20521",
+        "emergency_contact": "9030609538",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.103Z",
+        "updated_at": "2026-05-15T08:13:23.103Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 19,
+    "fields": {
+        "empcode": 4991,
+        "name": "Shri Chappidi Ravindranatha Reddy",
+        "hindi_name": "चापिडी रविंद्रनाथ रेड्डी",
+        "designation": "Scientist-F",
+        "state": "Telangana",
+        "mobile": "9866346978",
+        "ip_number": "20517",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.105Z",
+        "updated_at": "2026-05-15T08:13:23.105Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 20,
+    "fields": {
+        "empcode": 3112,
+        "name": "Shri V. Suryanarayana",
+        "hindi_name": "वी सूर्यनारायण",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9441258536",
+        "ip_number": "20067",
+        "emergency_contact": "9866986677",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.106Z",
+        "updated_at": "2026-05-15T08:13:23.106Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 21,
+    "fields": {
+        "empcode": 3296,
+        "name": "Shri Nallan Ch. R Chakravarthi",
+        "hindi_name": "नल्लन राघव चक्रवर्ती",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9441319191",
+        "ip_number": "20536",
+        "emergency_contact": "9963292232",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.107Z",
+        "updated_at": "2026-05-15T08:13:23.108Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 22,
+    "fields": {
+        "empcode": 3452,
+        "name": "Ms. Gunti Swaranalatha",
+        "hindi_name": "गुंटी स्वर्णलता",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "6304377903",
+        "ip_number": "20550",
+        "emergency_contact": "9440640610",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.109Z",
+        "updated_at": "2026-05-15T08:13:23.109Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 23,
+    "fields": {
+        "empcode": 3453,
+        "name": "Ms. K. Bagyarekha",
+        "hindi_name": "के भाग्यरेखा",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9849113305",
+        "ip_number": "20526",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.110Z",
+        "updated_at": "2026-05-15T08:13:23.110Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 24,
+    "fields": {
+        "empcode": 3718,
+        "name": "Ms. P. Jhancy Sreenivasa",
+        "hindi_name": "पी झांसी श्रीनिवास",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9390336996",
+        "ip_number": "20087",
+        "emergency_contact": "9483547009",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.111Z",
+        "updated_at": "2026-05-15T08:13:23.111Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 25,
+    "fields": {
+        "empcode": 4240,
+        "name": "Shri Moduguru Ganesh Rao",
+        "hindi_name": "मोदुगुरु गणेश राव",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9490189193",
+        "ip_number": "20076",
+        "emergency_contact": "9441435271",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.112Z",
+        "updated_at": "2026-05-15T08:13:23.112Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 26,
+    "fields": {
+        "empcode": 4505,
+        "name": "Shri Khaja Imtiaz Ahmed",
+        "hindi_name": "खाजा इम्तियाज अहमद",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9752369028",
+        "ip_number": "20545",
+        "emergency_contact": "9398504174",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.114Z",
+        "updated_at": "2026-05-15T08:13:23.114Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 27,
+    "fields": {
+        "empcode": 4745,
+        "name": "Shri D.P. Madhusudana Reddy",
+        "hindi_name": "डी पी मधुसूदन रेड्डी",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9868222177",
+        "ip_number": "20532",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.115Z",
+        "updated_at": "2026-05-15T08:13:23.115Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 28,
+    "fields": {
+        "empcode": 4757,
+        "name": "Shri Therala Sridhar Sharma",
+        "hindi_name": "थेराला श्रीधर शर्मा",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9704893875",
+        "ip_number": "20529",
+        "emergency_contact": "9701339956",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.116Z",
+        "updated_at": "2026-05-15T08:13:23.116Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 29,
+    "fields": {
+        "empcode": 4772,
+        "name": "Shri Sanga Kasi Reddy",
+        "hindi_name": "संगा काशी रेड्डी",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9441859280",
+        "ip_number": "20081",
+        "emergency_contact": "9440374172",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.117Z",
+        "updated_at": "2026-05-15T08:13:23.117Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 30,
+    "fields": {
+        "empcode": 4786,
+        "name": "Shri V. Venkata Satyanarayana Prasad",
+        "hindi_name": "वी वेंकट सत्यानारायण प्रसाद",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "7893822611",
+        "ip_number": "20082",
+        "emergency_contact": "9441455227",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.119Z",
+        "updated_at": "2026-05-15T08:13:23.119Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 31,
+    "fields": {
+        "empcode": 4838,
+        "name": "Shri Shaik Bajeed Babu",
+        "hindi_name": "शेख बाजीद बाबू",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9949712934",
+        "ip_number": "20040",
+        "emergency_contact": "9949712988",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.121Z",
+        "updated_at": "2026-05-15T08:13:23.121Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 32,
+    "fields": {
+        "empcode": 4839,
+        "name": "Shri Sharaf Sreenivasa Rao",
+        "hindi_name": "शरफ श्रीनिवास राव",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9740118506",
+        "ip_number": "20514",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.122Z",
+        "updated_at": "2026-05-15T08:13:23.122Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 33,
+    "fields": {
+        "empcode": 4968,
+        "name": "Shri A. Maruthi Kumar",
+        "hindi_name": "ए मारुति कुमार",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9424452789",
+        "ip_number": "20547",
+        "emergency_contact": "9177990264",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.123Z",
+        "updated_at": "2026-05-15T08:13:23.123Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 34,
+    "fields": {
+        "empcode": 5153,
+        "name": "Shri Siddiqui Abdul Bari",
+        "hindi_name": "सिद्दीकी अब्दुल बारी",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9823152600",
+        "ip_number": "20551",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.124Z",
+        "updated_at": "2026-05-15T08:13:23.124Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 35,
+    "fields": {
+        "empcode": 5159,
+        "name": "Shri P. Mallikarjun",
+        "hindi_name": "पी मल्लिकार्जुन",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9923651245",
+        "ip_number": "20534",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.125Z",
+        "updated_at": "2026-05-15T08:13:23.125Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 36,
+    "fields": {
+        "empcode": 5370,
+        "name": "Ms. Moduguru Subha",
+        "hindi_name": "मोदुगुरु शुभा",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9441435271",
+        "ip_number": "20058",
+        "emergency_contact": "9490189193",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.126Z",
+        "updated_at": "2026-05-15T08:13:23.126Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 37,
+    "fields": {
+        "empcode": 5405,
+        "name": "Shri Cherla Ramakanth",
+        "hindi_name": "चेरला रमाकांत",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "7702399373",
+        "ip_number": "20042",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.127Z",
+        "updated_at": "2026-05-15T08:13:23.127Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 38,
+    "fields": {
+        "empcode": 5485,
+        "name": "Ms. Annapurna",
+        "hindi_name": "अन्नपूर्णा",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9949670558",
+        "ip_number": "20041",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.129Z",
+        "updated_at": "2026-05-15T08:13:23.129Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 39,
+    "fields": {
+        "empcode": 5629,
+        "name": "Shri Gogi Reddy Appi Reddy",
+        "hindi_name": "गोगी रेड्डी अप्पी रेड्डी",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "8686238506",
+        "ip_number": "20025",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.130Z",
+        "updated_at": "2026-05-15T08:13:23.130Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 40,
+    "fields": {
+        "empcode": 5637,
+        "name": "Ms. Y. Sreevani",
+        "hindi_name": "वाई श्रीवानी",
+        "designation": "Scientist-E",
+        "state": "Telangana",
+        "mobile": "9966322220",
+        "ip_number": "20043",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.132Z",
+        "updated_at": "2026-05-15T08:13:23.132Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 41,
+    "fields": {
+        "empcode": 5570,
+        "name": "Shri G. Rajagopal Rao",
+        "hindi_name": "जी राजगोपाल राव",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "8519989526",
+        "ip_number": "20542",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.133Z",
+        "updated_at": "2026-05-15T08:13:23.133Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 42,
+    "fields": {
+        "empcode": 5743,
+        "name": "Ms. Srilatha Gorla",
+        "hindi_name": "श्रीलता गोरला",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "9248636256",
+        "ip_number": "20072",
+        "emergency_contact": "9849510373",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.134Z",
+        "updated_at": "2026-05-15T08:13:23.134Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 43,
+    "fields": {
+        "empcode": 5866,
+        "name": "Ms. Neerumalla Kavitha",
+        "hindi_name": "नीरुमल्ला कविता",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "7893450222",
+        "ip_number": "20531",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.135Z",
+        "updated_at": "2026-05-15T08:13:23.135Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 44,
+    "fields": {
+        "empcode": 6018,
+        "name": "Shri Bapuji Nakka",
+        "hindi_name": "बापूजी नक्का",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "9560357179",
+        "ip_number": "20541",
+        "emergency_contact": "9871719398",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.136Z",
+        "updated_at": "2026-05-15T08:13:23.136Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 45,
+    "fields": {
+        "empcode": 6025,
+        "name": "Shri Ramprasad K",
+        "hindi_name": "रामप्रसाद के",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "7032820180",
+        "ip_number": "20509",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.137Z",
+        "updated_at": "2026-05-15T08:13:23.137Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 46,
+    "fields": {
+        "empcode": 6031,
+        "name": "Ms. Deepika Alamuri",
+        "hindi_name": "दीपिका अलामुरी",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "7601010996",
+        "ip_number": "20539",
+        "emergency_contact": "7601010996",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.138Z",
+        "updated_at": "2026-05-15T08:13:23.138Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 47,
+    "fields": {
+        "empcode": 6123,
+        "name": "Shri Yerur Siraj Ahmed",
+        "hindi_name": "येरूर सिराज अहमद",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "9718515553",
+        "ip_number": "20133",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.139Z",
+        "updated_at": "2026-05-15T08:13:23.139Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 48,
+    "fields": {
+        "empcode": 6126,
+        "name": "Shri Kartik Krishna Vijayasharadhi",
+        "hindi_name": "कार्तिक कृष्ण विजयशारधी",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "8800933667",
+        "ip_number": "20552",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.140Z",
+        "updated_at": "2026-05-15T08:13:23.140Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 49,
+    "fields": {
+        "empcode": 6182,
+        "name": "Shri T V V K R Prasad",
+        "hindi_name": "टी वी वी के आर प्रसाद",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "8106468993",
+        "ip_number": "20716",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.141Z",
+        "updated_at": "2026-05-15T08:13:23.141Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 50,
+    "fields": {
+        "empcode": 6259,
+        "name": "Shri Chittaluri Srinivasarao",
+        "hindi_name": "चित्तलूरी श्रीनिवासराव",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "8000620456",
+        "ip_number": "20507",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.142Z",
+        "updated_at": "2026-05-15T08:13:23.142Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 51,
+    "fields": {
+        "empcode": 6270,
+        "name": "Shri Arjun Kumar Balla",
+        "hindi_name": "अर्जुन कुमार बल्ला",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "9041687998",
+        "ip_number": "20518",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.143Z",
+        "updated_at": "2026-05-15T08:13:23.143Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 52,
+    "fields": {
+        "empcode": 6309,
+        "name": "Shri Aravind Nehru Lankamsetty",
+        "hindi_name": "अरविंद नेहरू लंकमसेट्टी",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "9972936467",
+        "ip_number": "20506",
+        "emergency_contact": "9441006644",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.144Z",
+        "updated_at": "2026-05-15T08:13:23.144Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 53,
+    "fields": {
+        "empcode": 6326,
+        "name": "Ms. Sailaja M",
+        "hindi_name": "सैलजा एम",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "8019729269",
+        "ip_number": "20538",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.145Z",
+        "updated_at": "2026-05-15T08:13:23.145Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 54,
+    "fields": {
+        "empcode": 6358,
+        "name": "Shri Kasi Viswanath Kethineni",
+        "hindi_name": "काशी विश्वनाथ केथिनेनी",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "8750295222",
+        "ip_number": "20137",
+        "emergency_contact": "7702641896",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.146Z",
+        "updated_at": "2026-05-15T08:13:23.146Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 55,
+    "fields": {
+        "empcode": 6414,
+        "name": "Shri Rupesh Govind Gujrathi",
+        "hindi_name": "रुपेश गोविंद गुजराती",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "9023851480",
+        "ip_number": "20553",
+        "emergency_contact": "9158804123",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.148Z",
+        "updated_at": "2026-05-15T08:13:23.148Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 56,
+    "fields": {
+        "empcode": 6721,
+        "name": "Shri K Sampath Kumar",
+        "hindi_name": "के संपत कुमार",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "9533688899",
+        "ip_number": "20554",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.149Z",
+        "updated_at": "2026-05-15T08:13:23.149Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 57,
+    "fields": {
+        "empcode": 6736,
+        "name": "Shri Nilesh Kumar",
+        "hindi_name": "नीलेश कुमार",
+        "designation": "Scientist-D",
+        "state": "Telangana",
+        "mobile": "9885476240",
+        "ip_number": "—",
+        "emergency_contact": "9493476240",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.150Z",
+        "updated_at": "2026-05-15T08:13:23.150Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 58,
+    "fields": {
+        "empcode": 3143,
+        "name": "Ms. Sesha Rani Jampani",
+        "hindi_name": "शेषा रानी जम्पनी",
+        "designation": "Scientist-C",
+        "state": "Telangana",
+        "mobile": "8374601475",
+        "ip_number": "20034",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.151Z",
+        "updated_at": "2026-05-15T08:13:23.151Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 59,
+    "fields": {
+        "empcode": 3674,
+        "name": "Shri Kolli Venkata Suryanarayana",
+        "hindi_name": "कोल्ली वेंकट सूर्यनारायण",
+        "designation": "Scientist-C",
+        "state": "Telangana",
+        "mobile": "9393920405",
+        "ip_number": "20071",
+        "emergency_contact": "9030513870",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.152Z",
+        "updated_at": "2026-05-15T08:13:23.152Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 60,
+    "fields": {
+        "empcode": 5757,
+        "name": "Ms. N Sree Laxmi Devi",
+        "hindi_name": "एन श्री लक्ष्मी देवी",
+        "designation": "Scientist-C",
+        "state": "Telangana",
+        "mobile": "9441188372",
+        "ip_number": "20533",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.154Z",
+        "updated_at": "2026-05-15T08:13:23.154Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 61,
+    "fields": {
+        "empcode": 5788,
+        "name": "Shri Anil Kumar Yenni",
+        "hindi_name": "अनिल कुमार येन्नी",
+        "designation": "Scientist-C",
+        "state": "Telangana",
+        "mobile": "8106661434",
+        "ip_number": "20046",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.155Z",
+        "updated_at": "2026-05-15T08:13:23.155Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 62,
+    "fields": {
+        "empcode": 5861,
+        "name": "Ms. Shakeena Nallagaatla",
+        "hindi_name": "शकीना नल्लागाटला",
+        "designation": "Scientist-C",
+        "state": "Telangana",
+        "mobile": "9893988159",
+        "ip_number": "20544",
+        "emergency_contact": "9995824991",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.156Z",
+        "updated_at": "2026-05-15T08:13:23.156Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 63,
+    "fields": {
+        "empcode": 5909,
+        "name": "Shri Ravi Bandi",
+        "hindi_name": "रवि बंदी",
+        "designation": "Scientist-C",
+        "state": "Telangana",
+        "mobile": "9334365400",
+        "ip_number": "20530",
+        "emergency_contact": "9396652396",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.157Z",
+        "updated_at": "2026-05-15T08:13:23.157Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 64,
+    "fields": {
+        "empcode": 6483,
+        "name": "Ms. A. Mamatha",
+        "hindi_name": "ए ममता",
+        "designation": "Scientist-C",
+        "state": "Telangana",
+        "mobile": "7587033599",
+        "ip_number": "20540",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.158Z",
+        "updated_at": "2026-05-15T08:13:23.158Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 65,
+    "fields": {
+        "empcode": 6503,
+        "name": "Shri M Naresh Kumar",
+        "hindi_name": "एम नरेश कुमार",
+        "designation": "Scientist-C",
+        "state": "Telangana",
+        "mobile": "8750054056",
+        "ip_number": "62041",
+        "emergency_contact": "9247439018",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.159Z",
+        "updated_at": "2026-05-15T08:13:23.159Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 66,
+    "fields": {
+        "empcode": 6585,
+        "name": "Ms. B. Sita Mahalakshmi",
+        "hindi_name": "बी सीता महालक्ष्मी",
+        "designation": "Scientist-C",
+        "state": "Telangana",
+        "mobile": "9742354351",
+        "ip_number": "20548",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.160Z",
+        "updated_at": "2026-05-15T08:13:23.160Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 67,
+    "fields": {
+        "empcode": 7125,
+        "name": "Shri Pulaparthi Sumanth",
+        "hindi_name": "पुलपार्थी सुमंत",
+        "designation": "Scientist-C",
+        "state": "Telangana",
+        "mobile": "9640885490",
+        "ip_number": "20515",
+        "emergency_contact": "9492546562",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.161Z",
+        "updated_at": "2026-05-15T08:13:23.161Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 68,
+    "fields": {
+        "empcode": 7237,
+        "name": "Shri Amgoth Swaminath",
+        "hindi_name": "अमगोत स्वामीनाथ",
+        "designation": "Scientist-C",
+        "state": "Telangana",
+        "mobile": "8978878338",
+        "ip_number": "20549",
+        "emergency_contact": "9121665606",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.162Z",
+        "updated_at": "2026-05-15T08:13:23.162Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 69,
+    "fields": {
+        "empcode": 6868,
+        "name": "Shri P Rajshekar",
+        "hindi_name": "पी राजशेखर",
+        "designation": "Scientist-B",
+        "state": "Telangana",
+        "mobile": "8447010241",
+        "ip_number": "20741",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.163Z",
+        "updated_at": "2026-05-15T08:13:23.163Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 70,
+    "fields": {
+        "empcode": 7647,
+        "name": "Shri Harshith Kumar Mosali",
+        "hindi_name": "हर्षित कुमार मोसाली",
+        "designation": "Scientist-B",
+        "state": "Telangana",
+        "mobile": "9573488776",
+        "ip_number": "44201",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.164Z",
+        "updated_at": "2026-05-15T08:13:23.164Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 71,
+    "fields": {
+        "empcode": 7705,
+        "name": "Ms. Gedala Sujatha",
+        "hindi_name": "गेडाला सुजाता",
+        "designation": "Scientist-B",
+        "state": "Telangana",
+        "mobile": "8074063049",
+        "ip_number": "20039",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.165Z",
+        "updated_at": "2026-05-15T08:13:23.165Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 72,
+    "fields": {
+        "empcode": 7706,
+        "name": "Shri Sanapala Chiranjeevi",
+        "hindi_name": "सनपाला चिरंजीवी",
+        "designation": "Scientist-B",
+        "state": "Telangana",
+        "mobile": "8008992879",
+        "ip_number": "20038",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.166Z",
+        "updated_at": "2026-05-15T08:13:23.166Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 73,
+    "fields": {
+        "empcode": 7732,
+        "name": "Shri Sampath Kumar V",
+        "hindi_name": "संपत कुमार वी",
+        "designation": "Scientist-B",
+        "state": "Telangana",
+        "mobile": "7989065103",
+        "ip_number": "20010",
+        "emergency_contact": "9381783374",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.167Z",
+        "updated_at": "2026-05-15T08:13:23.167Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 74,
+    "fields": {
+        "empcode": 7738,
+        "name": "Shri Sriram Susheel Kumar",
+        "hindi_name": "श्रीराम सुशील कुमार",
+        "designation": "Scientist-B",
+        "state": "Telangana",
+        "mobile": "9985140851",
+        "ip_number": "20751",
+        "emergency_contact": "9480628764",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.169Z",
+        "updated_at": "2026-05-15T08:13:23.169Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 75,
+    "fields": {
+        "empcode": 7739,
+        "name": "Shri Arepally Veerendhar Reddy",
+        "hindi_name": "आरपल्ली वीरेंद्र रेड्डी",
+        "designation": "Scientist-B",
+        "state": "Telangana",
+        "mobile": "9502197351",
+        "ip_number": "20090",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.170Z",
+        "updated_at": "2026-05-15T08:13:23.170Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 76,
+    "fields": {
+        "empcode": 7772,
+        "name": "Shri Bhukya Rajesh",
+        "hindi_name": "भुक्या राजेश",
+        "designation": "Scientist-B",
+        "state": "Telangana",
+        "mobile": "9000474104",
+        "ip_number": "20525",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.173Z",
+        "updated_at": "2026-05-15T08:13:23.173Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 77,
+    "fields": {
+        "empcode": 7776,
+        "name": "Ms. Sandaka Amala",
+        "hindi_name": "संडका अमला",
+        "designation": "Scientist-B",
+        "state": "Telangana",
+        "mobile": "9133155503",
+        "ip_number": "20035",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.177Z",
+        "updated_at": "2026-05-15T08:13:23.177Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 78,
+    "fields": {
+        "empcode": 7843,
+        "name": "Shri Bhanoth Vinod Kumar",
+        "hindi_name": "भनोठ विनोद कुमार",
+        "designation": "Scientist-B",
+        "state": "Telangana",
+        "mobile": "9948373218",
+        "ip_number": "20073",
+        "emergency_contact": "9666089336",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.178Z",
+        "updated_at": "2026-05-15T08:13:23.178Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 79,
+    "fields": {
+        "empcode": 6977,
+        "name": "Shri Boda Bichu",
+        "hindi_name": "बोड़ा बिचु",
+        "designation": "Scientific Officer/Engineer SB",
+        "state": "Telangana",
+        "mobile": "7041102330",
+        "ip_number": "—",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.180Z",
+        "updated_at": "2026-05-15T08:13:23.180Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 80,
+    "fields": {
+        "empcode": 7005,
+        "name": "Ms. Methukupally Prathiba Reddy",
+        "hindi_name": "मेथुकुपल्ली प्रतिभा रेड्डी",
+        "designation": "Scientific Officer/Engineer SB",
+        "state": "Telangana",
+        "mobile": "9515879493",
+        "ip_number": "—",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.181Z",
+        "updated_at": "2026-05-15T08:13:23.181Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 81,
+    "fields": {
+        "empcode": 8302,
+        "name": "Shri Tirunagari Abhinav",
+        "hindi_name": "तिरुनागरी अभिनव",
+        "designation": "Scientific Officer/Engineer SB",
+        "state": "Telangana",
+        "mobile": "8897260768",
+        "ip_number": "20701",
+        "emergency_contact": "9440344433",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.182Z",
+        "updated_at": "2026-05-15T08:13:23.182Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 82,
+    "fields": {
+        "empcode": 8303,
+        "name": "Shri Suram Madhusudhan",
+        "hindi_name": "सुरम मधुसूदन",
+        "designation": "Scientific Officer/Engineer SB",
+        "state": "Telangana",
+        "mobile": "7386665239",
+        "ip_number": "20706",
+        "emergency_contact": "9849396177",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.184Z",
+        "updated_at": "2026-05-15T08:13:23.185Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 83,
+    "fields": {
+        "empcode": 8304,
+        "name": "Shri Dhonthula Naveen Kumar",
+        "hindi_name": "धोंथुला नवीन कुमार",
+        "designation": "Scientific Officer/Engineer SB",
+        "state": "Telangana",
+        "mobile": "7893571604",
+        "ip_number": "20711",
+        "emergency_contact": "9705541325",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.188Z",
+        "updated_at": "2026-05-15T08:13:23.188Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 84,
+    "fields": {
+        "empcode": 8461,
+        "name": "Shri Dadi Ranjithkumar",
+        "hindi_name": "दादी रंजीतकुमार",
+        "designation": "Scientific Officer/Engineer SB",
+        "state": "Telangana",
+        "mobile": "8500821194",
+        "ip_number": "—",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.190Z",
+        "updated_at": "2026-05-15T08:13:23.190Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 85,
+    "fields": {
+        "empcode": 8496,
+        "name": "Shri Vemuri Vamsi Vinay",
+        "hindi_name": "वेमुरी वंशी विनय",
+        "designation": "Scientific Officer/Engineer SB",
+        "state": "Telangana",
+        "mobile": "7396040507",
+        "ip_number": "—",
+        "emergency_contact": "8985420668",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.192Z",
+        "updated_at": "2026-05-15T08:13:23.192Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 86,
+    "fields": {
+        "empcode": 3871,
+        "name": "Shri John Peter",
+        "hindi_name": "जॉन पीटर",
+        "designation": "Section Officer",
+        "state": "Telangana",
+        "mobile": "9492423860",
+        "ip_number": "20005",
+        "emergency_contact": "7337359807",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.194Z",
+        "updated_at": "2026-05-15T08:13:23.195Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 87,
+    "fields": {
+        "empcode": 2793,
+        "name": "Shri Nilagiri Shravan Veer",
+        "hindi_name": "नीलगिरी श्रवण वीर",
+        "designation": "Private Secretary",
+        "state": "Telangana",
+        "mobile": "9985214912",
+        "ip_number": "20502",
+        "emergency_contact": "9885022640",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.196Z",
+        "updated_at": "2026-05-15T08:13:23.196Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 88,
+    "fields": {
+        "empcode": 3870,
+        "name": "Shri H.S. Venkateswar",
+        "hindi_name": "एच एस वेंकटेश्वर",
+        "designation": "Private Secretary",
+        "state": "Telangana",
+        "mobile": "6301091075",
+        "ip_number": "20002",
+        "emergency_contact": "9618397422",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.198Z",
+        "updated_at": "2026-05-15T08:13:23.198Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 89,
+    "fields": {
+        "empcode": 7065,
+        "name": "Shri S Madhu",
+        "hindi_name": "एस मधु",
+        "designation": "Scientific Technical Assistant B",
+        "state": "Telangana",
+        "mobile": "9582406645",
+        "ip_number": "20736",
+        "emergency_contact": "9491738658",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.199Z",
+        "updated_at": "2026-05-15T08:13:23.199Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 90,
+    "fields": {
+        "empcode": 7301,
+        "name": "Shri Pedinti Vamshidhar Reddy",
+        "hindi_name": "पेदिन्टि वंशिधर रेड्डी",
+        "designation": "Scientific Technical Assistant B",
+        "state": "Telangana",
+        "mobile": "8500923027",
+        "ip_number": "20731",
+        "emergency_contact": "7036146943",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.201Z",
+        "updated_at": "2026-05-15T08:13:23.201Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 91,
+    "fields": {
+        "empcode": 7422,
+        "name": "Shri Kompelli Suraj Kumar",
+        "hindi_name": "कोंपेली सूरज कुमार",
+        "designation": "Scientific Technical Assistant B",
+        "state": "Telangana",
+        "mobile": "8309795145",
+        "ip_number": "20746",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.204Z",
+        "updated_at": "2026-05-15T08:13:23.204Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 92,
+    "fields": {
+        "empcode": 3338,
+        "name": "Ms. Mini J Paul",
+        "hindi_name": "मिनी जे पॉल",
+        "designation": "Assistant Section Officer",
+        "state": "Telangana",
+        "mobile": "9981065471",
+        "ip_number": "20055",
+        "emergency_contact": "9492725471",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.206Z",
+        "updated_at": "2026-05-15T08:13:23.206Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 93,
+    "fields": {
+        "empcode": 2792,
+        "name": "Ms. A. Sarala",
+        "hindi_name": "ए सरला",
+        "designation": "Steno Grade II",
+        "state": "Telangana",
+        "mobile": "9866068256",
+        "ip_number": "20050",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.208Z",
+        "updated_at": "2026-05-15T08:13:23.208Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 94,
+    "fields": {
+        "empcode": 8093,
+        "name": "Ms. Poreddy Chandana Priya",
+        "hindi_name": "पोरेड्डी चंदना प्रिया",
+        "designation": "Scientific Technical Assistant A",
+        "state": "Telangana",
+        "mobile": "9908270499",
+        "ip_number": "20796",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.210Z",
+        "updated_at": "2026-05-15T08:13:23.210Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 95,
+    "fields": {
+        "empcode": 8373,
+        "name": "Shri Burra Srikanth",
+        "hindi_name": "बुर्रा श्रीकांत",
+        "designation": "Scientific Technical Assistant A",
+        "state": "Telangana",
+        "mobile": "9966194140",
+        "ip_number": "—",
+        "emergency_contact": "8801161166",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.212Z",
+        "updated_at": "2026-05-15T08:13:23.212Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 96,
+    "fields": {
+        "empcode": 8493,
+        "name": "Shri Kshatriya Mahipal Singh",
+        "hindi_name": "क्षत्रिय महिपाल सिंह",
+        "designation": "Scientific Technical Assistant A",
+        "state": "Telangana",
+        "mobile": "7569358323",
+        "ip_number": "—",
+        "emergency_contact": "8143387639",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.214Z",
+        "updated_at": "2026-05-15T08:13:23.214Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 97,
+    "fields": {
+        "empcode": 5709,
+        "name": "Ms. Swarna Manjula",
+        "hindi_name": "स्वर्णा मंजुला",
+        "designation": "Senior Secretariat Assistant",
+        "state": "Telangana",
+        "mobile": "9963151755",
+        "ip_number": "20056",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.216Z",
+        "updated_at": "2026-05-15T08:13:23.216Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 98,
+    "fields": {
+        "empcode": 6615,
+        "name": "Shri Anand Madupu",
+        "hindi_name": "आनंद मदुपु",
+        "designation": "Senior Secretariat Assistant",
+        "state": "Telangana",
+        "mobile": "9555010190",
+        "ip_number": "20053",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.219Z",
+        "updated_at": "2026-05-15T08:13:23.219Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 99,
+    "fields": {
+        "empcode": 7504,
+        "name": "Shri K Narender",
+        "hindi_name": "के नरेंदर",
+        "designation": "Staff Car Driver",
+        "state": "Telangana",
+        "mobile": "9149682605",
+        "ip_number": "—",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.222Z",
+        "updated_at": "2026-05-15T08:13:23.222Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 100,
+    "fields": {
+        "empcode": 5049,
+        "name": "Shri A Prabhakar",
+        "hindi_name": "ए प्रभाकर",
+        "designation": "Multitasking Staff",
+        "state": "Telangana",
+        "mobile": "8008434009",
+        "ip_number": "—",
+        "emergency_contact": "—",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.224Z",
+        "updated_at": "2026-05-15T08:13:23.224Z"
+    }
+},
+{
+    "model": "website.employeemaster",
+    "pk": 101,
+    "fields": {
+        "empcode": 5501,
+        "name": "Shri Pulluri Srinivas",
+        "hindi_name": "पुल्लुरी श्रीनिवास",
+        "designation": "Multitasking Staff",
+        "state": "Telangana",
+        "mobile": "9000906715",
+        "ip_number": "20054",
+        "emergency_contact": "9030906715",
+        "division": "NIC TELANGANA STATE CENTRE",
+        "is_active": true,
+        "transferred_at": null,
+        "remarks": null,
+        "created_at": "2026-05-15T08:13:23.225Z",
+        "updated_at": "2026-05-15T08:13:23.225Z"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add log entry",
+        "content_type": [
+            "admin",
+            "logentry"
+        ],
+        "codename": "add_logentry"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change log entry",
+        "content_type": [
+            "admin",
+            "logentry"
+        ],
+        "codename": "change_logentry"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete log entry",
+        "content_type": [
+            "admin",
+            "logentry"
+        ],
+        "codename": "delete_logentry"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view log entry",
+        "content_type": [
+            "admin",
+            "logentry"
+        ],
+        "codename": "view_logentry"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add permission",
+        "content_type": [
+            "auth",
+            "permission"
+        ],
+        "codename": "add_permission"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change permission",
+        "content_type": [
+            "auth",
+            "permission"
+        ],
+        "codename": "change_permission"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete permission",
+        "content_type": [
+            "auth",
+            "permission"
+        ],
+        "codename": "delete_permission"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view permission",
+        "content_type": [
+            "auth",
+            "permission"
+        ],
+        "codename": "view_permission"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add group",
+        "content_type": [
+            "auth",
+            "group"
+        ],
+        "codename": "add_group"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change group",
+        "content_type": [
+            "auth",
+            "group"
+        ],
+        "codename": "change_group"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete group",
+        "content_type": [
+            "auth",
+            "group"
+        ],
+        "codename": "delete_group"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view group",
+        "content_type": [
+            "auth",
+            "group"
+        ],
+        "codename": "view_group"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add content type",
+        "content_type": [
+            "contenttypes",
+            "contenttype"
+        ],
+        "codename": "add_contenttype"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change content type",
+        "content_type": [
+            "contenttypes",
+            "contenttype"
+        ],
+        "codename": "change_contenttype"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete content type",
+        "content_type": [
+            "contenttypes",
+            "contenttype"
+        ],
+        "codename": "delete_contenttype"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view content type",
+        "content_type": [
+            "contenttypes",
+            "contenttype"
+        ],
+        "codename": "view_contenttype"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add session",
+        "content_type": [
+            "sessions",
+            "session"
+        ],
+        "codename": "add_session"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change session",
+        "content_type": [
+            "sessions",
+            "session"
+        ],
+        "codename": "change_session"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete session",
+        "content_type": [
+            "sessions",
+            "session"
+        ],
+        "codename": "delete_session"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view session",
+        "content_type": [
+            "sessions",
+            "session"
+        ],
+        "codename": "view_session"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add captcha store",
+        "content_type": [
+            "captcha",
+            "captchastore"
+        ],
+        "codename": "add_captchastore"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change captcha store",
+        "content_type": [
+            "captcha",
+            "captchastore"
+        ],
+        "codename": "change_captchastore"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete captcha store",
+        "content_type": [
+            "captcha",
+            "captchastore"
+        ],
+        "codename": "delete_captchastore"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view captcha store",
+        "content_type": [
+            "captcha",
+            "captchastore"
+        ],
+        "codename": "view_captchastore"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add user",
+        "content_type": [
+            "website",
+            "customuser"
+        ],
+        "codename": "add_customuser"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change user",
+        "content_type": [
+            "website",
+            "customuser"
+        ],
+        "codename": "change_customuser"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete user",
+        "content_type": [
+            "website",
+            "customuser"
+        ],
+        "codename": "delete_customuser"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view user",
+        "content_type": [
+            "website",
+            "customuser"
+        ],
+        "codename": "view_customuser"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add employee",
+        "content_type": [
+            "website",
+            "employee"
+        ],
+        "codename": "add_employee"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change employee",
+        "content_type": [
+            "website",
+            "employee"
+        ],
+        "codename": "change_employee"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete employee",
+        "content_type": [
+            "website",
+            "employee"
+        ],
+        "codename": "delete_employee"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view employee",
+        "content_type": [
+            "website",
+            "employee"
+        ],
+        "codename": "view_employee"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add archived user",
+        "content_type": [
+            "website",
+            "archiveduser"
+        ],
+        "codename": "add_archiveduser"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change archived user",
+        "content_type": [
+            "website",
+            "archiveduser"
+        ],
+        "codename": "change_archiveduser"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete archived user",
+        "content_type": [
+            "website",
+            "archiveduser"
+        ],
+        "codename": "delete_archiveduser"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view archived user",
+        "content_type": [
+            "website",
+            "archiveduser"
+        ],
+        "codename": "view_archiveduser"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add data access log",
+        "content_type": [
+            "website",
+            "dataaccesslog"
+        ],
+        "codename": "add_dataaccesslog"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change data access log",
+        "content_type": [
+            "website",
+            "dataaccesslog"
+        ],
+        "codename": "change_dataaccesslog"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete data access log",
+        "content_type": [
+            "website",
+            "dataaccesslog"
+        ],
+        "codename": "delete_dataaccesslog"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view data access log",
+        "content_type": [
+            "website",
+            "dataaccesslog"
+        ],
+        "codename": "view_dataaccesslog"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add translation cache",
+        "content_type": [
+            "website",
+            "translationcache"
+        ],
+        "codename": "add_translationcache"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change translation cache",
+        "content_type": [
+            "website",
+            "translationcache"
+        ],
+        "codename": "change_translationcache"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete translation cache",
+        "content_type": [
+            "website",
+            "translationcache"
+        ],
+        "codename": "delete_translationcache"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view translation cache",
+        "content_type": [
+            "website",
+            "translationcache"
+        ],
+        "codename": "view_translationcache"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add manager request",
+        "content_type": [
+            "website",
+            "managerrequest"
+        ],
+        "codename": "add_managerrequest"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change manager request",
+        "content_type": [
+            "website",
+            "managerrequest"
+        ],
+        "codename": "change_managerrequest"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete manager request",
+        "content_type": [
+            "website",
+            "managerrequest"
+        ],
+        "codename": "delete_managerrequest"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view manager request",
+        "content_type": [
+            "website",
+            "managerrequest"
+        ],
+        "codename": "view_managerrequest"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add qpr record",
+        "content_type": [
+            "website",
+            "qprrecord"
+        ],
+        "codename": "add_qprrecord"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change qpr record",
+        "content_type": [
+            "website",
+            "qprrecord"
+        ],
+        "codename": "change_qprrecord"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete qpr record",
+        "content_type": [
+            "website",
+            "qprrecord"
+        ],
+        "codename": "delete_qprrecord"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view qpr record",
+        "content_type": [
+            "website",
+            "qprrecord"
+        ],
+        "codename": "view_qprrecord"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add section10 hindi advisory data",
+        "content_type": [
+            "website",
+            "section10hindiadvisorydata"
+        ],
+        "codename": "add_section10hindiadvisorydata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change section10 hindi advisory data",
+        "content_type": [
+            "website",
+            "section10hindiadvisorydata"
+        ],
+        "codename": "change_section10hindiadvisorydata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete section10 hindi advisory data",
+        "content_type": [
+            "website",
+            "section10hindiadvisorydata"
+        ],
+        "codename": "delete_section10hindiadvisorydata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view section10 hindi advisory data",
+        "content_type": [
+            "website",
+            "section10hindiadvisorydata"
+        ],
+        "codename": "view_section10hindiadvisorydata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add section11 specific achievements data",
+        "content_type": [
+            "website",
+            "section11specificachievementsdata"
+        ],
+        "codename": "add_section11specificachievementsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change section11 specific achievements data",
+        "content_type": [
+            "website",
+            "section11specificachievementsdata"
+        ],
+        "codename": "change_section11specificachievementsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete section11 specific achievements data",
+        "content_type": [
+            "website",
+            "section11specificachievementsdata"
+        ],
+        "codename": "delete_section11specificachievementsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view section11 specific achievements data",
+        "content_type": [
+            "website",
+            "section11specificachievementsdata"
+        ],
+        "codename": "view_section11specificachievementsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add section1 files data",
+        "content_type": [
+            "website",
+            "section1filesdata"
+        ],
+        "codename": "add_section1filesdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change section1 files data",
+        "content_type": [
+            "website",
+            "section1filesdata"
+        ],
+        "codename": "change_section1filesdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete section1 files data",
+        "content_type": [
+            "website",
+            "section1filesdata"
+        ],
+        "codename": "delete_section1filesdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view section1 files data",
+        "content_type": [
+            "website",
+            "section1filesdata"
+        ],
+        "codename": "view_section1filesdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add section2 meetings data",
+        "content_type": [
+            "website",
+            "section2meetingsdata"
+        ],
+        "codename": "add_section2meetingsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change section2 meetings data",
+        "content_type": [
+            "website",
+            "section2meetingsdata"
+        ],
+        "codename": "change_section2meetingsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete section2 meetings data",
+        "content_type": [
+            "website",
+            "section2meetingsdata"
+        ],
+        "codename": "delete_section2meetingsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view section2 meetings data",
+        "content_type": [
+            "website",
+            "section2meetingsdata"
+        ],
+        "codename": "view_section2meetingsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add section3 official languages data",
+        "content_type": [
+            "website",
+            "section3officiallanguagesdata"
+        ],
+        "codename": "add_section3officiallanguagesdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change section3 official languages data",
+        "content_type": [
+            "website",
+            "section3officiallanguagesdata"
+        ],
+        "codename": "change_section3officiallanguagesdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete section3 official languages data",
+        "content_type": [
+            "website",
+            "section3officiallanguagesdata"
+        ],
+        "codename": "delete_section3officiallanguagesdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view section3 official languages data",
+        "content_type": [
+            "website",
+            "section3officiallanguagesdata"
+        ],
+        "codename": "view_section3officiallanguagesdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add section4 hindi letters data",
+        "content_type": [
+            "website",
+            "section4hindilettersdata"
+        ],
+        "codename": "add_section4hindilettersdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change section4 hindi letters data",
+        "content_type": [
+            "website",
+            "section4hindilettersdata"
+        ],
+        "codename": "change_section4hindilettersdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete section4 hindi letters data",
+        "content_type": [
+            "website",
+            "section4hindilettersdata"
+        ],
+        "codename": "delete_section4hindilettersdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view section4 hindi letters data",
+        "content_type": [
+            "website",
+            "section4hindilettersdata"
+        ],
+        "codename": "view_section4hindilettersdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add section5 english replied hindi data",
+        "content_type": [
+            "website",
+            "section5englishrepliedhindidata"
+        ],
+        "codename": "add_section5englishrepliedhindidata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change section5 english replied hindi data",
+        "content_type": [
+            "website",
+            "section5englishrepliedhindidata"
+        ],
+        "codename": "change_section5englishrepliedhindidata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete section5 english replied hindi data",
+        "content_type": [
+            "website",
+            "section5englishrepliedhindidata"
+        ],
+        "codename": "delete_section5englishrepliedhindidata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view section5 english replied hindi data",
+        "content_type": [
+            "website",
+            "section5englishrepliedhindidata"
+        ],
+        "codename": "view_section5englishrepliedhindidata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add section6 issued letters data",
+        "content_type": [
+            "website",
+            "section6issuedlettersdata"
+        ],
+        "codename": "add_section6issuedlettersdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change section6 issued letters data",
+        "content_type": [
+            "website",
+            "section6issuedlettersdata"
+        ],
+        "codename": "change_section6issuedlettersdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete section6 issued letters data",
+        "content_type": [
+            "website",
+            "section6issuedlettersdata"
+        ],
+        "codename": "delete_section6issuedlettersdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view section6 issued letters data",
+        "content_type": [
+            "website",
+            "section6issuedlettersdata"
+        ],
+        "codename": "view_section6issuedlettersdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add section7 notings data",
+        "content_type": [
+            "website",
+            "section7notingsdata"
+        ],
+        "codename": "add_section7notingsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change section7 notings data",
+        "content_type": [
+            "website",
+            "section7notingsdata"
+        ],
+        "codename": "change_section7notingsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete section7 notings data",
+        "content_type": [
+            "website",
+            "section7notingsdata"
+        ],
+        "codename": "delete_section7notingsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view section7 notings data",
+        "content_type": [
+            "website",
+            "section7notingsdata"
+        ],
+        "codename": "view_section7notingsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add section8 workshops data",
+        "content_type": [
+            "website",
+            "section8workshopsdata"
+        ],
+        "codename": "add_section8workshopsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change section8 workshops data",
+        "content_type": [
+            "website",
+            "section8workshopsdata"
+        ],
+        "codename": "change_section8workshopsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete section8 workshops data",
+        "content_type": [
+            "website",
+            "section8workshopsdata"
+        ],
+        "codename": "delete_section8workshopsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view section8 workshops data",
+        "content_type": [
+            "website",
+            "section8workshopsdata"
+        ],
+        "codename": "view_section8workshopsdata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add section9 implementation committee data",
+        "content_type": [
+            "website",
+            "section9implementationcommitteedata"
+        ],
+        "codename": "add_section9implementationcommitteedata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change section9 implementation committee data",
+        "content_type": [
+            "website",
+            "section9implementationcommitteedata"
+        ],
+        "codename": "change_section9implementationcommitteedata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete section9 implementation committee data",
+        "content_type": [
+            "website",
+            "section9implementationcommitteedata"
+        ],
+        "codename": "delete_section9implementationcommitteedata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view section9 implementation committee data",
+        "content_type": [
+            "website",
+            "section9implementationcommitteedata"
+        ],
+        "codename": "view_section9implementationcommitteedata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add user profile",
+        "content_type": [
+            "website",
+            "userprofile"
+        ],
+        "codename": "add_userprofile"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change user profile",
+        "content_type": [
+            "website",
+            "userprofile"
+        ],
+        "codename": "change_userprofile"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete user profile",
+        "content_type": [
+            "website",
+            "userprofile"
+        ],
+        "codename": "delete_userprofile"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view user profile",
+        "content_type": [
+            "website",
+            "userprofile"
+        ],
+        "codename": "view_userprofile"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add edit request",
+        "content_type": [
+            "website",
+            "editrequest"
+        ],
+        "codename": "add_editrequest"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change edit request",
+        "content_type": [
+            "website",
+            "editrequest"
+        ],
+        "codename": "change_editrequest"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete edit request",
+        "content_type": [
+            "website",
+            "editrequest"
+        ],
+        "codename": "delete_editrequest"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view edit request",
+        "content_type": [
+            "website",
+            "editrequest"
+        ],
+        "codename": "view_editrequest"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add typing usage report",
+        "content_type": [
+            "website",
+            "typingusagereport"
+        ],
+        "codename": "add_typingusagereport"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change typing usage report",
+        "content_type": [
+            "website",
+            "typingusagereport"
+        ],
+        "codename": "change_typingusagereport"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete typing usage report",
+        "content_type": [
+            "website",
+            "typingusagereport"
+        ],
+        "codename": "delete_typingusagereport"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view typing usage report",
+        "content_type": [
+            "website",
+            "typingusagereport"
+        ],
+        "codename": "view_typingusagereport"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add office",
+        "content_type": [
+            "website",
+            "office"
+        ],
+        "codename": "add_office"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change office",
+        "content_type": [
+            "website",
+            "office"
+        ],
+        "codename": "change_office"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete office",
+        "content_type": [
+            "website",
+            "office"
+        ],
+        "codename": "delete_office"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view office",
+        "content_type": [
+            "website",
+            "office"
+        ],
+        "codename": "view_office"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add role",
+        "content_type": [
+            "website",
+            "role"
+        ],
+        "codename": "add_role"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change role",
+        "content_type": [
+            "website",
+            "role"
+        ],
+        "codename": "change_role"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete role",
+        "content_type": [
+            "website",
+            "role"
+        ],
+        "codename": "delete_role"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view role",
+        "content_type": [
+            "website",
+            "role"
+        ],
+        "codename": "view_role"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add certificate data",
+        "content_type": [
+            "website",
+            "certificatedata"
+        ],
+        "codename": "add_certificatedata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change certificate data",
+        "content_type": [
+            "website",
+            "certificatedata"
+        ],
+        "codename": "change_certificatedata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete certificate data",
+        "content_type": [
+            "website",
+            "certificatedata"
+        ],
+        "codename": "delete_certificatedata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view certificate data",
+        "content_type": [
+            "website",
+            "certificatedata"
+        ],
+        "codename": "view_certificatedata"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add qpr part two",
+        "content_type": [
+            "website",
+            "qprparttwo"
+        ],
+        "codename": "add_qprparttwo"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change qpr part two",
+        "content_type": [
+            "website",
+            "qprparttwo"
+        ],
+        "codename": "change_qprparttwo"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete qpr part two",
+        "content_type": [
+            "website",
+            "qprparttwo"
+        ],
+        "codename": "delete_qprparttwo"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view qpr part two",
+        "content_type": [
+            "website",
+            "qprparttwo"
+        ],
+        "codename": "view_qprparttwo"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add officers work in hindi",
+        "content_type": [
+            "website",
+            "officersworkinhindi"
+        ],
+        "codename": "add_officersworkinhindi"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change officers work in hindi",
+        "content_type": [
+            "website",
+            "officersworkinhindi"
+        ],
+        "codename": "change_officersworkinhindi"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete officers work in hindi",
+        "content_type": [
+            "website",
+            "officersworkinhindi"
+        ],
+        "codename": "delete_officersworkinhindi"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view officers work in hindi",
+        "content_type": [
+            "website",
+            "officersworkinhindi"
+        ],
+        "codename": "view_officersworkinhindi"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add hindi post",
+        "content_type": [
+            "website",
+            "hindipost"
+        ],
+        "codename": "add_hindipost"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change hindi post",
+        "content_type": [
+            "website",
+            "hindipost"
+        ],
+        "codename": "change_hindipost"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete hindi post",
+        "content_type": [
+            "website",
+            "hindipost"
+        ],
+        "codename": "delete_hindipost"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view hindi post",
+        "content_type": [
+            "website",
+            "hindipost"
+        ],
+        "codename": "view_hindipost"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add code manual standard forms",
+        "content_type": [
+            "website",
+            "codemanualstandardforms"
+        ],
+        "codename": "add_codemanualstandardforms"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change code manual standard forms",
+        "content_type": [
+            "website",
+            "codemanualstandardforms"
+        ],
+        "codename": "change_codemanualstandardforms"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete code manual standard forms",
+        "content_type": [
+            "website",
+            "codemanualstandardforms"
+        ],
+        "codename": "delete_codemanualstandardforms"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view code manual standard forms",
+        "content_type": [
+            "website",
+            "codemanualstandardforms"
+        ],
+        "codename": "view_codemanualstandardforms"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add staff hindi knowledge",
+        "content_type": [
+            "website",
+            "staffhindiknowledge"
+        ],
+        "codename": "add_staffhindiknowledge"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change staff hindi knowledge",
+        "content_type": [
+            "website",
+            "staffhindiknowledge"
+        ],
+        "codename": "change_staffhindiknowledge"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete staff hindi knowledge",
+        "content_type": [
+            "website",
+            "staffhindiknowledge"
+        ],
+        "codename": "delete_staffhindiknowledge"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view staff hindi knowledge",
+        "content_type": [
+            "website",
+            "staffhindiknowledge"
+        ],
+        "codename": "view_staffhindiknowledge"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add translation knowledge",
+        "content_type": [
+            "website",
+            "translationknowledge"
+        ],
+        "codename": "add_translationknowledge"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change translation knowledge",
+        "content_type": [
+            "website",
+            "translationknowledge"
+        ],
+        "codename": "change_translationknowledge"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete translation knowledge",
+        "content_type": [
+            "website",
+            "translationknowledge"
+        ],
+        "codename": "delete_translationknowledge"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view translation knowledge",
+        "content_type": [
+            "website",
+            "translationknowledge"
+        ],
+        "codename": "view_translationknowledge"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add typing stenography knowledge",
+        "content_type": [
+            "website",
+            "typingstenographyknowledge"
+        ],
+        "codename": "add_typingstenographyknowledge"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change typing stenography knowledge",
+        "content_type": [
+            "website",
+            "typingstenographyknowledge"
+        ],
+        "codename": "change_typingstenographyknowledge"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete typing stenography knowledge",
+        "content_type": [
+            "website",
+            "typingstenographyknowledge"
+        ],
+        "codename": "delete_typingstenographyknowledge"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view typing stenography knowledge",
+        "content_type": [
+            "website",
+            "typingstenographyknowledge"
+        ],
+        "codename": "view_typingstenographyknowledge"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add website detail",
+        "content_type": [
+            "website",
+            "websitedetail"
+        ],
+        "codename": "add_websitedetail"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change website detail",
+        "content_type": [
+            "website",
+            "websitedetail"
+        ],
+        "codename": "change_websitedetail"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete website detail",
+        "content_type": [
+            "website",
+            "websitedetail"
+        ],
+        "codename": "delete_websitedetail"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view website detail",
+        "content_type": [
+            "website",
+            "websitedetail"
+        ],
+        "codename": "view_websitedetail"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add financial year",
+        "content_type": [
+            "website",
+            "financialyear"
+        ],
+        "codename": "add_financialyear"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change financial year",
+        "content_type": [
+            "website",
+            "financialyear"
+        ],
+        "codename": "change_financialyear"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete financial year",
+        "content_type": [
+            "website",
+            "financialyear"
+        ],
+        "codename": "delete_financialyear"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view financial year",
+        "content_type": [
+            "website",
+            "financialyear"
+        ],
+        "codename": "view_financialyear"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add profile change request",
+        "content_type": [
+            "website",
+            "profilechangerequest"
+        ],
+        "codename": "add_profilechangerequest"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change profile change request",
+        "content_type": [
+            "website",
+            "profilechangerequest"
+        ],
+        "codename": "change_profilechangerequest"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete profile change request",
+        "content_type": [
+            "website",
+            "profilechangerequest"
+        ],
+        "codename": "delete_profilechangerequest"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view profile change request",
+        "content_type": [
+            "website",
+            "profilechangerequest"
+        ],
+        "codename": "view_profilechangerequest"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add admin qpr",
+        "content_type": [
+            "website",
+            "adminqpr"
+        ],
+        "codename": "add_adminqpr"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change admin qpr",
+        "content_type": [
+            "website",
+            "adminqpr"
+        ],
+        "codename": "change_adminqpr"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete admin qpr",
+        "content_type": [
+            "website",
+            "adminqpr"
+        ],
+        "codename": "delete_adminqpr"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view admin qpr",
+        "content_type": [
+            "website",
+            "adminqpr"
+        ],
+        "codename": "view_adminqpr"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add manager qpr",
+        "content_type": [
+            "website",
+            "managerqpr"
+        ],
+        "codename": "add_managerqpr"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change manager qpr",
+        "content_type": [
+            "website",
+            "managerqpr"
+        ],
+        "codename": "change_managerqpr"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete manager qpr",
+        "content_type": [
+            "website",
+            "managerqpr"
+        ],
+        "codename": "delete_managerqpr"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view manager qpr",
+        "content_type": [
+            "website",
+            "managerqpr"
+        ],
+        "codename": "view_managerqpr"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add qpr finalization",
+        "content_type": [
+            "website",
+            "qprfinalization"
+        ],
+        "codename": "add_qprfinalization"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change qpr finalization",
+        "content_type": [
+            "website",
+            "qprfinalization"
+        ],
+        "codename": "change_qprfinalization"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete qpr finalization",
+        "content_type": [
+            "website",
+            "qprfinalization"
+        ],
+        "codename": "delete_qprfinalization"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view qpr finalization",
+        "content_type": [
+            "website",
+            "qprfinalization"
+        ],
+        "codename": "view_qprfinalization"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add monthly fill",
+        "content_type": [
+            "website",
+            "monthlyfill"
+        ],
+        "codename": "add_monthlyfill"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change monthly fill",
+        "content_type": [
+            "website",
+            "monthlyfill"
+        ],
+        "codename": "change_monthlyfill"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete monthly fill",
+        "content_type": [
+            "website",
+            "monthlyfill"
+        ],
+        "codename": "delete_monthlyfill"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view monthly fill",
+        "content_type": [
+            "website",
+            "monthlyfill"
+        ],
+        "codename": "view_monthlyfill"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add monthly snapshot",
+        "content_type": [
+            "website",
+            "monthlysnapshot"
+        ],
+        "codename": "add_monthlysnapshot"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change monthly snapshot",
+        "content_type": [
+            "website",
+            "monthlysnapshot"
+        ],
+        "codename": "change_monthlysnapshot"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete monthly snapshot",
+        "content_type": [
+            "website",
+            "monthlysnapshot"
+        ],
+        "codename": "delete_monthlysnapshot"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view monthly snapshot",
+        "content_type": [
+            "website",
+            "monthlysnapshot"
+        ],
+        "codename": "view_monthlysnapshot"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add quarterly fill",
+        "content_type": [
+            "website",
+            "quarterlyfill"
+        ],
+        "codename": "add_quarterlyfill"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change quarterly fill",
+        "content_type": [
+            "website",
+            "quarterlyfill"
+        ],
+        "codename": "change_quarterlyfill"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete quarterly fill",
+        "content_type": [
+            "website",
+            "quarterlyfill"
+        ],
+        "codename": "delete_quarterlyfill"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view quarterly fill",
+        "content_type": [
+            "website",
+            "quarterlyfill"
+        ],
+        "codename": "view_quarterlyfill"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add quarterly snapshot",
+        "content_type": [
+            "website",
+            "quarterlysnapshot"
+        ],
+        "codename": "add_quarterlysnapshot"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change quarterly snapshot",
+        "content_type": [
+            "website",
+            "quarterlysnapshot"
+        ],
+        "codename": "change_quarterlysnapshot"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete quarterly snapshot",
+        "content_type": [
+            "website",
+            "quarterlysnapshot"
+        ],
+        "codename": "delete_quarterlysnapshot"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view quarterly snapshot",
+        "content_type": [
+            "website",
+            "quarterlysnapshot"
+        ],
+        "codename": "view_quarterlysnapshot"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add weekly fill",
+        "content_type": [
+            "website",
+            "weeklyfill"
+        ],
+        "codename": "add_weeklyfill"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change weekly fill",
+        "content_type": [
+            "website",
+            "weeklyfill"
+        ],
+        "codename": "change_weeklyfill"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete weekly fill",
+        "content_type": [
+            "website",
+            "weeklyfill"
+        ],
+        "codename": "delete_weeklyfill"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view weekly fill",
+        "content_type": [
+            "website",
+            "weeklyfill"
+        ],
+        "codename": "view_weeklyfill"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add weekly snapshot",
+        "content_type": [
+            "website",
+            "weeklysnapshot"
+        ],
+        "codename": "add_weeklysnapshot"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change weekly snapshot",
+        "content_type": [
+            "website",
+            "weeklysnapshot"
+        ],
+        "codename": "change_weeklysnapshot"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete weekly snapshot",
+        "content_type": [
+            "website",
+            "weeklysnapshot"
+        ],
+        "codename": "delete_weeklysnapshot"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view weekly snapshot",
+        "content_type": [
+            "website",
+            "weeklysnapshot"
+        ],
+        "codename": "view_weeklysnapshot"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add manager certificate",
+        "content_type": [
+            "website",
+            "managercertificate"
+        ],
+        "codename": "add_managercertificate"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change manager certificate",
+        "content_type": [
+            "website",
+            "managercertificate"
+        ],
+        "codename": "change_managercertificate"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete manager certificate",
+        "content_type": [
+            "website",
+            "managercertificate"
+        ],
+        "codename": "delete_managercertificate"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view manager certificate",
+        "content_type": [
+            "website",
+            "managercertificate"
+        ],
+        "codename": "view_managercertificate"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can add employee master",
+        "content_type": [
+            "website",
+            "employeemaster"
+        ],
+        "codename": "add_employeemaster"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can change employee master",
+        "content_type": [
+            "website",
+            "employeemaster"
+        ],
+        "codename": "change_employeemaster"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can delete employee master",
+        "content_type": [
+            "website",
+            "employeemaster"
+        ],
+        "codename": "delete_employeemaster"
+    }
+},
+{
+    "model": "auth.permission",
+    "fields": {
+        "name": "Can view employee master",
+        "content_type": [
+            "website",
+            "employeemaster"
+        ],
+        "codename": "view_employeemaster"
+    }
+}
+]

@@ -1,0 +1,420 @@
+{% extends "master.html" %}
+{% load static %}
+{% load translate_tags %}
+
+{% block title %}{{ "Report Detail"|t:current_lang }}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ===== SCREEN ===== */
+.print-btn-bar { margin-bottom: 12px; }
+
+.qpr-page {
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    color: #111;
+    background: white;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* Header */
+.qpr-header {
+    text-align: center;
+    border: 2px solid #1a3a5c;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+}
+.qpr-header .title-hi { font-size: 14px; font-weight: 700; color: #1a3a5c; }
+.qpr-header .title-en { font-size: 11px; color: #444; }
+
+/* Meta table */
+.meta-tbl { width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 10px; }
+.meta-tbl td { border: 1px solid #999; padding: 3px 5px; }
+.meta-tbl .lh { background: #dce8f5; font-weight: 600; white-space: nowrap; }
+
+/* Section wrapper */
+.sections-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.sec { border: 1px solid #999; font-size: 9.5px; }
+.sec-full { grid-column: 1 / -1; }
+.sec-hd {
+    background: #1a3a5c; color: #fff;
+    font-size: 9px; font-weight: 700;
+    padding: 3px 6px; line-height: 1.4;
+}
+.sec-hd .en { font-weight: 400; font-size: 8px; opacity: 0.85; }
+
+/* Data rows */
+.dr { display: flex; border-bottom: 1px solid #e0e0e0; }
+.dr:last-child { border-bottom: none; }
+.dl {
+    flex: 1; padding: 2px 5px;
+    border-right: 1px solid #ddd;
+    font-size: 8.5px; line-height: 1.3;
+}
+.dl .hi { display: block; }
+.dl .en { display: block; color: #666; font-size: 7.5px; }
+.dv {
+    min-width: 52px; width: 52px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 10px;
+    padding: 2px 4px;
+    text-align: center;
+}
+.dv.empty { color: #bbb; font-weight: 400; font-size: 8px; }
+
+/* Sub-header inside section */
+.sh {
+    background: #d0e4f7; font-weight: 700;
+    font-size: 8px; padding: 2px 5px;
+    border-bottom: 1px solid #ccc;
+    color: #1a3a5c; text-align: center;
+}
+
+/* Achievements */
+.ach-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+.ach-item { padding: 4px 6px; border-right: 1px solid #ddd; font-size: 8.5px; min-height: 42px; }
+.ach-item:last-child { border-right: none; }
+.ach-item .ach-lbl { font-weight: 700; color: #1a3a5c; display: block; margin-bottom: 2px; font-size: 8px; }
+
+/* Signature */
+.sig-row { display: flex; justify-content: flex-end; padding-top: 6px; margin-top: 6px; border-top: 1px solid #ccc; }
+.sig-box { text-align: center; width: 160px; font-size: 8.5px; }
+.sig-line { border-top: 1px solid #333; margin-top: 28px; padding-top: 2px; font-weight: 600; }
+
+/* ===== PRINT ===== */
+@media print {
+    @page { size: A4; margin: 7mm; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+    body, html { margin: 0; padding: 0; }
+    #topHeader, nav, .navbar, .sidebar, footer, .print-btn-bar, .card-header, .btn, .alert { display: none !important; }
+    .qpr-header{display: none !important;}
+    .container, .container-fluid { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+    .card { box-shadow: none !important; border: none !important; }
+    .card-body { padding: 0 !important; }
+
+    .qpr-page { font-size: 9px; max-width: 100%; }
+    .sec-hd { font-size: 7.5px; }
+    .dl { font-size: 7.5px; }
+    .dl .en { font-size: 6.5px; }
+    .dv { font-size: 9px; }
+    .meta-tbl { font-size: 8.5px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-3">
+
+    <!-- Screen-only bar -->
+    <div class="print-btn-bar d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold text-primary">
+            <i class="bi bi-file-earmark-text"></i> QPR Report
+        </h5>
+        <div>
+            <button onclick="window.print()" class="btn btn-primary btn-sm me-2">
+                <i class="bi bi-printer-fill"></i> Print to PDF
+            </button>
+            <a id="backBtn" href="#" onclick="history.back(); return false;" class="btn btn-secondary">← Back</a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-3" id="reportContainer">
+                <div class="text-center text-muted py-5">
+                    <div class="spinner-border spinner-border-sm me-2"></div> Loading report...
+                </div>
+        </div>
+    </div>
+</div>
+
+    {% if initial_qpr_json %}
+    <script>
+        // Preloaded aggregated QPR for division mode
+        window.INITIAL_QPR = {{ initial_qpr_json|safe }};
+        window.IS_DIVISION = true;
+    </script>
+    {% else %}
+    <script>window.INITIAL_QPR = null; window.IS_DIVISION = false;</script>
+    {% endif %}
+    
+    {% if record_json %}
+    <script>
+        try { window.PRELOADED_RECORD = {{ record_json|safe }}; } catch(e) { window.PRELOADED_RECORD = null; }
+    </script>
+    {% else %}
+    <script>window.PRELOADED_RECORD = null;</script>
+    {% endif %}
+
+<script>
+const pathParts = window.location.pathname.split('/');
+const recordId = pathParts[pathParts.length - 2];
+
+const params = new URLSearchParams(window.location.search);
+const backTo = params.get("back_to");
+const viewAs = params.get("view_as");  // detect if viewing as weekly/monthly/quarterly
+const isFillView = (viewAs || '').toLowerCase() === 'fill';
+
+if (backTo === "manager_report") {
+    document.getElementById("backBtn").href = "/manager/report/";
+}
+
+function v(val) {
+    if (val === null || val === undefined || val === '' || val === 'None') return null;
+    return val;
+}
+function cell(val) {
+    const d = v(val);
+    if (d === null) return `<div class="dv empty">–</div>`;
+    return `<div class="dv">${d}</div>`;
+}
+
+async function loadReport() {
+    try {
+        // If template provided INITIAL_QPR (division mode), use it; otherwise use PRELOADED_RECORD
+        let r = null;
+        if (window.INITIAL_QPR) {
+            r = window.INITIAL_QPR;
+        } else if (window.PRELOADED_RECORD) {
+            r = window.PRELOADED_RECORD;
+        } else {
+            document.getElementById('reportContainer').innerHTML = '<div class="text-danger p-4">Failed to load report data.</div>';
+            return;
+        }
+
+        if (!r || r.error) {
+            document.getElementById('reportContainer').innerHTML =
+                `<div class="text-danger p-4">${r?.error || 'Failed to load'}</div>`;
+            return;
+        }
+
+        // If this is the HOD division aggregated payload, prefer the top-level
+        // aggregated fields instead of the `cumulative` object which may be
+        // present but sometimes contains zeros due to fallback logic.
+        if (window.IS_DIVISION && r) {
+            try { console.info('Division view - using top-level aggregated values'); } catch(e) {}
+            // Remove cumulative to force `valFor` to use top-level keys
+            try { delete r.cumulative; } catch(e) {}
+        }
+
+        // Helper to pick cumulative value for non-daily records, otherwise use record's value
+        function valFor(key) {
+            try {
+                // If viewing as weekly/monthly/quarterly, force that frequency's cumulative
+                let period = isFillView ? 'daily' : (viewAs ? viewAs.toLowerCase() : (r.frequency || 'daily').toLowerCase());
+                const cumPeriod = (r.cumulative && r.cumulative[period]);
+                // Prefer cumulative for non-daily frequencies when available.
+                // Treat missing/null values as 0 for numeric fields.
+                let v;
+                let src;
+                if (period !== 'daily' && cumPeriod) {
+                    v = (typeof cumPeriod[key] !== 'undefined' && cumPeriod[key] !== null) ? cumPeriod[key] : 0;
+                    src = 'cum';
+                } else {
+                    v = (typeof r[key] !== 'undefined' && r[key] !== null && r[key] !== '') ? r[key] : 0;
+                    src = 'rec';
+                }
+                return `<div class="dv">${v}<div style="font-size:8px;color:#999">(${src})</div></div>`;
+            } catch (e) { return cell(r[key]); }
+        }
+
+        // Helper to pick cumulative text for Section 11 fields for weekly/monthly/quarterly
+        function valForText(textKey) {
+            try {
+                let period = isFillView ? 'daily' : (viewAs ? viewAs.toLowerCase() : (r.frequency || 'daily').toLowerCase());
+                let textVal = '';
+                let src = 'rec';
+                
+                if (period !== 'daily' && r.cumulative_text && r.cumulative_text[period]) {
+                    textVal = r.cumulative_text[period][textKey] || '';
+                    src = 'cum';
+                } else {
+                    textVal = (typeof r[textKey] !== 'undefined' && r[textKey] !== null) ? r[textKey] : '';
+                    src = 'rec';
+                }
+                
+                if (!textVal || textVal.trim() === '') {
+                    return '<span style="color:#bbb">–</span>';
+                }
+                return `<div>${textVal}</div><div style="font-size:8px;color:#999">(${src})</div>`;
+            } catch (e) { 
+                const val = r[textKey];
+                return (val && val.trim()) ? val : '<span style="color:#bbb">–</span>';
+            }
+        }
+
+        const html = `
+    <div class="qpr-page">
+
+
+    <!-- HEADER -->
+    <div class="qpr-header">
+        <div class="title-hi">तिमाही प्रगति रिपोर्ट</div>
+        <div class="title-en">Quarterly Progress Report (QPR) — Official Language Implementation / राजभाषा कार्यान्वयन</div>
+    </div>
+
+    <!-- META -->
+    <table class="meta-tbl">
+        <tr>
+            <td class="lh">समाप्त तिमाही<br><small>Quarter Ending</small></td>
+            <td>${v(r.quarter) ?? '–'}</td>
+            <td class="lh">वर्ष / Year</td>
+            <td>${v(r.year) ?? '–'}</td>
+            <td class="lh">भाषा क्षेत्र / Region</td>
+            <td>${v(r.region) ?? '–'}</td>
+        </tr>
+        <tr>
+            <td class="lh">कार्यालय का नाम / Office Name</td>
+            <td colspan="3">${v(r.officeName) ?? '–'}</td>
+            <td class="lh">कार्यालय कोड / Code</td>
+            <td>${v(r.officeCode) ?? '–'}</td>
+        </tr>
+        <tr>
+            <td class="lh">फोन / Phone</td>
+            <td>${v(r.phone) ?? ''}</td>
+            <td class="lh">ई-मेल / Email</td>
+            <td colspan="3">${v(r.email) ?? '–'}</td>
+        </tr>
+    </table>
+
+    <!-- Cumulative summary removed -->
+
+    <!-- SECTIONS GRID -->
+    <div class="sections-wrap">
+
+        <!-- S1 -->
+        <div class="sec">
+            <div class="sec-hd">1. माननीय मंत्री जी को भेजी गयी फाइलों का ब्यौरा <span class="en">(Files Sent To The Minister)</span></div>
+            <div class="dr"><div class="dl"><span class="hi">तिमाही में मंत्री जी को कितनी फाइल भेजी गयीं</span><span class="en">Total Files Sent To Minister During Quarter</span></div>${valFor('s1_total')}</div>
+            <div class="dr"><div class="dl"><span class="hi">इनमें से कितनी फाइलें हिंदी में भेजी गयीं</span><span class="en">No. of files sent in Hindi</span></div>${valFor('s1_hindi')}</div>
+        </div>
+
+        <!-- S2 -->
+        <div class="sec">
+            <div class="sec-hd">2. सचिव/समकक्ष स्तर पर बैठकों/फाइलों का ब्यौरा <span class="en">(Meetings/Files at Secretary Level)</span></div>
+            <div class="dr"><div class="dl"><span class="hi">कितनी बैठकें आयोजित की गयीं</span><span class="en">Meetings held at Secretary level</span></div>${valFor('s2_meetings')}</div>
+            <div class="dr"><div class="dl"><span class="hi">कार्यवृत्त हिंदी में जारी</span><span class="en">Minutes issued in Hindi</span></div>${valFor('s2_minutes')}</div>
+            <div class="dr"><div class="dl"><span class="hi">सचिव स्तर से कुल जारी कागजात</span><span class="en">Total papers issued</span></div>${valFor('s2_papers_total')}</div>
+            <div class="dr"><div class="dl"><span class="hi">हिंदी में जारी कागजात</span><span class="en">Papers issued in Hindi</span></div>${valFor('s2_papers_hindi')}</div>
+        </div>
+
+        <!-- S3 -->
+        <div class="sec">
+            <div class="sec-hd">3. धारा 3(3) के अंतर्गत जारी कागजात <span class="en">(Documents under Section 3(3), OL Act 1963)</span></div>
+            <div class="dr"><div class="dl"><span class="hi">जारी कागजात की कुल संख्या</span><span class="en">Total documents issued</span></div>${valFor('s3_total')}</div>
+            <div class="dr"><div class="dl"><span class="hi">द्विभाषी रूप में जारी</span><span class="en">Issued bilingually</span></div>${valFor('s3_bilingual')}</div>
+            <div class="dr"><div class="dl"><span class="hi">केवल अंग्रेजी में जारी</span><span class="en">Issued only in English</span></div>${valFor('s3_english')}</div>
+            <div class="dr"><div class="dl"><span class="hi">केवल हिन्दी में जारी</span><span class="en">Issued only in Hindi</span></div>${valFor('s3_hindi_only')}</div>
+        </div>
+
+        <!-- S4 -->
+        <div class="sec">
+            <div class="sec-hd">4. हिंदी में प्राप्त पत्र (राजभाषा नियम-5) <span class="en">(Letters received in Hindi)</span></div>
+            <div class="dr"><div class="dl"><span class="hi">हिंदी में प्राप्त कुल पत्रों की संख्या</span><span class="en">Total letters received in Hindi</span></div>${valFor('s4_total')}</div>
+            <div class="dr"><div class="dl"><span class="hi">उत्तर अपेक्षित नहीं थे</span><span class="en">Letters not to be replied</span></div>${valFor('s4_no_reply')}</div>
+            <div class="dr"><div class="dl"><span class="hi">उत्तर हिंदी/द्विभाषी में</span><span class="en">Replied in Hindi/Bilingual</span></div>${valFor('s4_replied_hindi')}</div>
+            <div class="dr"><div class="dl"><span class="hi">उत्तर अंग्रेजी में</span><span class="en">Replied in English</span></div>${valFor('s4_replied_eng')}</div>
+        </div>
+
+        <!-- S5 -->
+        <div class="sec">
+            <div class="sec-hd">5. अंग्रेजी पत्रों के उत्तर हिंदी में — 'क' क्षेत्र <span class="en">(English letters replied in Hindi — Region A)</span></div>
+            <div class="dr"><div class="dl"><span class="hi">अंग्रेजी में प्राप्त पत्रों की संख्या</span><span class="en">Letters received in English</span></div>${valFor('s5_total')}</div>
+            <div class="dr"><div class="dl"><span class="hi">उत्तर हिंदी में दिए गए</span><span class="en">Replied in Hindi</span></div>${valFor('s5_hindi')}</div>
+            <div class="dr"><div class="dl"><span class="hi">उत्तर अंग्रेजी में दिए गए</span><span class="en">Replied in English</span></div>${valFor('s5_english')}</div>
+            <div class="dr"><div class="dl"><span class="hi">उत्तर अपेक्षित नहीं</span><span class="en">No reply expected</span></div>${valFor('s5_noreply')}</div>
+        </div>
+
+        <!-- S6 -->
+        <div class="sec">
+            <div class="sec-hd">6. भेजे गये मूल पत्रों का ब्यौरा <span class="en">(Details of total letters issued by region)</span></div>
+            <div class="sh">'क' क्षेत्र / Region A</div>
+            <div class="dr"><div class="dl"><span class="hi">हिंदी/द्विभाषी में</span><span class="en">Hindi/Bilingual</span></div>${valFor('s6_a_hindi')}</div>
+            <div class="dr"><div class="dl"><span class="hi">केवल अंग्रेजी में</span><span class="en">English only</span></div>${valFor('s6_a_eng')}</div>
+            <div class="dr"><div class="dl"><span class="hi">कुल पत्र</span><span class="en">Total letters</span></div>${valFor('s6_a_total')}</div>
+            <div class="sh">'ख' क्षेत्र / Region B</div>
+            <div class="dr"><div class="dl"><span class="hi">हिंदी/द्विभाषी में</span><span class="en">Hindi/Bilingual</span></div>${valFor('s6_b_hindi')}</div>
+            <div class="dr"><div class="dl"><span class="hi">केवल अंग्रेजी में</span><span class="en">English only</span></div>${valFor('s6_b_eng')}</div>
+            <div class="dr"><div class="dl"><span class="hi">कुल पत्र</span><span class="en">Total letters</span></div>${valFor('s6_b_total')}</div>
+            <div class="sh">'ग' क्षेत्र / Region C</div>
+            <div class="dr"><div class="dl"><span class="hi">हिंदी/द्विभाषी में</span><span class="en">Hindi/Bilingual</span></div>${valFor('s6_c_hindi')}</div>
+            <div class="dr"><div class="dl"><span class="hi">केवल अंग्रेजी में</span><span class="en">English only</span></div>${valFor('s6_c_eng')}</div>
+            <div class="dr"><div class="dl"><span class="hi">कुल पत्र</span><span class="en">Total letters</span></div>${valFor('s6_c_total')}</div>
+        </div>
+
+        <!-- S7 -->
+        <div class="sec">
+            <div class="sec-hd">7. फाइलों पर लिखी गई टिप्पणियों का ब्यौरा <span class="en">(Notings on files/documents)</span></div>
+            <div class="dr"><div class="dl"><span class="hi">हिन्दी में टिप्पणियों के पृष्ठ</span><span class="en">Pages with notings in Hindi</span></div>${valFor('s7_hindi')}</div>
+            <div class="dr"><div class="dl"><span class="hi">अंग्रेजी में टिप्पणियों के पृष्ठ</span><span class="en">Pages with notings in English</span></div>${valFor('s7_eng')}</div>
+            <div class="dr"><div class="dl"><span class="hi">कुल टिप्पणियों के पृष्ठ</span><span class="en">Total pages of notings</span></div>${valFor('s7_total')}</div>
+            <div class="dr"><div class="dl"><span class="hi">ई-ऑफिस के माध्यम से भेजी गई टिप्पणियां</span><span class="en">Notings sent via e-Office</span></div>${valFor('s7_eoffice')}</div>
+        </div>
+
+        <!-- S8 -->
+        <div class="sec">
+            <div class="sec-hd">8. हिंदी कार्यशालाएं <span class="en">(Hindi Workshops this Quarter)</span></div>
+            <div class="dr"><div class="dl"><span class="hi">पूर्ण दिवसीय कार्यशालाओं की संख्या</span><span class="en">Full day workshops conducted</span></div>${valFor('s8_workshops')}</div>
+            <div class="dr"><div class="dl"><span class="hi">प्रशिक्षित अधिकारियों की संख्या</span><span class="en">Officers trained</span></div>${valFor('s8_officers')}</div>
+            <div class="dr"><div class="dl"><span class="hi">प्रशिक्षित कर्मचारियों की संख्या</span><span class="en">Employees trained</span></div>${valFor('s8_employees')}</div>
+        </div>
+
+        <!-- S9 -->
+        <div class="sec">
+            <div class="sec-hd">9. राजभाषा कार्यान्वयन समिति की बैठक <span class="en">(OL Implementation Committee Meeting)</span></div>
+            <div class="dr"><div class="dl"><span class="hi">बैठक की तिथि</span><span class="en">Date of meeting</span></div>${cell(r.s9_date)}</div>
+            <div class="dr"><div class="dl"><span class="hi">अधीनस्थ कार्यालयों में समितियों की संख्या</span><span class="en">Committees in subordinate offices</span></div>${cell(r.s9_sub_committees)}</div>
+            <div class="dr"><div class="dl"><span class="hi">इस तिमाही में आयोजित बैठकों की संख्या</span><span class="en">Meetings this quarter</span></div>${cell(r.s9_meetings_count)}</div>
+            <div class="dr"><div class="dl"><span class="hi">कार्यसूची/कार्यवृत्त हिंदी में जारी?</span><span class="en">Agenda/Minutes issued in Hindi?</span></div>${cell(r.s9_agenda_hindi)}</div>
+        </div>
+
+        <!-- S10 -->
+        <div class="sec">
+            <div class="sec-hd">10. हिंदी सलाहकार समिति की बैठक की तिथि <span class="en">(Hindi Advisory Committee Meeting Date)</span></div>
+            <div class="dr"><div class="dl"><span class="hi">तिथि / Date</span></div>${cell(r.s10_date)}</div>
+        </div>
+
+        <!-- S11 Achievements – full width -->
+        <div class="sec sec-full">
+            <div class="sec-hd">11. तिमाही के दौरान विशिष्ट उपलब्धियां <span class="en">(Specific Achievements During Quarter)</span></div>
+            <div class="ach-grid">
+                <div class="ach-item">
+                    <span class="ach-lbl">1. नवनमेषी कार्य / Innovative Work</span>
+                    ${valForText('s12_1')}
+                </div>
+                <div class="ach-item">
+                    <span class="ach-lbl">2. विशिष्ट आयोजन / Special Event &amp; Notable Work</span>
+                    ${valForText('s12_2')}
+                </div>
+                <div class="ach-item" style="border-right:none">
+                    <span class="ach-lbl">3. हिंदी माध्यम में अन्य कार्य / Other works in Hindi</span>
+                    ${valForText('s12_3')}
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /sections-wrap -->
+
+    <!-- Signature -->
+    <div class="sig-row">
+        <div class="sig-box">
+            <div class="sig-line">अधिकारी के हस्ताक्षर / Signature of Officer</div>
+            <div style="font-size:8px; color:#666; margin-top:2px;">पद / Designation &amp; मुहर / Seal</div>
+        </div>
+    </div>
+
+</div>
+`;
+
+        document.getElementById('reportContainer').innerHTML = html;
+        // Debug JSON and cumulative summary removed from UI
+    } catch (err) {
+        document.getElementById('reportContainer').innerHTML =
+            `<div class="text-danger p-4">Error: ${err.message}</div>`;
+    }
+}
+
+window.addEventListener('DOMContentLoaded', loadReport);
+</script>
+{% endblock %}

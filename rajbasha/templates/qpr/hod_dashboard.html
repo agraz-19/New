@@ -1,0 +1,279 @@
+{% extends "master.html" %}
+{% load static %}
+{% load translate_tags %}
+
+{% block title %}{{ "HOD Dashboard"|t:current_lang }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-container {
+        margin-top: 30px;
+    }
+    .stat-card {
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        border-left: 5px solid #2c5a86;
+        text-align: center;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    .stat-number {
+        font-size: 36px;
+        font-weight: bold;
+        color: #2c5a86;
+        margin: 10px 0;
+    }
+    .stat-label {
+        color: #666;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .stat-icon {
+        font-size: 32px;
+        color: #2c5a86;
+        margin-bottom: 10px;
+    }
+
+    .header-section {
+        padding: 20px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+    }
+    .quick-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .btn-custom {
+        padding: 10px 20px;
+        border-radius: 6px;
+        transition: all 0.2s;
+    }
+    .btn-custom:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+    @media (max-width: 768px) {
+        .menu-toggle {
+            width: 50px;
+            height: 50px;
+            font-size: 20px;
+        }
+        .stat-number {
+            font-size: 28px;
+        }
+        .quick-actions {
+            flex-direction: column;
+        }
+        .btn-custom {
+            width: 100%;
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container dashboard-container">
+    <div class="header-section">
+        <div class="d-flex justify-content-between align-items-center w-100">
+            <div>
+                <h3>{{ "HOD Dashboard"|t:current_lang }}</h3>
+                <p class="text-muted mb-0">{{ "Management of employees and progress tracking"|t:current_lang }}</p>
+            </div>
+            <div class="text-end">
+                <small class="text-muted">{{ "HOD"|t:current_lang }}:</small>
+                <h5 style="color: #2c5a86; margin: 0;">{{ hod_name|upper }}</h5>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row">
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-number">{{ total_users }}</div>
+                <div class="stat-label">{{ "Total Employees"|t:current_lang }}</div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-check-circle" style="color: #28a745;"></i>
+                </div>
+                <div class="stat-number" style="color: #28a745;">{{ qpr_submitted }}</div>
+                <div class="stat-label">{{ "QPR Submitted"|t:current_lang }}</div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-clock" style="color: #ffc107;"></i>
+                </div>
+                <div class="stat-number" style="color: #ffc107;">{{ qpr_pending }}</div>
+                <div class="stat-label">{{ "QPR Pending"|t:current_lang }}</div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-user-check" style="color: #17a2b8;"></i>
+                </div>
+                <div class="stat-number" style="color: #17a2b8;">{{ profile_updated }}</div>
+                <div class="stat-label">{{ "Profile Updated"|t:current_lang }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="stat-card" style="border-left: 5px solid #2c5a86;">
+                <h5 style="color: #2c5a86; margin-bottom: 15px; text-align: left;">{{ "Quick Actions"|t:current_lang }}</h5>
+                <div class="quick-actions">
+                    <a href="{% url 'qpr_hod_detail_list' %}" class="btn btn-primary btn-custom">
+                        <i class="fas fa-table"></i> {{ "View Detail List"|t:current_lang }}
+                    </a>
+                    <a href="{% url 'change_password' %}" class="btn btn-warning btn-custom">
+                        <i class="fas fa-lock"></i> {{ "Change Password"|t:current_lang }}
+                    </a>
+                    <a href="{% url 'logout' %}" class="btn btn-danger btn-custom">
+                        <i class="fas fa-sign-out-alt"></i> {{ "Logout"|t:current_lang }}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% if pending_approvals %}
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card shadow mb-4 border-warning">
+                <div class="card-header py-3 bg-warning text-dark d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold"><i class="fas fa-user-clock me-2"></i> {{ "Pending User Approvals"|t:current_lang }}</h6>
+                    <span class="badge bg-dark text-white rounded-pill">{{ pending_approvals.count }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{{ "Emp Code"|t:current_lang }}</th>
+                                    <th>{{ "Employee Details"|t:current_lang }}</th>
+                                    <th>{{ "Contact Info"|t:current_lang }}</th>
+                                    <th>{{ "Location Details"|t:current_lang }}</th>
+                                    <th>{{ "Actions"|t:current_lang }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in pending_approvals %}
+                                <tr>
+                                    <td class="fw-bold">{{ p.employee_code }}</td>
+                                    <td>
+                                        <div class="fw-bold">
+                                            {% if p.name %}
+                                                {{ p.name }}
+                                            {% elif p.employee.ename %}
+                                                {{ p.employee.ename }}
+                                            {% else %}
+                                                {{ p.user.username }}
+                                            {% endif %}
+                                        </div>
+                                        <small class="text-muted">
+                                            {{ p.employee.designation|default:"Designation Not Set" }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <div><i class="fas fa-envelope text-muted me-1"></i> {{ p.email|default:p.user.email }}</div>
+                                        <div><i class="fas fa-phone text-muted me-1"></i> <small>{{ p.phone|default:"No Phone" }}</small></div>
+                                    </td>
+                                    <td>
+                                        <div><i class="fas fa-building text-muted me-1"></i> {{ p.office_name|default:"Office Not Set" }}</div>
+                                        <div><i class="fas fa-map-marker-alt text-muted me-1"></i> <small>{{ p.language_region|default:"Region Not Set" }}</small></div>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'process_user_approval' p.id 'approve' %}" class="btn btn-success" onclick="return confirm('{{ "Approve this user?"|t:current_lang }}');">
+                                                <i class="fas fa-check"></i> {{ "Approve"|t:current_lang }}
+                                            </a>
+                                            <a href="{% url 'process_user_approval' p.id 'reject' %}" class="btn btn-danger" onclick="return confirm('{{ "Reject this user?"|t:current_lang }}');">
+                                                <i class="fas fa-times"></i> {{ "Reject"|t:current_lang }}
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}
+    <!-- Employee List -->
+    {% if user_list %}
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white fw-bold">
+                    <i class="fas fa-list"></i> {{ "Employees Under"|t:current_lang }} {{ hod_name|upper }}
+                </div>
+                <div class="card-body table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{{ "Name"|t:current_lang }}</th>
+                                <th>{{ "Employee Code"|t:current_lang }}</th>
+                                <th>{{ "Profile Status"|t:current_lang }}</th>
+                                <th>{{ "QPR Status"|t:current_lang }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in user_list %}
+                            <tr>
+                                <td class="fw-bold">
+                                    {{ user.name }}
+                                    {% if user.is_hod %}<span class="badge bg-success ms-2">{{ "HOD"|t:current_lang }}</span>{% endif %}
+                                </td>
+                                <td>{{ user.employee_code }}</td>
+                                <td>
+                                    {% if user.profile_updated %}
+                                        <span class="badge bg-success">{{ "Completed"|t:current_lang }}</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">{{ "Pending"|t:current_lang }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.qpr_status == 'Submitted' %}
+                                        <span class="badge bg-success">{{ "Submitted"|t:current_lang }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ "Draft"|t:current_lang }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+
+{% endblock %}

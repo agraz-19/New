@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+
+<style>
+body{
+    font-family: "Noto Sans", "Noto Sans Devanagari", Arial, sans-serif;
+    font-size:12px;
+}
+
+h2{
+    text-align:center;
+    margin-bottom:20px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-bottom:12px;
+}
+
+td,th{
+    border:1px solid black;
+    padding:4px;
+}
+
+.section-title{
+    font-weight:bold;
+    margin-top:10px;
+}
+
+@page{
+    size:A4 portrait;
+    margin:15mm;
+}
+</style>
+</head>
+
+<body>
+
+<h2>राजभाषा विभाग / Department of Official Language</h2>
+
+<p>
+<strong>Quarter:</strong> {{ r.quarter }}<br>
+<strong>Year:</strong> {{ r.year }}<br>
+<strong>Office Name:</strong> {{ r.officeName }}<br>
+<strong>Office Code:</strong> {{ r.officeCode }}<br>
+</p>
+
+<div class="section-title">1. Files Sent to Minister</div>
+
+<table>
+<tr>
+<td>Total Files Sent</td>
+<td>{{ r.s1_total }}</td>
+</tr>
+<tr>
+<td>Files Sent in Hindi</td>
+<td>{{ r.s1_hindi }}</td>
+</tr>
+</table>
+
+<div class="section-title">2. Meetings / Papers</div>
+
+<table>
+<tr>
+<td>Meetings Held</td>
+<td>{{ r.s2_meetings }}</td>
+</tr>
+<tr>
+<td>Minutes Issued in Hindi</td>
+<td>{{ r.s2_minutes }}</td>
+</tr>
+<tr>
+<td>Total Papers Issued</td>
+<td>{{ r.s2_papers_total }}</td>
+</tr>
+<tr>
+<td>Papers Issued in Hindi</td>
+<td>{{ r.s2_papers_hindi }}</td>
+</tr>
+</table>
+
+<div class="section-title">3. Documents under Section 3(3)</div>
+
+<table>
+<tr>
+<td>Total</td>
+<td>{{ r.s3_total }}</td>
+</tr>
+<tr>
+<td>Bilingual</td>
+<td>{{ r.s3_bilingual }}</td>
+</tr>
+<tr>
+<td>English Only</td>
+<td>{{ r.s3_english }}</td>
+</tr>
+<tr>
+<td>Hindi Only</td>
+<td>{{ r.s3_hindi_only }}</td>
+</tr>
+</table>
+
+<div class="section-title">4. Letters Received in Hindi</div>
+
+<table>
+<tr>
+<td>Total Letters</td>
+<td>{{ r.s4_total }}</td>
+</tr>
+<tr>
+<td>No Reply Needed</td>
+<td>{{ r.s4_no_reply }}</td>
+</tr>
+<tr>
+<td>Replied in Hindi/Bilingual</td>
+<td>{{ r.s4_replied_hindi }}</td>
+</tr>
+<tr>
+<td>Replied in English</td>
+<td>{{ r.s4_replied_eng }}</td>
+</tr>
+</table>
+
+<div class="section-title">5. English Letters Replied in Hindi</div>
+
+<table>
+<tr>
+<td>Total Letters</td>
+<td>{{ r.s5_total }}</td>
+</tr>
+<tr>
+<td>Replied in Hindi</td>
+<td>{{ r.s5_hindi }}</td>
+</tr>
+<tr>
+<td>Replied in English</td>
+<td>{{ r.s5_english }}</td>
+</tr>
+<tr>
+<td>No Reply</td>
+<td>{{ r.s5_noreply }}</td>
+</tr>
+</table>
+
+<div class="section-title">6. Letters Issued</div>
+
+<table>
+<tr>
+<th>Region</th>
+<th>Hindi/Bilingual</th>
+<th>English</th>
+<th>Total</th>
+</tr>
+<tr>
+<td>A</td>
+<td>{{ r.s6_a_hindi }}</td>
+<td>{{ r.s6_a_eng }}</td>
+<td>{{ r.s6_a_total }}</td>
+</tr>
+<tr>
+<td>B</td>
+<td>{{ r.s6_b_hindi }}</td>
+<td>{{ r.s6_b_eng }}</td>
+<td>{{ r.s6_b_total }}</td>
+</tr>
+<tr>
+<td>C</td>
+<td>{{ r.s6_c_hindi }}</td>
+<td>{{ r.s6_c_eng }}</td>
+<td>{{ r.s6_c_total }}</td>
+</tr>
+</table>
+
+<div class="section-title">7. File Notings</div>
+
+<table>
+<tr>
+<td>Hindi Pages</td>
+<td>{{ r.s7_hindi }}</td>
+</tr>
+<tr>
+<td>English Pages</td>
+<td>{{ r.s7_eng }}</td>
+</tr>
+<tr>
+<td>Total Pages</td>
+<td>{{ r.s7_total }}</td>
+</tr>
+<tr>
+<td>eOffice Notings</td>
+<td>{{ r.s7_eoffice }}</td>
+</tr>
+</table>
+
+<div class="section-title">8. Hindi Workshops</div>
+
+<table>
+<tr>
+<td>Workshops</td>
+<td>{{ r.s8_workshops }}</td>
+</tr>
+<tr>
+<td>Officers Trained</td>
+<td>{{ r.s8_officers }}</td>
+</tr>
+<tr>
+<td>Employees Trained</td>
+<td>{{ r.s8_employees }}</td>
+</tr>
+</table>
+
+<div class="section-title">9. OL Implementation Committee</div>
+
+<table>
+<tr>
+<td>Date</td>
+<td>{{ r.s9_date }}</td>
+</tr>
+<tr>
+<td>Sub Committees</td>
+<td>{{ r.s9_sub_committees }}</td>
+</tr>
+<tr>
+<td>Meetings</td>
+<td>{{ r.s9_meetings_count }}</td>
+</tr>
+<tr>
+<td>Agenda in Hindi</td>
+<td>{{ r.s9_agenda_hindi }}</td>
+</tr>
+</table>
+
+<div class="section-title">10. Hindi Advisory Committee</div>
+
+<table>
+<tr>
+<td>Date</td>
+<td>{{ r.s10_date }}</td>
+</tr>
+</table>
+
+<div class="section-title">11. Achievements</div>
+
+<table>
+<tr>
+<td>Innovative Work</td>
+<td>{{ r.s12_1 }}</td>
+</tr>
+<tr>
+<td>Special Events</td>
+<td>{{ r.s12_2 }}</td>
+</tr>
+<tr>
+<td>Other Work</td>
+<td>{{ r.s12_3 }}</td>
+</tr>
+</table>
+
+</body>
+</html>

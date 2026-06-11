@@ -1,0 +1,676 @@
+{% extends "master.html" %}
+{% load static %}
+{% load translate_tags %}
+
+{% block title %}{{ "Report List"|t:current_lang }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Add specific styles if needed */
+</style>
+{% endblock %}
+{% block content %}
+    <div class="container py-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h3 class="mb-0">Quarterly Progress Reports</h3>
+            <div>
+                {% if not is_hod_view %}
+                <button class="btn btn-outline-warning btn-sm me-2" id="finalizeBtn" onclick="finalizeQPR()">Finalize Your QPR</button>
+                {% endif %}
+                {% if is_hod_view %}
+                <a href="{% url 'qpr_hod_detail_list' %}" class="btn btn-secondary btn-sm">← Back to Employee List</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <form method="get" class="row g-2 align-items-end mb-3">
+            {% if emp_code_filter %}
+            <input type="hidden" name="emp_code" value="{{ emp_code_filter }}">
+            {% endif %}
+            <div class="col-md-4">
+                <label for="quarterFilter" class="form-label mb-1">Quarter</label>
+                <select id="quarterFilter" name="quarter" class="form-select form-select-sm">
+                    {% for q in quarter_options %}
+                    <option value="{{ q }}" {% if quarter_filter == q %}selected{% endif %}>{{ q }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="yearFilter" class="form-label mb-1">Financial Year</label>
+                <select id="yearFilter" name="year" class="form-select form-select-sm">
+                    {% for y in year_options %}
+                    <option value="{{ y }}" {% if year_filter == y %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-auto">
+                <button type="submit" class="btn btn-primary btn-sm" style="background-color:#2c5a86;">Filter</button>
+                <a href="{% url 'qpr_report_list' %}{% if emp_code_filter %}?emp_code={{ emp_code_filter }}{% endif %}" class="btn btn-outline-secondary btn-sm ms-1">Current</a>
+            </div>
+        </form>
+
+        <div class="text-muted small mb-3">
+            Showing progress for <strong>{{ quarter_filter }}</strong>, financial year <strong>{{ year_filter }}</strong>.
+        </div>
+
+        <!-- View Frequency selector removed per UI request -->
+
+        <!-- Note: Page intentionally simplified to only show Daily/Weekly/Monthly/Quarterly tables -->
+
+        <!-- Daily entries -->
+        <div class="mb-2">
+            <strong>Daily Entries</strong>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered" id="dailyTable">
+                    <thead class="table-light"><tr>
+                        <th>Period</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr></thead>
+                    <tbody id="dailyBody"><tr><td colspan="3" class="text-center text-muted">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Weekly entries -->
+        <div class="mb-2">
+            <strong>Weekly Entries</strong>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered" id="weeklyTable">
+                    <thead class="table-light"><tr>
+                        <th>Period</th>
+                        <th>Action</th>
+                    </tr></thead>
+                    <tbody id="weeklyBody"><tr><td colspan="2" class="text-center text-muted">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Monthly entries -->
+        <div class="mb-2">
+            <strong>Monthly Entries</strong>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered" id="monthlyTable">
+                    <thead class="table-light"><tr>
+                        <th>Period</th>
+                        <th>Action</th>
+                    </tr></thead>
+                    <tbody id="monthlyBody"><tr><td colspan="2" class="text-center text-muted">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Quarterly entries -->
+        <div class="mb-2">
+            <strong>Quarterly Entries (Snapshots)</strong>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered" id="quarterlyTable">
+                    <thead class="table-light"><tr>
+                        <th>Quarter (Data Source)</th>
+                        <th>Year</th>
+                        <th>Action</th>
+                    </tr></thead>
+                    <tbody id="quarterlyBody"><tr><td colspan="3" class="text-center text-muted">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+    // Server-provided records (preloaded) — avoids client-side API fetch.
+    const PRELOADED_RECORDS = {{ records_json|default:'[]'|safe }};
+    const PRELOADED_SUMMARY = {{ summary_json|default:'null'|safe }};
+    const IS_HOD_VIEW = "{{ is_hod_view|yesno:'true,false' }}" === "true";
+    const TARGET_USER_ID = "{{ target_user_id|default:'' }}";
+    const SERVER_TODAY = "{{ today_iso|default:'' }}";
+    function buildViewUrl(id, extraQuery) {
+        const base = `/qpr/reports/${id}/`;
+        if (!TARGET_USER_ID) return extraQuery ? base + extraQuery : base;
+        if (!extraQuery) return base + `?user_id=${TARGET_USER_ID}`;
+        // extraQuery expected to start with '?'
+        return base + extraQuery + `&user_id=${TARGET_USER_ID}`;
+    }
+
+    // Helper to safely read multiple possible property names from API records
+    function getProp(obj, ...keys) {
+        if (!obj) return '-';
+        for (let k of keys) {
+            if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k];
+        }
+        return '-';
+    }
+
+    async function loadList() {
+        try {
+            // Use server-provided records when available, otherwise empty list
+            const records = Array.isArray(PRELOADED_RECORDS) ? PRELOADED_RECORDS : [];
+            // debug logging removed
+
+            // Fetch period summary for the current quarter using the selected frequency.
+            // Per specs, use exactly one fetch and pass ?frequency=<selectedFrequency>.
+            const freqEl = document.getElementById('frequencySelect');
+            const selectedFrequency = (freqEl && freqEl.value) ? freqEl.value : 'daily';
+            // Use server-provided summary if present. Otherwise summary stays null.
+            let summary = PRELOADED_SUMMARY || null;
+            
+            const dailyBody = document.getElementById('dailyBody');
+            const weeklyBody = document.getElementById('weeklyBody');
+            const monthlyBody = document.getElementById('monthlyBody');
+            const quarterlyBody = document.getElementById('quarterlyBody');
+
+            // Clear bodies
+            if (dailyBody) dailyBody.innerHTML = '';
+            if (weeklyBody) weeklyBody.innerHTML = '';
+            if (monthlyBody) monthlyBody.innerHTML = '';
+            if (quarterlyBody) quarterlyBody.innerHTML = '';
+
+            // Infer frequency when missing and group by frequency and period_start (or period range)
+            function inferFrequency(r) {
+                if (!r) return 'quarterly';
+                if (r.frequency) return String(r.frequency).toLowerCase();
+                const ps = r.period_start;
+                const pe = r.period_end || r.period_start;
+                if (ps && pe) {
+                    try {
+                        const s = new Date(ps);
+                        const e = new Date(pe);
+                        const diff = (e - s) / (1000*60*60*24);
+                        if (diff === 0) return 'daily';
+                        if (diff <= 6) return 'weekly';
+                        // month check: same month & year
+                        if (s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth()) return 'monthly';
+                        return 'quarterly';
+                    } catch (err) {
+                        return 'quarterly';
+                    }
+                }
+                return 'quarterly';
+            }
+
+            const grouped = { daily: [], weekly: [], monthly: [], quarterly: [] };
+            records.forEach(r => {
+                const f = inferFrequency(r);
+                if (!grouped[f]) grouped[f] = [];
+                grouped[f].push(r);
+            });
+
+            const daily = grouped.daily;
+            const weekly = grouped.weekly;
+            const monthly = grouped.monthly;
+            const quarterly = grouped.quarterly;
+            const isSubmittedRecord = (rec) => !!rec && (rec.is_submitted || String(rec.status || '').toLowerCase() === 'submitted');
+
+            // Populate helper
+            function scopedRequestAllowed(editScope, periodEnd) {
+                const scope = String(editScope || '').toLowerCase();
+                if (!['weekly', 'monthly', 'quarterly'].includes(scope)) return true;
+                if (!periodEnd || !SERVER_TODAY) return false;
+                return String(SERVER_TODAY).slice(0, 10) >= String(periodEnd).slice(0, 10);
+            }
+
+            function makeActions(rec, editScope, periodEnd) {
+                if (!rec) return '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
+                const scopeArg = editScope ? `, '${editScope}'` : '';
+                const viewSuffix = editScope ? `?view_as=${editScope}` : '';
+                const approvedScope = String(rec.edit_approved_scope || '').toLowerCase();
+                const requestedScope = String(editScope || '').toLowerCase();
+                const isSnapshotScope = ['weekly', 'monthly', 'quarterly'].includes(requestedScope);
+                const canEditThisScope = isSnapshotScope && approvedScope === requestedScope && rec.snapshot_can_edit;
+                const canEditBaseRecord = !isSnapshotScope && rec.can_edit && !approvedScope;
+                // HOD view is read-only: only show View button
+                if (IS_HOD_VIEW) {
+                    return ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(rec.id, viewSuffix)}">View</a>`;
+                }
+                // If record is editable (owner + approved/unsubmitted), show Edit button
+                if (canEditThisScope || canEditBaseRecord) {
+                    return `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); edit(${rec.id}${scopeArg})">Edit</button> <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(rec.id, viewSuffix)}">View</a>`;
+                }
+                if (rec.has_pending_edit_request) {
+                    return `<button class="btn btn-sm btn-outline-secondary" disabled>Pending</button> <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(rec.id, viewSuffix)}">View</a>`;
+                }
+                if (!scopedRequestAllowed(editScope, periodEnd)) {
+                    return `<a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(rec.id, viewSuffix)}">View</a>`;
+                }
+                if (!rec.is_submitted && String(rec.status || '').toLowerCase() !== 'submitted') {
+                    return isSnapshotScope
+                        ? '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>'
+                        : `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); edit(${rec.id})">Edit Draft</button>`;
+                }
+                // Otherwise offer request-to-edit
+                let actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${rec.id}${scopeArg})">Request to Edit</button>`;
+                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(rec.id, viewSuffix)}">View</a>`;
+                return actions;
+            }
+
+            function chooseActionRecord(candidates, scope) {
+                const requestedScope = String(scope || '').toLowerCase();
+                if (!Array.isArray(candidates) || candidates.length === 0) return null;
+                return (
+                    candidates.find(r => String(r.edit_approved_scope || '').toLowerCase() === requestedScope) ||
+                    candidates.find(r => String(r.frequency || '').toLowerCase() === requestedScope) ||
+                    candidates[0]
+                );
+            }
+
+            // Render rows
+            const renderRow = (body, rec, cols) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = cols.map(c => `<td>${c}</td>`).join('');
+                body.appendChild(tr);
+            };
+
+            if (dailyBody) {
+                // Prefer rendering periods from the summary so we show missing days even when no record exists
+                if (summary && Array.isArray(summary.daily)) {
+                    summary.daily.forEach(d => {
+                        const ps = d.period_start;
+                        function normalizeDate(s) {
+                            if (!s) return '';
+                            const d = new Date(s);
+                            return isNaN(d) ? String(s).slice(0,10) : d.toISOString().slice(0,10);
+                        }
+
+                        const rec = records.find(r =>
+                            String(r.frequency || '').toLowerCase() === 'daily' &&
+                            normalizeDate(r.period_start) === normalizeDate(ps)
+                        ) || null;
+                        const periodLabel = ps || (d.period_label || '-');
+                        // Determine status: submitted daily, filled by weekly, covered by other, or missing
+                        let status = '';
+                        if (d.has_daily) status = '<span class="badge bg-success">Submitted Daily</span>';
+                        else if (rec && !isSubmittedRecord(rec)) status = '<span class="badge bg-primary">Draft</span>';
+                        else if (d.filled_by_weekly) status = '<span class="badge bg-info">Filled by Weekly</span>';
+                        else if (d.filled_by_monthly) status = '<span class="badge bg-info">Filled by Monthly</span>';
+                        else if (d.filled_by_quarterly) status = '<span class="badge bg-info">Filled by Quarterly</span>';
+                        else if (d.covered_by) status = `<span class="badge bg-secondary">Covered by ${d.covered_by}</span>`;
+                        else status = '<span class="text-muted">Missing</span>';
+                        
+                        // Button logic - STRICT PRIORITY:
+                        // 1. If has_daily → show actions for daily record (Request Edit + View)
+                        // 2. Else if filled_by_weekly AND is_first_fill_day → show actions for weekly fill
+                        // 3. Otherwise → NO buttons
+                        let actions = '';
+                        if (d.has_daily && d.daily_id) {
+                            // Daily record exists - use standard actions
+                            // Find the QPRRecord to get edit/view permissions
+                            if (rec) {
+                                actions = makeActions(rec);
+                            } else {
+                                // Fallback if record not in preloaded list
+                                actions = `<a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.daily_id)}">View</a>`;
+                            }
+                        } else if (rec && !isSubmittedRecord(rec)) {
+                            actions = makeActions(rec);
+                        } else if (d.filled_by_weekly && d.is_first_fill_day && d.weekly_record_id) {
+                            // First filled missing day of weekly fill - show weekly record actions
+                            const weeklyRec = records.find(r => Number(r.id) === Number(d.weekly_record_id)) || null;
+                            if (IS_HOD_VIEW) {
+                                // HOD view: only View
+                                actions = `<a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.weekly_record_id, '?view_as=fill')}">View</a>`;
+                            } else if (weeklyRec && weeklyRec.can_edit && !weeklyRec.edit_approved_scope) {
+                                actions = `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); edit(${d.weekly_record_id})">Edit</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.weekly_record_id, '?view_as=fill')}">View</a>`;
+                            } else if (weeklyRec && weeklyRec.has_pending_edit_request) {
+                                actions = `<button class="btn btn-sm btn-outline-secondary" disabled>Pending</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.weekly_record_id, '?view_as=fill')}">View</a>`;
+                            } else {
+                                actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${d.weekly_record_id})">Request to Edit</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.weekly_record_id, '?view_as=fill')}">View</a>`;
+                            }
+                        } else if (d.filled_by_monthly && d.is_first_monthly_fill_day && d.monthly_record_id) {
+                            const monthlyRec = records.find(r => Number(r.id) === Number(d.monthly_record_id)) || null;
+                            if (IS_HOD_VIEW) {
+                                actions = `<a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.monthly_record_id, '?view_as=fill')}">View</a>`;
+                            } else if (monthlyRec && monthlyRec.can_edit && !monthlyRec.edit_approved_scope) {
+                                actions = `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); edit(${d.monthly_record_id})">Edit</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.monthly_record_id, '?view_as=fill')}">View</a>`;
+                            } else if (monthlyRec && monthlyRec.has_pending_edit_request) {
+                                actions = `<button class="btn btn-sm btn-outline-secondary" disabled>Pending</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.monthly_record_id, '?view_as=fill')}">View</a>`;
+                            } else {
+                                actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${d.monthly_record_id})">Request to Edit</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.monthly_record_id, '?view_as=fill')}">View</a>`;
+                            }
+                        } else if (d.filled_by_quarterly && d.is_first_quarterly_fill_day && d.quarterly_record_id) {
+                            const quarterlyRec = records.find(r => Number(r.id) === Number(d.quarterly_record_id)) || null;
+                            if (IS_HOD_VIEW) {
+                                actions = `<a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.quarterly_record_id, '?view_as=fill')}">View</a>`;
+                            } else if (quarterlyRec && quarterlyRec.can_edit && !quarterlyRec.edit_approved_scope) {
+                                actions = `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); edit(${d.quarterly_record_id})">Edit</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.quarterly_record_id, '?view_as=fill')}">View</a>`;
+                            } else if (quarterlyRec && quarterlyRec.has_pending_edit_request) {
+                                actions = `<button class="btn btn-sm btn-outline-secondary" disabled>Pending</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.quarterly_record_id, '?view_as=fill')}">View</a>`;
+                            } else {
+                                actions = `<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); requestEdit(${d.quarterly_record_id})">Request to Edit</button>`;
+                                actions += ` <a class="btn btn-sm btn-outline-primary ms-1" href="${buildViewUrl(d.quarterly_record_id, '?view_as=fill')}">View</a>`;
+                            }
+                        }
+                        // else: no buttons (empty actions already initialized)
+                        
+                        renderRow(dailyBody, rec, [periodLabel, status, actions]);
+                    });
+                } else {
+                    if (daily.length === 0) dailyBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No daily entries</td></tr>';
+                    else daily.forEach(rec => {
+                        const period = getProp(rec, 'period_start') || getProp(rec, 'period') || '-';
+                        renderRow(dailyBody, rec, [period, (rec.status==='Draft'||rec.status==='draft')?'<span class="badge bg-primary">Draft</span>':'<span class="badge bg-success">Submitted</span>', makeActions(rec)]);
+                    });
+                }
+            }
+
+            if (weeklyBody) {
+                if (summary && Array.isArray(summary.weekly)) {
+                    summary.weekly.forEach(w => {
+                            const ps = w.period_start;
+                            const pe = w.period_end;
+                            // Normalize date strings to YYYY-MM-DD for robust comparisons
+                            function normDate(s) {
+                                if (!s) return '';
+                                try {
+                                    const d = new Date(s);
+                                    if (isNaN(d)) return String(s).slice(0,10);
+                                    return d.toISOString().slice(0,10);
+                                } catch (e) { return String(s).slice(0,10); }
+                            }
+                            // Find candidate records that cover the same period (normalize both sides)
+                            // Accept records that match on start OR match on end OR whose period_start falls within the week
+                            const candidates = records.filter(r => {
+                                if (!r.is_submitted && String(r.status || '').toLowerCase() !== 'submitted') return false;
+                                const rs = normDate(r.period_start);
+                                const re = normDate(r.period_end || r.period_start);
+                                const matchStart = rs && rs === normDate(ps);
+                                const matchEnd = pe && re === normDate(pe);
+                                const inRange = rs && ps && pe && (rs >= normDate(ps) && rs <= normDate(pe));
+                                return matchStart || matchEnd || inRange;
+                            });
+                            // Prefer an actual weekly-frequency record among candidates.
+                            let rec = null;
+                            let dataSourceRec = null;  // office info source
+                            if (candidates.length > 0) {
+                                rec = candidates.find(r => String(r.frequency || '').toLowerCase() === 'weekly') || null;
+                                if (!rec) dataSourceRec = chooseActionRecord(candidates, 'weekly');
+                            }
+                            const weeklyActionRec = chooseActionRecord(candidates, 'weekly') || rec || dataSourceRec;
+                            const periodLabel = (ps || '-') + (pe ? ' → ' + pe : '');
+                        // If no weekly record but have daily candidates (dataSourceRec), show View + Request to Edit using first daily candidate
+                        let actions = '';
+                        if (w.covered_by) {
+                            actions = `<span class="badge bg-secondary">Covered by ${w.covered_by}</span>`;
+                        } else if (weeklyActionRec) {
+                            actions = makeActions(weeklyActionRec, 'weekly', pe);
+                        } else {
+                            actions = '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
+                        }
+
+                        // Render row: show period and actions (no totals column)
+                        renderRow(weeklyBody, rec, [periodLabel, actions]);
+                    });
+                    weekly.filter(rec => !isSubmittedRecord(rec)).forEach(rec => {
+                        const ps = getProp(rec, 'period_start') || getProp(rec, 'period') || '-';
+                        const pe = getProp(rec, 'period_end') || '';
+                        const period = pe ? `${ps} → ${pe} <span class="badge bg-primary ms-1">Draft</span>` : `${ps} <span class="badge bg-primary ms-1">Draft</span>`;
+                        renderRow(weeklyBody, rec, [period, makeActions(rec)]);
+                    });
+                } else {
+                    if (weekly.length === 0) weeklyBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">No weekly entries</td></tr>';
+                    else weekly.forEach(rec => {
+                        const ps = getProp(rec, 'period_start') || getProp(rec, 'period') || '-';
+                        const pe = getProp(rec, 'period_end') || '';
+                        const period = pe ? `${ps} → ${pe}` : ps;
+                        renderRow(weeklyBody, rec, [period, makeActions(rec, 'weekly', pe)]);
+                    });
+                }
+            }
+
+            if (monthlyBody) {
+                if (summary && Array.isArray(summary.monthly)) {
+                    summary.monthly.forEach(m => {
+                        const ps = m.period_start;
+                        const pe = m.period_end;
+                        // Normalize date strings to YYYY-MM-DD for robust comparisons
+                        function normDate(s) {
+                            if (!s) return '';
+                            try {
+                                const d = new Date(s);
+                                if (isNaN(d)) return String(s).slice(0,10);
+                                return d.toISOString().slice(0,10);
+                            } catch (e) { return String(s).slice(0,10); }
+                        }
+                        // Find candidate records that cover the same period
+                        const candidates = records.filter(r => {
+                            if (!r.is_submitted && String(r.status || '').toLowerCase() !== 'submitted') return false;
+                            const rs = normDate(r.period_start);
+                            const re = normDate(r.period_end || r.period_start);
+                            const matchStart = rs && rs === normDate(ps);
+                            const matchEnd = pe && re === normDate(pe);
+                            const inRange = rs && ps && pe && (rs >= normDate(ps) && rs <= normDate(pe));
+                            return matchStart || matchEnd || inRange;
+                        });
+                        // Prefer a monthly-frequency record; otherwise use first candidate for office info
+                        let rec = null;
+                        let dataSourceRec = null;
+                        if (candidates.length > 0) {
+                            rec = candidates.find(r => String(r.frequency || '').toLowerCase() === 'monthly') || null;
+                            if (!rec) dataSourceRec = chooseActionRecord(candidates, 'monthly');
+                        }
+                        const monthlyActionRec = chooseActionRecord(candidates, 'monthly') || rec || dataSourceRec;
+                        const periodLabel = (ps || '-') + (pe ? ' → ' + pe : '');
+                        let actions = '';
+                        if (m.covered_by) {
+                            actions = `<span class="badge bg-secondary">Covered by ${m.covered_by}</span>`;
+                        } else if (monthlyActionRec) {
+                            actions = makeActions(monthlyActionRec, 'monthly', pe);
+                        } else {
+                            actions = '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
+                        }
+                        renderRow(monthlyBody, rec, [periodLabel, actions]);
+                    });
+                    monthly.filter(rec => !isSubmittedRecord(rec)).forEach(rec => {
+                        const ps = getProp(rec, 'period_start') || getProp(rec, 'period') || '-';
+                        const pe = getProp(rec, 'period_end') || '';
+                        const period = pe ? `${ps} → ${pe} <span class="badge bg-primary ms-1">Draft</span>` : `${ps} <span class="badge bg-primary ms-1">Draft</span>`;
+                        renderRow(monthlyBody, rec, [period, makeActions(rec)]);
+                    });
+                } else {
+                    if (monthly.length === 0) monthlyBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">No monthly entries</td></tr>';
+                    else monthly.forEach(rec => {
+                        const ps = getProp(rec, 'period_start') || getProp(rec, 'period') || '-';
+                        const pe = getProp(rec, 'period_end') || '';
+                        const period = pe ? `${ps} → ${pe}` : ps;
+                        renderRow(monthlyBody, rec, [period, makeActions(rec, 'monthly', pe)]);
+                    });
+                }
+            }
+
+            if (quarterlyBody) {
+                // Render from backend summary (summary.quarterly) per contract.
+                if (summary && summary.quarterly) {
+                    const q = summary.quarterly;
+                    const ps = q.period_start;
+                    const pe = q.period_end;
+                    const periodLabel = summary.quarter_label || (ps ? `${ps} → ${pe}` : '-');
+
+                    // helper to normalize date strings
+                    function normDateQ(s) {
+                        if (!s) return '';
+                        try {
+                            const d = new Date(s);
+                            if (isNaN(d)) return String(s).slice(0,10);
+                            return d.toISOString().slice(0,10);
+                        } catch (e) { return String(s).slice(0,10); }
+                    }
+
+                    // Find candidate records inside quarter range for actions
+                    const candidates = records.filter(r => {
+                        if (!r.is_submitted && String(r.status || '').toLowerCase() !== 'submitted') return false;
+                        const rs = normDateQ(r.period_start);
+                        const re = normDateQ(r.period_end || r.period_start);
+                        const matchStart = rs && rs === normDateQ(ps);
+                        const matchEnd = pe && re === normDateQ(pe);
+                        const inRange = rs && ps && pe && (rs >= normDateQ(ps) && rs <= normDateQ(pe));
+                        return matchStart || matchEnd || inRange;
+                    });
+
+                    let rec = null;
+                    let dataSourceRec = null;
+                    if (candidates.length > 0) {
+                        rec = candidates.find(r => String(r.frequency || '').toLowerCase() === 'quarterly') || null;
+                        if (!rec) dataSourceRec = chooseActionRecord(candidates, 'quarterly');
+                    }
+
+                    let actions = '';
+                    const sourceRec = chooseActionRecord(candidates, 'quarterly') || rec || dataSourceRec;
+                    if (sourceRec) {
+                        actions = makeActions(sourceRec, 'quarterly', pe);
+                    } else {
+                        actions = '<button class="btn btn-sm btn-outline-secondary" disabled>—</button>';
+                    }
+
+                    // Show data source composition if available
+                    const dataSource = q.data_source ? `<small class="d-block text-muted">${q.data_source}</small>` : '';
+                    const snapshotBadge = q.is_snapshot ? '<small class="badge bg-info ms-2">Snapshot</small>' : '<small class="badge bg-secondary ms-2">Legacy</small>';
+                    
+                    // Render row with data_source info
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${periodLabel} ${snapshotBadge}${dataSource}</td>
+                        <td>${summary.year_label || '-'}</td>
+                        <td>${actions}</td>
+                    `;
+                    if (quarterlyBody) quarterlyBody.appendChild(row);
+                    quarterly.filter(rec => !isSubmittedRecord(rec)).forEach(rec => {
+                        const ps = getProp(rec, 'period_start') || getProp(rec, 'period') || '-';
+                        const pe = getProp(rec, 'period_end') || '';
+                        const period = pe ? `${ps} → ${pe}` : ps;
+                        renderRow(
+                            quarterlyBody,
+                            rec,
+                            [`${period} <span class="badge bg-primary ms-1">Draft</span>`, rec.year || summary.year_label || '-', makeActions(rec)]
+                        );
+                    });
+                } else if (quarterly.length > 0) {
+                    quarterly.forEach(rec => {
+                        const ps = getProp(rec, 'period_start') || getProp(rec, 'period') || '-';
+                        const pe = getProp(rec, 'period_end') || '';
+                        const period = pe ? `${ps} → ${pe}` : ps;
+                        const badge = isSubmittedRecord(rec) ? '' : ' <span class="badge bg-primary ms-1">Draft</span>';
+                        renderRow(quarterlyBody, rec, [`${period}${badge}`, rec.year || '-', makeActions(rec)]);
+                    });
+                } else {
+                    quarterlyBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No quarterly entries</td></tr>';
+                }
+            }
+
+        } catch (err) {
+            console.error('Failed to load records:', err);
+            const message = err && err.message ? err.message : String(err);
+            const bodies = ['dailyBody','weeklyBody','monthlyBody','quarterlyBody'];
+            bodies.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = `<tr><td colspan="99" class="text-center text-muted">Error: ${message}</td></tr>`;
+            });
+        }
+    }
+
+    function view(id) {
+        window.location.href = `/qpr/reports/${id}/`;
+    }
+
+    function edit(id, editScope) {
+        localStorage.setItem('editRecordId', String(id));
+        if (editScope) localStorage.setItem('editSnapshotScope', String(editScope).toLowerCase());
+        else localStorage.removeItem('editSnapshotScope');
+        const params = new URLSearchParams();
+        params.set('edit_record', String(id));
+        if (editScope) params.set('edit_scope', String(editScope).toLowerCase());
+        window.location.href = "{% url 'qpr_form' %}?" + params.toString();
+    }
+
+    function requestEdit(id, editScope) {
+        if (IS_HOD_VIEW) { alert("You are viewing in read-only mode."); return; }
+        const scope = editScope ? String(editScope).toLowerCase() : '';
+        if (['weekly', 'monthly', 'quarterly'].includes(scope)) {
+            const ok = confirm("You are about to replace and rewrite the existing cumulation with your filled values. Do you want to continue?");
+            if (!ok) {
+                window.location.href = "{% url 'qpr_report_list' %}";
+                return;
+            }
+        }
+        const reason = prompt("{{ 'Please enter the reason for requesting to edit this report:'|t:current_lang }}");
+        if (!reason) return;
+        const templateCsrfToken = "{{ csrf_token }}";
+        // Submit a standard POST form to the server-side handler so the view can
+        // record the EditRequest and redirect to the report detail page.
+        try {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/qpr/reports/${id}/request-edit/`;
+
+            // CSRF token from cookie
+            const csrf = (function(){
+                const name = 'csrftoken=';
+                const parts = document.cookie.split(';').map(s=>s.trim());
+                for (let p of parts) if (p.indexOf(name)===0) return decodeURIComponent(p.substring(name.length));
+                return null;
+            })();
+                const csrfValue = csrf || templateCsrfToken;
+                const inp = document.createElement('input'); inp.type='hidden'; inp.name='csrfmiddlewaretoken'; inp.value = csrfValue; form.appendChild(inp);
+
+            const rInp = document.createElement('input'); rInp.type='hidden'; rInp.name='reason'; rInp.value = reason; form.appendChild(rInp);
+            if (scope) {
+                const sInp = document.createElement('input'); sInp.type='hidden'; sInp.name='edit_scope'; sInp.value = scope; form.appendChild(sInp);
+            }
+            document.body.appendChild(form);
+            form.submit();
+        } catch (e) { console.error('request-edit submit failed', e); alert('Failed to submit request.'); }
+    }
+
+    function finalizeQPR() {
+        // Show confirmation dialog
+        if (!confirm('This finalizes your quarterly report for this quarter. Do you want to continue?')) {
+            return;
+        }
+        const templateCsrfToken = "{{ csrf_token }}";
+        // Get CSRF token
+        const csrf = (function(){
+            const name = 'csrftoken=';
+            const parts = document.cookie.split(';').map(s=>s.trim());
+            for (let p of parts) if (p.indexOf(name)===0) return decodeURIComponent(p.substring(name.length));
+            return null;
+        })();
+        
+        // Submit finalize request
+        fetch('/qpr/finalize/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrf || templateCsrfToken || ''
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Your QPR has been finalized. Returning to report list...');
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to finalize QPR');
+        });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        loadList();
+        const freqEl = document.getElementById('frequencySelect');
+        if (freqEl) freqEl.addEventListener('change', () => { loadList(); });
+    });
+
+</script>
+
+{% endblock %}

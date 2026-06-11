@@ -1,0 +1,57 @@
+{% extends "master.html" %}
+{% block title %}Manager QPR Detail{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h3>Manager QPR - {{ record.quarter }}</h3>
+    <dl class="row">
+        <dt class="col-sm-3">Financial Year</dt><dd class="col-sm-9">{{ record.financial_year }}</dd>
+        <dt class="col-sm-3">Section 1 - Total Files</dt><dd class="col-sm-9">{{ record.s1_total_files }}</dd>
+        <dt class="col-sm-3">Section 1 - Files in Hindi</dt><dd class="col-sm-9">{{ record.s1_hindi_files }}</dd>
+        
+        <dt class="col-sm-3">Section 2 - Meetings Count</dt><dd class="col-sm-9">{{ record.s2_meetings_count }}</dd>
+        <dt class="col-sm-3">Section 2 - Hindi Minutes</dt><dd class="col-sm-9">{{ record.s2_hindi_minutes }}</dd>
+        <dt class="col-sm-3">Section 2 - Total Papers</dt><dd class="col-sm-9">{{ record.s2_total_papers }}</dd>
+        <dt class="col-sm-3">Section 2 - Hindi Papers</dt><dd class="col-sm-9">{{ record.s2_hindi_papers }}</dd>
+        
+        <dt class="col-sm-3">Section 3 - Total Documents</dt><dd class="col-sm-9">{{ record.s3_total_documents }}</dd>
+        <dt class="col-sm-3">Section 3 - Bilingual Documents</dt>
+        <dd class="col-sm-9">{{ record.s3_bilingual_documents }}</dd>
+        <dt class="col-sm-3">Section 3 - English Only</dt><dd class="col-sm-9">{{ record.s3_english_only_documents }}</dd>
+        <dt class="col-sm-3">Section 3 - Hindi Only</dt><dd class="col-sm-9">{{ record.s3_hindi_only_documents }}</dd>
+        
+        <dt class="col-sm-3">Section 4 - Total Letters</dt><dd class="col-sm-9">{{ record.s4_total_letters }}</dd>
+        <dt class="col-sm-3">Section 4 - No Reply Letters</dt><dd class="col-sm-9">{{ record.s4_no_reply_letters }}</dd>
+        <dt class="col-sm-3">Section 4 - Replied Hindi</dt><dd class="col-sm-9">{{ record.s4_replied_hindi_letters }}</dd>
+        <dt class="col-sm-3">Section 4 - Replied English</dt><dd class="col-sm-9">{{ record.s4_replied_english_letters }}</dd>
+
+        <dt class="col-sm-3">Section 5 - Region A English Letters</dt><dd class="col-sm-9">{{ record.s5_region_a_english_letters }}</dd>
+        <dt class="col-sm-3">Section 5 - Replied Hindi</dt><dd class="col-sm-9">{{ record.s5_region_a_replied_hindi }}</dd>
+        <dt class="col-sm-3">Section 5 - Replied English</dt><dd class="col-sm-9">{{ record.s5_region_a_replied_english }}</dd>
+        <dt class="col-sm-3">Section 5 - No Reply</dt><dd class="col-sm-9">{{ record.s5_region_a_no_reply }}</dd>
+
+        <dt class="col-sm-3">Section 6 - Region A Hindi/Bilingual</dt><dd class="col-sm-9">{{ record.s6_region_a_hindi_bilingual }}</dd>
+        <dt class="col-sm-3">Section 6 - Region A English Only</dt><dd class="col-sm-9">{{ record.s6_region_a_english_only }}</dd>
+        <dt class="col-sm-3">Section 6 - Region A Total</dt><dd class="col-sm-9">{{ record.s6_region_a_total }}</dd>
+
+        <dt class="col-sm-3">Section 7 - Hindi Pages</dt><dd class="col-sm-9">{{ record.s7_hindi_pages }}</dd>
+        <dt class="col-sm-3">Section 7 - English Pages</dt><dd class="col-sm-9">{{ record.s7_english_pages }}</dd>
+        <dt class="col-sm-3">Section 7 - Total Pages</dt><dd class="col-sm-9">{{ record.s7_total_pages }}</dd>
+        <dt class="col-sm-3">Section 7 - E-Office Notings</dt><dd class="col-sm-9">{{ record.s7_eoffice_notings }}</dd>
+
+        <dt class="col-sm-3">Section 8 - Full day workshops</dt><dd class="col-sm-9">{{ record.s8_full_day_workshops }}</dd>
+        <dt class="col-sm-3">Section 8 - Officers trained</dt><dd class="col-sm-9">{{ record.s8_officers_trained }}</dd>
+        <dt class="col-sm-3">Section 8 - Employees trained</dt><dd class="col-sm-9">{{ record.s8_employees_trained }}</dd>
+
+        <dt class="col-sm-3">Section 9 - Meeting Date</dt><dd class="col-sm-9">{{ record.s9_meeting_date }}</dd>
+        <dt class="col-sm-3">Section 9 - Sub committees</dt><dd class="col-sm-9">{{ record.s9_sub_committees_count }}</dd>
+        <dt class="col-sm-3">Section 9 - Meetings organized</dt><dd class="col-sm-9">{{ record.s9_meetings_organized }}</dd>
+        <dt class="col-sm-3">Section 9 - Agenda in Hindi</dt><dd class="col-sm-9">{{ record.s9_agenda_hindi }}</dd>
+
+        <dt class="col-sm-3">Section 10 - Meeting Date</dt><dd class="col-sm-9">{{ record.s10_meeting_date }}</dd>
+
+        <dt class="col-sm-3">Section 11 - Innovative work</dt><dd class="col-sm-9">{{ record.s11_innovative_work }}</dd>
+        <dt class="col-sm-3">Section 11 - Special events</dt><dd class="col-sm-9">{{ record.s11_special_events }}</dd>
+        <dt class="col-sm-3">Section 11 - Hindi medium works</dt><dd class="col-sm-9">{{ record.s11_hindi_medium_works }}</dd>
+    </dl>
+</div>
+{% endblock %}

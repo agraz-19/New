@@ -1,0 +1,250 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+
+{% block content %}
+<div class="container-fluid px-4 mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold text-primary">
+    {% if user.profile.office_name %}
+        {{ user.profile.office_name }} - {{ "Dashboard"|t:current_lang }}
+    {% else %}
+        {{ "Manager Dashboard"|t:current_lang }}
+    {% endif %}
+</h2>
+        <div class="d-flex gap-2">
+            <span class="badge bg-primary p-3 rounded-pill shadow-sm">
+                <i class="fas fa-file-alt me-2"></i>{{ employees|length }} {{ "Records"|t:current_lang }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Quick Actions Section -->
+    <div class="card shadow-sm border-0 mb-4" style="border-left: 5px solid #0066cc;">
+        <div class="card-body">
+            <h5 class="fw-bold mb-3" style="color: #0066cc;">{{ "Quick Actions"|t:current_lang }}</h5>
+            
+            {% if pending_profile_requests and pending_profile_requests.count > 0 %}
+            <div class="alert alert-warning mb-3">
+                <h6 class="mb-2">Pending Profile Edit Requests</h6>
+                <ul class="mb-0">
+                    {% for req in pending_profile_requests %}
+                        <li class="d-flex justify-content-between align-items-center py-1">
+                            <div>{{ req.user.username }} &mdash; {{ req.reason|default:'Request to edit profile' }}</div>
+                            <div>
+                                <a href="/action/{{ req.user.id }}/unlock_record/" class="btn btn-sm btn-warning" onclick="return confirm('Unlock profile for {{ req.user.username }}?')">Unlock</a>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{% url 'manager_report' %}" class="btn btn-primary" style="background-color: #0066cc;">
+                    <i class="fas fa-chart-bar"></i> {{ "Manager Report"|t:current_lang }}
+                </a>
+                <a href="{% url 'manager_employee_master_list' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-users-cog"></i> {{ "Manage Employees"|t:current_lang }}
+                </a>
+                <a href="{% url 'certificate_part2_list' %}" class="btn btn-info">
+                    <i class="fas fa-certificate"></i> {{ "QPR-II"|t:current_lang }}
+                </a>
+                <a href="{% url 'manager_certificate_list' %}" class="btn btn-outline-info">
+                    <i class="fas fa-award"></i> {{ "Certificate"|t:current_lang }}
+                </a>
+                <a href="{% url 'change_password' %}" class="btn btn-secondary">
+                    <i class="fas fa-lock"></i> {{ "Change Password"|t:current_lang }}
+                </a>
+                <a href="{% url 'admin_events_dashboard' %}" class="btn btn-success text-white">
+                    <i class="fas fa-calendar-alt"></i> {{ "Events"|t:current_lang }}
+                </a>
+                <a href="{% url 'logout' %}" class="btn btn-danger">
+                    <i class="fas fa-sign-out-alt"></i> {{ "Logout"|t:current_lang }}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3" id="managerTabs" role="tablist">
+        <li class="nav-item"><button class="nav-link {% if not user_search and not hindi_exam_filter %}active{% endif %} fw-bold" id="employees-tab" data-bs-toggle="tab" data-bs-target="#employees-pane" type="button"><i class="fas fa-id-card me-2"></i>{{ "Profile Management"|t:current_lang }}</button></li>
+        <li class="nav-item"><button class="nav-link {% if user_search or hindi_exam_filter %}active{% endif %} fw-bold" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button"><i class="fas fa-user-lock me-2"></i>{{ "Application Users"|t:current_lang }}</button></li>
+        <li class="nav-item"><button class="nav-link fw-bold" id="qpr-tab" data-bs-toggle="tab" data-bs-target="#qpr-pane" type="button"><i class="fas fa-clipboard-check me-2"></i>{{ "QPR Status"|t:current_lang }}</button></li>
+    </ul>
+
+    <div class="tab-content" id="managerTabsContent">
+        
+        <div class="tab-pane fade {% if not user_search and not hindi_exam_filter %}show active{% endif %}" id="employees-pane">
+            <div class="card shadow-sm border-0">
+                <div class="card-body table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Emp Code</th>
+                                <th>Name</th>
+                                <th>Designation</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in employees %}
+                            <tr>
+                                <td class="font-monospace text-primary fw-bold">{{ item.empcode }}</td>
+                                <td>{{ item.name }}</td>
+                                <td>
+                                    <span class="badge bg-info text-dark">{{ item.designation|default:"-" }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-warning" onclick="triggerUnlock('{{ item.empcode }}')">
+                                        <i class="bi bi-unlock"></i> Unlock
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">No records found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade {% if user_search or hindi_exam_filter %}show active{% endif %}" id="users-pane">
+            <div class="card shadow-sm border-0">
+                <div class="card-body table-responsive">
+                    <form method="get" class="row g-3 align-items-end mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold">Search</label>
+                            <input type="text" name="user_q" class="form-control" value="{{ user_search }}" placeholder="Empcode, username, employee name, Hindi name">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Highest Hindi Exam Passed</label>
+                            <select name="hindi_exam" class="form-select">
+                                <option value="">All</option>
+                                {% for exam in highest_exam_options %}
+                                    <option value="{{ exam }}" {% if hindi_exam_filter == exam %}selected{% endif %}>{{ exam }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary w-100">Filter</button>
+                            <a href="{% url 'manager_dashboard' %}" class="btn btn-outline-secondary w-100">Reset</a>
+                        </div>
+                    </form>
+
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Empcode</th>
+                                <th>Employee Name</th>
+                                <th>Status</th>
+                                <th>Highest Hindi Exam Passed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in application_users %}
+                            <tr>
+                                <td class="font-monospace fw-bold text-primary">{{ item.empcode }}</td>
+                                <td>{{ item.employee_name|default:"-" }}</td>
+                                <td>
+                                    <span class="badge {% if item.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                        {{ item.status }}
+                                    </span>
+                                </td>
+                                <td>{{ item.highest_exam|default:"-" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">No application users found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="qpr-pane">
+            <div class="card shadow-sm border-0">
+                <div class="card-body table-responsive">
+                    <table class="table table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Employee</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in employees %}
+                            <tr>
+                                <td><strong>{{ item.name }}</strong> ({{ item.empcode }})</td>
+                                <td>
+                                    {% if item.pending_edit_request %}
+                                        <a href="{% url 'approve_edit_request' item.pending_edit_request.id %}" class="btn btn-sm btn-success">
+                                            <i class="bi bi-check-circle"></i> Approve
+                                        </a>
+                                        <a href="{% url 'reject_edit_request' item.pending_edit_request.id %}" class="btn btn-sm btn-danger">
+                                            <i class="bi bi-x-circle"></i> Reject
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted small">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="2" class="text-center text-muted">No records found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script id="user-lookup" type="application/json">
+    {
+    {% for u in users %}
+        {% if u.profile and u.profile.employee_code %}
+        "{{ u.profile.employee_code }}": "{{ u.id }}"{% if not forloop.last %},{% endif %}
+        {% endif %}
+    {% endfor %}
+    }
+    </script>
+    
+
+    <script>
+        function getUserId(empCode) {
+
+            const lookup = JSON.parse(
+                document.getElementById('user-lookup').textContent
+            );
+
+            empCode = String(empCode).trim();
+
+            empCode = empCode.padStart(3, '0');
+
+            return lookup[empCode];
+        }
+    
+        function triggerUnlock(empCode) {
+            const userId = getUserId(empCode);
+            
+            if (!userId) { 
+                alert("Error: No User Account found for Employee Code " + empCode + ". They may not have registered yet.");
+                return; 
+            }
+            
+            if(confirm("Unlock this record? The user will be able to edit their data again.")) {
+                window.location.href = `/action/${userId}/unlock_record/`;
+            }
+        }
+
+    </script>
+
+</div>
+{% endblock %}

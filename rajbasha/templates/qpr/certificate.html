@@ -1,0 +1,124 @@
+{% extends "master.html" %}
+{% load translate_tags %}
+
+{% block title %}Certificate{% endblock %}
+
+{% block extra_css %}
+<style>
+    .certificate {
+        max-width: 800px;
+        margin: 30px auto;
+        padding: 30px;
+        border: 1px solid #ccc;
+        background: white;
+        font-family: 'Nirmala UI', Arial, sans-serif;
+    }
+    .certificate h2, .certificate h3 {text-align:center}
+    .meta {margin-top:20px}
+    .meta-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        flex-wrap: wrap;
+    }
+    .meta-item {
+        display: inline-flex;
+        align-items: baseline;
+        white-space: nowrap;
+    }
+    .meta strong {display:inline-block; width:160px}
+    .signature {margin-top:40px}
+    .signature-stamp {text-align:right}
+    .signature-right {text-align:right}
+    .signature-date-place {text-align:left}
+    @media print {
+        body {background: #fff}
+        .no-print {display:none}
+        {% if manager_certificate %}
+        #topHeader {display:none !important}
+        footer {display:none !important}
+        .logo-img {display:none !important}
+        .certificate-note {display:none !important}
+
+        .meta-row {
+            flex-wrap: nowrap !important;
+            gap: 20px;
+            margin-bottom: 8px;
+        }
+        .meta-item {
+            white-space: nowrap;
+        }
+        .meta strong {
+            width: auto !important;
+            margin-right: 4px;
+       }
+        .print-gap {
+            display: block;
+            line-height: 2px;
+        }
+        .signature-stamp {
+           margin-top: 12px !important;
+           text-align:right !important;
+
+        }
+        .signature {
+             margin-top: 12px !important;
+        }
+        .signature p {
+               margin-bottom: 4px;
+      }
+        .signature strong {
+            display: inline !important;
+            width: auto !important;
+            margin-right: 4px;
+           }
+
+
+        {% endif %}
+
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="certificate">
+        <div class="text-end no-print"><button onclick="window.print()" class="btn btn-primary">{{ "Print"|t:current_lang }}</button></div>
+        <div class="print-heading">
+            <h2>{{ "Certificate"|t:current_lang }}</h2>
+        </div>
+
+        <div class="meta">
+            {% if manager_certificate %}
+                <p class="meta-row">
+                    <span class="meta-item"><strong>{{ "Office Code:"|t:current_lang }}</strong> {{ manager_certificate.office_code }}</span>
+                    <span class="meta-item"><strong>{{ "Financial Year:"|t:current_lang }}</strong> {{ manager_certificate.financial_year }}</span>
+                </p>
+            {% else %}
+                <p><strong>{{ "Office Code:"|t:current_lang }}</strong> {{ record.officeCode }}</p>
+                <p><strong>{{ "Financial Year:"|t:current_lang }}</strong> {{ record.year }}</p>
+            {% endif %}
+        </div>
+
+        <div style="margin-top:20px; text-align:justify;">
+            <p>
+            {{ "I   hereby certify that the information provided in the attached quarterly progress report (Part I/II) ending"|t:current_lang }} {% if manager_certificate %}{{ manager_certificate.quarter }}{% else %}{{ record.quarter }}{% endif %} {{ "has been prepared on the basis of available records and, to the best of my knowledge, is completely true and correct. I fully understand that the responsibility for proper compliance with the directives contained in the Official Language Act, 1963 and the Official Language Rules, 1976 rests with the undersigned. If, at any stage, the figures filled in the report are found to be false or exaggerated, this office shall be deprived of the Official Language Award for the next 03 years, and the matter may also be brought to the notice of my controlling office/ministry/headquarters for taking action for providing incorrect information."|t:current_lang }}
+            </p>
+            <br class="print-gap">
+            <p class="signature-stamp" style="margin-top:30px">({{ "Signature with stamp"|t:current_lang }})</p>
+            <br class="print-gap">
+            <div class="signature">
+              <div class = "signature-right">
+                <p><strong>{{ "Name of the chairperson"|t:current_lang }}:</strong> {% if manager_certificate %}{{ manager_certificate.chairperson_name|default:"______________________" }}{% else %}______________________{% endif %}</p>
+                <p><strong>{{ "Designation"|t:current_lang }}:</strong> {% if manager_certificate %}{{ manager_certificate.chairperson_designation|default:"______________________" }}{% else %}______________________{% endif %}</p>
+                <p><strong>{{ "Name of Min./Dep./Org."|t:current_lang }}:</strong> {% if manager_certificate %}{{ manager_certificate.organization_name|default:"______________________" }}{% else %}______________________{% endif %}</p>
+                <p><strong>{{ "Telephone/ Fax No."|t:current_lang }}:</strong> {% if manager_certificate %}{{ manager_certificate.phone_fax|default:"______________________" }}{% else %}______________________{% endif %}</p>
+                <p><strong>{{ "Email address"|t:current_lang }}:</strong> {% if manager_certificate %}{{ manager_certificate.email|default:"______________________" }}{% else %}______________________{% endif %}</p>
+                </div>
+                <p class = "signature-date-place"><strong>{{ "Date"|t:current_lang }} :</strong> {% if manager_certificate and manager_certificate.certificate_date %}{{ manager_certificate.certificate_date|date:"d/m/Y" }}{% else %}______________________{% endif %} &nbsp;&nbsp; <strong>{{ "Place"|t:current_lang }} :</strong> {% if manager_certificate %}{{ manager_certificate.place|default:"______________________" }}{% else %}______________________{% endif %}</p>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

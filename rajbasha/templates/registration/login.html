@@ -1,0 +1,190 @@
+{% extends 'master.html' %}
+{% load django_bootstrap5 %}
+{% load translate_tags %}
+
+{% block title %}{{ "Login - User Registration"|t:current_lang }}{% endblock %}
+
+{% block content %}
+<style>
+.card-body {
+    padding-bottom: 2rem !important; 
+}
+.card-body .d-grid {
+    gap: 1.5rem !important;
+}
+.card-body .border-top {
+    margin-top: 2rem !important;
+    padding-top: 1.5rem !important;
+}
+/* CSS for our perfect CAPTCHA layout */
+.captcha-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 15px;
+}
+.captcha-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.captcha-actions button {
+    border: 1px solid #ced4da;
+    background-color: #f8f9fa;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+}
+.captcha-actions button:hover {
+    background-color: #e2e6ea;
+}
+</style>
+
+<div class="row justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="col-md-5 col-lg-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h2 class="text-center fw-bold mb-4">{{ "Login"|t:current_lang }}</h2>
+                
+                {% if form.errors %}
+                    <div class="alert alert-danger">
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        {% endfor %}
+                        {% for error in form.non_field_errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    {% bootstrap_field form.username %}
+                    {% bootstrap_field form.password %}
+                  
+
+<!-- bba testing -->
+                    <button type="submit" class="btn btn-primary w-100 mb-3 shadow-sm mt-3">
+                        {{ "Sign In"|t:current_lang }}
+                    </button>
+                </form>
+
+                <div class="text-center mt-2">
+                    <p class="mb-1"><a href="{% url 'forgot_password' %}" class="text-secondary small">{{ "Forgot Password?"|t:current_lang }}</a></p>
+                    <p class="mb-0 small">{{ "Don't have an account?"|t:current_lang }} <a href="{% url 'signup' %}" class="fw-bold text-decoration-none">{{ "Create account"|t:current_lang }}</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const passwordInput = document.querySelector('input[type="password"]');
+    if (passwordInput) {
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'btn btn-outline-secondary';
+        toggleBtn.type = 'button';
+        toggleBtn.innerHTML = '<i class="bi bi-eye"></i>';
+        
+        const group = document.createElement('div');
+        group.className = 'input-group mb-3';
+        
+        passwordInput.parentNode.insertBefore(group, passwordInput);
+        group.appendChild(passwordInput);
+        group.appendChild(toggleBtn);
+        
+        toggleBtn.addEventListener('click', function() {
+            const isPassword = passwordInput.type === 'password';
+            passwordInput.type = isPassword ? 'text' : 'password';
+            this.innerHTML = isPassword ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+        });
+    }
+});
+
+// Idle Timer
+let idleTime = 0;
+const maxIdleTime = 15;
+const idleInterval = setInterval(timerIncrement, 60000); 
+document.addEventListener('mousemove', resetTimer);
+document.addEventListener('keypress', resetTimer);
+
+function resetTimer() { idleTime = 0; }
+function timerIncrement() {
+    idleTime = idleTime + 1;
+    if (idleTime > maxIdleTime) { window.location.reload(); }
+}
+
+// CAPTCHA UI & Logic
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Build the perfect UI layout dynamically
+    const captchaImg = document.querySelector('.captcha');
+    const textInput = document.getElementById('id_captcha_1');
+    
+    if (captchaImg && textInput) {
+        const btnContainer = document.createElement('div');
+        btnContainer.className = 'captcha-actions';
+        // Using standard HTML entities for icons so they don't corrupt
+        btnContainer.innerHTML = `
+            <button type="button" id="refresh-captcha" title="Refresh">&#x1f504;</button>
+            <button type="button" id="play-audio" title="Play Audio">&#x1f50a;</button>
+        `;
+        
+        const flexWrapper = document.createElement('div');
+        flexWrapper.className = 'captcha-container';
+        
+        captchaImg.parentNode.insertBefore(flexWrapper, captchaImg);
+        flexWrapper.appendChild(captchaImg);
+        flexWrapper.appendChild(btnContainer);
+        
+        textInput.classList.add('form-control');
+        textInput.placeholder = "Enter the characters shown";
+    }
+
+    // 2. Refresh Logic (with the missing security header)
+    const refreshBtn = document.getElementById('refresh-captcha');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // The secret sauce: adding X-Requested-With fixes the 404
+            fetch('/captcha/refresh/', {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Network response was not ok");
+                return res.json();
+            })
+            .then(data => {
+                document.querySelector('.captcha').src = data.image_url;
+                document.getElementById('id_captcha_0').value = data.key;
+            })
+            .catch(err => console.error("Refresh failed:", err));
+        });
+    }
+
+    // 3. Audio Logic
+    const audioBtn = document.getElementById('play-audio');
+    if (audioBtn) {
+        audioBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const captchaKey = document.getElementById('id_captcha_0').value;
+            const audioUrl = `/captcha/audio/${captchaKey}.wav`;
+            
+            const audio = new Audio(audioUrl);
+            audio.play().catch(error => {
+                console.error("Audio error:", error);
+                alert("Audio playback failed. Ensure volume is up and the file loaded.");
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

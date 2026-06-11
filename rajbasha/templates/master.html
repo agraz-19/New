@@ -1,0 +1,311 @@
+{% load static %}
+{% load django_bootstrap5 %}
+{% load translate_tags %}
+<!DOCTYPE html>
+<html lang="{{ current_lang|default:'en' }}" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ "Rajbhasha"|t:current_lang }}{% endblock %}</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" integrity="sha384-4LISF5TTJX/fLmGSxO53rV4miRxdg84mZsxmO8Rx5jGtp/LbrixFETvWa5a6sESd" crossorigin="anonymous">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body class="bg-light d-flex flex-column min-vh-100">
+
+<div class="sticky-top shadow-sm" style="z-index: 1050;">
+    
+    <header class="container-fluid py-3 bg-body border-bottom" id="topHeader">
+        <div class="row align-items-center px-4">
+            <div class="col-md-3 text-start">
+                <img src="{% static 'images/logos/leftLogo.png' %}" class="logo-img" height="60" alt="Department of Official Language Left Logo">
+                <img src="{% static 'images/logos/leftlogo.jpg' %}" class="logo-img" height="60" alt="Department of Official Language Right Logo">
+            </div>
+            <div class="col-md-6 text-center header-title-wrapper">
+                <div class="header-title d-flex justify-content-center align-items-center gap-3">
+                    <span class="hindi-title fw-bold text-body fs-5">
+                        {{ "राजभाषा विभाग"|t:current_lang }}
+                    </span>
+                    <span class="english-title text-body-secondary border-start border-secondary ps-3">
+                        DEPARTMENT OF OFFICIAL LANGUAGE
+                    </span>
+                    
+                </div>
+            </div>
+            <div class="col-md-3 text-end">
+                <img src="{% static 'images/logos/RightLogo.jpg' %}" class="logo-img" height="60" alt="NIC Logo">
+            </div>
+        </div>
+    </header>
+
+<nav class="navbar navbar-expand-lg navbar-dark navbar-custom sticky-top shadow-sm">
+    <div class="container-fluid px-4">
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="mainNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item"><a class="nav-link px-3" href="{% url 'home' %}">{{ "Home"|t:current_lang }}</a></li>
+                <li class="nav-item"><a class="nav-link px-3" href="{% url 'faqs' %}">{{ "FAQs"|t:current_lang }}</a></li>
+                <li class="nav-item"><a class="nav-link px-3" href="/about/">{{ "About us"|t:current_lang }}</a></li>
+                <li class="nav-item"><a class="nav-link px-3" href="/products/">{{ "Our IT products"|t:current_lang }}</a></li>
+                <li class="nav-item"><a class="nav-link px-3" href="/schemes/">{{ "Incentive Schemes"|t:current_lang }}</a></li>
+                <li class="nav-item"><a class="nav-link px-3" href="/programme/">{{ "Annual programme"|t:current_lang }}</a></li>
+                {% if request.user.is_authenticated %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle px-3" href="#" id="dashboardDropdown" role="button" data-bs-toggle="dropdown"data-bs-reference="parent" aria-expanded="false">
+                        {{ "Dashboard"|t:current_lang }}
+                    </a>
+                    
+                    <ul class="dropdown-menu shadow border-0 mt-2" aria-labelledby="dashboardDropdown">
+                        {% if 'admin' in user_roles %}                            <li>
+                                <a class="dropdown-item py-2" href="{% url 'qpr_admin_dashboard' %}">
+                                    <i class="bi bi-shield-lock me-2 text-danger"></i> {{ "Admin Dashboard"|t:current_lang }}
+                                </a>
+                            </li> {% endif %}
+                        {% if 'hod' in user_roles %}
+                            <li>
+                                <a class="dropdown-item py-2" href="{% url 'qpr_hod_dashboard' %}">
+                                    <i class="bi bi-briefcase me-2 text-warning"></i> {{ "HOD Dashboard"|t:current_lang }}
+                                </a>
+                            </li> 
+                        {% endif %}
+                        {% if 'manager' in user_roles %}
+                            <li>
+                                <a class="dropdown-item py-2" href="{% url 'manager_dashboard' %}">
+                                    <i class="bi bi-graph-up me-2 text-success"></i> {{ "Manager Dashboard"|t:current_lang }}
+                                </a>
+                            </li>  
+                            {% endif %}
+    
+    {% if 'user' in user_roles %}
+                        <li>
+                            <a class="dropdown-item py-2" href="{% url 'qpr_user_dashboard' %}">
+                                <i class="bi bi-person me-2 text-primary"></i> {{ "User Dashboard"|t:current_lang }}
+                            </a>
+                        </li>
+                        {% endif %}
+                     </ul>
+                </li>
+                {% endif %}
+                <li class="nav-item"><a class="nav-link px-3" href="{% url 'qpr_user_dashboard' %}">{{ "Quarterly Progress Report"|t:current_lang }}</a></li>
+            </ul>
+
+             <div class="d-flex align-items-center gap-3 ms-auto">
+
+                <a href="{% url 'toggle_language' %}" class="btn btn-sm btn-outline-light fw-bold">
+                    {% if current_lang == 'hi' %}English{% else %}हिंदी{% endif %}
+                </a>
+
+                <select id="fontSelector" class="form-select form-select-sm w-auto">
+
+                    <option value="medium">{{ "Medium"|t:current_lang }}</option>
+                    <option value="large">{{ "Large"|t:current_lang }}</option>
+                </select>
+
+                <button id="themeToggle" class="btn btn-outline-light btn-sm">
+                    <span id="themeIcon">🌑</span>
+                </button>
+
+                <div class="border-start ps-3">
+                    {% if user.is_authenticated %}
+                        <div class="d-flex align-items-center gap-2">
+                                    <a href="{% url 'dashboard' %}" class="text-white small fw-bold text-decoration-none">
+                                        {{ "Hi"|t:current_lang }},
+                                        {% comment %}Prefer Employee name: hname for Hindi, ename for English. Fallback to profile.name, full name, then username.{% endcomment %}
+                                        {% if user.profile %}
+                                            {% if current_lang == 'hi' %}
+                                                {% if user.profile.employee and user.profile.employee.hname %}
+                                                    {{ user.profile.employee.hname }}
+                                                {% elif user.profile.name %}
+                                                    {{ user.profile.name }}
+                                                {% elif user.get_full_name %}
+                                                    {{ user.get_full_name }}
+                                                {% else %}
+                                                    {{ user.username }}
+                                                {% endif %}
+                                            {% else %}
+                                                {% if user.profile.employee and user.profile.employee.ename %}
+                                                    {{ user.profile.employee.ename }}
+                                                {% elif user.profile.name %}
+                                                    {{ user.profile.name }}
+                                                {% elif user.get_full_name %}
+                                                    {{ user.get_full_name }}
+                                                {% else %}
+                                                    {{ user.username }}
+                                                {% endif %}
+                                            {% endif %}
+                                        {% else %}
+                                            {{ user.get_full_name|default:user.username }}
+                                        {% endif %}
+                                    </a>
+                            <form method="post" action="{% url 'logout' %}" class="m-0">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger btn-sm py-0">
+                                    {{ "Logout"|t:current_lang }}
+                                </button>
+                            </form>
+                        </div>
+                    {% else %}
+                        <a href="{% url 'login' %}" class="btn text-white p-0 fs-4">
+    <i class="bi bi-person-circle"></i>
+</a>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+    </div>
+</nav>
+
+<main class="container-fluid px-4 my-4 flex-grow-1">
+
+{% if messages %}
+<div class="position-fixed top-0 start-50 translate-middle-x mt-3 message-wrapper">
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-lg text-center auto-alert">
+            {{ message|t:current_lang }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% block content %}
+{% endblock %}
+</main>
+
+<footer class="bg-dark text-light py-3 fixed-bottom">    
+    <div class="container text-center small">
+        {% if user_office%}  {{user_office}}
+                    {% if user_state %}| {{ user_state }}
+                        
+                    {% endif %}
+                       {% endif %}
+    </div>
+</footer>
+<script src="{% static 'js/xlsx.full.min.js' %}"></script>
+<script src="{% static 'js/jspdf.umd.min.js' %}"></script>
+<script src="{% static 'js/jspdf.plugin.autotable.min.js' %}"></script>
+
+<script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+<div id="underDevToastContainer" style="position:fixed; top:80px; right:20px; z-index:2000;">
+    <div id="underDevToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3500">
+        <div class="toast-header">
+            <strong class="me-auto">Info</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">This page is currently under development.</div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        const selector = 'a[href="/about/"], a[href="/products/"], a[href="/schemes/"], a[href="/programme/"], a[href="/downloads/"]';
+        const links = document.querySelectorAll(selector);
+        const toastEl = document.getElementById('underDevToast');
+        let bsToast = null;
+        if (toastEl && typeof bootstrap !== 'undefined') {
+            bsToast = new bootstrap.Toast(toastEl);
+        }
+
+        function showUnderDev(msg){
+            try{
+                if (toastEl){
+                    toastEl.querySelector('.toast-body').textContent = msg || 'This page is currently under development.';
+                    if (bsToast) bsToast.show();
+                    else alert(msg || 'This page is currently under development.');
+                } else {
+                    alert(msg || 'This page is currently under development.');
+                }
+            }catch(e){ console.error('underDev toast error', e); }
+        }
+
+        links.forEach(a=>{
+            a.addEventListener('click', function(ev){
+                ev.preventDefault();
+                showUnderDev('This page is currently under development.');
+            });
+        });
+    })();
+</script>
+
+<script src="{% static 'js/script.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const customBtn = document.getElementById('myCustomBtn');
+    const customMenu = document.getElementById('myCustomMenu');
+    const dropdownContainer = document.getElementById('myCustomDropdown');
+
+    if (customBtn && customMenu) {
+        // 1. Toggle menu when the button is clicked
+        customBtn.addEventListener('click', (e) => {
+            e.preventDefault(); 
+            customMenu.classList.toggle('show-menu');
+        });
+
+        // 2. Close menu when clicking anywhere else on the page
+        document.addEventListener('click', (e) => {
+            if (!dropdownContainer.contains(e.target)) {
+                customMenu.classList.remove('show-menu');
+            }
+        });
+    }
+    
+    const htmlEl = document.documentElement;
+
+    const getSystemTheme = () => window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    
+    const applyTheme = (theme) => {
+        const activeTheme = theme === 'auto' ? getSystemTheme() : theme;
+        htmlEl.setAttribute('data-bs-theme', activeTheme);
+        localStorage.setItem('rajbhasha-theme', theme);
+        
+        document.querySelectorAll('.theme-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.theme === theme);
+        });
+    };
+
+    const getSystemTheme = () => window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    applyTheme(savedTheme);
+
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            applyTheme(e.currentTarget.dataset.theme);
+        });
+    });
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (localStorage.getItem('rajbhasha-theme') === 'auto') {
+            applyTheme('auto');
+        }
+    });
+
+
+    const applyFontSize = (size) => {
+        htmlEl.setAttribute('data-font-size', size);
+        localStorage.setItem('rajbhasha-font', size);
+        
+        document.querySelectorAll('.font-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.size === size);
+        });
+    };
+
+    const savedFont = localStorage.getItem('rajbhasha-font') || 'normal';
+    applyFontSize(savedFont);
+
+    document.querySelectorAll('.font-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            applyFontSize(e.currentTarget.dataset.size);
+        });
+    });
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,12 @@
+{% extends "master.html" %}
+{% load static %}
+
+{% block title %}{{ "Edit"|t:current_lang }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="alert alert-info">
+        {{ "Processing request..."|t:current_lang }}
+    </div>
+</div>
+{% endblock %}
