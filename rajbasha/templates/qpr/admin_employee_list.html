@@ -17,6 +17,29 @@
         margin-bottom: 20px;
     }
 
+    .filter-form {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+        gap: 1rem;
+        align-items: end;
+    }
+
+    .filter-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: nowrap;
+        align-items: center;
+    }
+
+    .filter-actions .btn {
+        white-space: nowrap;
+        min-height: 42px;
+    }
+
+    .filter-field {
+        min-width: 0;
+    }
+
     .hod-section {
         background: white;
         border-radius: 8px;
@@ -136,20 +159,20 @@
         </div>
 
         <div class="filter-section mb-4">
-            <form method="GET" class="row g-3">
-                <div class="col-md-2">
+            <form method="GET" class="filter-form">
+                <div class="filter-field">
                     <label for="employee_code" class="form-label">{{ "Emp Code"|t:current_lang }}:</label>
                     <input type="text" name="employee_code" id="employee_code" class="form-control"
                         placeholder="Search" value="{{ employee_code_filter }}">
                 </div>
 
-                <div class="col-md-2">
+                <div class="filter-field">
                     <label for="name" class="form-label">{{ "Name"|t:current_lang }}:</label>
                     <input type="text" name="name" id="name" class="form-control" placeholder="Search"
                         value="{{ name_filter }}">
                 </div>
 
-                <div class="col-md-4 d-flex align-items-end gap-2">
+                <div class="filter-actions">
                     <button type="submit" class="btn btn-custom">
                         <i class="fas fa-filter"></i> {{ "Filter"|t:current_lang }}
                     </button>

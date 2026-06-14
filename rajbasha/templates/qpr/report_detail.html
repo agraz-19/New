@@ -134,6 +134,8 @@
     <script>
         // Preloaded aggregated QPR for division mode
         window.INITIAL_QPR = JSON.parse(document.getElementById('initial-qpr-data').textContent);
+        if(typeof window.INITIAL_QPR == 'string'){
+            window.INITIAL_QPR = JSON.parse(window.INITIAL_QPR);} 
         window.IS_DIVISION = true;
     </script>
     {% else %}
