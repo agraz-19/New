@@ -183,7 +183,7 @@
                                         <div class="mb-3">
                                             <strong>{{ "Requested Changes"|t:current_lang }}:</strong>
                                             <div class="bg-light p-3 rounded">
-                                                <pre>{{ request.requested_data|safe }}</pre>
+                                                <pre>{{ request.requested_data }}</pre>
                                             </div>
                                         </div>
                                         {% if request.status != 'pending' %}

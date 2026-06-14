@@ -130,3 +130,14 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
         if "X-Powered-By" in response:
             del response["X-Powered-By"]
         return response
+        
+class StripUnnecessaryHeadersMiddleware(MiddlewareMixin):
+    """Remove or mask runtime diagnostic headers that may leak server information."""
+    def process_response(self, request, response):
+        # Remove Server header if present
+        if response.has_header('Server'):
+            try:
+                del response['Server']
+            except Exception:
+                pass
+        return response

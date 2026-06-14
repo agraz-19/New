@@ -58,6 +58,7 @@ MIDDLEWARE = [
   "django.middleware.security.SecurityMiddleware",
   "whitenoise.middleware.WhiteNoiseMiddleware",
   "website.middleware.SecurityHeadersMiddleware",
+  "website.middleware.StripUnnecessaryHeadersMiddleware",
   "django.contrib.sessions.middleware.SessionMiddleware",
   "django.middleware.common.CommonMiddleware",
   "django.middleware.csrf.CsrfViewMiddleware",
@@ -197,3 +198,26 @@ CAPTCHA_FLITE_PATH = os.path.join(BASE_DIR, "espeak_wrapper.sh")
 
 # ENCRYPTION
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+# Configure CSRF cookie to be session-only by not setting a max-age
+CSRF_COOKIE_AGE = None
+
+# SameSite policy for cookies
+SESSION_COOKIE_SAMESITE = 'Strict'
+CSRF_COOKIE_SAMESITE = 'Strict'
+LANGUAGE_COOKIE_SAMESITE = 'Strict'
+
+# Use cookie-backed messages and ensure its cookie uses SameSite=Strict
+MESSAGE_STORAGE = 'django.contrib.messages.storage.cookie.CookieStorage'
+try:
+    import django.contrib.messages.storage.cookie as message_cookie
+    # Enforce Strict SameSite, secure transport and HttpOnly on messages cookie
+    message_cookie.CookieStorage.cookie_kwargs = {
+        'samesite': 'Strict',
+        'secure': True,
+        'httponly': True,
+    }
+except Exception:
+    # If message storage import fails, fall back to default storage without raising at import time
+    pass

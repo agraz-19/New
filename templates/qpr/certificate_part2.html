@@ -657,7 +657,7 @@
 
     // --- Prefill logic ---
     document.addEventListener('DOMContentLoaded', function() {
-        var initial = {{ part2_json|default:'{}'|safe }};
+        var initial = JSON.parse('{{ part2_json|default:"{}"|escapejs }}');
         if (initial && Object.keys(initial).length > 0) {
             if (initial.is_notified_rule_10_4) document.querySelector('[name="is_notified_rule_10_4"]').value = 'true';
             else document.querySelector('[name="is_notified_rule_10_4"]').value = 'false';

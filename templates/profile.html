@@ -484,8 +484,8 @@
     const hasApprovedRequest = {{ has_approved_change_request|yesno:"true,false" }};
     const profileUpdated = {{ profile_updated|yesno:"true,false" }};
     const profileApprovalRequired = {{ profile_approval_required|yesno:"true,false" }};
-    const approvedProfileFields = {{ approved_profile_fields_json|default:"[]"|safe }};
-    const serverSuperAnnuationDate = "{{ super_annuation_date_value|default:'' }}";
+    const approvedProfileFields = JSON.parse("{{ approved_profile_fields_json|default:'[]'|escapejs }}");
+    const serverSuperAnnuationDate = "{{ super_annuation_date_value|default:''|escapejs }}";
     let isProfileLocked = false;
 
     function getSelectedText(selectElement) {

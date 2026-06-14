@@ -8,9 +8,11 @@ import random
 import re
 import subprocess
 import secrets
+import json as _json
 
 # Django / stdlib
 from django.conf import settings
+from django.utils.html import escape
 from django.db.models import Q
 from django.core.paginator import Paginator
 from django.contrib import messages
@@ -20,7 +22,7 @@ from django.contrib.auth.views import LoginView
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.http import FileResponse, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
+from django.http import FileResponse, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse, HttpResponseNotAllowed
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
@@ -1593,6 +1595,20 @@ class CustomLoginView(LoginView):
         #self.request.session['pre_login_user_id'] = user.id
         #self.request.session['login_target_email'] = target_email
         #self.request.session['is_login_otp'] = True
+
+        auth_login(self.request, user)
+        try:
+            # Rotate the session key; this is the recommended secure practice.
+            self.request.session.cycle_key()
+        except Exception:
+            # If cycle_key is not supported by the session backend, ensure a new session is created.
+            try:
+                if not getattr(self.request.session, 'session_key', None):
+                    self.request.session.create()
+            except Exception:
+                # best effort: ignore any session creation errors here
+                pass
+
         self.request.session['lang'] = current_lang
         #self.request.session['active_role'] = active_role
         self.request.session.modified = True
@@ -1730,6 +1746,12 @@ class LoginOTPView(View):
             messages.error(request, translate_text("Invalid request.", lang))
             return redirect('login_otp_step')
 class ForgotPasswordView(View):
+    def dispatch(self, request, *args, **kwargs):
+        # Strictly reject submission parameters sent inside a GET query string
+        if request.method == 'GET' and 'username' in request.GET:
+            from django.http import HttpResponseNotAllowed
+            return HttpResponseNotAllowed(['POST'], "Account recovery requests are strictly forbidden within a GET query string.")
+        return super().dispatch(request, *args, **kwargs)
     def get(self, request):
         return render(request, 'registration/forgot_password.html')
     def post(self, request):
@@ -2544,6 +2566,17 @@ def user_dashboard(request):
 def manager_qpr_view(request, id=None):
     if not user_has_role(request.user, 'manager'):
         return HttpResponseForbidden("Manager role required")
+
+    if request.method == 'GET':
+        forbidden_keys = {
+            's1_total_files', 's2_meetings_count', 's9_agenda_hindi', 'form_type',
+            's2_minutes', 's2_papers_total', 's2_papers_hindi', 's9_meetings_organized',
+            # Additional structural/layout keys forbidden in GET
+            'details', 'snapshot_edit_scope'
+        }
+        if any(k in request.GET for k in forbidden_keys):
+            from django.http import HttpResponseNotAllowed
+            return HttpResponseNotAllowed(['POST'], "Form structural parameters are forbidden inside a GET query string.")
 
     instance = None
     if id:
@@ -3910,8 +3943,20 @@ def report_list(request):
         'emp_code_filter': emp_code,
     }
 
-    quarter = (request.GET.get('quarter') or '').strip() or get_current_quarter()
-    year = (request.GET.get('year') or '').strip() or get_current_year_label()
+    # Extract raw values then strictly remove structural HTML chars to prevent XSS
+    raw_quarter = (request.GET.get('quarter') or '').strip() or get_current_quarter()
+    raw_year = (request.GET.get('year') or '').strip() or get_current_year_label()
+
+    # Strip only structural characters that can break out of HTML/JS contexts
+    for ch in ('<', '>', '"', "'"):
+        if ch in raw_quarter:
+            raw_quarter = raw_quarter.replace(ch, '')
+        if ch in raw_year:
+            raw_year = raw_year.replace(ch, '')
+
+    # Escape any remaining HTML before using in templates or queries
+    quarter = escape(raw_quarter)
+    year = escape(raw_year)
     try:
         q_start, q_end = _quarter_label_to_daterange(quarter, year)
     except Exception:
@@ -3960,8 +4005,7 @@ def report_list(request):
             records.append(d)
     except Exception:
         records = []
-    import json as _json
-    context['records_json'] = _json.dumps(records, default=str)
+    context['records_data'] = records
     try:
         default_region = ''
         try:
@@ -4449,9 +4493,9 @@ def report_list(request):
             'monthly': monthly,
             'quarterly': quarterly
         }
-        context['summary_json'] = _json.dumps(summary, default=str)
+        context['summary_data'] = summary
     except Exception:
-        context['summary_json'] = 'null'
+        context['summary_data'] = None
     return render(request, 'qpr/report_list.html', context)
 
 
@@ -6967,8 +7011,19 @@ def manager_report(request):
 
     manager_profile = getattr(request.user, 'userprofile', None) or getattr(request.user, 'profile', None)
     office_code = getattr(manager_profile, 'office_code', None)
-    current_quarter = (request.GET.get('quarter') or get_current_quarter()).strip()
-    current_year = (request.GET.get('year') or get_current_year_label()).strip()
+    raw_quarter = (request.GET.get('quarter') or get_current_quarter()).strip()
+    raw_year = (request.GET.get('year') or get_current_year_label()).strip()
+
+    # Remove dangerous structural characters and escape HTML
+    for ch in ('<', '>', '"', "'"):
+        if ch in raw_quarter:
+            raw_quarter = raw_quarter.replace(ch, '')
+        if ch in raw_year:
+            raw_year = raw_year.replace(ch, '')
+
+    current_quarter = escape(raw_quarter)
+    current_year = escape(raw_year)
+
     try:
         _quarter_label_to_daterange(current_quarter, current_year)
     except Exception:
@@ -7233,8 +7288,10 @@ def manager_state_qpr(request):
     hod_profiles = UserProfile.objects.filter(office_code=office_code, roles__name__iexact='hod').select_related('user')
     hod_user_ids = [getattr(h.user, 'id', None) for h in hod_profiles if getattr(h.user, 'id', None) is not None]
 
-    current_quarter = (request.GET.get('quarter') or get_current_quarter()).strip()
-    current_year = (request.GET.get('year') or get_current_year_label()).strip()
+    raw_quarter = (request.GET.get('quarter') or get_current_quarter()).strip()
+    raw_year = (request.GET.get('year') or get_current_year_label()).strip()
+    current_quarter = escape(raw_quarter)
+    current_year = escape(raw_year)
     try:
         _quarter_label_to_daterange(current_quarter, current_year)
     except Exception:
@@ -7398,13 +7455,8 @@ def manager_state_qpr(request):
     state_qpr['s12_2'] = ' | '.join([t for t in s12_2_texts if t]) if s12_2_texts else ''
     state_qpr['s12_3'] = ' | '.join([t for t in s12_3_texts if t]) if s12_3_texts else ''
 
-    try:
-        initial_qpr_json = json.dumps(state_qpr)
-    except Exception:
-        initial_qpr_json = None
-
     return render(request, 'qpr/report_detail.html', {
-        'initial_qpr_json': initial_qpr_json,
+        'initial_qpr_json': state_qpr,
     })
 
 
@@ -7799,9 +7851,14 @@ def _part2_related_context(certificate):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def certificate_part2_form(request, pk):
     lang = request.session.get('lang', 'en')
-   
+    # Harden: reject GET requests that attempt to include form submission parameters in the query string
+    if request.method == 'GET':
+        forbidden_keys = {'quarter', 'year', 'total_sub_offices', 'is_notified_rule_10_4'}
+        if any(k in request.GET for k in forbidden_keys):
+            return HttpResponseNotAllowed(['POST'], "Form submission parameters are not allowed in a GET query string.")
     try:
         certificate = QPRPartTwo.objects.get(pk=pk, user=request.user)
     except QPRPartTwo.DoesNotExist:
@@ -8155,7 +8212,7 @@ def certificate_part2_print(request, pk):
     }
     return render(request, 'qpr/certificate_part2_comprehensive_print.html', context)
 
-
+@require_POST
 @login_required
 def certificate_part2_delete(request, pk):
     lang = request.session.get('lang', 'en')
@@ -8170,10 +8227,9 @@ def certificate_part2_delete(request, pk):
         messages.error(request, 'Submitted certificates cannot be deleted.')
         return redirect('certificate_part2_list')
    
-    if request.method == 'POST':
-        certificate.delete()
-        messages.success(request, translate_text('Certificate deleted.', lang))
-        return redirect('certificate_part2_list')
+    # At this point request.method is guaranteed to be POST due to @require_POST
+    certificate.delete()
+    messages.success(request, translate_text('Certificate deleted.', lang))
    
     return redirect('certificate_part2_list')
     

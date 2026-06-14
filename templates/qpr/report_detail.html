@@ -130,9 +130,10 @@
 </div>
 
     {% if initial_qpr_json %}
+    {{ initial_qpr_json|json_script:"initial-qpr-data" }}
     <script>
         // Preloaded aggregated QPR for division mode
-        window.INITIAL_QPR = {{ initial_qpr_json|safe }};
+        window.INITIAL_QPR = JSON.parse(document.getElementById('initial-qpr-data').textContent);
         window.IS_DIVISION = true;
     </script>
     {% else %}
@@ -141,7 +142,7 @@
     
     {% if record_json %}
     <script>
-        try { window.PRELOADED_RECORD = {{ record_json|safe }}; } catch(e) { window.PRELOADED_RECORD = null; }
+        try { window.PRELOADED_RECORD = JSON.parse('{{ record_json|escapejs }}'); } catch(e) { window.PRELOADED_RECORD = null; }
     </script>
     {% else %}
     <script>window.PRELOADED_RECORD = null;</script>
@@ -160,9 +161,19 @@ if (backTo === "manager_report") {
     document.getElementById("backBtn").href = "/manager/report/";
 }
 
+function escapeHtml(str ) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+}
+
 function v(val) {
     if (val === null || val === undefined || val === '' || val === 'None') return null;
-    return val;
+    return escapeHtml(val);;
 }
 function cell(val) {
     const d = v(val);
@@ -227,10 +238,10 @@ async function loadReport() {
                 let src = 'rec';
                 
                 if (period !== 'daily' && r.cumulative_text && r.cumulative_text[period]) {
-                    textVal = r.cumulative_text[period][textKey] || '';
+                    textVal = escapeHtml(r.cumulative_text[period][textKey] || '');
                     src = 'cum';
                 } else {
-                    textVal = (typeof r[textKey] !== 'undefined' && r[textKey] !== null) ? r[textKey] : '';
+                    textVal = (typeof r[textKey] !== 'undefined' && r[textKey] !== null) ? escapeHtml(r[textKey]): '';
                     src = 'rec';
                 }
                 
@@ -240,7 +251,7 @@ async function loadReport() {
                 return `<div>${textVal}</div><div style="font-size:8px;color:#999">(${src})</div>`;
             } catch (e) { 
                 const val = r[textKey];
-                return (val && val.trim()) ? val : '<span style="color:#bbb">–</span>';
+                return (val && val.trim()) ? escapeHtml(val) : '<span style="color:#bbb">–</span>';
             }
         }
 

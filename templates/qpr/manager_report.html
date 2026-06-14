@@ -259,7 +259,7 @@
     </form>
 
     <div class="text-muted small mb-3">
-        {{ "Showing manager report for"|t:current_lang }} <strong>{{ quarter_filter }}</strong>, {{ "financial year"|t:current_lang }} <strong>{{ year_filter }}</strong>.
+        {{ "Showing manager report for"|t:current_lang }} <strong>{{ quarter_filter|escape }}</strong>, {{ "financial year"|t:current_lang }} <strong>{{ year_filter|escape }}</strong>.
     </div>
 
     <!-- Manager groups -->
@@ -299,11 +299,11 @@
                                     {% endif %}
                                 </td>
                                 <td>{{ emp.ip }}</td>
-                                <td><a class="action-link" href="{% url 'qpr_report_list' %}?emp_code={{ emp.empcode }}&{{ report_query }}">{{ "View"|t:current_lang }}</a></td>
+                                <td><a class="action-link" href="{% url 'qpr_report_list' %}?emp_code={{ emp.empcode|urlencode }}&{{ report_query|escape }}">{{ "View"|t:current_lang }}</a></td>
                                 {% if forloop.first %}
                                     <td rowspan="{{ group.employees|length }}">
                                         {% if group.division_frozen and group.division_qpr_id %}
-                                            <a class="action-link" href="{% url 'qpr_report_detail' group.division_qpr_id %}?division=1&{{ report_query }}">{{ "View"|t:current_lang }}</a>
+                                            <a class="action-link" href="{% url 'qpr_report_detail' group.division_qpr_id %}?division=1&{{ report_query|escape }}">{{ "View"|t:current_lang }}</a>
                                         {% else %}
                                             <span class="text-muted">{{ "Not Frozen"|t:current_lang }}</span>
                                         {% endif %}
@@ -319,14 +319,14 @@
                             <td class="text-muted">-</td>
                             <td>
                                 {% if group.employees and group.employees|length > 0 %}
-                                    <a class="action-link" href="{% url 'qpr_report_list' %}?emp_code={{ group.employees.0.empcode }}&{{ report_query }}">View</a>
+                                    <a class="action-link" href="{% url 'qpr_report_list' %}?emp_code={{ group.employees.0.empcode|urlencode }}&{{ report_query|escape }}">View</a>
                                 {% else %}
-                                    <a class="action-link" href="{% url 'qpr_report_list' %}?{{ report_query }}">View</a>
+                                    <a class="action-link" href="{% url 'qpr_report_list' %}?{{ report_query|escape }}">View</a>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if group.division_frozen and group.division_qpr_id %}
-                                    <a class="action-link" href="{% url 'qpr_report_detail' group.division_qpr_id %}?division=1&{{ report_query }}">View</a>
+                                    <a class="action-link" href="{% url 'qpr_report_detail' group.division_qpr_id %}?division=1&{{ report_query|escape }}">View</a>
                                 {% else %}
                                     <span class="text-muted">Not Frozen</span>
                                 {% endif %}
@@ -346,10 +346,10 @@
     <div style="margin-top:20px;">
         <h5>{{ "State QPR (Aggregated frozen division snapshots)"|t:current_lang }}</h5>
         <div style="display:flex; gap:12px; align-items:center;">
-            <div>{{ "Quarter:"|t:current_lang }} {{ state_qpr.quarter }} — {{ "Year:"|t:current_lang }} {{ state_qpr.year }}</div>
+            <div>{{ "Quarter:"|t:current_lang }} {{ state_qpr.quarter|escape }} — {{ "Year:"|t:current_lang }} {{ state_qpr.year|escape }}</div>
             <div>{{ "Frozen HODs:"|t:current_lang }} {{ frozen_count }} / {{ total_hods }}</div>
             <div>
-                <a href="{% url 'manager_state_qpr' %}?{{ report_query }}" class="btn btn-sm btn-primary">{{ "View State QPR"|t:current_lang }}</a>
+                <a href="{% url 'manager_state_qpr' %}?{{ report_query|escape }}" class="btn btn-sm btn-primary">{{ "View State QPR"|t:current_lang }}</a>
             </div>
         </div>
     </div>
