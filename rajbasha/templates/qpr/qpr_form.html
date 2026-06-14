@@ -425,15 +425,15 @@
 
 <script>
  // Expose server-provided data for the external script to use.
- window.QPR_USED_QUARTERS = {{ used_quarters_json|default:'[]'|safe }};
+ window.QPR_USED_QUARTERS = JSON.parse("{{ used_quarters_json|default:'[]'|escapejs }}");
  window.QPR_SERVER_QUARTER = "{{ current_quarter|default:''|escapejs }}";
  window.QPR_SERVER_YEAR = "{{ current_year|default:''|escapejs }}";
 </script>
 {% if availability_json %}
 <script>
- try { window.AVAILABILITY = {{ availability_json|safe }}; } catch(e) { window.AVAILABILITY = null; }
- try { window.PRELOADED_AVAILABILITY = {{ availability_json|safe }}; } catch(e) { window.PRELOADED_AVAILABILITY = null; }
- try { document.getElementById('selectedDate').value = '{{ selected_date }}'; } catch(e) {}
+ try { window.AVAILABILITY = JSON.parse("{{ availability_json|escapejs }}"); } catch(e) { window.AVAILABILITY = null; }
+ try { window.PRELOADED_AVAILABILITY = JSON.parse("{{ availability_json|escapejs }}"); } catch(e) { window.PRELOADED_AVAILABILITY = null; }
+ try { document.getElementById('selectedDate').value = '{{ selected_date|escapejs }}'; } catch(e) {}
 </script>
 {% endif %}
 {% if qpr_popup_error %}
@@ -445,7 +445,7 @@
 {% endif %}
 <script>
  // Preload user's records for client-side editing (used by static/js/script.js)
- try { window.PRELOADED_RECORDS = {{ records_json|default:'[]'|safe }}; } catch(e) { window.PRELOADED_RECORDS = []; }
+ try { window.PRELOADED_RECORDS = JSON.parse("{{ records_json|default:'[]'|escapejs }}"); } catch(e) { window.PRELOADED_RECORDS = []; }
 </script>
 <script>
  (function(){
@@ -594,13 +594,13 @@
  
  // Load missing days data into global variable for form use
  try {
- const missingDaysDataJson = `{{ missing_days_json|safe }}`;
- if (missingDaysDataJson && missingDaysDataJson.trim()) {
+ const missingDaysDataJson = `{{ missing_days_json|default:"{}"|escapejs }}`;
+ if (missingDaysDataJson && missingDaysDataJson.trim()!== "{}") {
  window.MISSING_DAYS_DATA = JSON.parse(missingDaysDataJson);
  console.log('[DEBUG] Loaded missing days data:', window.MISSING_DAYS_DATA);
  }
- const missingDaysSourceJson = `{{ missing_days_source_json|safe }}`;
- if (missingDaysSourceJson && missingDaysSourceJson.trim()) {
+ const missingDaysSourceJson = `{{ missing_days_source_json|default:"{}"|escapejs }}`;
+ if (missingDaysSourceJson && missingDaysSourceJson.trim()!== "{}") {
  window.QPR_MISSING_DAYS_SOURCE = JSON.parse(missingDaysSourceJson);
  }
  } catch (e) {

@@ -161,7 +161,7 @@ class CustomLoginForm(AuthenticationForm):
             # Apply translated labels as placeholders
             field.widget.attrs['placeholder'] = field.label
 
-        self.fields['password'].widget.attrs['autocomplete'] = 'current-password'
+        self.fields['password'].widget.attrs['autocomplete'] = 'off'
 
     def clean(self):
         """Authenticate using ONLY employee code"""

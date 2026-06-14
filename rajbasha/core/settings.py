@@ -3,9 +3,9 @@ import os
 from decouple import config
 from dotenv import load_dotenv
 
-load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 
 def env_bool(name, default=False):
@@ -20,11 +20,20 @@ DEBUG = False
 # Set DJANGO_USE_HTTPS_SECURITY=true only when running behind HTTPS.
 USE_HTTPS_SECURITY = env_bool("DJANGO_USE_HTTPS_SECURITY", False)
 
+#SECURE_SSL_REDIRECT = USE_HTTPS_SECURITY
 SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", "31536000")) if USE_HTTPS_SECURITY else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = USE_HTTPS_SECURITY
 SECURE_HSTS_PRELOAD = USE_HTTPS_SECURITY
 
 ALLOWED_HOSTS = ["10.160.19.20", "192.168.56.101", "127.0.0.1", "localhost","192.168.1.8"]
+
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+  origin.strip()
+  for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+  if origin.strip()
+]
+CORS_ALLOW_CREDENTIALS = False
 
 
 # APPLICATIONS
@@ -49,6 +58,7 @@ MIDDLEWARE = [
   "django.middleware.security.SecurityMiddleware",
   "whitenoise.middleware.WhiteNoiseMiddleware",
   "website.middleware.SecurityHeadersMiddleware",
+  "website.middleware.StripUnnecessaryHeadersMiddleware",
   "django.contrib.sessions.middleware.SessionMiddleware",
   "django.middleware.common.CommonMiddleware",
   "django.middleware.csrf.CsrfViewMiddleware",
@@ -152,8 +162,12 @@ CSRF_COOKIE_SECURE = USE_HTTPS_SECURITY
 SESSION_COOKIE_SECURE = USE_HTTPS_SECURITY
 
 # Keep False if your JS reads csrftoken from cookie.
-CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_AGE = None
+CSRF_COOKIE_SAMESITE = "Strict"
 SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Strict"
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -184,3 +198,26 @@ CAPTCHA_FLITE_PATH = os.path.join(BASE_DIR, "espeak_wrapper.sh")
 
 # ENCRYPTION
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+# Configure CSRF cookie to be session-only by not setting a max-age
+CSRF_COOKIE_AGE = None
+
+# SameSite policy for cookies
+SESSION_COOKIE_SAMESITE = 'Strict'
+CSRF_COOKIE_SAMESITE = 'Strict'
+LANGUAGE_COOKIE_SAMESITE = 'Strict'
+
+# Use cookie-backed messages and ensure its cookie uses SameSite=Strict
+MESSAGE_STORAGE = 'django.contrib.messages.storage.cookie.CookieStorage'
+try:
+    import django.contrib.messages.storage.cookie as message_cookie
+    # Enforce Strict SameSite, secure transport and HttpOnly on messages cookie
+    message_cookie.CookieStorage.cookie_kwargs = {
+        'samesite': 'Strict',
+        'secure': True,
+        'httponly': True,
+    }
+except Exception:
+    # If message storage import fails, fall back to default storage without raising at import time
+    pass

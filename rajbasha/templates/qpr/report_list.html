@@ -25,7 +25,7 @@
 
         <form method="get" class="row g-2 align-items-end mb-3">
             {% if emp_code_filter %}
-            <input type="hidden" name="emp_code" value="{{ emp_code_filter }}">
+            <input type="hidden" name="emp_code" value="{{ emp_code_filter|escape }}">
             {% endif %}
             <div class="col-md-4">
                 <label for="quarterFilter" class="form-label mb-1">Quarter</label>
@@ -50,7 +50,7 @@
         </form>
 
         <div class="text-muted small mb-3">
-            Showing progress for <strong>{{ quarter_filter }}</strong>, financial year <strong>{{ year_filter }}</strong>.
+            Showing progress for <strong>{{ quarter_filter|escape }}</strong>, financial year <strong>{{ year_filter|escape }}</strong>.
         </div>
 
         <!-- View Frequency selector removed per UI request -->
@@ -117,13 +117,17 @@
 
     </div>
 
+    {# Safely emit JSON data into inert script elements using Django's json_script filter #}
+    {{ records_data|json_script:"records-data-container" }}
+    {{ summary_data|json_script:"summary-data-container" }}
+
 <script>
     // Server-provided records (preloaded) — avoids client-side API fetch.
-    const PRELOADED_RECORDS = {{ records_json|default:'[]'|safe }};
-    const PRELOADED_SUMMARY = {{ summary_json|default:'null'|safe }};
+    const PRELOADED_RECORDS = JSON.parse(document.getElementById('records-data-container').textContent || '[]');
+    const PRELOADED_SUMMARY = JSON.parse(document.getElementById('summary-data-container').textContent || 'null');
     const IS_HOD_VIEW = "{{ is_hod_view|yesno:'true,false' }}" === "true";
-    const TARGET_USER_ID = "{{ target_user_id|default:'' }}";
-    const SERVER_TODAY = "{{ today_iso|default:'' }}";
+    const TARGET_USER_ID = "{{ target_user_id|default:''|escapejs }}";
+    const SERVER_TODAY = "{{ today_iso|default:''|escapejs }}";
     function buildViewUrl(id, extraQuery) {
         const base = `/qpr/reports/${id}/`;
         if (!TARGET_USER_ID) return extraQuery ? base + extraQuery : base;

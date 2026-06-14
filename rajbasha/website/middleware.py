@@ -108,4 +108,36 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
         # Preserve any stronger upstream setting while preventing an explicit disable state.
         response.setdefault("X-XSS-Protection", "1; mode=block")
         response.setdefault("X-Content-Type-Options", "nosniff")
+        response.setdefault("Cross-Origin-Embedder-Policy", "require-corp")
+        response.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+        response.setdefault(
+            "Content-Security-Policy",
+            "; ".join([
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline'",
+                "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'",
+                "font-src 'self' https://cdn.jsdelivr.net data:",
+                "img-src 'self' data: blob:",
+                "connect-src 'self'",
+                "object-src 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
+                "frame-ancestors 'self'",
+            ]),
+        )
+        if "Server" in response:
+            del response["Server"]
+        if "X-Powered-By" in response:
+            del response["X-Powered-By"]
+        return response
+        
+class StripUnnecessaryHeadersMiddleware(MiddlewareMixin):
+    """Remove or mask runtime diagnostic headers that may leak server information."""
+    def process_response(self, request, response):
+        # Remove Server header if present
+        if response.has_header('Server'):
+            try:
+                del response['Server']
+            except Exception:
+                pass
         return response
