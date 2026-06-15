@@ -1544,7 +1544,6 @@ def error_500(request): return universal_error_view(request, None, 500)
 
 @login_required
 def dashboard(request):
-    """Central router: Pushes user to their highest privilege dashboard by default"""
     
     # Get the list of roles we set up previously
     from .views import user_get_all_roles 
@@ -1557,6 +1556,8 @@ def dashboard(request):
         return redirect('qpr_hod_dashboard')
     elif 'manager' in roles:
         return redirect('manager_dashboard')
+    elif 'backup_user' in roles:               
+        return redirect('backup_user_dashboard')
     else:
         return redirect('qpr_user_dashboard')
 
@@ -2017,9 +2018,6 @@ def privacy_audit_report(request):
 
 @login_required
 def download_db_backup(request):
-    if request.session.get('active_role') != 'backup_user':
-        messages.error(request, "Unauthorized access.")
-        return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
     try:
         host = os.getenv("DB_HOST")
         db = os.getenv("DB_NAME")
@@ -8296,4 +8294,12 @@ def process_user_approval(request, profile_id, action):
         #send_system_email(target_profile.user, request, 'rejected_alert')
         messages.warning(request, f"User {target_profile.employee_code} rejected.")
 
-    return redirect(redirect_name)
+    return redirect(redirect_name) 
+@login_required
+def backup_user_dashboard(request):
+    context = {
+        'role': 'backup_user', 
+        'current_lang': request.session.get('lang', 'en'),
+        'user': request.user
+    }
+    return render(request, 'dashboard.html', context)

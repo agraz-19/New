@@ -111,7 +111,7 @@ urlpatterns = [
     path('qpr/records/delete/<int:id>/', views.qpr_delete_record, name='qpr_delete_record'),
     path('qpr/api/request-edit/', views.request_edit_api, name='request_edit_api'),
 
-
+    path('backup-dashboard/', views.backup_user_dashboard, name='backup_user_dashboard'),
     path('download-backup/', views.download_db_backup, name='download_db_backup'),
     path('perform/archive/<int:user_id>/', views.archive_user, name='archive_user'),
     path('perform/unarchive/<int:archive_id>/', views.unarchive_user, name='unarchive_user'),
