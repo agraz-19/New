@@ -24,7 +24,7 @@ SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", "31536000")) i
 SECURE_HSTS_INCLUDE_SUBDOMAINS = USE_HTTPS_SECURITY
 SECURE_HSTS_PRELOAD = USE_HTTPS_SECURITY
 
-ALLOWED_HOSTS = ["10.160.19.20", "192.168.56.101", "127.0.0.1", "localhost","192.168.1.8"]
+ALLOWED_HOSTS = ["10.162.3.76", "10.160.19.20", "192.168.56.101", "127.0.0.1", "localhost","192.168.1.8"]
 
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
@@ -55,8 +55,11 @@ INSTALLED_APPS = [
 # MIDDLEWARE
 MIDDLEWARE = [
   "django.middleware.security.SecurityMiddleware",
-  "whitenoise.middleware.WhiteNoiseMiddleware",
+  "website.middleware.RejectQueryStringParametersMiddleware",
+  "website.middleware.PathDisclosurePreventionMiddleware",
   "website.middleware.SecurityHeadersMiddleware",
+  "website.middleware.EnforceCookieSameSiteMiddleware",
+  "whitenoise.middleware.WhiteNoiseMiddleware",
   "django.contrib.sessions.middleware.SessionMiddleware",
   "django.middleware.common.CommonMiddleware",
   "django.middleware.csrf.CsrfViewMiddleware",
@@ -159,14 +162,43 @@ CSRF_COOKIE_SECURE = USE_HTTPS_SECURITY
 SESSION_COOKIE_SECURE = USE_HTTPS_SECURITY
 
 CSRF_COOKIE_HTTPONLY = True
-CSRF_COOKIE_AGE = None
-CSRF_COOKIE_SAMESITE = "Strict"
+CSRF_COOKIE_AGE = None  # Session cookie - expires when browser closes
+CSRF_COOKIE_SAMESITE = "Strict"  # Prevent cross-site cookie access
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = "Strict"
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_COOKIE_SAMESITE = "Strict"  # Prevent cross-site cookie access
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Prevent persistent cookies on disk
+SESSION_COOKIE_AGE = None  # Session-based cookie, expires at browser close
+
+# Secure language cookie (Django i18n)
+LANGUAGE_COOKIE_SECURE = USE_HTTPS_SECURITY
+LANGUAGE_COOKIE_HTTPONLY = True
+LANGUAGE_COOKIE_SAMESITE = "Strict"
+LANGUAGE_COOKIE_AGE = 31536000  # 1 year for language preference
 
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Prevent information disclosure through HTTP response headers
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
+# X-Frame-Options: Prevent clickjacking attacks
+X_FRAME_OPTIONS = "SAMEORIGIN"
+
+# Additional security settings
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
+SECURE_CROSS_ORIGIN_EMBEDDER_POLICY = "require-corp"
+SECURE_CROSS_ORIGIN_RESOURCE_POLICY = "same-origin"
+
+PERMISSIONS_POLICY = {
+    "accelerometer": [],
+    "camera": [],
+    "geolocation": [],
+    "gyroscope": [],
+    "magnetometer": [],
+    "microphone": [],
+    "payment": [],
+    "usb": [],
+}
 
 
 # CACHE

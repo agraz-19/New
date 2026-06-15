@@ -2550,6 +2550,10 @@ def manager_qpr_view(request, id=None):
         instance = get_object_or_404(ManagerQPR, pk=id)
 
     if request.method == 'POST':
+        querystring_error = reject_querystring_on_post(request)
+        if querystring_error:
+            return querystring_error
+
         if instance:
             form = ManagerQPRForm(request.POST, instance=instance)
         else:
