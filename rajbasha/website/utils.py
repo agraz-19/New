@@ -109,14 +109,14 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
     translated_role = translate_text(raw_role, lang)
     configs = {
         'otp': {
-            'subject': translate_text("Password Reset OTP", lang),
+            'subject': translate_text("One-Time Password (OTP)", lang),
             'headline': translate_text("Verify Your Identity", lang),
             'body': translate_text("Your One-Time Password (OTP) is below. It is valid for 5 minutes.", lang),
             'details': {translate_text('OTP Code', lang): extra_context.get('otp')},
             'is_alert': True
         },
         'welcome': {
-            'subject': "राजभाषा में आपका स्वागत है! | Welcome to Rajya Bhaasha!",
+            'subject': "चेतावनी | Alert",
             'headline': "आपका स्वागत है! | Welcome Aboard!",
             'body': "आपका खाता सफलतापूर्वक बना लिया गया है। आपका डेटा अब एन्क्रिप्टेड और DPDP के अनुकूल है।\n\nYour account has been created successfully. Your data is now encrypted and DPDP compliant.",
             'action_text': "डैशबोर्ड पर जाएं | Go to Dashboard",
@@ -124,7 +124,7 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
             'skip_translation': True 
         },
         'login': {
-            'subject': "Security Alert: New Login",
+            'subject': "Alert",
             'headline': "New Login Detected",
             'body': "We noticed a new login to your account. If this was you, you can ignore this.",
             'details': {
@@ -135,28 +135,28 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
             'is_alert': True
         },
         'export': {
-            'subject': "Data Export Initiated",
+            'subject': "Alert",
             'headline': "Data Export Alert",
             'body': "A copy of your personal data has been exported from your dashboard.",
             'details': {'Date': timezone.localtime().strftime('%Y-%m-%d')},
             'is_alert': True
         },
         'update': {
-            'subject': "Account Updated",
+            'subject': "Alert",
             'headline': "Profile Updated",
             'body': "Your account information has been modified.",
             'action_text': "Check Profile",
             'action_url': f"{domain}{reverse('dashboard')}"
         },
         'reminder': {
-            'subject': "Action Required: Complete Your Profile/QPR",
+            'subject': "Alert",
             'headline': "Pending Task Reminder",
             'body': "This is a reminder from your HOD. Please log in to complete your Profile and submit your Quarterly Progress Report (QPR) at the earliest.",
             'action_text': "Login Now",
             'action_url': f"{domain}{reverse('login')}"
         },
         'rejected_alert': {
-            'subject': "Registration Status: Action Required",
+            'subject': "Alert",
             'headline': "Registration Rejected",
             'body': "Your recent registration request was rejected by your HOD. Please log in to update your personal details and employee information, or contact your administrator.",
             'action_text': "Update Profile",
@@ -164,7 +164,7 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
             'is_alert': True
         },
         'accepted_alert': {
-            'subject': "Registration Status: Action Required",
+            'subject': "Alert",
             'headline': "Registration Accepted",
             'body': "Your recent registration request has been accepted by your HOD. Please log in to update your personal details and employee information.",
             'action_text': "Update Profile",
@@ -172,34 +172,34 @@ def send_system_email(user, request, email_type, extra_context=None, target_emai
             'is_alert': True
         },
         'manager_alert': {
-            'subject': "Action Required: User Edit Request",
+            'subject': "Alert",
             'headline': "Edit Permission Requested",
             'body': extra_context.get('body_text', "A user has requested to edit their profile."),
             'action_text': "Review Request",
             'action_url': f"{domain}{reverse('manager_dashboard')}"
         },
         'login_otp': {
-            'subject': "Your Login OTP | आपका लॉगिन ओटीपी",
+            'subject': "One-Time Password (OTP)| एक बारी पासवर्ड (ओटीपी)",
             'headline': "Login Verification | लॉगिन सत्यापन",
             'body': "Use the OTP below to securely log into your account. Do not share this code with anyone.\n\nअपने खाते में सुरक्षित रूप से लॉगिन करने के लिए नीचे दिए गए ओटीपी का उपयोग करें। इस कोड को किसी के साथ साझा न करें।",
             'details': {'OTP | ओटीपी': extra_context.get('otp')},
             'skip_translation': True
         },
         'reset_otp': {
-            'subject': "Password Reset OTP | पासवर्ड रीसेट ओटीपी",
+            'subject': "One-Time Password (OTP)| एक बारी पासवर्ड (ओटीपी)",
             'headline': "Reset Your Password | अपना पासवर्ड रीसेट करें",
             'body': "Use the OTP below to reset your password. If you did not request this, please ignore this email.\n\nअपना पासवर्ड रीसेट करने के लिए नीचे दिए गए ओटीपी का उपयोग करें। यदि आपने इसका अनुरोध नहीं किया है, तो कृपया इस ईमेल को अनदेखा करें।",
             'details': {'OTP | ओटीपी': extra_context.get('otp')},
             'skip_translation': True
         },
         'reset': {
-            'subject': "Password Changed",
+            'subject': "Alert",
             'headline': "Password Updated",
             'body': "Your password was successfully changed. If you did not do this, contact support immediately.",
             'is_alert': True
         },
         'freeze': {
-    'subject': "Security Alert: Your Account has been Frozen",
+    'subject': "Alert",
     'headline': "Account Access Restricted",
     'body': "For your security, your profile has been frozen. You will need manager approval for future modifications.",
     'details': {

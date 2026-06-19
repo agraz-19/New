@@ -1544,7 +1544,6 @@ def error_500(request): return universal_error_view(request, None, 500)
 
 @login_required
 def dashboard(request):
-    """Central router: Pushes user to their highest privilege dashboard by default"""
     
     # Get the list of roles we set up previously
     from .views import user_get_all_roles 
@@ -1557,6 +1556,8 @@ def dashboard(request):
         return redirect('qpr_hod_dashboard')
     elif 'manager' in roles:
         return redirect('manager_dashboard')
+    elif 'backup_user' in roles:               
+        return redirect('backup_user_dashboard')
     else:
         return redirect('qpr_user_dashboard')
 
@@ -2017,9 +2018,6 @@ def privacy_audit_report(request):
 
 @login_required
 def download_db_backup(request):
-    if request.session.get('active_role') != 'backup_user':
-        messages.error(request, "Unauthorized access.")
-        return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
     try:
         host = os.getenv("DB_HOST")
         db = os.getenv("DB_NAME")
@@ -2165,6 +2163,15 @@ def profile_view(request):
         ]
 
     is_approved = profile and profile.approval_status == "approved"
+
+    if request.method == 'GET':
+            forbidden_form_params = {
+                'csrfmiddlewaretoken', 'empcode', 'username', 'email', 'phone', 
+                'alternate_email', 'hname', 'ename', 'designation', 'super_annuation_date'
+            }
+            # Only reject if the GET request contains actual hidden form payload fields
+            if any(param in request.GET for param in forbidden_form_params):
+                return HttpResponseBadRequest("Bad Request: Form parameters are not allowed in the query string.")
 
     if request.method == 'POST':
         querystring_error = reject_querystring_on_post(request)
@@ -2583,6 +2590,7 @@ def manager_qpr_view(request, id=None):
         instance = get_object_or_404(ManagerQPR, pk=id)
 
     if request.method == 'POST':
+        
         if instance:
             form = ManagerQPRForm(request.POST, instance=instance)
         else:
@@ -2807,7 +2815,14 @@ def admin_qpr_view(request, id=None):
     instance = None
     if id:
         instance = get_object_or_404(AdminQPR, pk=id)
-
+    if request.method == 'GET':
+        forbidden_qpr_params = {
+            'csrfmiddlewaretoken', 'form_type', 'quarter', 'financial_year', 
+            'a_s2_meetings_count', 'a_s2_hindi_minutes', 'a_s3_total_documents',
+            'a_s4_total_letters', 'a_s5_region_a_english_letters', 'role_form'
+        }
+        if any(param in request.GET for param in forbidden_qpr_params):
+            return HttpResponseBadRequest("Bad Request: Form parameters are not allowed in the query string.")
     if request.method == 'POST':
         querystring_error = reject_querystring_on_post(request)
         if querystring_error:
@@ -3162,6 +3177,11 @@ def manager_employee_master_add(request):
     if not _can_manage_employee_master(request.user):
         return redirect('/')
 
+    if request.method == 'GET':
+        form_indicators = ['empcode', 'name', 'mobile', 'designation', 'state']
+        if any(param in request.GET for param in form_indicators):
+            return HttpResponseBadRequest("Bad Request: Form data parameters cannot be accepted via query string link.")    
+
     if request.method == 'POST':
         querystring_error = reject_querystring_on_post(request)
         if querystring_error:
@@ -3188,6 +3208,11 @@ def manager_employee_master_add(request):
 def manager_employee_master_edit(request, employee_id):
     if not _can_manage_employee_master(request.user):
         return redirect('/')
+
+    if request.method == 'GET':
+        form_indicators = ['empcode', 'name', 'mobile', 'designation', 'state']
+        if any(param in request.GET for param in form_indicators):
+            return HttpResponseBadRequest("Bad Request: Form data parameters cannot be accepted via query string link.")
 
     employee = get_object_or_404(EmployeeMaster, id=employee_id)
 
@@ -3407,6 +3432,10 @@ def admin_create_hod(request):
     if not user_has_role(request.user, 'admin'): return redirect('/')
     admin_state = request.user.profile.office_state
     found_name = ''
+    if request.method == 'GET':
+        forbidden_hod_params = {'csrfmiddlewaretoken', 'emp_code'}
+        if any(param in request.GET for param in forbidden_hod_params):
+            return HttpResponseBadRequest("Bad Request: Form parameters are not allowed in the query string.")
     if request.method == 'POST':
         querystring_error = reject_querystring_on_post(request)
         if querystring_error:
@@ -3446,6 +3475,10 @@ def admin_create_manager(request):
     if not user_has_role(request.user, 'admin'): return redirect('/')
     admin_state = request.user.profile.office_state
     found_name = ''
+    if request.method == 'GET':
+        forbidden_hod_params = {'csrfmiddlewaretoken', 'emp_code'}
+        if any(param in request.GET for param in forbidden_hod_params):
+            return HttpResponseBadRequest("Bad Request: Form parameters are not allowed in the query string.")
     if request.method == 'POST':
         emp_code = request.POST.get('emp_code', '').strip()
         if not emp_code:
@@ -8296,4 +8329,12 @@ def process_user_approval(request, profile_id, action):
         #send_system_email(target_profile.user, request, 'rejected_alert')
         messages.warning(request, f"User {target_profile.employee_code} rejected.")
 
-    return redirect(redirect_name)
+    return redirect(redirect_name) 
+@login_required
+def backup_user_dashboard(request):
+    context = {
+        'role': 'backup_user', 
+        'current_lang': request.session.get('lang', 'en'),
+        'user': request.user
+    }
+    return render(request, 'dashboard.html', context)

@@ -91,6 +91,13 @@
                             </a>
                         </li>
                         {% endif %}
+                        {% if 'backup_user' in user_roles %}
+                                <li>
+                                    <a class="dropdown-item py-2" href="{% url 'backup_user_dashboard' %}">
+                                        <i class="bi bi-database-down me-2 text-info"></i> {{ "Backup Dashboard"|t:current_lang }}
+                                    </a>
+                                </li>
+                        {% endif %}
                      </ul>
                 </li>
                 {% endif %}
