@@ -2581,6 +2581,7 @@ def manager_qpr_view(request, id=None):
         instance = get_object_or_404(ManagerQPR, pk=id)
 
     if request.method == 'POST':
+        
         if instance:
             form = ManagerQPRForm(request.POST, instance=instance)
         else:
@@ -3160,6 +3161,11 @@ def manager_employee_master_add(request):
     if not _can_manage_employee_master(request.user):
         return redirect('/')
 
+    if request.method == 'GET':
+        form_indicators = ['empcode', 'name', 'mobile', 'designation', 'state']
+        if any(param in request.GET for param in form_indicators):
+            return HttpResponseBadRequest("Bad Request: Form data parameters cannot be accepted via query string link.")    
+
     if request.method == 'POST':
         querystring_error = reject_querystring_on_post(request)
         if querystring_error:
@@ -3186,6 +3192,11 @@ def manager_employee_master_add(request):
 def manager_employee_master_edit(request, employee_id):
     if not _can_manage_employee_master(request.user):
         return redirect('/')
+        
+    if request.method == 'GET':
+        form_indicators = ['empcode', 'name', 'mobile', 'designation', 'state']
+        if any(param in request.GET for param in form_indicators):
+            return HttpResponseBadRequest("Bad Request: Form data parameters cannot be accepted via query string link.")
 
     employee = get_object_or_404(EmployeeMaster, id=employee_id)
 

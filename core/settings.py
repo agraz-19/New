@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import secrets
 from decouple import config
 from dotenv import load_dotenv
 
@@ -19,6 +20,8 @@ DEBUG = False
 # Keep this False while testing on HTTP.
 # Set DJANGO_USE_HTTPS_SECURITY=true only when running behind HTTPS.
 USE_HTTPS_SECURITY = env_bool("DJANGO_USE_HTTPS_SECURITY", False)
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 #SECURE_SSL_REDIRECT = USE_HTTPS_SECURITY
 SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", "31536000")) if USE_HTTPS_SECURITY else 0
@@ -55,10 +58,10 @@ INSTALLED_APPS = [
 
 # MIDDLEWARE
 MIDDLEWARE = [
+  "website.middleware.StripUnnecessaryHeadersMiddleware",
+  "website.middleware.SecurityHeadersMiddleware",
   "django.middleware.security.SecurityMiddleware",
   "whitenoise.middleware.WhiteNoiseMiddleware",
-  "website.middleware.SecurityHeadersMiddleware",
-  "website.middleware.StripUnnecessaryHeadersMiddleware",
   "django.contrib.sessions.middleware.SessionMiddleware",
   "django.middleware.common.CommonMiddleware",
   "django.middleware.csrf.CsrfViewMiddleware",
@@ -221,3 +224,13 @@ try:
 except Exception:
     # If message storage import fails, fall back to default storage without raising at import time
     pass
+
+def AppScan_static_headers(headers, path, url):
+  headers["Server"] = ""
+  headers["Content-Security-Policy"] = "default-src 'self';"
+  headers["X-Content-Type-Options"] = "nosniff"
+  headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+  headers["Cross-Origin-Resource-Policy"] = "same-origin"
+  headers["Access-Control-Allow-Origin"] = "https://192.168.1.8:8000"
+# Register the hook with WhiteNoise
+WHITENOISE_ADD_HEADERS_FUNCTION = AppScan_static_headers    
