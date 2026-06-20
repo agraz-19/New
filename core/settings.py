@@ -231,6 +231,6 @@ def AppScan_static_headers(headers, path, url):
   headers["X-Content-Type-Options"] = "nosniff"
   headers["Cross-Origin-Embedder-Policy"] = "require-corp"
   headers["Cross-Origin-Resource-Policy"] = "same-origin"
-  headers["Access-Control-Allow-Origin"] = "https://192.168.1.8:8000"
+  headers["Access-Control-Allow-Origin"] = "https://192.168.56.101:8000"
 # Register the hook with WhiteNoise
 WHITENOISE_ADD_HEADERS_FUNCTION = AppScan_static_headers    
