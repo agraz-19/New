@@ -46,6 +46,7 @@ INSTALLED_APPS = [
   "django.contrib.contenttypes",
   "django.contrib.sessions",
   "django.contrib.messages",
+  "whitenoise.runserver_nostatic",
   "django.contrib.staticfiles",
 
   "django_bootstrap5",
@@ -104,14 +105,13 @@ TEMPLATES = [
 
 # DATABASE - POSTGRESQL
 DATABASES = {
-  "default": {
-      "ENGINE": "django.db.backends.postgresql",
-      "NAME": config("DB_NAME"),
-      "USER": config("DB_USER"),
-      "PASSWORD": config("DB_PASSWORD"),
-      "HOST": config("DB_HOST", default="localhost"),
-      "PORT": config("DB_PORT", default="5432"),
-  }
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+        'OPTIONS': {
+            'timeout': 20,
+        },
+    }
 }
 
 
@@ -231,6 +231,6 @@ def AppScan_static_headers(headers, path, url):
   headers["X-Content-Type-Options"] = "nosniff"
   headers["Cross-Origin-Embedder-Policy"] = "require-corp"
   headers["Cross-Origin-Resource-Policy"] = "same-origin"
-  headers["Access-Control-Allow-Origin"] = "https://192.168.1.8:8000"
+  headers["Access-Control-Allow-Origin"] = "*"
 # Register the hook with WhiteNoise
 WHITENOISE_ADD_HEADERS_FUNCTION = AppScan_static_headers    
