@@ -80,7 +80,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold">{{ "Reason for Change"|t:current_lang }} <span class="text-danger">*</span></label>
-                            <textarea id="changeReason" class="form-control" rows="3" placeholder="{{ 'Describe why you need to make these changes...'|t:current_lang }}"></textarea>
+                            <textarea id="changeReason" class="form-control" rows="3" autocomplete="off" placeholder="{{ 'Describe why you need to make these changes...'|t:current_lang }}"></textarea>
                         </div>
                         <p class="text-muted small"><i>{{ "This will be sent to your HOD for approval."|t:current_lang }}</i></p>
                         <div class="d-flex gap-2">
@@ -350,6 +350,7 @@
                                 <input type="date"
                                 name="super_annuation_date"
                                 class="form-control"
+                                autocomplete="off"
                                 value="{% if form.super_annuation_date.value %}{{ form.super_annuation_date.value|date:'Y-m-d' }}{% else %}{{ super_annuation_date_value|default:'' }}{% endif %}"
                                 {% if not can_edit %}disabled{% endif %}>
                             </div>
