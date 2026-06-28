@@ -1497,7 +1497,7 @@ def send_otp_email(user, lang, target_email=None, email_type='otp'):
     user.otp = str(secrets.randbelow(900000) + 100000)
     user.otp_created_at = timezone.now()
     user.save(update_fields=['otp', 'otp_created_at'])
-    #send_system_email(user, None, email_type, extra_context={'otp': user.otp, 'lang': lang}, target_email=target_email)
+    send_system_email(user, None, email_type, extra_context={'otp': user.otp, 'lang': lang}, target_email=target_email)
     return user.otp
 
 
@@ -1584,7 +1584,7 @@ class CustomLoginView(LoginView):
         target_email = user.get_email()
         profile = getattr(user, 'profile', None)
         alternate_email = getattr(profile, 'alternate_email', None)
-       
+
         if email_choice == 'alternate':
             if alternate_email:
                 target_email = alternate_email
@@ -1592,30 +1592,22 @@ class CustomLoginView(LoginView):
                 messages.warning(self.request, translate_text("No alternate email found in your profile. Sending to official email.", current_lang))
 
         send_otp_email(user, current_lang, target_email=target_email, email_type='login_otp')
-       
-        self.request.session['pre_login_user_id'] = user.id
-        self.request.session['login_target_email'] = target_email
-        self.request.session['is_login_otp'] = True
 
-        auth_login(self.request, user)
         try:
-            # Rotate the session key; this is the recommended secure practice.
-            self.request.session.cycle_key()
+            self.request.session['pre_login_user_id'] = user.id
+            self.request.session['login_target_email'] = target_email
+            self.request.session['is_login_otp'] = True
+            self.request.session['lang'] = current_lang
+            self.request.session.modified = True
+
+            messages.success(self.request, translate_text("OTP sent successfully.", current_lang))
+            return redirect('verify_otp')
         except Exception:
-            # If cycle_key is not supported by the session backend, ensure a new session is created.
-            try:
-                if not getattr(self.request.session, 'session_key', None):
-                    self.request.session.create()
-            except Exception:
-                # best effort: ignore any session creation errors here
-                pass
-
-        self.request.session['lang'] = current_lang
-        self.request.session.modified = True
-
-       
-        messages.success(self.request, translate_text("OTP sent successfully.", current_lang))
-        return redirect('verify_otp')
+            payload = {'pre_login_user_id': user.id}
+            token = signing.dumps(payload, salt='login_otp')
+            verify_url = reverse('verify_otp') + f'?otp_token={token}'
+            messages.success(self.request, translate_text("OTP sent successfully.", current_lang))
+            return redirect(verify_url)
 
     def form_invalid(self, form):
         username = form.data.get('username')
@@ -1661,7 +1653,7 @@ def signup(request):
             request.session['signup_data'] = signup_data
             request.session['is_signup'] = True
 
-            #send_system_email(user, request, 'otp', extra_context={'otp': otp, 'lang': lang})
+            send_system_email(user, request, 'otp', extra_context={'otp': otp, 'lang': lang})
 
             messages.success(request, "Account verification initiated! Please verify your email with the OTP sent.")
             return redirect('verify_otp')
@@ -1723,8 +1715,9 @@ class LoginOTPView(View):
                 (timezone.now() - user.otp_created_at).total_seconds() < 300
             )
             if is_real_otp_valid:
-                user.otp = None
-                user.save(update_fields=['otp'])
+                if is_real_otp_valid:
+                    user.otp = None
+                    user.save(update_fields=['otp'])
                
             auth_login(request, user)
                
@@ -1792,7 +1785,7 @@ class VerifyOTPView(View):
                 user.otp = None
                 user.save(update_fields=['otp'])
                 auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-                #send_system_email(user, request, 'login')
+                send_system_email(user, request, 'login')
                
                 request.session.pop('pre_login_user_id', None)
                 request.session.pop('is_login_otp', None)
@@ -1842,7 +1835,7 @@ class VerifyOTPView(View):
                         auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
                         request.session['lang'] = lang
                         request.session['active_role'] = 'user'
-                        #send_system_email(user, request, 'welcome')
+                        send_system_email(user, request, 'welcome')
                         request.session.pop('signup_data', None)
                         request.session.pop('is_signup', None)
                         messages.success(request, "Email verified! Account created successfully.")
@@ -1888,7 +1881,7 @@ class ResendOTPView(View):
             request.session['signup_data'] = signup_data
             dummy_user = CustomUser(username=signup_data['username'])
             dummy_user.set_email(signup_data['email'])
-            #send_system_email(dummy_user, request, 'otp', extra_context={'otp': new_otp, 'lang': lang})
+            send_system_email(dummy_user, request, 'otp', extra_context={'otp': new_otp, 'lang': lang})
             messages.success(request, translate_text("New OTP sent.", lang))
             return redirect('verify_otp')
         if request.session.get('is_login_otp'):
@@ -1925,7 +1918,7 @@ class ResetPasswordView(View):
                 user.set_password(pwd)
                 user.otp = None
                 user.save()
-                #send_system_email(user, request, 'reset')
+                send_system_email(user, request, 'reset')
                 request.session.pop('reset_email_hash', None)
                 messages.success(request, "Password reset successfully.")
             return redirect('login')
@@ -1954,7 +1947,7 @@ def change_password(request):
 @login_required
 def export_user_data(request):
     user = request.user
-    #send_system_email(user, request, 'export')
+    send_system_email(user, request, 'export')
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="{user.username}_data.csv"'
     writer = csv.writer(response)
@@ -2316,7 +2309,7 @@ def profile_view(request):
             approved_change_request.status = 'completed'
             approved_change_request.save()
 
-        #send_system_email(user, request, 'update')
+        send_system_email(user, request, 'update')
         if profile_approval_required:
             messages.success(request, "Profile submitted successfully! It is now awaiting HOD approval.")
         else:
@@ -2440,7 +2433,7 @@ def freeze_profile(request):
     user = request.user
     user.is_frozen = True
     user.save()
-    #send_system_email(user, request, 'freeze')
+    send_system_email(user, request, 'freeze')
     messages.success(request, translate_text("Your profile has been frozen.", lang))
     return redirect('dashboard')
 
@@ -2477,7 +2470,7 @@ def request_edit(request):
             )
             messages.success(request, translate_text("Profile edit request sent to your manager for approval.", lang))
             msg = f"User {user.username} has requested permission to edit their profile."
-            #send_system_email(manager_user, request, 'manager_alert', extra_context={'body_text': msg})
+            send_system_email(manager_user, request, 'manager_alert', extra_context={'body_text': msg})
         else:
             EditRequest.objects.create(
                 user=request.user,
@@ -2490,7 +2483,7 @@ def request_edit(request):
             admin = CustomUser.objects.filter(roles__name='admin').first()
             if admin:
                 msg = f"User {user.username} has requested permission to edit their profile."
-                #send_system_email(admin, request, 'manager_alert', extra_context={'body_text': msg})
+                send_system_email(admin, request, 'manager_alert', extra_context={'body_text': msg})
    
     return redirect('dashboard')
 
@@ -6610,12 +6603,12 @@ def request_edit_api(request):
                 for profile in managers:
                     try:
                         msg = f"Employee {request.user.get_full_name() or request.user.username} has requested permission to edit their QPR submission.\n\nReason: {reason}"
-                        #send_system_email(
-                        #    profile.user,
-                        #    request,
-                        #    'manager_alert',
-                        #    extra_context={'body_text': msg, 'subject': 'QPR Edit Request'}
-                        #)
+                        send_system_email(
+                            profile.user,
+                            request,
+                            'manager_alert',
+                            extra_context={'body_text': msg, 'subject': 'QPR Edit Request'}
+                        )
                     except Exception:
                         pass
                
@@ -6667,7 +6660,7 @@ def request_profile_edit(request):
             admins = CustomUser.objects.filter(roles__name='admin', is_active=True)
             for admin in admins:
                 msg = f"User {request.user.username} ({request.user.profile.employee_code}) has requested to edit their profile."
-                #send_system_email(admin, request, 'manager_alert', extra_context={'body_text': msg})
+                send_system_email(admin, request, 'manager_alert', extra_context={'body_text': msg})
            
             return redirect('qpr_user_profile')
         except Exception:
@@ -6743,7 +6736,7 @@ def request_qpr_edit(request, record_id):
                 ).select_related('user')
                 for profile in managers:
                     msg = f"User {request.user.username} ({request.user.profile.employee_code}) has requested to edit QPR for {qpr_record.quarter}."
-                    #send_system_email(profile.user, request, 'manager_alert', extra_context={'body_text': msg})
+                    send_system_email(profile.user, request, 'manager_alert', extra_context={'body_text': msg})
            
             return redirect('qpr_report_detail', record_id=record_id)
         except Exception:
@@ -6809,12 +6802,12 @@ def approve_edit_request(request, request_id):
             msg = f"Your {edit_request.get_request_type_display().lower()} edit request has been approved."
             if admin_notes:
                 msg += f"\n\nAdmin Notes: {admin_notes}"
-            #send_system_email(
-            #    edit_request.user,
-            #    request,
-            #    'manager_alert',
-            #    extra_context={'body_text': msg, 'subject': 'Edit Request Approved'}
-            #)
+            send_system_email(
+                edit_request.user,
+                request,
+                'manager_alert',
+                extra_context={'body_text': msg, 'subject': 'Edit Request Approved'}
+            )
            
             messages.success(request, translate_text("Edit request approved.", lang))
             return redirect('manager_dashboard')
@@ -6853,12 +6846,12 @@ def reject_edit_request(request, request_id):
             edit_request.admin_notes = admin_notes
             edit_request.save()
             msg = f"Your {edit_request.get_request_type_display().lower()} edit request has been rejected.\n\nReason: {admin_notes}"
-            #send_system_email(
-            #    edit_request.user,
-            #    request,
-            #    'manager_alert',
-            #    extra_context={'body_text': msg, 'subject': 'Edit Request Rejected'}
-            #)
+            send_system_email(
+                edit_request.user,
+                request,
+                'manager_alert',
+                extra_context={'body_text': msg, 'subject': 'Edit Request Rejected'}
+            )
            
             messages.success(request, translate_text("Edit request rejected.", lang))
             return redirect('manager_dashboard')
@@ -6881,7 +6874,7 @@ def send_reminder_email(request, user_id):
         lang = request.session.get('lang', 'en')
         target_profile = getattr(target_user, 'profile', None)
         if target_profile and target_profile.hod_name == user_profile.hod_name:
-            #send_system_email(target_user, request, 'reminder')
+            send_system_email(target_user, request, 'reminder')
             messages.success(request, translate_text(f"Reminder email sent successfully to {target_user.username}.", lang))
         else:
             messages.error(request, translate_text("Unauthorized action.", lang))
@@ -8313,13 +8306,13 @@ def process_user_approval(request, profile_id, action):
         target_profile.approval_status = 'approved'
         target_profile.save()
        
-        #send_system_email(target_profile.user, request, 'accepted_alert')
+        send_system_email(target_profile.user, request, 'accepted_alert')
         messages.success(request, f"User {target_profile.employee_code} approved.")
        
     elif action == 'reject':
         target_profile.approval_status = 'rejected'
         target_profile.save()
-        #send_system_email(target_profile.user, request, 'rejected_alert')
+        send_system_email(target_profile.user, request, 'rejected_alert')
         messages.warning(request, f"User {target_profile.employee_code} rejected.")
 
     return redirect(redirect_name) 

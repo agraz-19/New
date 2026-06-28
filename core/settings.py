@@ -15,7 +15,7 @@ def env_bool(name, default=False):
 
 # SECURITY
 SECRET_KEY = os.getenv("SECRET_KEY")
-DEBUG = True
+DEBUG = False
 
 # Keep this False while testing on HTTP.
 # Set DJANGO_USE_HTTPS_SECURITY=true only when running behind HTTPS.
@@ -104,14 +104,13 @@ TEMPLATES = [
 
 
 DATABASES = {
-  "default": {
-      "ENGINE": "django.db.backends.postgresql",
-      "NAME": config("DB_NAME"),
-      "USER": config("DB_USER"),
-      "PASSWORD": config("DB_PASSWORD"),
-      "HOST": config("DB_HOST", default="localhost"),
-      "PORT": config("DB_PORT", default="5432"),
-  }
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+        'OPTIONS': {
+            'timeout': 20,
+        },
+    }
 }
 
 AUTH_PASSWORD_VALIDATORS = [
