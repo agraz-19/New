@@ -1,10 +1,43 @@
 from urllib import response
-
+import hashlib
+import logging
 from bs4 import BeautifulSoup, Comment
 from deep_translator import GoogleTranslator
+from django.conf import settings
 from django.utils.deprecation import MiddlewareMixin
 from django.core.cache import cache
+from django.core.exceptions import PermissionDenied, SuspiciousOperation
+from django.http import Http404
+from django.core.cache import cache
 import hashlib
+
+
+logger = logging.getLogger(__name__)
+
+
+class ErrorHandlingMiddleware(MiddlewareMixin):
+    """Log application errors while showing only safe generic error pages."""
+
+    def process_exception(self, request, exception):
+        if settings.DEBUG:
+            return None
+
+        if isinstance(exception, SuspiciousOperation):
+            status_code = 400
+            logger.warning("Bad request blocked at %s %s", request.method, request.get_full_path())
+        elif isinstance(exception, PermissionDenied):
+            status_code = 403
+            logger.warning("Permission denied at %s %s", request.method, request.get_full_path())
+        elif isinstance(exception, Http404):
+            status_code = 404
+            logger.info("Page not found at %s %s", request.method, request.get_full_path())
+        else:
+            status_code = 500
+            logger.exception("Unhandled application error at %s %s", request.method, request.get_full_path())
+
+        from .views import universal_error_view
+        return universal_error_view(request, None, status_code)
+
 
 class DynamicTranslationMiddleware(MiddlewareMixin):
     # Added more technical artifacts to prevent them from showing as "एचटीएमएल"

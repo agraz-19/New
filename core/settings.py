@@ -59,6 +59,7 @@ INSTALLED_APPS = [
 
 # MIDDLEWARE
 MIDDLEWARE = [
+  "website.middleware.ErrorHandlingMiddleware",
   "website.middleware.StripUnnecessaryHeadersMiddleware",
   "website.middleware.SecurityHeadersMiddleware",
   "django.middleware.security.SecurityMiddleware",
@@ -232,3 +233,32 @@ def AppScan_static_headers(headers, path, url):
   headers["Access-Control-Allow-Origin"] = "*"
 # Register the hook with WhiteNoise
 WHITENOISE_ADD_HEADERS_FUNCTION = AppScan_static_headers    
+
+LOGGING = {
+  "version": 1,
+  "disable_existing_loggers": False,
+  "formatters": {
+      "standard": {
+          "format": "[{levelname}] {asctime} {name}: {message}",
+          "style": "{",
+      },
+  },
+  "handlers": {
+      "console": {
+          "class": "logging.StreamHandler",
+          "formatter": "standard",
+      },
+  },
+  "loggers": {
+      "django.request": {
+          "handlers": ["console"],
+          "level": "ERROR",
+          "propagate": False,
+      },
+      "website": {
+          "handlers": ["console"],
+          "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
+          "propagate": False,
+      },
+  },
+}
