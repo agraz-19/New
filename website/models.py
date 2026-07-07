@@ -1496,3 +1496,15 @@ class QuarterlySnapshot(models.Model):
     
     def __str__(self):
         return f"QuarterlySnapshot {self.user.username} {self.quarter} {self.year}"
+
+class AuditTrail(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    action = models.CharField(max_length=255)
+    model= models.CharField(max_length=255)
+    description = models.TextField()
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=50, choices=[('success', 'Success'), ('failure', 'Failure')], default='success') 
+
+    class Meta:
+        ordering = ['-timestamp']

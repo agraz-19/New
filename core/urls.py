@@ -4,12 +4,12 @@ from django.urls import path, include
 from captcha import views as captcha_views # <--- Add this import
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    #path('admin/', admin.site.urls), #this is the default django admin page. To implement it comment out this line
 
     # frontend urls
     path('', include('website.urls')),
     path('captcha/', include('captcha.urls')),
-path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),    
+    path('captcha/refresh/', captcha_views.captcha_refresh, name='captcha-refresh'),    
 
 
 ]

@@ -7,16 +7,133 @@ from django.contrib.messages.storage.fallback import FallbackStorage
 from django.http import HttpResponse
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
+from django.urls import reverse
 
 from .models import (
-    CustomUser, EditRequest, MonthlyFill, MonthlySnapshot, QPRRecord, QuarterlyFill,
-    QuarterlySnapshot, Role, Section11SpecificAchievementsData, WeeklyFill, WeeklySnapshot
+    AuditTrail, CustomUser, EditRequest, EmployeeMaster, MonthlyFill, MonthlySnapshot,
+    QPRRecord, QuarterlyFill, QuarterlySnapshot, Role, Section11SpecificAchievementsData,
+    UserProfile, WeeklyFill, WeeklySnapshot
 )
 from .views import (
     _aggregate_section11_text_for_range, _rebuild_monthly_snapshot_from_source,
     is_period_overlapping, qpr_form, qpr_save_record, report_detail, report_list,
     request_qpr_edit
 )
+
+
+class EmployeeMasterAuditTests(TestCase):
+    def test_deactivating_employee_master_creates_audit_log(self):
+        manager_role, _ = Role.objects.get_or_create(name='manager')
+        manager = CustomUser.objects.create_user(username='manager-audit', email='manager-audit@example.com', password='password123')
+        manager.roles.add(manager_role)
+
+        employee = EmployeeMaster.objects.create(empcode=1001, name='Audit Employee', designation='Section Officer', state='Delhi')
+
+        self.client.force_login(manager)
+        response = self.client.post(
+            reverse('manager_employee_master_toggle_status', args=[employee.pk]),
+            {'action': 'deactivate', 'remarks': 'Transferred out'},
+            follow=False,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            AuditTrail.objects.filter(
+                user=manager,
+                action='toggle_employee_master_status',
+                model='EmployeeMaster',
+            ).exists()
+        )
+
+
+class QPRAndProfileAuditTests(TestCase):
+    @patch('website.views.send_system_email')
+    def test_freeze_profile_creates_audit_log(self, mock_send_system_email):
+        user = CustomUser.objects.create_user(username='freeze-audit', email='freeze-audit@example.com', password='password123')
+        UserProfile.objects.update_or_create(user=user, defaults={'employee_code': '2001', 'name': 'Freeze Audit', 'hod_name': 'ADMIN'})
+
+        self.client.force_login(user)
+        response = self.client.post(reverse('freeze_profile'))
+
+        self.assertEqual(response.status_code, 302)
+        user.refresh_from_db()
+        self.assertTrue(user.is_frozen)
+        self.assertTrue(
+            AuditTrail.objects.filter(user=user, action='freeze_profile', model='UserProfile').exists()
+        )
+
+    def test_profile_save_creates_audit_log(self):
+        user = CustomUser.objects.create_user(username='profile-audit', email='profile-audit@example.com', password='password123')
+        UserProfile.objects.update_or_create(user=user, defaults={'employee_code': '2002', 'name': 'Profile Audit', 'hod_name': 'ADMIN'})
+        EmployeeMaster.objects.create(empcode=2002, name='Profile Audit', designation='Section Officer', state='Delhi')
+
+        self.client.force_login(user)
+        response = self.client.post(reverse('profile'), {
+            'empcode': '2002',
+            'username': 'Profile Audit',
+            'phone': '9999999999',
+            'email': 'profile-audit@example.com',
+            'hod_name': 'ADMIN',
+            'office_code': '0012',
+            'office_name': 'HQ',
+            'office_state': 'Delhi',
+            'language_region': 'Hindi',
+            'ip_number': '1234',
+            'alternate_email': '',
+            'designation': 'Section Officer',
+            'ename': 'Profile Audit',
+            'hname': 'प्रोफाइल',
+            'typing': 'Hindi',
+            'hindiproficiency': 'Yes',
+            'gazet': 'Non-Gazetted',
+            'stenographer': 'No',
+            'highest_exam': 'Prabodh',
+            'olic_affiliate': 'Not Applicable',
+            'hindi_exam': ['Prabodh'],
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            AuditTrail.objects.filter(user=user, action='save_profile', model='UserProfile').exists()
+        )
+
+    def test_manager_qpr_submission_creates_audit_log(self):
+        manager_role, _ = Role.objects.get_or_create(name='manager')
+        manager = CustomUser.objects.create_user(username='manager-qpr-audit', email='manager-qpr-audit@example.com', password='password123')
+        manager.roles.add(manager_role)
+        UserProfile.objects.update_or_create(user=manager, defaults={'employee_code': '3001', 'name': 'Manager Audit', 'hod_name': 'ADMIN'})
+
+        self.client.force_login(manager)
+        response = self.client.post(reverse('manager_qpr_form'), {
+            'financial_year': '2026-2027',
+            'quarter': 'Q1',
+            's1_total_files': '10',
+            's1_hindi_files': '5',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            AuditTrail.objects.filter(user=manager, action='submit_manager_qpr', model='ManagerQPR').exists()
+        )
+
+    def test_admin_qpr_submission_creates_audit_log(self):
+        admin_role, _ = Role.objects.get_or_create(name='admin')
+        admin = CustomUser.objects.create_user(username='admin-qpr-audit', email='admin-qpr-audit@example.com', password='password123')
+        admin.roles.add(admin_role)
+        UserProfile.objects.update_or_create(user=admin, defaults={'employee_code': '4001', 'name': 'Admin Audit', 'hod_name': 'ADMIN'})
+
+        self.client.force_login(admin)
+        response = self.client.post(reverse('admin_qpr_form'), {
+            'financial_year': '2026-2027',
+            'quarter': 'Q1',
+            'a_s2_meetings_count': '3',
+            'a_s2_hindi_minutes': '2',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            AuditTrail.objects.filter(user=admin, action='submit_admin_qpr', model='AdminQPR').exists()
+        )
 
 
 class QPROverlapRestrictionTests(TestCase):
