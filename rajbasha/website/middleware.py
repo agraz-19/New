@@ -213,6 +213,7 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
         "/qpr/admin/create-hod/",
         "/manager/employees/master/add/",
         "/logout/",
+        "/events-admin/upload/",
     }
     SENSITIVE_QUERY_PREFIXES = (
         "/qpr/admin/form",

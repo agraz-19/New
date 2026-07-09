@@ -1,11 +1,15 @@
 
 import json
 import os
+import re
 import shutil
 import logging
 from datetime import datetime
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.utils.text import get_valid_filename
+from PIL import Image, UnidentifiedImageError
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 EVENTS_ROOT = os.path.join(settings.BASE_DIR, "static", "images", "events")
@@ -91,6 +95,104 @@ def _format_title(slug):
 
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+IMAGE_MIME_TYPES = {
+    ".jpg": {"image/jpeg"},
+    ".jpeg": {"image/jpeg"},
+    ".png": {"image/png"},
+    ".webp": {"image/webp"},
+}
+PIL_FORMAT_BY_EXT = {
+    ".jpg": "JPEG",
+    ".jpeg": "JPEG",
+    ".png": "PNG",
+    ".webp": "WEBP",
+}
+MAX_IMAGE_SIZE = 5 * 1024 * 1024
+Image.MAX_IMAGE_PIXELS = 25_000_000
+
+
+def _safe_event_folder_path(folder):
+    folder_path = os.path.abspath(os.path.join(EVENTS_ROOT, folder))
+    events_root = os.path.abspath(EVENTS_ROOT)
+    if os.path.commonpath([events_root, folder_path]) != events_root:
+        raise ValidationError("Invalid event folder.")
+    return folder_path
+
+
+def validate_existing_event_folder(folder):
+    folder = (folder or "").strip()
+    if not folder or folder != os.path.basename(folder):
+        raise ValidationError("Invalid event folder.")
+
+    folder_path = _safe_event_folder_path(folder)
+    if not os.path.isdir(folder_path):
+        raise ValidationError("Event folder does not exist.")
+    return folder
+
+
+def _safe_event_folder_name(event_date, event_name):
+    try:
+        datetime.strptime(event_date or "", "%Y-%m-%d")
+    except (TypeError, ValueError):
+        raise ValidationError("Event date must be a valid YYYY-MM-DD date.")
+
+    cleaned_name = re.sub(r"[^A-Za-z0-9_ -]", "", event_name or "").strip()
+    if not cleaned_name:
+        raise ValidationError("Event name is required.")
+
+    slug = get_valid_filename(cleaned_name.replace(" ", "-"))
+    folder_name = f"{event_date}_{slug}"
+    _safe_event_folder_path(folder_name)
+    return folder_name
+
+
+def _validated_image_name(uploaded_file):
+    original_name = get_valid_filename(os.path.basename(uploaded_file.name or ""))
+    if not original_name:
+        raise ValidationError("Uploaded file name is invalid.")
+
+    stem, ext = os.path.splitext(original_name)
+    ext = ext.lower()
+    if ext not in IMAGE_EXTS:
+        raise ValidationError(f"{original_name} has an unsupported file extension.")
+
+    content_type = (getattr(uploaded_file, "content_type", "") or "").lower()
+    if content_type not in IMAGE_MIME_TYPES[ext]:
+        raise ValidationError(f"{original_name} has an invalid MIME type.")
+
+    if uploaded_file.size > MAX_IMAGE_SIZE:
+        raise ValidationError(f"{original_name} exceeds 5MB limit.")
+
+    try:
+        uploaded_file.seek(0)
+        with Image.open(uploaded_file) as image:
+            image.verify()
+            if image.format != PIL_FORMAT_BY_EXT[ext]:
+                raise ValidationError(f"{original_name} content does not match its extension.")
+    except (Image.DecompressionBombError, UnidentifiedImageError, OSError):
+        raise ValidationError(f"{original_name} is not a valid image file.")
+    finally:
+        uploaded_file.seek(0)
+
+    return f"{stem}{ext}"
+
+
+def _unique_destination(folder_path, filename):
+    stem, ext = os.path.splitext(filename)
+    candidate = filename
+    counter = 1
+    while os.path.exists(os.path.join(folder_path, candidate)):
+        candidate = f"{stem}_{counter}{ext}"
+        counter += 1
+    return os.path.join(folder_path, candidate)
+
+
+def _save_validated_image(folder_path, uploaded_file):
+    filename = _validated_image_name(uploaded_file)
+    dest = _unique_destination(folder_path, filename)
+    with open(dest, "wb") as out:
+        for chunk in uploaded_file.chunks():
+            out.write(chunk)
 
 
 def get_all_events():
@@ -171,10 +273,14 @@ def upload_event(event_date, event_name, event_name_hi, files):
     Returns the folder name.
     """
     _ensure_dirs()
+    if not files:
+        raise ValidationError("At least one image is required.")
 
-    slug = event_name.strip().replace(" ", "-")
-    folder_name = f"{event_date}_{slug}"
-    folder_path = os.path.join(EVENTS_ROOT, folder_name)
+    for file in files:
+        _validated_image_name(file)
+
+    folder_name = _safe_event_folder_name(event_date, event_name)
+    folder_path = _safe_event_folder_path(folder_name)
     os.makedirs(folder_path, exist_ok=True)
 
     # Write meta
@@ -183,14 +289,8 @@ def upload_event(event_date, event_name, event_name_hi, files):
         "title_hi": (event_name_hi or event_name).strip(),
     })
 
-    # Save uploaded images
     for file in files:
-        if file.size > 5 * 1024 * 1024:
-            raise Exception(f"{file.name} exceeds 5MB limit.")
-        dest = os.path.join(folder_path, file.name)
-        with open(dest, "wb") as out:
-            for chunk in file.chunks():
-                out.write(chunk)
+        _save_validated_image(folder_path, file)
 
     return folder_name
 
@@ -199,17 +299,17 @@ def upload_images_to_existing_event(folder, files):
     """
     Add more images to an existing event folder.
     """
-    folder_path = os.path.join(EVENTS_ROOT, folder)
+    folder_path = _safe_event_folder_path(folder)
     if not os.path.exists(folder_path):
         raise Exception(f"Event folder '{folder}' does not exist.")
+    if not files:
+        raise ValidationError("At least one image is required.")
 
     for file in files:
-        if file.size > 5 * 1024 * 1024:
-            raise Exception(f"{file.name} exceeds 5MB limit.")
-        dest = os.path.join(folder_path, file.name)
-        with open(dest, "wb") as out:
-            for chunk in file.chunks():
-                out.write(chunk)
+        _validated_image_name(file)
+
+    for file in files:
+        _save_validated_image(folder_path, file)
 
 
 def delete_event(folder):

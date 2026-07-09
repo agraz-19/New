@@ -6,7 +6,7 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h3>{% if current_lang == 'hi' %}इवेंट प्रबंधक{% else %}Event Manager{% endif %}</h3>
-    <a href="{% url 'admin_upload_event' %}" class="btn btn-primary">
+    <a href="{% url 'admin_upload_new_event' %}" class="btn btn-primary">
         {% if current_lang == 'hi' %}इवेंट जोड़ें{% else %}Add Event{% endif %}
     </a>
 </div>
@@ -36,10 +36,13 @@
 
         <div class="d-flex flex-wrap gap-2">
 
-            <a href="{% url 'admin_upload_event' %}?folder={{ event.folder }}"
-               class="btn btn-sm btn-info">
+            <form method="post" action="{% url 'admin_select_upload_event' %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="folder" value="{{ event.folder }}">
+                <button type="submit" class="btn btn-sm btn-info">
                 {% if current_lang == 'hi' %}चित्र जोड़ें{% else %}Add Images{% endif %}
-            </a>
+                </button>
+            </form>
 
             <button class="btn btn-sm btn-warning"
                     onclick="openEditModal('{{ event.folder }}', '{{ event.title }}', '{{ event.title_hi }}')">

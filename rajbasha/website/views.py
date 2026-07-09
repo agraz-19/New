@@ -18,7 +18,7 @@ from django.contrib.auth import login as auth_login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.views import LoginView
 from django.core.cache import cache
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.http import FileResponse, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -61,7 +61,7 @@ from .forms import (
 from .signals import User
 from .static_event_service import (
     delete_event, get_all_events, update_event_meta,
-    upload_event, upload_images_to_existing_event
+    upload_event, upload_images_to_existing_event, validate_existing_event_folder
 )
 from .templatetags.translate_tags import translate_text
 
@@ -81,6 +81,7 @@ from .models import (
 from website.models import OfficersWorkInHindi
 
 logger = logging.getLogger(__name__)
+EVENT_UPLOAD_SESSION_KEY = "selected_event_upload_folder"
 
 # Font Registration
 FONT_PATH = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NIRMALA.TTF')
@@ -276,10 +277,34 @@ def admin_events_dashboard(request):
  
  
 @login_required
+def admin_upload_new_event(request):
+    require_event_manager(request.user)
+    request.session.pop(EVENT_UPLOAD_SESSION_KEY, None)
+    return redirect("admin_upload_event")
+
+
+@login_required
+@require_POST
+def admin_select_upload_event(request):
+    require_event_manager(request.user)
+    try:
+        folder = validate_existing_event_folder(request.POST.get("folder"))
+    except ValidationError:
+        messages.error(request, "Invalid event folder.")
+        return redirect("admin_events_dashboard")
+
+    request.session[EVENT_UPLOAD_SESSION_KEY] = folder
+    return redirect("admin_upload_event")
+
+
+@login_required
 def admin_upload_event(request):
     require_event_manager(request.user)
 
-    folder = request.GET.get("folder")
+    if request.GET:
+        return HttpResponseBadRequest("Upload folder must not be supplied in the URL.")
+
+    folder = request.session.get(EVENT_UPLOAD_SESSION_KEY)
  
     if request.method == "POST":
         event_date   = request.POST.get("event_date")
@@ -292,9 +317,13 @@ def admin_upload_event(request):
                 upload_images_to_existing_event(folder, images)
             else:
                 upload_event(event_date, event_name, event_name_hi, images)
+                request.session.pop(EVENT_UPLOAD_SESSION_KEY, None)
  
             return JsonResponse({"status": "success"})
  
+        except ValidationError as exc:
+            message = "; ".join(exc.messages) if hasattr(exc, "messages") else str(exc)
+            return JsonResponse({"status": "error", "message": message}, status=400)
         except Exception:
             logger.exception("Failed to upload event")
             return JsonResponse({"status": "error", "message": "Unable to upload event"})
