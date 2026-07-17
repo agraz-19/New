@@ -15,7 +15,7 @@ def env_bool(name, default=False):
 
 # SECURITY
 SECRET_KEY = os.getenv("SECRET_KEY")
-DEBUG = False
+DEBUG = True
 
 # Keep this False while testing on HTTP.
 # Set DJANGO_USE_HTTPS_SECURITY=true only when running behind HTTPS.
@@ -71,6 +71,14 @@ MIDDLEWARE = [
   "django.contrib.messages.middleware.MessageMiddleware",
   "django.middleware.clickjacking.XFrameOptionsMiddleware",
   "website.middleware.NoCacheMiddleware",
+]
+
+# settings.py
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher', # <--- The new, highly secure hasher
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher', # Fallback for old passwords
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
 ]
 
 
@@ -147,6 +155,11 @@ AUTH_USER_MODEL = "website.CustomUser"
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
+
+# Upload IP restriction settings
+UPLOAD_ALLOWED_IPS = ["127.0.0.1"]
+TRUST_X_FORWARDED_FOR = env_bool("DJANGO_TRUST_X_FORWARDED_FOR", False)
+TRUSTED_PROXY_IPS = [ip.strip() for ip in os.getenv("DJANGO_TRUSTED_PROXY_IPS", "").split(",") if ip.strip()]
 
 
 # EMAIL CONFIG

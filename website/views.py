@@ -66,6 +66,7 @@ from .static_event_service import (
     delete_event, get_all_events, update_event_meta,
     upload_event, upload_images_to_existing_event
 )
+from .decorators import upload_ip_restricted
 from .templatetags.translate_tags import translate_text
 
 from .models import (
@@ -285,6 +286,7 @@ def admin_events_dashboard(request):
  
  
 @login_required
+@upload_ip_restricted
 def admin_upload_event(request):
     require_event_manager(request.user)
 
